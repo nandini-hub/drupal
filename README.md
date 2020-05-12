@@ -1,171 +1,106 @@
-# Commerce 2.x demo project template
+# [Project Website Name](https://example.com/)
+This is the Drupal Composer Project with docksal configuration to easily get a site started.
 
-Use [Composer](https://getcomposer.org/) to get Drupal + Commerce 2.x + demo content.
+Features:
 
-Based on [drupalcommerce/project-base](https://github.com/drupalcommerce/project-base), plus
-a [custom theme](https://drupal.org/project/belgrade) and [demo content](https://drupal.org/project/commerce_demo).
+- Drupal 8 - Composer Install
+- Docksal Configuration
+- Basic CircleCI configuration
+- Project Readme
 
-![Belgrade product example](assets/belgrade-product.jpg)
+## Setup instructions
 
-## Usage
+### Step #1: Docksal environment setup
 
-First you need to [install composer](https://getcomposer.org/doc/00-intro.md#installation-linux-unix-osx).
+**This is a one time setup - skip this if you already have a working Docksal environment.**
 
-> Note: The instructions below refer to the [global composer installation](https://getcomposer.org/doc/00-intro.md#globally).
-You might need to replace `composer` with `php composer.phar` (or similar)
-for your setup.
+Follow [Docksal install instructions](https://docs.docksal.io/getting-started/setup/)
 
-After that you can create the project:
+### Step #2: Project setup
 
-```
-composer create-project drupalcommerce/demo-project demo-commerce --stability dev --no-interaction
-```
+1. Clone this repo into your Projects directory
 
-Done! Use `composer require ...` to download additional modules and themes:
+    ```
+    git clone https://github.com/kanopi/starter-8.git drupal8
+    cd drupal8
+    ```
 
-```
-cd some-dir
-composer require "drupal/devel:1.x-dev"
-```
+2. Initialize the site
 
-The `composer create-project` command passes ownership of all files to the
-project that is created. You should create a new git repository, and commit
-all files not excluded by the .gitignore file.
+    This will initialize local settings and install the site via drush
 
-## Quickstart
+    ```
+    fin init
+    ```
 
-After the files are in place, go to install.php to install Drupal.
+3. **On Windows** add `fin hosts add` to your hosts file
 
-Alternatively, you can use the quickstart script:
+4. Point your browser to
 
-```
-php scripts/quickstart
-```
+    ```
+    http://drupal8.docksal
+    ```
 
-To reinstall:
+When the automated install is complete the command line output will display the admin username and password.
 
-```
-php scripts/clean
-php scripts/quickstart
-```
+## Easier setup with `fin init`
 
-## What does the template do?
+Site provisioning can be automated using `fin init`, which calls the shell script in [.docksal/commands/init](.docksal/commands/init).
+This script is meant to be modified per project. The one in this repo will give you a good example of advanced init script.
 
-* Drupal is installed in the `web` directory.
-* Modules (packages of type `drupal-module`) are placed in `web/modules/contrib/`
-* Theme (packages of type `drupal-theme`) are placed in `web/themes/contrib/`
-* Profiles (packages of type `drupal-profile`) are placed in `web/profiles/contrib/`
-* Creates default writable versions of `settings.php` and `services.yml`.
-* Creates the `web/sites/default/files` directory.
-* Latest version of DrupalConsole is installed locally for use at `bin/drupal`.
+Some common tasks that can be handled by the init script:
 
-## Updating Drupal Core
+- initialize local settings files for Docker Compose, Drupal, Behat, etc.
+- import DB or perform a site install
+- compile Sass
+- run DB updates, revert features, clear caches, etc.
+- enable/disable modules, update variables values
 
-This project will attempt to keep all of your Drupal Core files up-to-date; the
-project [drupal/core-composer-scaffold](https://github.com/drupal/core-composer-scaffold)
-is used to ensure that your scaffold files are updated every time drupal/core is
-updated. If you customize any of the "scaffolding" files (commonly .htaccess),
-you may need to merge conflicts if any of your modified files are updated in a
-new release of Drupal core.
+## Installing Modules
 
-Follow the steps below to update your core files.
-
-1. Run `composer update drupal/core drupal/core-dev --with-dependencies` to update Drupal Core and its dependencies.
-2. Run `git diff` to determine if any of the scaffolding files have changed.
-   Review the files for any changes and restore any customizations to
-  `.htaccess` or `robots.txt`.
-1. Commit everything all together in a single commit, so `web` will remain in
-   sync with the `core` when checking out branches or running `git bisect`.
-1. In the event that there are non-trivial conflicts in step 2, you may wish
-   to perform these steps on a branch, and use `git merge` to combine the
-   updated core files with your customized files. This facilitates the use
-   of a [three-way merge tool such as kdiff3](http://www.gitshah.com/2010/12/how-to-setup-kdiff-as-diff-tool-for-git.html). This setup is not necessary if your changes are simple;
-   keeping all of your modifications at the beginning or end of the file is a
-   good strategy to keep merges easy.
-
-## Generate composer.json from existing project
-
-With using [the "Composer Generate" drush extension](https://www.drupal.org/project/composer_generate)
-you can now generate a basic `composer.json` file from an existing project. Note
-that the generated `composer.json` might differ from this project's file.
-
-## FAQ
-
-### Should I commit the contrib modules I download?
-
-Composer recommends **no**. They provide [argumentation against but also
-workrounds if a project decides to do it anyway](https://getcomposer.org/doc/faqs/should-i-commit-the-dependencies-in-my-vendor-directory.md).
-
-### Should I commit the scaffolding files?
-
-The [Drupal Composer Scaffold](https://github.com/drupal/core-composer-scaffold) plugin can download the scaffold files (like
-index.php, update.php, …) to the web/ directory of your project. If you have not customized those files you could choose
-to not check them into your version control system (e.g. git). If that is the case for your project it might be
-convenient to automatically run the drupal-scaffold plugin after every install or update of your project. You can
-achieve that by registering `@composer drupal:scaffold` as post-install and post-update command in your composer.json:
-
-```json
-"scripts": {
-    "post-install-cmd": [
-        "@composer drupal:scaffold",
-        "..."
-    ],
-    "post-update-cmd": [
-        "@composer drupal:scaffold",
-        "..."
-    ]
-},
-```
-### How can I apply patches to downloaded modules?
-
-If you need to apply patches (depending on the project being modified, a pull
-request is often a better solution), you can do so with the
-[composer-patches](https://github.com/cweagans/composer-patches) plugin.
-
-To add a patch to drupal module foobar insert the patches section in the extra
-section of composer.json:
-```json
-"extra": {
-    "patches": {
-        "drupal/foobar": {
-            "Patch description": "URL to patch"
-        }
-    }
-}
-```
-
-### How can I add js/css libraries using composer.json?
-
-It is possible to use frontend libraries with composer thanks to the
-asset-packagist repository (https://asset-packagist.org/).
-
-For example, to use colorbox:
-```
-composer require npm-asset/colorbox:"^0.4"
+Modules are installed using composer. The process for installing a module would be the following:
 
 ```
-Composer will detect new versions of the library that meet your constraints.
-In the above example it will download anything from 0.4.* series of colorbox.
-
-When managing libraries with composer this way, you may not want to add it to
-version control. In that case, add specific directories to the .gitignore file.
-```
-# Specific libraries (which we manage with composer)
-web/libraries/colorbox
+fin composer require [package]
 ```
 
-For more details, see https://asset-packagist.org/site/about
+The standard composer command is used but with the Docksal specific command `fin` prepended to the beginning.
 
-### How do I specify a PHP version ?
+## Theme
 
-This project supports PHP 7.0 as minimum version (see [Drupal 8 PHP requirements](https://www.drupal.org/docs/8/system-requirements/drupal-8-php-requirements)), however it's possible that a `composer update` will upgrade some package that will then require PHP 7+.
+The theme is based off of the Zurb Foundation framework. Gulp is installed and is helping with the compilation of the
+sass to css. Additionally it is also helping with the minification of the javascript and css to make the code as minimal
+as possible.
 
-To prevent this you can add this code to specify the PHP version you want to use in the `config` section of `composer.json`:
-```json
-"config": {
-    "sort-packages": true,
-    "platform": {
-        "php": "7.0.33"
-    }
-},
-```
+The theme included is located within `web/sites/themes/custom/site_theme`.
+
+You should clone that, rename, and update the names in the file names and in the files.
+
+### Gulp Commands
+
+The following gulp tasks are available:
+
+Command | Description
+--------|------------
+`sass` | One time compiles sass to css
+`watch` | Watches for changes with in the sass and lib folders and then runs the compilation and uglification
+`uglify` | Compresses all javascript files within the lib folder and minifies the code. The output is added to the js folder.
+`imagemin` | Compresses the images within the image folder
+`build` | Runs `sass` and `uglify`.  Used in the CircleCI automation
+
+## Docksal Commands
+
+The following commands are available with Docksal and should be prefixed with the command `fin`
+
+Command | Description
+--------|------------
+`composer` | Composer wrapper that executes within the CLI container
+`drupal-cli` | Drupali CLI wrapper
+`gulp` | Gulp Wrapper that runs within the theme web/themes/custom/site_theme
+`init` | Init Command that starts the project from scratch.
+`init-site` | Init Site Command that runs the site install and/or then runs the refresh command
+`npm` | NPM wrapper
+`refresh` | Will execute a drush sql-dump from the remote server. **NOT SET UP CURRENTLY**
+`site-build` | Will run all of the necessary steps for `npm install` and `gulp sass`
+`test` | Test to confirm the site is running
+

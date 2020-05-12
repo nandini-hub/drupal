@@ -1,64 +1,81 @@
 {
-    "name": "drupalcommerce/demo-project",
-    "description": "Commerce 2.x out of the box demonstration",
+    "name": "kanopi/drupal8-docksal",
+    "description": "Project template for Drupal 8 projects with composer and docksal",
     "type": "project",
-    "license": "GPL-2.0-or-later",
+    "license": "GPL-2.0+",
     "authors": [
         {
-            "name": "",
-            "role": ""
+            "name": "Sean Dietrich <sean@kanopistudios.com>",
+            "role": "Developer / Architect"
         }
     ],
-    "repositories": {
-        "drupal": {
+    "repositories": [
+        {
             "type": "composer",
             "url": "https://packages.drupal.org/8"
         },
-        "demo_commerce": {
-            "type": "vcs",
-            "url": "https://github.com/drupalcommerce/demo_commerce"
-        },
-        "asset-packagist": {
+        {
             "type": "composer",
             "url": "https://asset-packagist.org"
         }
-    },
-    "config": {
-        "bin-dir": "bin",
-        "discard-changes": true,
-        "sort-packages": true,
-        "platform": {
-            "php": "7.0.8"
-        }
-    },
+    ],
     "require": {
-        "php": ">=7.0.8",
-        "ext-curl": "*",
         "composer/installers": "^1.2",
-        "cweagans/composer-patches": "^1.6.5",
-        "drupal/console": "^1.0.2",
-        "drupal/core": "^8.8.0",
-        "drupal/core-composer-scaffold": "^8.8.0",
-        "drupalcommerce/demo_commerce": "dev-master",
+        "cweagans/composer-patches": "^1.6",
+        "drupal-composer/drupal-scaffold": "^2.2",
+        "drupal/config_direct_save": "^1.0",
+        "drupal/config_installer": "^1.0",
+        "drupal/config_provider": "2.0-alpha1",
+        "drupal/config_readonly": "^1.0@beta",
+        "drupal/config_sync": "2.0-alpha4",
+        "drupal/console": "^1",
+        "drupal/core": "~8.0",
+        "drush/drush": "^9",
+        "joachim-n/composer-manifest": "^1.0",
         "oomphinc/composer-installers-extender": "^1.1",
         "webflo/drupal-finder": "^1.0.0",
-        "webmozart/path-util": "^2.3",
-        "zaporylie/composer-drupal-optimizations": "^1.0"
+        "webmozart/path-util": "^2.3"
     },
     "require-dev": {
-        "drupal/core-dev": "^8.8.0"
+        "behat/mink": "~1.7",
+        "behat/mink-goutte-driver": "~1.2",
+        "drupal/devel": "^1.2",
+        "drupal/drupal-extension": "^3.1",
+        "drush-ops/behat-drush-endpoint": "^0.0.4",
+        "jcalderonzumba/gastonjs": "^1.0.2",
+        "jcalderonzumba/mink-phantomjs-driver": "^0.3.1",
+        "mikey179/vfsstream": "^1.2",
+        "pantheon-systems/quicksilver-pushback": "~1",
+        "phpunit/phpunit": "^4.8",
+        "symfony/css-selector": "^2.8"
     },
     "conflict": {
         "drupal/drupal": "*"
     },
     "minimum-stability": "dev",
     "prefer-stable": true,
+    "config": {
+      "bin-dir": "bin/",
+      "optimize-autoloader": true,
+      "preferred-install": "dist",
+      "sort-packages": true,
+      "platform": {
+        "php": "7.1"
+      }
+    },
     "autoload": {
         "classmap": [
             "scripts/composer/ScriptHandler.php"
         ]
     },
     "scripts": {
+        "build-assets": [
+          "@prepare-for-pantheon",
+          "composer install --optimize-autoloader"
+        ],
+        "lint": "find web/modules/custom web/themes/custom -name '*.php' -exec php -l {} \\;",
+        "code-sniff": "echo 'No code sniff step defined.'",
+        "unit-test": "echo 'No unit test step defined.'",
         "drupal-scaffold": "DrupalComposer\\DrupalScaffold\\Plugin::scaffold",
         "pre-install-cmd": [
             "DrupalProject\\composer\\ScriptHandler::checkComposerVersion"
@@ -66,50 +83,50 @@
         "pre-update-cmd": [
             "DrupalProject\\composer\\ScriptHandler::checkComposerVersion"
         ],
-        "post-install-cmd": [
+        "post-update-cmd": [
             "DrupalProject\\composer\\ScriptHandler::createRequiredFiles"
         ],
-        "post-update-cmd": [
+        "post-install-cmd": [
+            "@drupal-scaffold",
+            "DrupalProject\\composer\\ScriptHandler::createRequiredFiles"
+        ],
+        "post-create-project-cmd": [
+            "@drupal-scaffold",
             "DrupalProject\\composer\\ScriptHandler::createRequiredFiles"
         ]
     },
     "extra": {
+        "enable-patching": true,
+        "installer-types": ["library", "drupal-library", "npm-asset", "bower-asset"],
         "patches": {
+
         },
-        "composer-exit-on-patch-failure": true,
-        "patchLevel": {
-            "drupal/core": "-p2"
+        "installer-paths": {
+            "web/core": ["type:drupal-core"],
+            "web/libraries/{$name}": [
+              "type:drupal-library",
+              "type:bower-asset",
+              "type:npm-asset"
+            ],
+            "web/modules/contrib/{$name}": ["type:drupal-module"],
+            "web/profiles/contrib/{$name}": ["type:drupal-profile"],
+            "web/themes/contrib/{$name}": ["type:drupal-theme"],
+            "drush/contrib/{$name}": ["type:drupal-drush"]
         },
         "drupal-scaffold": {
-            "locations": {
-                "web-root": "web/"
-            }
-        },
-        "installer-types": [
-            "bower-asset",
-            "npm-asset"
-        ],
-        "installer-paths": {
-            "web/core": [
-                "type:drupal-core"
-            ],
-            "web/libraries/{$name}": [
-                "type:drupal-library",
-                "type:bower-asset",
-                "type:npm-asset"
-            ],
-            "web/modules/contrib/{$name}": [
-                "type:drupal-module"
-            ],
-            "web/profiles/contrib/{$name}": [
-                "type:drupal-profile"
-            ],
-            "web/themes/contrib/{$name}": [
-                "type:drupal-theme"
-            ],
-            "drush/Commands/contrib/{$name}": [
-                "type:drupal-drush"
-            ]
+          "source": "https://raw.githubusercontent.com/pantheon-systems/drops-8/{version}/{path}",
+          "includes": [
+            "sites/default/default.services.pantheon.preproduction.yml",
+            "sites/default/settings.pantheon.php",
+            ".htaccess"
+          ],
+          "excludes": [
+            ".csslintrc",
+            ".editorconfig",
+            ".eslintignore",
+            ".eslintrc.json",
+            "web.config"
+          ]
         }
     }
 }
