@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\language_test\\Plugin\LanguageNegotiation\LanguageNegotiationTest.
+ */
+
 namespace Drupal\language_test\Plugin\LanguageNegotiation;
 
 use Drupal\language\LanguageNegotiationMethodBase;
@@ -8,7 +13,7 @@ use Symfony\Component\HttpFoundation\Request;
 /**
  * Class for identifying language from a selected language.
  *
- * @LanguageNegotiation(
+ * @Plugin(
  *   id = "test_language_negotiation_method",
  *   weight = -10,
  *   name = @Translation("Test"),

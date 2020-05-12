@@ -1,10 +1,15 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\rest\Plugin\ResourceBase.
+ */
+
 namespace Drupal\rest\Plugin;
 
+use Drupal\Core\Access\AccessManagerInterface;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Drupal\Core\Plugin\PluginBase;
-use Drupal\Core\Routing\BcRoute;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\Routing\Route;
@@ -12,11 +17,6 @@ use Symfony\Component\Routing\RouteCollection;
 
 /**
  * Common base class for resource plugins.
- *
- * Note that this base class' implementation of the permissions() method
- * generates a permission for every method for a resource. If your resource
- * already has its own access control mechanism, you should opt out from this
- * default permissions() method by overriding it.
  *
  * @see \Drupal\rest\Annotation\RestResource
  * @see \Drupal\rest\Plugin\Type\ResourcePluginManager
@@ -32,7 +32,7 @@ abstract class ResourceBase extends PluginBase implements ContainerFactoryPlugin
    *
    * @var array
    */
-  protected $serializerFormats = [];
+  protected $serializerFormats = array();
 
   /**
    * A logger instance.
@@ -82,58 +82,64 @@ abstract class ResourceBase extends PluginBase implements ContainerFactoryPlugin
    * resource".
    */
   public function permissions() {
-    $permissions = [];
+    $permissions = array();
     $definition = $this->getPluginDefinition();
     foreach ($this->availableMethods() as $method) {
       $lowered_method = strtolower($method);
-      $permissions["restful $lowered_method $this->pluginId"] = [
-        'title' => $this->t('Access @method on %label resource', ['@method' => $method, '%label' => $definition['label']]),
-      ];
+      $permissions["restful $lowered_method $this->pluginId"] = array(
+        'title' => $this->t('Access @method on %label resource', array('@method' => $method, '%label' => $definition['label'])),
+      );
     }
     return $permissions;
   }
 
   /**
-   * {@inheritdoc}
+   * Implements ResourceInterface::routes().
    */
   public function routes() {
     $collection = new RouteCollection();
 
     $definition = $this->getPluginDefinition();
     $canonical_path = isset($definition['uri_paths']['canonical']) ? $definition['uri_paths']['canonical'] : '/' . strtr($this->pluginId, ':', '/') . '/{id}';
-    $create_path = isset($definition['uri_paths']['create']) ? $definition['uri_paths']['create'] : '/' . strtr($this->pluginId, ':', '/');
-    // BC: the REST module originally created the POST URL for a resource by
-    // reading the 'https://www.drupal.org/link-relations/create' URI path from
-    // the plugin annotation. For consistency with entity type definitions, that
-    // then changed to reading the 'create' URI path. For any REST Resource
-    // plugins that were using the old mechanism, we continue to support that.
-    if (!isset($definition['uri_paths']['create']) && isset($definition['uri_paths']['https://www.drupal.org/link-relations/create'])) {
-      @trigger_error('The "https://www.drupal.org/link-relations/create" string as a RestResource plugin annotation URI path key is deprecated in Drupal 8.4.0, now a valid link relation type name must be specified, so "create" must be specified instead before Drupal 9.0.0. See https://www.drupal.org/node/2737401.', E_USER_DEPRECATED);
-      $create_path = $definition['uri_paths']['https://www.drupal.org/link-relations/create'];
-    }
+    $create_path = isset($definition['uri_paths']['http://drupal.org/link-relations/create']) ? $definition['uri_paths']['http://drupal.org/link-relations/create'] : '/' . strtr($this->pluginId, ':', '/');
 
     $route_name = strtr($this->pluginId, ':', '.');
 
     $methods = $this->availableMethods();
     foreach ($methods as $method) {
-      $path = $method === 'POST'
-        ? $create_path
-        : $canonical_path;
-      $route = $this->getBaseRoute($path, $method);
+      $route = $this->getBaseRoute($canonical_path, $method);
 
-      // Note that '_format' and '_content_type_format' route requirements are
-      // added in ResourceRoutes::getRoutesForResourceConfig().
-      $collection->add("$route_name.$method", $route);
+      switch ($method) {
+        case 'POST':
+          $route->setPattern($create_path);
+          // Restrict the incoming HTTP Content-type header to the known
+          // serialization formats.
+          $route->addRequirements(array('_content_type_format' => implode('|', $this->serializerFormats)));
+          $collection->add("$route_name.$method", $route);
+          break;
 
-      // BC: the REST module originally created per-format GET routes, instead
-      // of a single route. To minimize the surface of this BC layer, this uses
-      // route definitions that are as empty as possible, plus an outbound route
-      // processor.
-      // @see \Drupal\rest\RouteProcessor\RestResourceGetRouteProcessorBC
-      if ($method === 'GET' || $method === 'HEAD') {
-        foreach ($this->serializerFormats as $format_name) {
-          $collection->add("$route_name.$method.$format_name", (new BcRoute())->setRequirement('_format', $format_name));
-        }
+        case 'PATCH':
+          // Restrict the incoming HTTP Content-type header to the known
+          // serialization formats.
+          $route->addRequirements(array('_content_type_format' => implode('|', $this->serializerFormats)));
+          $collection->add("$route_name.$method", $route);
+          break;
+
+        case 'GET':
+        case 'HEAD':
+          // Restrict GET and HEAD requests to the media type specified in the
+          // HTTP Accept headers.
+          foreach ($this->serializerFormats as $format_name) {
+            // Expose one route per available format.
+            $format_route = clone $route;
+            $format_route->addRequirements(array('_format' => $format_name));
+            $collection->add("$route_name.$method.$format_name", $format_route);
+          }
+          break;
+
+        default:
+          $collection->add("$route_name.$method", $route);
+          break;
       }
     }
 
@@ -150,7 +156,7 @@ abstract class ResourceBase extends PluginBase implements ContainerFactoryPlugin
    *   The list of allowed HTTP request method strings.
    */
   protected function requestMethods() {
-    return [
+    return array(
       'HEAD',
       'GET',
       'POST',
@@ -160,15 +166,15 @@ abstract class ResourceBase extends PluginBase implements ContainerFactoryPlugin
       'OPTIONS',
       'CONNECT',
       'PATCH',
-    ];
+    );
   }
 
   /**
-   * {@inheritdoc}
+   * Implements ResourceInterface::availableMethods().
    */
   public function availableMethods() {
     $methods = $this->requestMethods();
-    $available = [];
+    $available = array();
     foreach ($methods as $method) {
       // Only expose methods where the HTTP request method exists on the plugin.
       if (method_exists($this, strtolower($method))) {
@@ -179,7 +185,7 @@ abstract class ResourceBase extends PluginBase implements ContainerFactoryPlugin
   }
 
   /**
-   * Gets the base route for a particular method.
+   * Setups the base route for all HTTP methods.
    *
    * @param string $canonical_path
    *   The canonical path for the resource.
@@ -190,48 +196,18 @@ abstract class ResourceBase extends PluginBase implements ContainerFactoryPlugin
    *   The created base route.
    */
   protected function getBaseRoute($canonical_path, $method) {
-    return new Route($canonical_path, [
-      '_controller' => 'Drupal\rest\RequestHandler::handle',
-    ],
-      $this->getBaseRouteRequirements($method),
-      [],
-      '',
-      [],
-      // The HTTP method is a requirement for this route.
-      [$method]
-    );
-  }
-
-  /**
-   * Gets the base route requirements for a particular method.
-   *
-   * @param $method
-   *   The HTTP method to be used for the route.
-   *
-   * @return array
-   *   An array of requirements for parameters.
-   */
-  protected function getBaseRouteRequirements($method) {
     $lower_method = strtolower($method);
-    // Every route MUST have requirements that result in the access manager
-    // having access checks to check. If it does not, the route is made
-    // inaccessible. So, we default to granting access to everyone. If a
-    // permission exists, then we add that below. The access manager requires
-    // that ALL access checks must grant access, so this still results in
-    // correct behavior.
-    $requirements = [
-      '_access' => 'TRUE',
-    ];
 
-    // Only specify route requirements if the default permission exists. For any
-    // more advanced route definition, resource plugins extending this base
-    // class must override this method.
-    $permission = "restful $lower_method $this->pluginId";
-    if (isset($this->permissions()[$permission])) {
-      $requirements['_permission'] = $permission;
-    }
-
-    return $requirements;
+    $route = new Route($canonical_path, array(
+      '_controller' => 'Drupal\rest\RequestHandler::handle',
+      // Pass the resource plugin ID along as default property.
+      '_plugin' => $this->pluginId,
+    ), array(
+      // The HTTP method is a requirement for this route.
+      '_method' => $method,
+      '_permission' => "restful $lower_method $this->pluginId",
+    ));
+    return $route;
   }
 
 }

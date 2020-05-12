@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\DependencyInjection\ClassResolver.
+ */
+
 namespace Drupal\Core\DependencyInjection;
 
 use Symfony\Component\DependencyInjection\ContainerAwareTrait;
@@ -9,7 +14,7 @@ use Symfony\Component\DependencyInjection\ContainerAwareInterface;
  * Implements the class resolver interface supporting class names and services.
  */
 class ClassResolver implements ClassResolverInterface, ContainerAwareInterface {
-  use DependencySerializationTrait;
+
   use ContainerAwareTrait;
 
   /**

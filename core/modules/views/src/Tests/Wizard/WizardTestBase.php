@@ -1,16 +1,16 @@
 <?php
 
-namespace Drupal\views\Tests\Wizard;
+/**
+ * @file
+ * Definition of Drupal\views\Tests\Wizard\WizardTestBase.
+ */
 
-@trigger_error('\Drupal\views\Tests\Wizard\WizardTestBase is deprecated in Drupal 8.4.0 and will be removed before Drupal 9.0.0. Instead, use \Drupal\Tests\views\Functional\Wizard\WizardTestBase', E_USER_DEPRECATED);
+namespace Drupal\views\Tests\Wizard;
 
 use Drupal\views\Tests\ViewTestBase;
 
 /**
  * Views UI wizard tests.
- *
- * @deprecated in drupal:8.4.0 and is removed from drupal:9.0.0.
- *   Use \Drupal\Tests\views\Functional\Wizard\WizardTestBase.
  */
 abstract class WizardTestBase extends ViewTestBase {
 
@@ -19,15 +19,14 @@ abstract class WizardTestBase extends ViewTestBase {
    *
    * @var array
    */
-  public static $modules = ['node', 'views_ui', 'block', 'rest'];
+  public static $modules = array('node', 'views_ui', 'block', 'rest');
 
-  protected function setUp($import_test_views = TRUE) {
-    parent::setUp($import_test_views);
+  protected function setUp() {
+    parent::setUp();
 
     // Create and log in a user with administer views permission.
-    $views_admin = $this->drupalCreateUser(['administer views', 'administer blocks', 'bypass node access', 'access user profiles', 'view all revisions']);
+    $views_admin = $this->drupalCreateUser(array('administer views', 'administer blocks', 'bypass node access', 'access user profiles', 'view all revisions'));
     $this->drupalLogin($views_admin);
-    $this->drupalPlaceBlock('local_actions_block');
   }
 
 }

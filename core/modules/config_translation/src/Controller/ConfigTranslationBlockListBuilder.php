@@ -1,7 +1,13 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\config_translation\Controller\ConfigTranslationBlockListBuilder.
+ */
+
 namespace Drupal\config_translation\Controller;
 
+use Drupal\Component\Utility\SafeMarkup;
 use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Entity\EntityStorageInterface;
 use Drupal\Core\Entity\EntityTypeInterface;
@@ -18,7 +24,7 @@ class ConfigTranslationBlockListBuilder extends ConfigTranslationEntityListBuild
    *
    * @var array
    */
-  protected $themes = [];
+  protected $themes = array();
 
   /**
    * {@inheritdoc}
@@ -34,7 +40,7 @@ class ConfigTranslationBlockListBuilder extends ConfigTranslationEntityListBuild
   public static function createInstance(ContainerInterface $container, EntityTypeInterface $entity_type) {
     return new static(
       $entity_type,
-      $container->get('entity_type.manager')->getStorage($entity_type->id()),
+      $container->get('entity.manager')->getStorage($entity_type->id()),
       $container->get('theme_handler')
     );
   }
@@ -58,20 +64,20 @@ class ConfigTranslationBlockListBuilder extends ConfigTranslationEntityListBuild
     $theme = $entity->getTheme();
     $plugin_definition = $entity->getPlugin()->getPluginDefinition();
 
-    $row['label'] = [
-      'data' => $entity->label(),
+    $row['label'] = array(
+      'data' => $this->getLabel($entity),
       'class' => 'table-filter-text-source',
-    ];
+    );
 
-    $row['theme'] = [
-      'data' => $this->themes[$theme]->info['name'],
+    $row['theme'] = array(
+      'data' => SafeMarkup::checkPlain($this->themes[$theme]->info['name']),
       'class' => 'table-filter-text-source',
-    ];
+    );
 
-    $row['category'] = [
-      'data' => $plugin_definition['category'],
+    $row['category'] = array(
+      'data' => SafeMarkup::checkPlain($plugin_definition['category']),
       'class' => 'table-filter-text-source',
-    ];
+    );
 
     $row['operations']['data'] = $this->buildOperations($entity);
 
@@ -93,7 +99,7 @@ class ConfigTranslationBlockListBuilder extends ConfigTranslationEntityListBuild
    * {@inheritdoc}
    */
   public function sortRows($a, $b) {
-    return $this->sortRowsMultiple($a, $b, ['theme', 'category', 'label']);
+    return $this->sortRowsMultiple($a, $b, array('theme', 'category', 'label'));
   }
 
 }

@@ -1,4 +1,8 @@
 <?php
+/**
+ * @file
+ * Contains \Drupal\Core\Asset\AttachedAssetsInterface.
+ */
 
 namespace Drupal\Core\Asset;
 
@@ -21,7 +25,7 @@ interface AttachedAssetsInterface {
    * @param array $render_array
    *   A render array.
    *
-   * @return static
+   * @return \Drupal\Core\Asset\AttachedAssetsInterface
    *
    * @throws \LogicException
    */

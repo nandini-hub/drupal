@@ -1,45 +1,42 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\Core\DrupalKernel.
+ */
+
 namespace Drupal\Core;
 
-use Composer\Autoload\ClassLoader;
-use Drupal\Component\Assertion\Handle;
-use Drupal\Component\FileCache\FileCacheFactory;
+use Drupal\Component\ProxyBuilder\ProxyDumper;
+use Drupal\Component\Utility\Crypt;
+use Drupal\Component\Utility\Timer;
+use Drupal\Component\Utility\Unicode;
 use Drupal\Component\Utility\UrlHelper;
-use Drupal\Core\Cache\DatabaseBackend;
 use Drupal\Core\Config\BootstrapConfigStorageFactory;
 use Drupal\Core\Config\NullStorage;
 use Drupal\Core\Database\Database;
 use Drupal\Core\DependencyInjection\ContainerBuilder;
-use Drupal\Core\DependencyInjection\ServiceModifierInterface;
 use Drupal\Core\DependencyInjection\ServiceProviderInterface;
 use Drupal\Core\DependencyInjection\YamlFileLoader;
 use Drupal\Core\Extension\ExtensionDiscovery;
 use Drupal\Core\File\MimeType\MimeTypeGuesser;
 use Drupal\Core\Http\TrustedHostsRequestFactory;
-use Drupal\Core\Installer\InstallerKernel;
-use Drupal\Core\Installer\InstallerRedirectTrait;
 use Drupal\Core\Language\Language;
-use Drupal\Core\Security\PharExtensionInterceptor;
-use Drupal\Core\Security\RequestSanitizer;
+use Drupal\Core\PageCache\RequestPolicyInterface;
+use Drupal\Core\PhpStorage\PhpStorageFactory;
+use Drupal\Core\ProxyBuilder\ProxyBuilder;
 use Drupal\Core\Site\Settings;
-use Drupal\Core\Test\TestDatabase;
 use Symfony\Cmf\Component\Routing\RouteObjectInterface;
-use Symfony\Component\ClassLoader\ApcClassLoader;
-use Symfony\Component\ClassLoader\WinCacheClassLoader;
-use Symfony\Component\ClassLoader\XcacheClassLoader;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\DependencyInjection\ParameterBag\ParameterBag;
+use Symfony\Component\DependencyInjection\Dumper\PhpDumper;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
-use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 use Symfony\Component\HttpKernel\TerminableInterface;
 use Symfony\Component\Routing\Route;
-use TYPO3\PharStreamWrapper\Manager as PharStreamWrapperManager;
-use TYPO3\PharStreamWrapper\Behavior as PharStreamWrapperBehavior;
-use TYPO3\PharStreamWrapper\PharStreamWrapper;
 
 /**
  * The DrupalKernel class is the core of Drupal itself.
@@ -55,56 +52,8 @@ use TYPO3\PharStreamWrapper\PharStreamWrapper;
  * container, or modify existing services.
  */
 class DrupalKernel implements DrupalKernelInterface, TerminableInterface {
-  use InstallerRedirectTrait;
 
-  /**
-   * Holds the class used for dumping the container to a PHP array.
-   *
-   * In combination with swapping the container class this is useful to e.g.
-   * dump to the human-readable PHP array format to debug the container
-   * definition in an easier way.
-   *
-   * @var string
-   */
-  protected $phpArrayDumperClass = '\Drupal\Component\DependencyInjection\Dumper\OptimizedPhpArrayDumper';
-
-  /**
-   * Holds the default bootstrap container definition.
-   *
-   * @var array
-   */
-  protected $defaultBootstrapContainerDefinition = [
-    'parameters' => [],
-    'services' => [
-      'database' => [
-        'class' => 'Drupal\Core\Database\Connection',
-        'factory' => 'Drupal\Core\Database\Database::getConnection',
-        'arguments' => ['default'],
-      ],
-      'cache.container' => [
-        'class' => 'Drupal\Core\Cache\DatabaseBackend',
-        'arguments' => ['@database', '@cache_tags_provider.container', 'container', DatabaseBackend::MAXIMUM_NONE],
-      ],
-      'cache_tags_provider.container' => [
-        'class' => 'Drupal\Core\Cache\DatabaseCacheTagsChecksum',
-        'arguments' => ['@database'],
-      ],
-    ],
-  ];
-
-  /**
-   * Holds the class used for instantiating the bootstrap container.
-   *
-   * @var string
-   */
-  protected $bootstrapContainerClass = '\Drupal\Component\DependencyInjection\PhpArrayContainer';
-
-  /**
-   * Holds the bootstrap container.
-   *
-   * @var \Symfony\Component\DependencyInjection\ContainerInterface
-   */
-  protected $bootstrapContainer;
+  const CONTAINER_BASE_CLASS = '\Drupal\Core\DependencyInjection\Container';
 
   /**
    * Holds the container instance.
@@ -148,7 +97,14 @@ class DrupalKernel implements DrupalKernelInterface, TerminableInterface {
    *
    * @var \Drupal\Core\Extension\Extension[]
    */
-  protected $moduleData = [];
+  protected $moduleData = array();
+
+  /**
+   * PHP code storage object to use for the compiled container.
+   *
+   * @var \Drupal\Component\PhpStorage\PhpStorageInterface
+   */
+  protected $storage;
 
   /**
    * The class loader object.
@@ -172,13 +128,6 @@ class DrupalKernel implements DrupalKernelInterface, TerminableInterface {
   protected $allowDumping;
 
   /**
-   * Whether the container needs to be rebuilt the next time it is initialized.
-   *
-   * @var bool
-   */
-  protected $containerNeedsRebuild = FALSE;
-
-  /**
    * Whether the container needs to be dumped once booting is complete.
    *
    * @var bool
@@ -198,15 +147,12 @@ class DrupalKernel implements DrupalKernelInterface, TerminableInterface {
   protected $serviceYamls;
 
   /**
-   * List of discovered service provider class names or objects.
+   * List of discovered service provider class names.
    *
    * This is a nested array whose top-level keys are 'app' and 'site', denoting
    * the origin of a service provider. Site-specific providers have to be
    * collected separately, because they need to be processed last, so as to be
    * able to override services from application service providers.
-   *
-   * Allowing objects is for example used to allow
-   * \Drupal\KernelTests\KernelTestBase to register itself as service provider.
    *
    * @var array
    */
@@ -260,19 +206,61 @@ class DrupalKernel implements DrupalKernelInterface, TerminableInterface {
    * @param bool $allow_dumping
    *   (optional) FALSE to stop the container from being written to or read
    *   from disk. Defaults to TRUE.
-   * @param string $app_root
-   *   (optional) The path to the application root as a string. If not supplied,
-   *   the application root will be computed.
    *
    * @return static
    *
    * @throws \Symfony\Component\HttpKernel\Exception\BadRequestHttpException
    *   In case the host name in the request is not trusted.
    */
-  public static function createFromRequest(Request $request, $class_loader, $environment, $allow_dumping = TRUE, $app_root = NULL) {
-    $kernel = new static($environment, $class_loader, $allow_dumping, $app_root);
-    static::bootEnvironment($app_root);
-    $kernel->initializeSettings($request);
+  public static function createFromRequest(Request $request, $class_loader, $environment, $allow_dumping = TRUE) {
+    // Include our bootstrap file.
+    $core_root = dirname(dirname(dirname(__DIR__)));
+    require_once $core_root . '/includes/bootstrap.inc';
+    $class_loader_class = get_class($class_loader);
+
+    $kernel = new static($environment, $class_loader, $allow_dumping);
+
+    // Ensure sane php environment variables..
+    static::bootEnvironment();
+
+    // Get our most basic settings setup.
+    $site_path = static::findSitePath($request);
+    $kernel->setSitePath($site_path);
+    Settings::initialize(dirname($core_root), $site_path, $class_loader);
+
+    // Initialize our list of trusted HTTP Host headers to protect against
+    // header attacks.
+    $host_patterns = Settings::get('trusted_host_patterns', array());
+    if (PHP_SAPI !== 'cli' && !empty($host_patterns)) {
+      if (static::setupTrustedHosts($request, $host_patterns) === FALSE) {
+        throw new BadRequestHttpException('The provided host name is not valid for this server.');
+      }
+    }
+
+    // Redirect the user to the installation script if Drupal has not been
+    // installed yet (i.e., if no $databases array has been defined in the
+    // settings.php file) and we are not already installing.
+    if (!Database::getConnectionInfo() && !drupal_installation_attempted() && PHP_SAPI !== 'cli') {
+      $response = new RedirectResponse($request->getBasePath() . '/core/install.php');
+      $response->prepare($request)->send();
+    }
+
+    // If the class loader is still the same, possibly upgrade to the APC class
+    // loader.
+    if ($class_loader_class == get_class($class_loader)
+        && Settings::get('class_loader_auto_detect', TRUE)
+        && Settings::get('hash_salt', FALSE)
+        && function_exists('apc_fetch')) {
+      $prefix = 'drupal.' . hash('sha256', 'drupal.' . Settings::getHashSalt());
+      $apc_loader = new \Symfony\Component\ClassLoader\ApcClassLoader($prefix, $class_loader);
+      $class_loader->unregister();
+      $apc_loader->register();
+      $class_loader = $apc_loader;
+    }
+
+    // Ensure that the class loader reference is up-to-date.
+    $kernel->classLoader = $class_loader;
+
     return $kernel;
   }
 
@@ -288,32 +276,12 @@ class DrupalKernel implements DrupalKernelInterface, TerminableInterface {
    * @param bool $allow_dumping
    *   (optional) FALSE to stop the container from being written to or read
    *   from disk. Defaults to TRUE.
-   * @param string $app_root
-   *   (optional) The path to the application root as a string. If not supplied,
-   *   the application root will be computed.
    */
-  public function __construct($environment, $class_loader, $allow_dumping = TRUE, $app_root = NULL) {
+  public function __construct($environment, $class_loader, $allow_dumping = TRUE) {
     $this->environment = $environment;
     $this->classLoader = $class_loader;
     $this->allowDumping = $allow_dumping;
-    if ($app_root === NULL) {
-      $app_root = static::guessApplicationRoot();
-    }
-    $this->root = $app_root;
-  }
-
-  /**
-   * Determine the application root directory based on this file's location.
-   *
-   * @return string
-   *   The application root.
-   */
-  protected static function guessApplicationRoot() {
-    // Determine the application root by:
-    // - Removing the namespace directories from the path.
-    // - Getting the path to the directory two levels up from the path
-    //   determined in the previous step.
-    return dirname(dirname(substr(__DIR__, 0, -strlen(__NAMESPACE__))));
+    $this->root = dirname(dirname(substr(__DIR__, 0, -strlen(__NAMESPACE__))));
   }
 
   /**
@@ -326,9 +294,6 @@ class DrupalKernel implements DrupalKernelInterface, TerminableInterface {
    * for bootstrap level configuration, file configuration stores, public file
    * storage and site specific modules and themes.
    *
-   * A file named sites.php must be present in the sites directory for
-   * multisite. If it doesn't exist, then 'sites/default' will be used.
-   *
    * Finds a matching site directory file by stripping the website's hostname
    * from left to right and pathname from right to left. By default, the
    * directory must contain a 'settings.php' file for it to match. If the
@@ -339,10 +304,11 @@ class DrupalKernel implements DrupalKernelInterface, TerminableInterface {
    * default.settings.php for examples on how the URL is converted to a
    * directory.
    *
-   * The sites.php file in the sites directory can define aliases in an
-   * associative array named $sites. The array is written in the format
+   * If a file named sites.php is present in the sites directory, it will be
+   * loaded prior to scanning for directories. That file can define aliases in
+   * an associative array named $sites. The array is written in the format
    * '<port>.<domain>.<path>' => 'directory'. As an example, to create a
-   * directory alias for https://www.drupal.org:8080/mysite/test whose
+   * directory alias for http://www.drupal.org:8080/mysite/test whose
    * configuration file is in sites/example.com, the array should be defined as:
    * @code
    * $sites = array(
@@ -357,9 +323,6 @@ class DrupalKernel implements DrupalKernelInterface, TerminableInterface {
    *   Defaults to TRUE. During initial installation, this is set to FALSE so
    *   that Drupal can detect a matching directory, then create a new
    *   settings.php file in it.
-   * @param string $app_root
-   *   (optional) The path to the application root as a string. If not supplied,
-   *   the application root will be computed.
    *
    * @return string
    *   The path of the matching directory.
@@ -372,23 +335,18 @@ class DrupalKernel implements DrupalKernelInterface, TerminableInterface {
    * @see default.settings.php
    * @see example.sites.php
    */
-  public static function findSitePath(Request $request, $require_settings = TRUE, $app_root = NULL) {
+  public static function findSitePath(Request $request, $require_settings = TRUE) {
     if (static::validateHostname($request) === FALSE) {
       throw new BadRequestHttpException();
     }
 
-    if ($app_root === NULL) {
-      $app_root = static::guessApplicationRoot();
-    }
-
     // Check for a simpletest override.
     if ($test_prefix = drupal_valid_test_ua()) {
-      $test_db = new TestDatabase($test_prefix);
-      return $test_db->getTestSitePath();
+      return 'sites/simpletest/' . substr($test_prefix, 10);
     }
 
     // Determine whether multi-site functionality is enabled.
-    if (!file_exists($app_root . '/sites/sites.php')) {
+    if (!file_exists(DRUPAL_ROOT . '/sites/sites.php')) {
       return 'sites/default';
     }
 
@@ -397,20 +355,20 @@ class DrupalKernel implements DrupalKernelInterface, TerminableInterface {
     if (!$script_name) {
       $script_name = $request->server->get('SCRIPT_FILENAME');
     }
-    $http_host = $request->getHttpHost();
+    $http_host = $request->getHost();
 
-    $sites = [];
-    include $app_root . '/sites/sites.php';
+    $sites = array();
+    include DRUPAL_ROOT . '/sites/sites.php';
 
     $uri = explode('/', $script_name);
     $server = explode('.', implode('.', array_reverse(explode(':', rtrim($http_host, '.')))));
     for ($i = count($uri) - 1; $i > 0; $i--) {
       for ($j = count($server); $j > 0; $j--) {
         $dir = implode('.', array_slice($server, -$j)) . implode('.', array_slice($uri, 0, $i));
-        if (isset($sites[$dir]) && file_exists($app_root . '/sites/' . $sites[$dir])) {
+        if (isset($sites[$dir]) && file_exists(DRUPAL_ROOT . '/sites/' . $sites[$dir])) {
           $dir = $sites[$dir];
         }
-        if (file_exists($app_root . '/sites/' . $dir . '/settings.php') || (!$require_settings && file_exists($app_root . '/sites/' . $dir))) {
+        if (file_exists(DRUPAL_ROOT . '/sites/' . $dir . '/settings.php') || (!$require_settings && file_exists(DRUPAL_ROOT . '/sites/' . $dir))) {
           return "sites/$dir";
         }
       }
@@ -422,9 +380,6 @@ class DrupalKernel implements DrupalKernelInterface, TerminableInterface {
    * {@inheritdoc}
    */
   public function setSitePath($path) {
-    if ($this->booted && $path !== $this->sitePath) {
-      throw new \LogicException('Site path cannot be changed after calling boot()');
-    }
     $this->sitePath = $path;
   }
 
@@ -450,51 +405,20 @@ class DrupalKernel implements DrupalKernelInterface, TerminableInterface {
       return $this;
     }
 
+    // Start a page timer:
+    Timer::start('page');
+
     // Ensure that findSitePath is set.
     if (!$this->sitePath) {
       throw new \Exception('Kernel does not have site path set before calling boot()');
     }
-
-    // Initialize the FileCacheFactory component. We have to do it here instead
-    // of in \Drupal\Component\FileCache\FileCacheFactory because we can not use
-    // the Settings object in a component.
-    $configuration = Settings::get('file_cache');
-
-    // Provide a default configuration, if not set.
-    if (!isset($configuration['default'])) {
-      // @todo Use extension_loaded('apcu') for non-testbot
-      //  https://www.drupal.org/node/2447753.
-      if (function_exists('apcu_fetch')) {
-        $configuration['default']['cache_backend_class'] = '\Drupal\Component\FileCache\ApcuFileCacheBackend';
-      }
-    }
-    FileCacheFactory::setConfiguration($configuration);
-    FileCacheFactory::setPrefix(Settings::getApcuPrefix('file_cache', $this->root));
-
-    $this->bootstrapContainer = new $this->bootstrapContainerClass(Settings::get('bootstrap_container_definition', $this->defaultBootstrapContainerDefinition));
-
     // Initialize the container.
     $this->initializeContainer();
 
-    if (in_array('phar', stream_get_wrappers(), TRUE)) {
-      // Set up a stream wrapper to handle insecurities due to PHP's builtin
-      // phar stream wrapper. This is not registered as a regular stream wrapper
-      // to prevent \Drupal\Core\File\FileSystem::validScheme() treating "phar"
-      // as a valid scheme.
-      try {
-        $behavior = new PharStreamWrapperBehavior();
-        PharStreamWrapperManager::initialize(
-          $behavior->withAssertion(new PharExtensionInterceptor())
-        );
-      }
-      catch (\LogicException $e) {
-        // Continue if the PharStreamWrapperManager is already initialized. For
-        // example, this occurs during a module install.
-        // @see \Drupal\Core\Extension\ModuleInstaller::install()
-      };
-      stream_wrapper_unregister('phar');
-      stream_wrapper_register('phar', PharStreamWrapper::class);
-    }
+    // Ensure mt_rand() is reseeded to prevent random values from one page load
+    // being exploited to predict random values in subsequent page loads.
+    $seed = unpack("L", Crypt::randomBytes(4));
+    mt_srand($seed[1]);
 
     $this->booted = TRUE;
 
@@ -512,7 +436,7 @@ class DrupalKernel implements DrupalKernelInterface, TerminableInterface {
     $this->booted = FALSE;
     $this->container = NULL;
     $this->moduleList = NULL;
-    $this->moduleData = [];
+    $this->moduleData = array();
   }
 
   /**
@@ -520,34 +444,6 @@ class DrupalKernel implements DrupalKernelInterface, TerminableInterface {
    */
   public function getContainer() {
     return $this->container;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function setContainer(ContainerInterface $container = NULL) {
-    if (isset($this->container)) {
-      throw new \Exception('The container should not override an existing container.');
-    }
-    if ($this->booted) {
-      throw new \Exception('The container cannot be set after a booted kernel.');
-    }
-
-    $this->container = $container;
-    return $this;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function getCachedContainerDefinition() {
-    $cache = $this->bootstrapContainer->get('cache.container')->get($this->getContainerCacheKey());
-
-    if ($cache) {
-      return $cache->data;
-    }
-
-    return NULL;
   }
 
   /**
@@ -573,12 +469,6 @@ class DrupalKernel implements DrupalKernelInterface, TerminableInterface {
    * {@inheritdoc}
    */
   public function preHandle(Request $request) {
-    // Sanitize the request.
-    $request = RequestSanitizer::sanitize(
-      $request,
-      (array) Settings::get(RequestSanitizer::SANITIZE_WHITELIST, []),
-      (bool) Settings::get(RequestSanitizer::SANITIZE_LOG, FALSE)
-    );
 
     $this->loadLegacyIncludes();
 
@@ -594,10 +484,18 @@ class DrupalKernel implements DrupalKernelInterface, TerminableInterface {
     // Put the request on the stack.
     $this->container->get('request_stack')->push($request);
 
-    // Set the allowed protocols.
-    UrlHelper::setAllowedProtocols($this->container->getParameter('filter_protocols'));
+    // Set the allowed protocols once we have the config available.
+    $allowed_protocols = $this->container->get('config.factory')->get('system.filter')->get('protocols');
+    if (!isset($allowed_protocols)) {
+      // \Drupal\Component\Utility\UrlHelper::filterBadProtocol() is called by
+      // the installer and update.php, in which case the configuration may not
+      // exist (yet). Provide a minimal default set of allowed protocols for
+      // these cases.
+      $allowed_protocols = array('http', 'https');
+    }
+    UrlHelper::setAllowedProtocols($allowed_protocols);
 
-    // Override of Symfony's MIME type guesser singleton.
+    // Override of Symfony's mime type guesser singleton.
     MimeTypeGuesser::registerWithSymfonyGuesser($this->container);
 
     $this->prepared = TRUE;
@@ -607,35 +505,21 @@ class DrupalKernel implements DrupalKernelInterface, TerminableInterface {
    * {@inheritdoc}
    */
   public function discoverServiceProviders() {
-    $this->serviceYamls = [
-      'app' => [],
-      'site' => [],
-    ];
-    $this->serviceProviderClasses = [
-      'app' => [],
-      'site' => [],
-    ];
+    $this->serviceYamls = array(
+      'app' => array(),
+      'site' => array(),
+    );
+    $this->serviceProviderClasses = array(
+      'app' => array(),
+      'site' => array(),
+    );
     $this->serviceYamls['app']['core'] = 'core/core.services.yml';
     $this->serviceProviderClasses['app']['core'] = 'Drupal\Core\CoreServiceProvider';
 
     // Retrieve enabled modules and register their namespaces.
     if (!isset($this->moduleList)) {
       $extensions = $this->getConfigStorage()->read('core.extension');
-      // If core.extension configuration does not exist and we're not in the
-      // installer itself, then we need to put the kernel into a pre-installer
-      // mode. The container should not be dumped because Drupal is yet to be
-      // installed. The installer service provider is registered to ensure that
-      // cache and other automatically created tables are not created if
-      // database settings are available. None of this is required when the
-      // installer is running because the installer has its own kernel and
-      // manages the addition of its own service providers.
-      // @see install_begin_request()
-      if ($extensions === FALSE && !InstallerKernel::installationAttempted()) {
-        $this->allowDumping = FALSE;
-        $this->containerNeedsDumping = FALSE;
-        $GLOBALS['conf']['container_service_providers']['InstallerServiceProvider'] = 'Drupal\Core\Installer\InstallerServiceProvider';
-      }
-      $this->moduleList = isset($extensions['module']) ? $extensions['module'] : [];
+      $this->moduleList = isset($extensions['module']) ? $extensions['module'] : array();
     }
     $module_filenames = $this->getModuleFileNames();
     $this->classLoaderAddMultiplePsr4($this->getModuleNamespacesPsr4($module_filenames));
@@ -657,12 +541,14 @@ class DrupalKernel implements DrupalKernelInterface, TerminableInterface {
     // Add site-specific service providers.
     if (!empty($GLOBALS['conf']['container_service_providers'])) {
       foreach ($GLOBALS['conf']['container_service_providers'] as $class) {
-        if ((is_string($class) && class_exists($class)) || (is_object($class) && ($class instanceof ServiceProviderInterface || $class instanceof ServiceModifierInterface))) {
+        if (class_exists($class)) {
           $this->serviceProviderClasses['site'][] = $class;
         }
       }
     }
-    $this->addServiceFiles(Settings::get('container_yamls', []));
+    if (!$this->addServiceFiles(Settings::get('container_yamls'))) {
+      throw new \Exception('The container_yamls setting is missing from settings.php');
+    }
   }
 
   /**
@@ -691,66 +577,8 @@ class DrupalKernel implements DrupalKernelInterface, TerminableInterface {
    * {@inheritdoc}
    */
   public function handle(Request $request, $type = self::MASTER_REQUEST, $catch = TRUE) {
-    // Ensure sane PHP environment variables.
-    static::bootEnvironment();
-
-    try {
-      $this->initializeSettings($request);
-
-      // Redirect the user to the installation script if Drupal has not been
-      // installed yet (i.e., if no $databases array has been defined in the
-      // settings.php file) and we are not already installing.
-      if (!Database::getConnectionInfo() && !InstallerKernel::installationAttempted() && PHP_SAPI !== 'cli') {
-        $response = new RedirectResponse($request->getBasePath() . '/core/install.php', 302, ['Cache-Control' => 'no-cache']);
-      }
-      else {
-        $this->boot();
-        $response = $this->getHttpKernel()->handle($request, $type, $catch);
-      }
-    }
-    catch (\Exception $e) {
-      if ($catch === FALSE) {
-        throw $e;
-      }
-
-      $response = $this->handleException($e, $request, $type);
-    }
-
-    // Adapt response headers to the current request.
-    $response->prepare($request);
-
-    return $response;
-  }
-
-  /**
-   * Converts an exception into a response.
-   *
-   * @param \Exception $e
-   *   An exception
-   * @param \Symfony\Component\HttpFoundation\Request $request
-   *   A Request instance
-   * @param int $type
-   *   The type of the request (one of HttpKernelInterface::MASTER_REQUEST or
-   *   HttpKernelInterface::SUB_REQUEST)
-   *
-   * @return \Symfony\Component\HttpFoundation\Response
-   *   A Response instance
-   *
-   * @throws \Exception
-   *   If the passed in exception cannot be turned into a response.
-   */
-  protected function handleException(\Exception $e, $request, $type) {
-    if ($this->shouldRedirectToInstaller($e, $this->container ? $this->container->get('database') : NULL)) {
-      return new RedirectResponse($request->getBasePath() . '/core/install.php', 302, ['Cache-Control' => 'no-cache']);
-    }
-
-    if ($e instanceof HttpExceptionInterface) {
-      $response = new Response($e->getMessage(), $e->getStatusCode());
-      $response->headers->add($e->getHeaders());
-      return $response;
-    }
-
-    throw $e;
+    $this->boot();
+    return $this->getHttpKernel()->handle($request, $type, $catch);
   }
 
   /**
@@ -768,7 +596,6 @@ class DrupalKernel implements DrupalKernelInterface, TerminableInterface {
     $request->attributes->set(RouteObjectInterface::ROUTE_NAME, '<none>');
     $this->container->get('request_stack')->push($request);
     $this->container->get('router.request_context')->fromRequest($request);
-    @trigger_error(__NAMESPACE__ . '\DrupalKernel::prepareLegacyRequest is deprecated drupal:8.0.0 and is removed from drupal:9.0.0. Use DrupalKernel::boot() and DrupalKernel::preHandle() instead. See https://www.drupal.org/node/3070678', E_USER_DEPRECATED);
     return $this;
   }
 
@@ -785,9 +612,19 @@ class DrupalKernel implements DrupalKernelInterface, TerminableInterface {
     if (!$this->moduleData) {
       // First, find profiles.
       $listing = new ExtensionDiscovery($this->root);
-      $listing->setProfileDirectories([]);
+      $listing->setProfileDirectories(array());
       $all_profiles = $listing->scan('profile');
       $profiles = array_intersect_key($all_profiles, $this->moduleList);
+
+      // If a module is within a profile directory but specifies another
+      // profile for testing, it needs to be found in the parent profile.
+      $settings = $this->getConfigStorage()->read('simpletest.settings');
+      $parent_profile = !empty($settings['parent_profile']) ? $settings['parent_profile'] : NULL;
+      if ($parent_profile && !isset($profiles[$parent_profile])) {
+        // In case both profile directories contain the same extension, the
+        // actual profile always has precedence.
+        $profiles = array($parent_profile => $all_profiles[$parent_profile]) + $profiles;
+      }
 
       $profile_directories = array_map(function ($profile) {
         return $profile->getPath();
@@ -806,59 +643,40 @@ class DrupalKernel implements DrupalKernelInterface, TerminableInterface {
    * @todo Remove obsolete $module_list parameter. Only $module_filenames is
    *   needed.
    */
-  public function updateModules(array $module_list, array $module_filenames = []) {
-    $pre_existing_module_namespaces = [];
-    if ($this->booted && is_array($this->moduleList)) {
-      $pre_existing_module_namespaces = $this->getModuleNamespacesPsr4($this->getModuleFileNames());
-    }
+  public function updateModules(array $module_list, array $module_filenames = array()) {
     $this->moduleList = $module_list;
     foreach ($module_filenames as $name => $extension) {
       $this->moduleData[$name] = $extension;
     }
 
     // If we haven't yet booted, we don't need to do anything: the new module
-    // list will take effect when boot() is called. However we set a
-    // flag that the container needs a rebuild, so that a potentially cached
-    // container is not used. If we have already booted, then rebuild the
-    // container in order to refresh the serviceProvider list and container.
-    $this->containerNeedsRebuild = TRUE;
+    // list will take effect when boot() is called. If we have already booted,
+    // then rebuild the container in order to refresh the serviceProvider list
+    // and container.
     if ($this->booted) {
-      // We need to register any new namespaces to a new class loader because
-      // the current class loader might have stored a negative result for a
-      // class that is now available.
-      // @see \Composer\Autoload\ClassLoader::findFile()
-      $new_namespaces = array_diff_key(
-        $this->getModuleNamespacesPsr4($this->getModuleFileNames()),
-        $pre_existing_module_namespaces
-      );
-      if (!empty($new_namespaces)) {
-        $additional_class_loader = new ClassLoader();
-        $this->classLoaderAddMultiplePsr4($new_namespaces, $additional_class_loader);
-        $additional_class_loader->register();
-      }
-
-      $this->initializeContainer();
+      $this->initializeContainer(TRUE);
     }
   }
 
   /**
-   * Returns the container cache key based on the environment.
-   *
-   * The 'environment' consists of:
-   * - The kernel environment string.
-   * - The Drupal version constant.
-   * - The deployment identifier from settings.php. This allows custom
-   *   deployments to force a container rebuild.
-   * - The operating system running PHP. This allows compiler passes to optimize
-   *   services for different operating systems.
-   * - The paths to any additional container YAMLs from settings.php.
+   * Returns the classname based on environment.
    *
    * @return string
-   *   The cache key used for the service container.
+   *   The class name.
    */
-  protected function getContainerCacheKey() {
-    $parts = ['service_container', $this->environment, \Drupal::VERSION, Settings::get('deployment_identifier'), PHP_OS, serialize(Settings::get('container_yamls'))];
-    return implode(':', $parts);
+  protected function getClassName() {
+    $parts = array('service_container', $this->environment);
+    return implode('_', $parts);
+  }
+
+  /**
+   * Returns the container class namespace based on the environment.
+   *
+   * @return string
+   *   The class name.
+   */
+  protected function getClassNamespace() {
+    return 'Drupal\\Core\\DependencyInjection\\Container\\' . $this->environment;
   }
 
   /**
@@ -867,84 +685,68 @@ class DrupalKernel implements DrupalKernelInterface, TerminableInterface {
    * @return array An array of kernel parameters
    */
   protected function getKernelParameters() {
-    return [
+    return array(
       'kernel.environment' => $this->environment,
-    ];
+    );
   }
 
   /**
    * Initializes the service container.
    *
+   * @param bool $rebuild
+   *   Force a container rebuild.
    * @return \Symfony\Component\DependencyInjection\ContainerInterface
    */
-  protected function initializeContainer() {
+  protected function initializeContainer($rebuild = FALSE) {
     $this->containerNeedsDumping = FALSE;
-    $session_started = FALSE;
+    $session_manager_started = FALSE;
     if (isset($this->container)) {
       // Save the id of the currently logged in user.
       if ($this->container->initialized('current_user')) {
         $current_user_id = $this->container->get('current_user')->id();
       }
 
-      // If there is a session, close and save it.
-      if ($this->container->initialized('session')) {
-        $session = $this->container->get('session');
-        if ($session->isStarted()) {
-          $session_started = TRUE;
-          $session->save();
+      // If there is a session manager, close and save the session.
+      if ($this->container->initialized('session_manager')) {
+        $session_manager = $this->container->get('session_manager');
+        if ($session_manager->isStarted()) {
+          $session_manager_started = TRUE;
+          $session_manager->save();
         }
-        unset($session);
+        unset($session_manager);
       }
-    }
-
-    // If we haven't booted yet but there is a container, then we're asked to
-    // boot the container injected via setContainer().
-    // @see \Drupal\KernelTests\KernelTestBase::setUp()
-    if (isset($this->container) && !$this->booted) {
-      $container = $this->container;
     }
 
     // If the module list hasn't already been set in updateModules and we are
-    // not forcing a rebuild, then try and load the container from the cache.
-    if (empty($this->moduleList) && !$this->containerNeedsRebuild) {
-      $container_definition = $this->getCachedContainerDefinition();
-    }
+    // not forcing a rebuild, then try and load the container from the disk.
+    if (empty($this->moduleList) && !$rebuild) {
+      $fully_qualified_class_name = '\\' . $this->getClassNamespace() . '\\' . $this->getClassName();
 
-    // If there is no container and no cached container definition, build a new
-    // one from scratch.
-    if (!isset($container) && !isset($container_definition)) {
-      $container = $this->compileContainer();
-
-      // Only dump the container if dumping is allowed. This is useful for
-      // KernelTestBase, which never wants to use the real container, but always
-      // the container builder.
-      if ($this->allowDumping) {
-        $dumper = new $this->phpArrayDumperClass($container);
-        $container_definition = $dumper->getArray();
+      // First, try to load from storage.
+      if (!class_exists($fully_qualified_class_name, FALSE)) {
+        $this->storage()->load($this->getClassName() . '.php');
+      }
+      // If the load succeeded or the class already existed, use it.
+      if (class_exists($fully_qualified_class_name, FALSE)) {
+        $container = new $fully_qualified_class_name;
       }
     }
 
-    // The container was rebuilt successfully.
-    $this->containerNeedsRebuild = FALSE;
-
-    // Only create a new class if we have a container definition.
-    if (isset($container_definition)) {
-      $class = Settings::get('container_base_class', '\Drupal\Core\DependencyInjection\Container');
-      $container = new $class($container_definition);
+    if (!isset($container)) {
+      $container = $this->compileContainer();
     }
 
     $this->attachSynthetic($container);
 
     $this->container = $container;
-    if ($session_started) {
-      $this->container->get('session')->start();
+    if ($session_manager_started) {
+      $this->container->get('session_manager')->start();
     }
 
     // The request stack is preserved across container rebuilds. Reinject the
     // new session into the master request if one was present before.
     if (($request_stack = $this->container->get('request_stack', ContainerInterface::NULL_ON_INVALID_REFERENCE))) {
       if ($request = $request_stack->getMasterRequest()) {
-        $subrequest = TRUE;
         if ($request->hasSession()) {
           $request->setSession($this->container->get('session'));
         }
@@ -957,15 +759,9 @@ class DrupalKernel implements DrupalKernelInterface, TerminableInterface {
 
     \Drupal::setContainer($this->container);
 
-    // Allow other parts of the codebase to react on container initialization in
-    // subrequest.
-    if (!empty($subrequest)) {
-      $this->container->get('event_dispatcher')->dispatch(self::CONTAINER_INITIALIZE_SUBREQUEST_FINISHED);
-    }
-
     // If needs dumping flag was set, dump the container.
-    if ($this->containerNeedsDumping && !$this->cacheDrupalContainer($container_definition)) {
-      $this->container->get('logger.factory')->get('DrupalKernel')->error('Container cannot be saved to cache.');
+    if ($this->containerNeedsDumping && !$this->dumpDrupalContainer($this->container, static::CONTAINER_BASE_CLASS)) {
+      $this->container->get('logger.factory')->get('DrupalKernel')->notice('Container cannot be written to disk');
     }
 
     return $this->container;
@@ -976,23 +772,11 @@ class DrupalKernel implements DrupalKernelInterface, TerminableInterface {
    *
    * This method sets PHP environment options we want to be sure are set
    * correctly for security or just saneness.
-   *
-   * @param string $app_root
-   *   (optional) The path to the application root as a string. If not supplied,
-   *   the application root will be computed.
    */
-  public static function bootEnvironment($app_root = NULL) {
+  public static function bootEnvironment() {
     if (static::$isEnvironmentInitialized) {
       return;
     }
-
-    // Determine the application root if it's not supplied.
-    if ($app_root === NULL) {
-      $app_root = static::guessApplicationRoot();
-    }
-
-    // Include our bootstrap file.
-    require_once $app_root . '/core/includes/bootstrap.inc';
 
     // Enforce E_STRICT, but allow users to set levels not part of E_STRICT.
     error_reporting(E_STRICT | E_ALL);
@@ -1001,48 +785,36 @@ class DrupalKernel implements DrupalKernelInterface, TerminableInterface {
     // sites/default/default.settings.php contains more runtime settings.
     // The .htaccess file contains settings that cannot be changed at runtime.
 
-    if (PHP_SAPI !== 'cli') {
-      // Use session cookies, not transparent sessions that puts the session id
-      // in the query string.
-      ini_set('session.use_cookies', '1');
-      ini_set('session.use_only_cookies', '1');
-      ini_set('session.use_trans_sid', '0');
-      // Don't send HTTP headers using PHP's session handler.
-      // Send an empty string to disable the cache limiter.
-      ini_set('session.cache_limiter', '');
-      // Use httponly session cookies.
-      ini_set('session.cookie_httponly', '1');
-    }
+    // Use session cookies, not transparent sessions that puts the session id in
+    // the query string.
+    ini_set('session.use_cookies', '1');
+    ini_set('session.use_only_cookies', '1');
+    ini_set('session.use_trans_sid', '0');
+    // Don't send HTTP headers using PHP's session handler.
+    // Send an empty string to disable the cache limiter.
+    ini_set('session.cache_limiter', '');
+    // Use httponly session cookies.
+    ini_set('session.cookie_httponly', '1');
 
     // Set sane locale settings, to ensure consistent string, dates, times and
     // numbers handling.
     setlocale(LC_ALL, 'C');
 
-    // Set appropriate configuration for multi-byte strings.
-    mb_internal_encoding('utf-8');
-    mb_language('uni');
+    // Detect string handling method.
+    Unicode::check();
 
     // Indicate that code is operating in a test child site.
     if (!defined('DRUPAL_TEST_IN_CHILD_SITE')) {
       if ($test_prefix = drupal_valid_test_ua()) {
-        $test_db = new TestDatabase($test_prefix);
         // Only code that interfaces directly with tests should rely on this
         // constant; e.g., the error/exception handler conditionally adds further
         // error information into HTTP response headers that are consumed by
         // Simpletest's internal browser.
         define('DRUPAL_TEST_IN_CHILD_SITE', TRUE);
 
-        // Web tests are to be conducted with runtime assertions active.
-        assert_options(ASSERT_ACTIVE, TRUE);
-        Handle::register();
-
         // Log fatal errors to the test site directory.
         ini_set('log_errors', 1);
-        ini_set('error_log', $app_root . '/' . $test_db->getTestSitePath() . '/error.log');
-
-        // Ensure that a rewritten settings.php is used if opcache is on.
-        ini_set('opcache.validate_timestamps', 'on');
-        ini_set('opcache.revalidate_freq', 0);
+        ini_set('error_log', DRUPAL_ROOT . '/sites/simpletest/' . substr($test_prefix, 10) . '/error.log');
       }
       else {
         // Ensure that no other code defines this.
@@ -1058,65 +830,6 @@ class DrupalKernel implements DrupalKernelInterface, TerminableInterface {
   }
 
   /**
-   * Locate site path and initialize settings singleton.
-   *
-   * @param \Symfony\Component\HttpFoundation\Request $request
-   *   The current request.
-   *
-   * @throws \Symfony\Component\HttpKernel\Exception\BadRequestHttpException
-   *   In case the host name in the request is not trusted.
-   */
-  protected function initializeSettings(Request $request) {
-    $site_path = static::findSitePath($request);
-    $this->setSitePath($site_path);
-    $class_loader_class = get_class($this->classLoader);
-    Settings::initialize($this->root, $site_path, $this->classLoader);
-
-    // Initialize our list of trusted HTTP Host headers to protect against
-    // header attacks.
-    $host_patterns = Settings::get('trusted_host_patterns', []);
-    if (PHP_SAPI !== 'cli' && !empty($host_patterns)) {
-      if (static::setupTrustedHosts($request, $host_patterns) === FALSE) {
-        throw new BadRequestHttpException('The provided host name is not valid for this server.');
-      }
-    }
-
-    // If the class loader is still the same, possibly
-    // upgrade to an optimized class loader.
-    if ($class_loader_class == get_class($this->classLoader)
-        && Settings::get('class_loader_auto_detect', TRUE)) {
-      $prefix = Settings::getApcuPrefix('class_loader', $this->root);
-      $loader = NULL;
-
-      // We autodetect one of the following three optimized classloaders, if
-      // their underlying extension exists.
-      if (function_exists('apcu_fetch')) {
-        $loader = new ApcClassLoader($prefix, $this->classLoader);
-      }
-      elseif (extension_loaded('wincache')) {
-        $loader = new WinCacheClassLoader($prefix, $this->classLoader);
-      }
-      elseif (extension_loaded('xcache')) {
-        $loader = new XcacheClassLoader($prefix, $this->classLoader);
-      }
-      if (!empty($loader)) {
-        $this->classLoader->unregister();
-        // The optimized classloader might be persistent and store cache misses.
-        // For example, once a cache miss is stored in APCu clearing it on a
-        // specific web-head will not clear any other web-heads. Therefore
-        // fallback to the composer class loader that only statically caches
-        // misses.
-        $old_loader = $this->classLoader;
-        $this->classLoader = $loader;
-        // Our class loaders are prepended to ensure they come first like the
-        // class loader they are replacing.
-        $old_loader->register(TRUE);
-        $loader->register(TRUE);
-      }
-    }
-  }
-
-  /**
    * Bootstraps the legacy global request variables.
    *
    * @param \Symfony\Component\HttpFoundation\Request $request
@@ -1125,32 +838,47 @@ class DrupalKernel implements DrupalKernelInterface, TerminableInterface {
    * @todo D8: Eliminate this entirely in favor of Request object.
    */
   protected function initializeRequestGlobals(Request $request) {
+    // Provided by settings.php.
     global $base_url;
     // Set and derived from $base_url by this function.
     global $base_path, $base_root;
     global $base_secure_url, $base_insecure_url;
 
-    // Create base URL.
-    $base_root = $request->getSchemeAndHttpHost();
-    $base_url = $base_root;
-
-    // For a request URI of '/index.php/foo', $_SERVER['SCRIPT_NAME'] is
-    // '/index.php', whereas $_SERVER['PHP_SELF'] is '/index.php/foo'.
-    if ($dir = rtrim(dirname($request->server->get('SCRIPT_NAME')), '\/')) {
-      // Remove "core" directory if present, allowing install.php,
-      // authorize.php, and others to auto-detect a base path.
-      $core_position = strrpos($dir, '/core');
-      if ($core_position !== FALSE && strlen($dir) - 5 == $core_position) {
-        $base_path = substr($dir, 0, $core_position);
+    // @todo Refactor with the Symfony Request object.
+    if (isset($base_url)) {
+      // Parse fixed base URL from settings.php.
+      $parts = parse_url($base_url);
+      if (!isset($parts['path'])) {
+        $parts['path'] = '';
       }
-      else {
-        $base_path = $dir;
-      }
-      $base_url .= $base_path;
-      $base_path .= '/';
+      $base_path = $parts['path'] . '/';
+      // Build $base_root (everything until first slash after "scheme://").
+      $base_root = substr($base_url, 0, strlen($base_url) - strlen($parts['path']));
     }
     else {
-      $base_path = '/';
+      // Create base URL.
+      $base_root = $request->getSchemeAndHttpHost();
+
+      $base_url = $base_root;
+
+      // For a request URI of '/index.php/foo', $_SERVER['SCRIPT_NAME'] is
+      // '/index.php', whereas $_SERVER['PHP_SELF'] is '/index.php/foo'.
+      if ($dir = rtrim(dirname($request->server->get('SCRIPT_NAME')), '\/')) {
+        // Remove "core" directory if present, allowing install.php,
+        // authorize.php, and others to auto-detect a base path.
+        $core_position = strrpos($dir, '/core');
+        if ($core_position !== FALSE && strlen($dir) - 5 == $core_position) {
+          $base_path = substr($dir, 0, $core_position);
+        }
+        else {
+          $base_path = $dir;
+        }
+        $base_url .= $base_path;
+        $base_path .= '/';
+      }
+      else {
+        $base_path = '/';
+      }
     }
     $base_secure_url = str_replace('http://', 'https://', $base_url);
     $base_insecure_url = str_replace('https://', 'http://', $base_url);
@@ -1160,8 +888,8 @@ class DrupalKernel implements DrupalKernelInterface, TerminableInterface {
    * Returns service instances to persist from an old container to a new one.
    */
   protected function getServicesToPersist(ContainerInterface $container) {
-    $persist = [];
-    foreach ($container->getParameter('persist_ids') as $id) {
+    $persist = array();
+    foreach ($container->getParameter('persistIds') as $id) {
       // It's pointless to persist services not yet initialized.
       if ($container->initialized($id)) {
         $persist[$id] = $container->get($id);
@@ -1184,44 +912,27 @@ class DrupalKernel implements DrupalKernelInterface, TerminableInterface {
   }
 
   /**
-   * {@inheritdoc}
+   * Force a container rebuild.
+   *
+   * @return \Symfony\Component\DependencyInjection\ContainerInterface
    */
   public function rebuildContainer() {
     // Empty module properties and for them to be reloaded from scratch.
     $this->moduleList = NULL;
-    $this->moduleData = [];
-    $this->containerNeedsRebuild = TRUE;
-    return $this->initializeContainer();
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function invalidateContainer() {
-    // An invalidated container needs a rebuild.
-    $this->containerNeedsRebuild = TRUE;
-
-    // If we have not yet booted, settings or bootstrap services might not yet
-    // be available. In that case the container will not be loaded from cache
-    // due to the above setting when the Kernel is booted.
-    if (!$this->booted) {
-      return;
-    }
-
-    // Also remove the container definition from the cache backend.
-    $this->bootstrapContainer->get('cache.container')->deleteAll();
+    $this->moduleData = array();
+    return $this->initializeContainer(TRUE);
   }
 
   /**
    * Attach synthetic values on to kernel.
    *
-   * @param \Symfony\Component\DependencyInjection\ContainerInterface $container
+   * @param ContainerInterface $container
    *   Container object
    *
-   * @return \Symfony\Component\DependencyInjection\ContainerInterface
+   * @return ContainerInterface
    */
   protected function attachSynthetic(ContainerInterface $container) {
-    $persist = [];
+    $persist = array();
     if (isset($this->container)) {
       $persist = $this->getServicesToPersist($this->container);
     }
@@ -1241,7 +952,7 @@ class DrupalKernel implements DrupalKernelInterface, TerminableInterface {
   /**
    * Compiles a new service container.
    *
-   * @return \Drupal\Core\DependencyInjection\ContainerBuilder The compiled service container
+   * @return ContainerBuilder The compiled service container
    */
   protected function compileContainer() {
     // We are forcing a container build so it is reasonable to assume that the
@@ -1255,7 +966,6 @@ class DrupalKernel implements DrupalKernelInterface, TerminableInterface {
     $container = $this->getContainerBuilder();
     $container->set('kernel', $this);
     $container->setParameter('container.modules', $this->getModulesParameter());
-    $container->setParameter('install_profile', $this->getInstallProfile());
 
     // Get a list of namespaces and put it onto the container.
     $namespaces = $this->getModuleNamespacesPsr4($this->getModuleFileNames());
@@ -1264,7 +974,7 @@ class DrupalKernel implements DrupalKernelInterface, TerminableInterface {
     // - Element
     // - Entity
     // - Plugin
-    foreach (['Core', 'Component'] as $parent_directory) {
+    foreach (array('Core', 'Component') as $parent_directory) {
       $path = 'core/lib/Drupal/' . $parent_directory;
       $parent_namespace = 'Drupal\\' . $parent_directory;
       foreach (new \DirectoryIterator($this->root . '/' . $path) as $component) {
@@ -1289,7 +999,7 @@ class DrupalKernel implements DrupalKernelInterface, TerminableInterface {
     $default_language_values = Language::$defaultValues;
     if ($system = $this->getConfigStorage()->read('system.site')) {
       if ($default_language_values['id'] != $system['langcode']) {
-        $default_language_values = ['id' => $system['langcode']];
+        $default_language_values = array('id' => $system['langcode']);
       }
     }
     $container->setParameter('language.default_values', $default_language_values);
@@ -1323,14 +1033,13 @@ class DrupalKernel implements DrupalKernelInterface, TerminableInterface {
     // the container during the lifetime of the kernel (e.g., during a kernel
     // reboot). Include synthetic services, because by definition, they cannot
     // be automatically reinstantiated. Also include services tagged to persist.
-    $persist_ids = [];
+    $persist_ids = array();
     foreach ($container->getDefinitions() as $id => $definition) {
-      // It does not make sense to persist the container itself, exclude it.
-      if ($id !== 'service_container' && ($definition->isSynthetic() || $definition->getTag('persist'))) {
+      if ($definition->isSynthetic() || $definition->getTag('persist')) {
         $persist_ids[] = $id;
       }
     }
-    $container->setParameter('persist_ids', $persist_ids);
+    $container->setParameter('persistIds', $persist_ids);
 
     $container->compile();
     return $container;
@@ -1343,18 +1052,13 @@ class DrupalKernel implements DrupalKernelInterface, TerminableInterface {
    */
   protected function initializeServiceProviders() {
     $this->discoverServiceProviders();
-    $this->serviceProviders = [
-      'app' => [],
-      'site' => [],
-    ];
+    $this->serviceProviders = array(
+      'app' => array(),
+      'site' => array(),
+    );
     foreach ($this->serviceProviderClasses as $origin => $classes) {
       foreach ($classes as $name => $class) {
-        if (!is_object($class)) {
-          $this->serviceProviders[$origin][$name] = new $class();
-        }
-        else {
-          $this->serviceProviders[$origin][$name] = $class;
-        }
+        $this->serviceProviders[$origin][$name] = new $class;
       }
     }
   }
@@ -1362,35 +1066,43 @@ class DrupalKernel implements DrupalKernelInterface, TerminableInterface {
   /**
    * Gets a new ContainerBuilder instance used to build the service container.
    *
-   * @return \Drupal\Core\DependencyInjection\ContainerBuilder
+   * @return ContainerBuilder
    */
   protected function getContainerBuilder() {
     return new ContainerBuilder(new ParameterBag($this->getKernelParameters()));
   }
 
   /**
-   * Stores the container definition in a cache.
+   * Dumps the service container to PHP code in the config directory.
    *
-   * @param array $container_definition
-   *   The container definition to cache.
+   * This method is based on the dumpContainer method in the parent class, but
+   * that method is reliant on the Config component which we do not use here.
+   *
+   * @param ContainerBuilder $container
+   *   The service container.
+   * @param string $baseClass
+   *   The name of the container's base class
    *
    * @return bool
-   *   TRUE if the container was successfully cached.
+   *   TRUE if the container was successfully dumped to disk.
    */
-  protected function cacheDrupalContainer(array $container_definition) {
-    $saved = TRUE;
-    try {
-      $this->bootstrapContainer->get('cache.container')->set($this->getContainerCacheKey(), $container_definition);
+  protected function dumpDrupalContainer(ContainerBuilder $container, $baseClass) {
+    if (!$this->storage()->writeable()) {
+      return FALSE;
     }
-    catch (\Exception $e) {
-      // There is no way to get from the Cache API if the cache set was
-      // successful or not, hence an Exception is caught and the caller informed
-      // about the error condition.
-      $saved = FALSE;
-    }
-
-    return $saved;
+    // Cache the container.
+    $dumper = new PhpDumper($container);
+    $dumper->setProxyDumper(new ProxyDumper(new ProxyBuilder()));
+    $class = $this->getClassName();
+    $namespace = $this->getClassNamespace();
+    $content = $dumper->dump([
+      'class' => $class,
+      'base_class' => $baseClass,
+      'namespace' => $namespace,
+    ]);
+    return $this->storage()->save($class . '.php', $content);
   }
+
 
   /**
    * Gets a http kernel from the container
@@ -1399,6 +1111,18 @@ class DrupalKernel implements DrupalKernelInterface, TerminableInterface {
    */
   protected function getHttpKernel() {
     return $this->container->get('http_kernel');
+  }
+
+  /**
+   * Gets the PHP code storage object to use for the compiled container.
+   *
+   * @return \Drupal\Component\PhpStorage\PhpStorageInterface
+   */
+  protected function storage() {
+    if (!isset($this->storage)) {
+      $this->storage = PhpStorageFactory::get('service_container');
+    }
+    return $this->storage;
   }
 
   /**
@@ -1426,14 +1150,14 @@ class DrupalKernel implements DrupalKernelInterface, TerminableInterface {
    * @return array
    */
   protected function getModulesParameter() {
-    $extensions = [];
+    $extensions = array();
     foreach ($this->moduleList as $name => $weight) {
       if ($data = $this->moduleData($name)) {
-        $extensions[$name] = [
+        $extensions[$name] = array(
           'type' => $data->getType(),
           'pathname' => $data->getPathname(),
           'filename' => $data->getExtensionFilename(),
-        ];
+        );
       }
     }
     return $extensions;
@@ -1444,10 +1168,10 @@ class DrupalKernel implements DrupalKernelInterface, TerminableInterface {
    *
    * @return array
    *   Array where each key is a module name, and each value is a path to the
-   *   respective *.info.yml file.
+   *   respective *.module or *.profile file.
    */
   protected function getModuleFileNames() {
-    $filenames = [];
+    $filenames = array();
     foreach ($this->moduleList as $module => $weight) {
       if ($data = $this->moduleData($module)) {
         $filenames[$module] = $data->getPathname();
@@ -1461,14 +1185,14 @@ class DrupalKernel implements DrupalKernelInterface, TerminableInterface {
    *
    * @param string[] $module_file_names
    *   Array where each key is a module name, and each value is a path to the
-   *   respective *.info.yml file.
+   *   respective *.module or *.profile file.
    *
    * @return string[]
    *   Array where each key is a module namespace like 'Drupal\system', and each
    *   value is the PSR-4 base directory associated with the module namespace.
    */
   protected function getModuleNamespacesPsr4($module_file_names) {
-    $namespaces = [];
+    $namespaces = array();
     foreach ($module_file_names as $module => $filename) {
       $namespaces["Drupal\\$module"] = dirname($filename) . '/src';
     }
@@ -1482,15 +1206,8 @@ class DrupalKernel implements DrupalKernelInterface, TerminableInterface {
    *   Array where each key is a namespace like 'Drupal\system', and each value
    *   is either a PSR-4 base directory, or an array of PSR-4 base directories
    *   associated with this namespace.
-   * @param object $class_loader
-   *   The class loader. Normally \Composer\Autoload\ClassLoader, as included by
-   *   the front controller, but may also be decorated; e.g.,
-   *   \Symfony\Component\ClassLoader\ApcClassLoader.
    */
-  protected function classLoaderAddMultiplePsr4(array $namespaces = [], $class_loader = NULL) {
-    if ($class_loader === NULL) {
-      $class_loader = $this->classLoader;
-    }
+  protected function classLoaderAddMultiplePsr4(array $namespaces = array()) {
     foreach ($namespaces as $prefix => $paths) {
       if (is_array($paths)) {
         foreach ($paths as $key => $value) {
@@ -1500,7 +1217,7 @@ class DrupalKernel implements DrupalKernelInterface, TerminableInterface {
       elseif (is_string($paths)) {
         $paths = $this->root . '/' . $paths;
       }
-      $class_loader->addPsr4($prefix . '\\', $paths);
+      $this->classLoader->addPsr4($prefix . '\\', $paths);
     }
   }
 
@@ -1530,7 +1247,9 @@ class DrupalKernel implements DrupalKernelInterface, TerminableInterface {
    *   The request object
    *
    * @return bool
-   *   TRUE if the hostname is valid, or FALSE otherwise.
+   *   TRUE if the hostmame is valid, or FALSE otherwise.
+   *
+   * @todo Adjust per resolution to https://github.com/symfony/symfony/issues/12349
    */
   public static function validateHostname(Request $request) {
     // $request->getHost() can throw an UnexpectedValueException if it
@@ -1556,7 +1275,7 @@ class DrupalKernel implements DrupalKernelInterface, TerminableInterface {
    * is possible to create an attack vectors against a site by overriding this.
    * Symfony provides a mechanism for creating a list of trusted Host values.
    *
-   * Host patterns (as regular expressions) can be configured through
+   * Host patterns (as regular expressions) can be configured throught
    * settings.php for multisite installations, sites using ServerAlias without
    * canonical redirection, or configurations where the site responds to default
    * requests. For example,
@@ -1573,10 +1292,10 @@ class DrupalKernel implements DrupalKernelInterface, TerminableInterface {
    * @param array $host_patterns
    *   The array of trusted host patterns.
    *
-   * @return bool
+   * @return boolean
    *   TRUE if the Host header is trusted, FALSE otherwise.
    *
-   * @see https://www.drupal.org/docs/8/install/trusted-host-settings
+   * @see https://www.drupal.org/node/1992030
    * @see \Drupal\Core\Http\TrustedHostsRequestFactory
    */
   protected static function setupTrustedHosts(Request $request, $host_patterns) {
@@ -1606,33 +1325,17 @@ class DrupalKernel implements DrupalKernelInterface, TerminableInterface {
   /**
    * Add service files.
    *
-   * @param string[] $service_yamls
+   * @param $service_yamls
    *   A list of service files.
-   */
-  protected function addServiceFiles(array $service_yamls) {
-    $this->serviceYamls['site'] = array_filter($service_yamls, 'file_exists');
-  }
-
-  /**
-   * Gets the active install profile.
    *
-   * @return string|null
-   *   The name of the any active install profile or distribution.
+   * @return bool
+   *   TRUE if the list was an array, FALSE otherwise.
    */
-  protected function getInstallProfile() {
-    $config = $this->getConfigStorage()->read('core.extension');
-    if (isset($config['profile'])) {
-      $install_profile = $config['profile'];
+  protected function addServiceFiles($service_yamls) {
+    if (is_array($service_yamls)) {
+      $this->serviceYamls['site'] = array_filter($service_yamls, 'file_exists');
+      return TRUE;
     }
-    // @todo https://www.drupal.org/node/2831065 remove the BC layer.
-    else {
-      // If system_update_8300() has not yet run fallback to using settings.
-      $settings = Settings::getAll();
-      $install_profile = isset($settings['install_profile']) ? $settings['install_profile'] : NULL;
-    }
-
-    // Normalize an empty string to a NULL value.
-    return empty($install_profile) ? NULL : $install_profile;
+    return FALSE;
   }
-
 }

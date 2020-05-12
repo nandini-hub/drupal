@@ -23,8 +23,11 @@
 {% endif %}
 
 {% if tips|length %}
-  {% for name, tip in tips %}
+  {% if multiple %}
+    <div>
+  {% endif %}
 
+  {% for name, tip in tips %}
     {% if multiple %}
       <div{{ attributes }}>
       <h3>{{ tip.name }}</h3>
@@ -41,6 +44,9 @@
     {% if multiple %}
       </div>
     {% endif %}
-
   {% endfor %}
+
+  {% if multiple %}
+    </div>
+  {% endif %}
 {% endif %}

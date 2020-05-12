@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\form_test\Form\RedirectBlockForm.
+ */
+
 namespace Drupal\form_test\Form;
 
 use Drupal\Core\Form\FormBase;
@@ -7,8 +12,6 @@ use Drupal\Core\Form\FormStateInterface;
 
 /**
  * Builds a simple form that redirects on submit.
- *
- * @internal
  *
  * @see \Drupal\form_test\Plugin\Block\RedirectFormBlock
  */
@@ -25,8 +28,8 @@ class RedirectBlockForm extends FormBase {
    * {@inheritdoc}
    */
   public function buildForm(array $form, FormStateInterface $form_state) {
-    $form['actions'] = ['#type' => 'actions'];
-    $form['actions']['submit'] = ['#type' => 'submit', '#value' => $this->t('Submit')];
+    $form['actions'] = array('#type' => 'actions');
+    $form['actions']['submit'] = array('#type' => 'submit', '#value' => $this->t('Submit'));
 
     return $form;
   }
@@ -35,7 +38,6 @@ class RedirectBlockForm extends FormBase {
    * {@inheritdoc}
    */
   public function submitForm(array &$form, FormStateInterface $form_state) {
-    $form_state->setRedirect('form_test.route1', [], ['query' => ['test1' => 'test2']]);
+    $form_state->setRedirect('form_test.route1', array(), array('query' => array('test1' => 'test2')));
   }
-
 }

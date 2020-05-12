@@ -1,13 +1,18 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\file\FileStorageInterface.
+ */
+
 namespace Drupal\file;
 
-use Drupal\Core\Entity\ContentEntityStorageInterface;
+use Drupal\Core\Entity\EntityStorageInterface;
 
 /**
  * Defines an interface for file entity storage classes.
  */
-interface FileStorageInterface extends ContentEntityStorageInterface {
+interface FileStorageInterface extends EntityStorageInterface {
 
   /**
    * Determines total disk space used by a single user or the whole filesystem.
@@ -23,5 +28,4 @@ interface FileStorageInterface extends ContentEntityStorageInterface {
    *   An integer containing the number of bytes used.
    */
   public function spaceUsed($uid = NULL, $status = FILE_STATUS_PERMANENT);
-
 }

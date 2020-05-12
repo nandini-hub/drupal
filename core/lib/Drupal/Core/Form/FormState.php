@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Form\FormState.
+ */
+
 namespace Drupal\Core\Form;
 
 use Drupal\Component\Utility\NestedArray;
@@ -10,8 +15,6 @@ use Symfony\Component\HttpFoundation\Response;
  * Stores information about the state of a form.
  */
 class FormState implements FormStateInterface {
-
-  use FormStateValuesTrait;
 
   /**
    * Tracks if any errors have been set on any form.
@@ -63,10 +66,10 @@ class FormState implements FormStateInterface {
    *
    * @var array
    */
-  protected $build_info = [
-    'args' => [],
-    'files' => [],
-  ];
+  protected $build_info = array(
+    'args' => array(),
+    'files' => array(),
+  );
 
   /**
    * Similar to self::$build_info, but pertaining to
@@ -76,7 +79,7 @@ class FormState implements FormStateInterface {
    *
    * @var array
    */
-  protected $rebuild_info = [];
+  protected $rebuild_info = array();
 
   /**
    * Normally, after the entire form processing is completed and submit handlers
@@ -87,8 +90,8 @@ class FormState implements FormStateInterface {
    * copy of the form is immediately built and sent to the browser, instead of a
    * redirect. This is used for multi-step forms, such as wizards and
    * confirmation forms. Normally, self::$rebuild is set by a submit handler,
-   * since it is usually logic within a submit handler that determines whether a
-   * form is done or requires another step. However, a validation handler may
+   * since its is usually logic within a submit handler that determines whether
+   * a form is done or requires another step. However, a validation handler may
    * already set self::$rebuild to cause the form processing to bypass submit
    * handlers and rebuild the form instead, even if there are no validation
    * errors.
@@ -100,19 +103,6 @@ class FormState implements FormStateInterface {
    * @var bool
    */
   protected $rebuild = FALSE;
-
-  /**
-   * If set to TRUE the form will skip calling form element value callbacks,
-   * except for a select list of callbacks provided by Drupal core that are
-   * known to be safe.
-   *
-   * This property is uncacheable.
-   *
-   * @see self::setInvalidToken()
-   *
-   * @var bool
-   */
-  protected $invalidToken = FALSE;
 
   /**
    * Used when a form needs to return some kind of a
@@ -151,29 +141,16 @@ class FormState implements FormStateInterface {
   /**
    * The HTTP form method to use for finding the input for this form.
    *
-   * May be 'POST' or 'GET'. Defaults to 'POST'. Note that 'GET' method forms do
+   * May be 'post' or 'get'. Defaults to 'post'. Note that 'get' method forms do
    * not use form ids so are always considered to be submitted, which can have
-   * unexpected effects. The 'GET' method should only be used on forms that do
-   * not change data, as that is exclusively the domain of 'POST.'
+   * unexpected effects. The 'get' method should only be used on forms that do
+   * not change data, as that is exclusively the domain of 'post.'
    *
    * This property is uncacheable.
    *
    * @var string
    */
-  protected $method = 'POST';
-
-  /**
-   * The HTTP method used by the request building or processing this form.
-   *
-   * May be any valid HTTP method. Defaults to 'GET', because even though
-   * $method is 'POST' for most forms, the form's initial build is usually
-   * performed as part of a GET request.
-   *
-   * This property is uncacheable.
-   *
-   * @var string
-   */
-  protected $requestMethod = 'GET';
+  protected $method = 'post';
 
   /**
    * If set to TRUE the original, unprocessed form structure will be cached,
@@ -209,14 +186,15 @@ class FormState implements FormStateInterface {
    *
    * The validation functions and submit functions use this array for nearly all
    * their decision making. (Note that #tree determines whether the values are a
-   * flat array or an array whose structure parallels the $form array. See
-   * \Drupal\Core\Render\Element\FormElement for more information.)
+   * flat array or an array whose structure parallels the $form array. See the
+   * @link forms_api_reference.html Form API reference @endlink for more
+   * information.)
    *
    * This property is uncacheable.
    *
    * @var array
    */
-  protected $values = [];
+  protected $values = array();
 
   /**
    * An associative array of form value keys to be removed by cleanValues().
@@ -248,8 +226,7 @@ class FormState implements FormStateInterface {
    *
    * This property is uncacheable.
    *
-   * @var array|null
-   *   The submitted user input array, or NULL if no input was submitted yet.
+   * @var array
    */
   protected $input;
 
@@ -348,27 +325,27 @@ class FormState implements FormStateInterface {
    *
    * @var array
    */
-  protected $groups = [];
+  protected $groups = array();
 
   /**
-   * This is not a special key, and no specific support is provided for it in
-   * the Form API. By tradition it was the location where application-specific
-   * data was stored for communication between the submit, validation, and form
-   * builder functions, especially in a multi-step-style form. Form
-   * implementations may use any key(s) within $form_state (other than the keys
-   * listed here and other reserved ones used by Form API internals) for this
-   * kind of storage. The recommended way to ensure that the chosen key doesn't
-   * conflict with ones used by the Form API or other modules is to use the
-   * module name as the key name or a prefix for the key name. For example, the
-   * entity form classes use $this->entity in entity forms, or
-   * $form_state->getFormObject()->getEntity() outside the controller, to store
-   * information about the entity being edited, and this information stays
-   * available across successive clicks of the "Preview" button (if available)
-   * as well as when the "Save" button is finally clicked.
+   *  This is not a special key, and no specific support is provided for it in
+   *  the Form API. By tradition it was the location where application-specific
+   *  data was stored for communication between the submit, validation, and form
+   *  builder functions, especially in a multi-step-style form. Form
+   *  implementations may use any key(s) within $form_state (other than the keys
+   *  listed here and other reserved ones used by Form API internals) for this
+   *  kind of storage. The recommended way to ensure that the chosen key doesn't
+   *  conflict with ones used by the Form API or other modules is to use the
+   *  module name as the key name or a prefix for the key name. For example, the
+   *  entity form classes use $this->entity in entity forms, or
+   *  $form_state->getFormObject()->getEntity() outside the controller, to store
+   *  information about the entity being edited, and this information stays
+   *  available across successive clicks of the "Preview" button (if available)
+   *  as well as when the "Save" button is finally clicked.
    *
    * @var array
    */
-  protected $storage = [];
+  protected $storage = array();
 
   /**
    * A list containing copies of all submit and button elements in the form.
@@ -377,7 +354,7 @@ class FormState implements FormStateInterface {
    *
    * @var array
    */
-  protected $buttons = [];
+  protected $buttons = array();
 
   /**
    * Holds temporary data accessible during the current page request only.
@@ -413,7 +390,7 @@ class FormState implements FormStateInterface {
    *
    * @var array
    */
-  protected $errors = [];
+  protected $errors = array();
 
   /**
    * Stores which errors should be limited during validation.
@@ -498,12 +475,6 @@ class FormState implements FormStateInterface {
    * {@inheritdoc}
    */
   public function setCached($cache = TRUE) {
-    // Persisting $form_state is a side-effect disallowed during a "safe" HTTP
-    // method.
-    if ($cache && $this->isRequestMethodSafe()) {
-      throw new \LogicException(sprintf('Form state caching on %s requests is not allowed.', $this->requestMethod));
-    }
-
     $this->cache = (bool) $cache;
     return $this;
   }
@@ -601,29 +572,6 @@ class FormState implements FormStateInterface {
   /**
    * {@inheritdoc}
    */
-  public function setRequestMethod($method) {
-    $this->requestMethod = strtoupper($method);
-    return $this;
-  }
-
-  /**
-   * Checks whether the request method is a "safe" HTTP method.
-   *
-   * Link below defines GET and HEAD as "safe" methods, meaning they SHOULD NOT
-   * have side-effects, such as persisting $form_state changes.
-   *
-   * @return bool
-   *
-   * @see \Symfony\Component\HttpFoundation\Request::isMethodSafe()
-   * @see http://www.w3.org/Protocols/rfc2616/rfc2616-sec9.html#sec9.1.1
-   */
-  protected function isRequestMethodSafe() {
-    return in_array($this->requestMethod, ['GET', 'HEAD']);
-  }
-
-  /**
-   * {@inheritdoc}
-   */
   public function setValidationEnforced($must_validate = TRUE) {
     $this->must_validate = (bool) $must_validate;
     return $this;
@@ -648,7 +596,7 @@ class FormState implements FormStateInterface {
    * {@inheritdoc}
    */
   public function isRedirectDisabled() {
-    return $this->no_redirect;
+   return $this->no_redirect;
   }
 
   /**
@@ -862,11 +810,11 @@ class FormState implements FormStateInterface {
     if (!isset($build_info['files']["$module:$name.$type"])) {
       // Only add successfully included files to the form state.
       if ($result = $this->moduleLoadInclude($module, $type, $name)) {
-        $build_info['files']["$module:$name.$type"] = [
+        $build_info['files']["$module:$name.$type"] = array(
           'type' => $type,
           'module' => $module,
           'name' => $name,
-        ];
+        );
         $this->setBuildInfo($build_info);
         return $result;
       }
@@ -983,6 +931,67 @@ class FormState implements FormStateInterface {
   /**
    * {@inheritdoc}
    */
+  public function &getValue($key, $default = NULL) {
+    $exists = NULL;
+    $value = &NestedArray::getValue($this->getValues(), (array) $key, $exists);
+    if (!$exists) {
+      $value = $default;
+    }
+    return $value;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function setValues(array $values) {
+    $this->values = $values;
+    return $this;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function setValue($key, $value) {
+    NestedArray::setValue($this->getValues(), (array) $key, $value, TRUE);
+    return $this;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function unsetValue($key) {
+    NestedArray::unsetValue($this->getValues(), (array) $key);
+    return $this;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function hasValue($key) {
+    $exists = NULL;
+    $value = NestedArray::getValue($this->getValues(), (array) $key, $exists);
+    return $exists && isset($value);
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function isValueEmpty($key) {
+    $exists = NULL;
+    $value = NestedArray::getValue($this->getValues(), (array) $key, $exists);
+    return !$exists || empty($value);
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function setValueForElement(array $element, $value) {
+    return $this->setValue($element['#parents'], $value);
+  }
+
+  /**
+   * {@inheritdoc}
+   */
   public function setResponse(Response $response) {
     $this->response = $response;
     return $this;
@@ -998,7 +1007,7 @@ class FormState implements FormStateInterface {
   /**
    * {@inheritdoc}
    */
-  public function setRedirect($route_name, array $route_parameters = [], array $options = []) {
+  public function setRedirect($route_name, array $route_parameters = array(), array $options = array()) {
     $url = new Url($route_name, $route_parameters, $options);
     return $this->setRedirectUrl($url);
   }
@@ -1081,6 +1090,9 @@ class FormState implements FormStateInterface {
         $errors[$name] = $message;
         $this->errors = $errors;
         static::setAnyErrors();
+        if ($message) {
+          $this->drupalSetMessage($message, 'error');
+        }
       }
     }
 
@@ -1107,8 +1119,8 @@ class FormState implements FormStateInterface {
    * {@inheritdoc}
    */
   public function getError(array $element) {
-    if ($errors = $this->getErrors()) {
-      $parents = [];
+    if ($errors = $this->getErrors($this)) {
+      $parents = array();
       foreach ($element['#parents'] as $parent) {
         $parents[] = $parent;
         $key = implode('][', $parents);
@@ -1186,7 +1198,7 @@ class FormState implements FormStateInterface {
    */
   public function addCleanValueKey($cleanValueKey) {
     $keys = $this->getCleanValueKeys();
-    $this->setCleanValueKeys(array_merge((array) $keys, [$cleanValueKey]));
+    $this->setCleanValueKeys(array_merge((array)$keys, [$cleanValueKey]));
     return $this;
   }
 
@@ -1233,18 +1245,12 @@ class FormState implements FormStateInterface {
   }
 
   /**
-   * {@inheritdoc}
+   * Wraps drupal_set_message().
+   *
+   * @return array|null
    */
-  public function setInvalidToken($invalid_token) {
-    $this->invalidToken = (bool) $invalid_token;
-    return $this;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function hasInvalidToken() {
-    return $this->invalidToken;
+  protected function drupalSetMessage($message = NULL, $type = 'status', $repeat = FALSE) {
+    return drupal_set_message($message, $type, $repeat);
   }
 
   /**

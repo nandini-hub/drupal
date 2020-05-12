@@ -1,6 +1,13 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Tests\Core\Render\RendererRecursionTest.
+ */
+
 namespace Drupal\Tests\Core\Render;
+
+use Drupal\Core\Render\Element;
 
 /**
  * @coversDefaultClass \Drupal\Core\Render\Renderer
@@ -13,13 +20,22 @@ class RendererRecursionTest extends RendererTestBase {
     $parent_markup = '<p>Rendered!</p>';
 
     $complex_child_template = [
+      '#markup' => $complex_child_markup,
+      '#attached' => [
+        'library' => [
+          'core/drupal',
+        ],
+      ],
       '#cache' => [
         'tags' => [
           'test:complex_child',
         ],
       ],
-      '#lazy_builder' => ['Drupal\Tests\Core\Render\PlaceholdersTest::callback', [$this->getRandomGenerator()->string()]],
-      '#create_placeholder' => TRUE,
+      '#post_render_cache' => [
+        'Drupal\Tests\Core\Render\PostRenderCache::callback' => [
+          ['foo' => $this->getRandomGenerator()->string()],
+        ],
+      ],
     ];
 
     return [$complex_child_markup, $parent_markup, $complex_child_template];
@@ -31,6 +47,8 @@ class RendererRecursionTest extends RendererTestBase {
    * @covers ::renderRoot
    * @covers ::render
    * @covers ::doRender
+   *
+   * @expectedException \LogicException
    */
   public function testRenderRecursionWithNestedRenderRoot() {
     list($complex_child_markup, $parent_markup, $complex_child_template) = $this->setUpRenderRecursionComplexElements();
@@ -39,17 +57,16 @@ class RendererRecursionTest extends RendererTestBase {
 
     $complex_child = $complex_child_template;
     $callable = function () use ($renderer, $complex_child) {
-      $this->expectException(\LogicException::class);
       $renderer->renderRoot($complex_child);
     };
 
     $page = [
       'content' => [
         '#pre_render' => [
-          $callable,
+          $callable
         ],
         '#suffix' => $parent_markup,
-      ],
+      ]
     ];
     $renderer->renderRoot($page);
   }
@@ -69,25 +86,27 @@ class RendererRecursionTest extends RendererTestBase {
     $renderer = $this->renderer;
     $this->setUpRequest();
 
-    $callable = function ($markup) use ($renderer, $complex_child_template) {
-      $this->assertTrue(strpos($markup, '<drupal-render-placeholder') === 0, 'Rendered complex child output as expected, without the placeholder replaced, i.e. with just the placeholder.');
-      return $markup;
+    $complex_child = $complex_child_template;
+
+    $callable = function ($elements) use ($renderer, $complex_child, $complex_child_markup, $parent_markup) {
+      $elements['#markup'] = $renderer->render($complex_child);
+      $this->assertEquals($complex_child_markup, $elements['#markup'], 'Rendered complex child output as expected, without the #post_render_cache callback executed.');
+      return $elements;
     };
 
     $page = [
       'content' => [
-        'complex_child' => $complex_child_template,
-        '#post_render' => [
-          $callable,
+        '#pre_render' => [
+          $callable
         ],
         '#suffix' => $parent_markup,
-      ],
+      ]
     ];
     $output = $renderer->renderRoot($page);
 
-    $this->assertEquals('<p>This is a rendered placeholder!</p><p>Rendered!</p>', $output, 'Rendered output as expected, with the placeholder replaced.');
+    $this->assertEquals('<p>overridden</p>', $output, 'Rendered output as expected, with the #post_render_cache callback executed.');
     $this->assertTrue(in_array('test:complex_child', $page['#cache']['tags']), 'Cache tag bubbling performed.');
-    $this->assertTrue(in_array('dynamic_animal', array_keys($page['#attached']['drupalSettings'])), 'Asset bubbling performed.');
+    $this->assertTrue(in_array('core/drupal', $page['#attached']['library']), 'Asset bubbling performed.');
   }
 
   /**
@@ -107,20 +126,20 @@ class RendererRecursionTest extends RendererTestBase {
 
     $callable = function ($elements) use ($renderer, $complex_child, $parent_markup) {
       $elements['#markup'] = $renderer->renderPlain($complex_child);
-      $this->assertEquals('<p>This is a rendered placeholder!</p>', $elements['#markup'], 'Rendered complex child output as expected, with the placeholder replaced.');
+      $this->assertEquals('<p>overridden</p>', $elements['#markup'], 'Rendered complex child output as expected, with the #post_render_cache callback executed.');
       return $elements;
     };
 
     $page = [
       'content' => [
         '#pre_render' => [
-          $callable,
+          $callable
         ],
         '#suffix' => $parent_markup,
-      ],
+      ]
     ];
     $output = $renderer->renderRoot($page);
-    $this->assertEquals('<p>This is a rendered placeholder!</p>' . $parent_markup, $output, 'Rendered output as expected, with the placeholder replaced.');
+    $this->assertEquals('<p>overridden</p>' . $parent_markup, $output, 'Rendered output as expected, with the #post_render_cache callback executed.');
     $this->assertFalse(in_array('test:complex_child', $page['#cache']['tags']), 'Cache tag bubbling not performed.');
     $this->assertTrue(empty($page['#attached']), 'Asset bubbling not performed.');
   }

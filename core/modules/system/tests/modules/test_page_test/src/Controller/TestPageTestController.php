@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\test_page_test\Controller\TestPageTestController.
+ */
+
 namespace Drupal\test_page_test\Controller;
 
 /**
@@ -8,19 +13,10 @@ namespace Drupal\test_page_test\Controller;
 class TestPageTestController {
 
   /**
-   * Returns a test page and sets the title.
+   * @todo Remove test_page_test_page().
    */
   public function testPage() {
-    $link_text = t('Visually identical test links');
-    return [
-      '#title' => t('Test page'),
-      '#markup' => t('Test page text.') . "<a href=\"/user/login\">$link_text</a><a href=\"/user/register\">$link_text</a>",
-      '#attached' => [
-        'drupalSettings' => [
-          'test-setting' => 'azAZ09();.,\\\/-_{}',
-        ],
-      ],
-    ];
+    return test_page_test_page();
   }
 
 }

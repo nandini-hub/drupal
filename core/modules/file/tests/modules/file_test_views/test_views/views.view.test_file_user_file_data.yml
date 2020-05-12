@@ -11,6 +11,7 @@ description: ''
 tag: ''
 base_table: users_field_data
 base_field: uid
+core: 8.x
 display:
   default:
     display_plugin: default
@@ -23,7 +24,7 @@ display:
         options:
           perm: 'access user profiles'
       cache:
-        type: tag
+        type: none
       style:
         type: table
         options:

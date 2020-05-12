@@ -1,8 +1,14 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\text\Plugin\Field\FieldWidget\TextareaWithSummaryWidget.
+ */
+
 namespace Drupal\text\Plugin\Field\FieldWidget;
 
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\text\Plugin\Field\FieldWidget\TextareaWidget;
 use Symfony\Component\Validator\ConstraintViolationInterface;
 use Drupal\Core\Field\FieldItemListInterface;
 
@@ -23,12 +29,11 @@ class TextareaWithSummaryWidget extends TextareaWidget {
    * {@inheritdoc}
    */
   public static function defaultSettings() {
-    return [
+    return array(
       'rows' => '9',
       'summary_rows' => '3',
       'placeholder' => '',
-      'show_summary' => FALSE,
-    ] + parent::defaultSettings();
+    ) + parent::defaultSettings();
   }
 
   /**
@@ -36,19 +41,13 @@ class TextareaWithSummaryWidget extends TextareaWidget {
    */
   public function settingsForm(array $form, FormStateInterface $form_state) {
     $element = parent::settingsForm($form, $form_state);
-    $element['summary_rows'] = [
+    $element['summary_rows'] = array(
       '#type' => 'number',
       '#title' => t('Summary rows'),
       '#default_value' => $this->getSetting('summary_rows'),
-      '#description' => $element['rows']['#description'],
       '#required' => TRUE,
       '#min' => 1,
-    ];
-    $element['show_summary'] = [
-      '#type' => 'checkbox',
-      '#title' => t('Always show the summary field'),
-      '#default_value' => $this->getSetting('show_summary'),
-    ];
+    );
     return $element;
   }
 
@@ -58,10 +57,7 @@ class TextareaWithSummaryWidget extends TextareaWidget {
   public function settingsSummary() {
     $summary = parent::settingsSummary();
 
-    $summary[] = t('Number of summary rows: @rows', ['@rows' => $this->getSetting('summary_rows')]);
-    if ($this->getSetting('show_summary')) {
-      $summary[] = t('Summary field will always be visible');
-    }
+    $summary[] = t('Number of summary rows: !rows', array('!rows' => $this->getSetting('summary_rows')));
 
     return $summary;
   }
@@ -69,28 +65,24 @@ class TextareaWithSummaryWidget extends TextareaWidget {
   /**
    * {@inheritdoc}
    */
-  public function formElement(FieldItemListInterface $items, $delta, array $element, array &$form, FormStateInterface $form_state) {
+  function formElement(FieldItemListInterface $items, $delta, array $element, array &$form, FormStateInterface $form_state) {
     $element = parent::formElement($items, $delta, $element, $form, $form_state);
 
     $display_summary = $items[$delta]->summary || $this->getFieldSetting('display_summary');
-    $required = empty($form['#type']) && $this->getFieldSetting('required_summary');
-
-    $element['summary'] = [
+    $element['summary'] = array(
       '#type' => $display_summary ? 'textarea' : 'value',
       '#default_value' => $items[$delta]->summary,
       '#title' => t('Summary'),
       '#rows' => $this->getSetting('summary_rows'),
-      '#description' => !$required ? $this->t('Leave blank to use trimmed value of full text as the summary.') : '',
-      '#attributes' => ['class' => ['js-text-summary', 'text-summary']],
-      '#prefix' => '<div class="js-text-summary-wrapper text-summary-wrapper">',
+      '#description' => t('Leave blank to use trimmed value of full text as the summary.'),
+      '#attached' => array(
+        'library' => array('text/drupal.text'),
+      ),
+      '#attributes' => array('class' => array('text-summary')),
+      '#prefix' => '<div class="text-summary-wrapper">',
       '#suffix' => '</div>',
       '#weight' => -10,
-      '#required' => $required,
-    ];
-
-    if (!$this->getSetting('show_summary') && !$required) {
-      $element['summary']['#attached']['library'][] = 'text/drupal.text';
-    }
+    );
 
     return $element;
   }

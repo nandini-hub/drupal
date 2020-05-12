@@ -1,19 +1,19 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\taxonomy\Tests\TaxonomyTranslationTestTrait.
+ */
+
 namespace Drupal\taxonomy\Tests;
 
-@trigger_error(__NAMESPACE__ . '\TaxonomyTranslationTestTrait is deprecated in Drupal 8.4.0 and will be removed before Drupal 9.0.0. Instead, use \Drupal\Tests\taxonomy\Functional\TaxonomyTranslationTestTrait', E_USER_DEPRECATED);
-
 use Drupal\Core\Field\FieldStorageDefinitionInterface;
+use Drupal\entity_reference\Tests\EntityReferenceTestTrait;
 use Drupal\field\Entity\FieldStorageConfig;
 use Drupal\language\Entity\ConfigurableLanguage;
-use Drupal\Tests\field\Traits\EntityReferenceTestTrait;
 
 /**
  * Provides common testing base for translated taxonomy terms.
- *
- * @deprecated in drupal:8.4.0 and is removed from drupal:9.0.0.
- *   Use \Drupal\Tests\taxonomy\Functional\TaxonomyTranslationTestTrait
  */
 trait TaxonomyTranslationTestTrait {
 
@@ -22,7 +22,7 @@ trait TaxonomyTranslationTestTrait {
   /**
    * The vocabulary.
    *
-   * @var \Drupal\taxonomy\Entity\Vocabulary
+   * @var \Drupal\taxonomy\Entity\Vocabulary;
    */
   protected $vocabulary;
 
@@ -70,35 +70,36 @@ trait TaxonomyTranslationTestTrait {
     // picked up.
     \Drupal::service('content_translation.manager')->setEnabled('node', 'article', TRUE);
     \Drupal::service('content_translation.manager')->setEnabled('taxonomy_term', $this->vocabulary->id(), TRUE);
+    drupal_static_reset();
     \Drupal::entityManager()->clearCachedDefinitions();
+    \Drupal::service('router.builder')->rebuild();
+    \Drupal::service('entity.definition_update_manager')->applyUpdates();
   }
 
   /**
    * Adds term reference field for the article content type.
    */
   protected function setUpTermReferenceField() {
-    $handler_settings = [
-      'target_bundles' => [
+    $handler_settings = array(
+      'target_bundles' => array(
         $this->vocabulary->id() => $this->vocabulary->id(),
-      ],
+      ),
       'auto_create' => TRUE,
-    ];
+    );
     $this->createEntityReferenceField('node', 'article', $this->termFieldName, NULL, 'taxonomy_term', 'default', $handler_settings, FieldStorageDefinitionInterface::CARDINALITY_UNLIMITED);
     $field_storage = FieldStorageConfig::loadByName('node', $this->termFieldName);
     $field_storage->setTranslatable(FALSE);
     $field_storage->save();
 
-    /** @var \Drupal\Core\Entity\EntityDisplayRepositoryInterface $display_repository */
-    $display_repository = \Drupal::service('entity_display.repository');
-    $display_repository->getFormDisplay('node', 'article')
-      ->setComponent($this->termFieldName, [
+    entity_get_form_display('node', 'article', 'default')
+      ->setComponent($this->termFieldName, array(
         'type' => 'entity_reference_autocomplete_tags',
-      ])
+      ))
       ->save();
-    $display_repository->getViewDisplay('node', 'article')
-      ->setComponent($this->termFieldName, [
+    entity_get_display('node', 'article', 'default')
+      ->setComponent($this->termFieldName, array(
         'type' => 'entity_reference_label',
-      ])
+      ))
       ->save();
   }
 

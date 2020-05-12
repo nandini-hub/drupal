@@ -1,9 +1,13 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\entity_test\Entity\EntityTestConstraintViolation.
+ */
+
 namespace Drupal\entity_test\Entity;
 
 use Drupal\Core\Entity\EntityTypeInterface;
-use Drupal\Core\Field\BaseFieldDefinition;
 
 /**
  * Defines the test entity class for testing entity constraint violations.
@@ -16,7 +20,7 @@ use Drupal\Core\Field\BaseFieldDefinition;
  *       "default" = "Drupal\entity_test\EntityTestForm"
  *     }
  *   },
- *   base_table = "entity_test_constraint_violation",
+ *   base_table = "entity_test",
  *   persistent_cache = FALSE,
  *   entity_keys = {
  *     "id" = "id",
@@ -34,21 +38,11 @@ class EntityTestConstraintViolation extends EntityTest {
   public static function baseFieldDefinitions(EntityTypeInterface $entity_type) {
     $fields = parent::baseFieldDefinitions($entity_type);
 
-    $fields['name']->setDisplayOptions('form', [
+    $fields['name']->setDisplayOptions('form', array(
       'type' => 'string',
       'weight' => 0,
-    ]);
-    $fields['name']->addConstraint('FieldWidgetConstraint', []);
-
-    // Add a field that uses a widget with a custom implementation for
-    // \Drupal\Core\Field\WidgetInterface::errorElement().
-    $fields['test_field'] = BaseFieldDefinition::create('integer')
-      ->setLabel(t('Test field'))
-      ->setDisplayOptions('form', [
-        'type' => 'number',
-        'weight' => 1,
-      ])
-      ->addConstraint('FieldWidgetConstraint', []);
+    ));
+    $fields['name']->addConstraint('FieldWidgetConstraint', array());
 
     return $fields;
   }

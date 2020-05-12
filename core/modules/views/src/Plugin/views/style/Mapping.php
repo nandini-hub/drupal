@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\views\Plugin\views\style\Mapping.
+ */
+
 namespace Drupal\views\Plugin\views\style;
 
 use Drupal\Core\Form\FormStateInterface;
@@ -42,21 +47,21 @@ abstract class Mapping extends StylePluginBase {
   abstract protected function defineMapping();
 
   /**
-   * {@inheritdoc}
+   * Overrides Drupal\views\Plugin\views\style\StylePluginBase::defineOptions().
    */
   protected function defineOptions() {
     $options = parent::defineOptions();
 
     // Parse the mapping and add a default for each.
     foreach ($this->defineMapping() as $key => $value) {
-      $default = !empty($value['#multiple']) ? [] : '';
-      $options['mapping']['contains'][$key] = [
+      $default = !empty($value['#multiple']) ? array() : '';
+      $options['mapping']['contains'][$key] = array(
         'default' => isset($value['#default_value']) ? $value['#default_value'] : $default,
-      ];
+      );
       if (!empty($value['#toggle'])) {
-        $options['mapping']['contains']["toggle_$key"] = [
+        $options['mapping']['contains']["toggle_$key"] = array(
           'default' => FALSE,
-        ];
+        );
       }
     }
 
@@ -64,7 +69,7 @@ abstract class Mapping extends StylePluginBase {
   }
 
   /**
-   * {@inheritdoc}
+   * Overrides Drupal\views\Plugin\views\style\StylePluginBase::buildOptionsForm().
    */
   public function buildOptionsForm(&$form, FormStateInterface $form_state) {
     parent::buildOptionsForm($form, $form_state);
@@ -79,44 +84,43 @@ abstract class Mapping extends StylePluginBase {
     $field_labels = $this->displayHandler->getFieldLabels();
 
     // Provide some default values.
-    $defaults = [
+    $defaults = array(
       '#type' => 'select',
       '#required' => FALSE,
       '#multiple' => FALSE,
-    ];
+    );
 
     // For each mapping, add a select element to the form.
     foreach ($options as $key => $value) {
       // If the field is optional, add a 'None' value to the top of the options.
-      $field_options = [];
+      $field_options = array();
       $required = !empty($mapping[$key]['#required']);
       if (!$required && empty($mapping[$key]['#multiple'])) {
-        $field_options = ['' => $this->t('- None -')];
+        $field_options = array('' => $this->t('- None -'));
       }
       $field_options += $field_labels;
 
       // Optionally filter the available fields.
       if (isset($mapping[$key]['#filter'])) {
         $this->view->initHandlers();
-        $filter = $mapping[$key]['#filter'];
-        $this::$filter($field_options);
+        $this::$mapping[$key]['#filter']($field_options);
         unset($mapping[$key]['#filter']);
       }
 
       // These values must always be set.
-      $overrides = [
+      $overrides = array(
         '#options' => $field_options,
         '#default_value' => $options[$key],
-      ];
+      );
 
       // Optionally allow the select to be toggleable.
       if (!empty($mapping[$key]['#toggle'])) {
-        $form['mapping']["toggle_$key"] = [
+        $form['mapping']["toggle_$key"] = array(
           '#type' => 'checkbox',
-          '#title' => $this->t('Use a custom %field_name', ['%field_name' => strtolower($mapping[$key]['#title'])]),
+          '#title' => $this->t('Use a custom %field_name', array('%field_name' => strtolower($mapping[$key]['#title']))),
           '#default_value' => $this->options['mapping']["toggle_$key"],
-        ];
-        $overrides['#states']['visible'][':input[name="style_options[mapping][' . "toggle_$key" . ']"]'] = ['checked' => TRUE];
+        );
+        $overrides['#states']['visible'][':input[name="style_options[mapping][' . "toggle_$key" . ']"]'] = array('checked' => TRUE);
       }
 
       $form['mapping'][$key] = $overrides + $mapping[$key] + $defaults;
@@ -129,13 +133,13 @@ abstract class Mapping extends StylePluginBase {
    * Provides the mapping definition as an available variable.
    */
   public function render() {
-    return [
+    return array(
       '#theme' => $this->themeFunctions(),
       '#view' => $this->view,
       '#options' => $this->options,
       '#rows' => $this->view->result,
       '#mapping' => $this->defineMapping(),
-    ];
+    );
   }
 
 }

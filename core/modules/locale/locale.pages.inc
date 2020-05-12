@@ -5,23 +5,22 @@
  * Interface translation summary, editing and deletion user interfaces.
  */
 
-use Drupal\Core\Link;
+use Drupal\Component\Utility\SafeMarkup;
 use Drupal\Core\Url;
+use Drupal\Core\Render\Element;
+use Drupal\locale\SourceString;
+use Drupal\locale\TranslationString;
 use Symfony\Component\HttpFoundation\RedirectResponse;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 /**
  * Page callback: Checks for translation updates and displays the status.
  *
  * Manually checks the translation status without the use of cron.
  *
- * @deprecated in drupal:8.5.0 and is removed from drupal:9.0.0. It is unused by
- *   Drupal core. Duplicate this function in your own extension if you need its
- *   behavior.
- *
- * @see https://www.drupal.org/node/2931188
+ * @see locale_menu()
  */
 function locale_translation_manual_status() {
-  @trigger_error('locale_translation_manual_status() is deprecated in Drupal 8.5.0 and will be removed before Drupal 9.0.0. It is unused by Drupal core. Duplicate this function in your own extension if you need its behavior.', E_USER_DEPRECATED);
   module_load_include('compare.inc', 'locale');
 
   // Check the translation status of all translatable projects in all languages.
@@ -35,7 +34,7 @@ function locale_translation_manual_status() {
   if (batch_get()) {
     return batch_process('admin/reports/translations');
   }
-  return new RedirectResponse(Url::fromRoute('locale.translate_status', [], ['absolute' => TRUE])->toString());
+  return new RedirectResponse(\Drupal::url('locale.translate_status', array(), array('absolute' => TRUE)));
 }
 
 /**
@@ -53,9 +52,52 @@ function locale_translation_manual_status() {
  * @see \Drupal\locale\Form\TranslationStatusForm
  */
 function template_preprocess_locale_translation_update_info(array &$variables) {
-  foreach ($variables['updates'] as $update) {
-    $variables['modules'][] = $update['name'];
+  $details = array();
+
+  // Build output for available updates.
+  if (isset($variables['updates'])) {
+    $releases = array();
+    if ($variables['updates']) {
+      foreach ($variables['updates'] as $update) {
+        $modules[] = $update['name'];
+        $releases[] = SafeMarkup::format('@module (@date)', array(
+          '@module' => $update['name'],
+          '@date' => format_date($update['timestamp'], 'html_date'),
+        ));
+      }
+      $variables['modules'] = $modules;
+    }
+    $details['available_updates_list'] = array(
+      '#theme' => 'item_list',
+      '#items' => $releases,
+    );
   }
+
+  // Build output for updates not found.
+  if (isset($variables['not_found'])) {
+    $releases = array();
+    $variables['missing_updates_status'] = \Drupal::translation()->formatPlural(count($variables['not_found']), 'Missing translations for one project', 'Missing translations for @count projects');
+    if ($variables['not_found']) {
+      foreach ($variables['not_found'] as $update) {
+        $version = $update['version'] ? $update['version'] : t('no version');
+        $releases[] = SafeMarkup::format('@module (@version). !info', array(
+          '@module' => $update['name'],
+          '@version' => $version,
+          '!info' => $update['info'],
+        ));
+      }
+    }
+    $details['missing_updates_list'] = array(
+      '#theme' => 'item_list',
+      '#items' => $releases,
+    );
+    // Prefix the missing updates list if there is an available updates lists
+    // before it.
+    if (!empty($details['available_updates_list']['#items'])) {
+      $details['missing_updates_list']['#prefix'] = t('Missing translations for:');
+    }
+  }
+  $variables['details'] = $details;
 }
 
 /**
@@ -77,6 +119,6 @@ function template_preprocess_locale_translation_update_info(array &$variables) {
 function template_preprocess_locale_translation_last_check(array &$variables) {
   $last = $variables['last'];
   $variables['last_checked'] = ($last != NULL);
-  $variables['time'] = \Drupal::service('date.formatter')->formatTimeDiffSince($last);
-  $variables['link'] = Link::fromTextAndUrl(t('Check manually'), Url::fromRoute('locale.check_translation', [], ['query' => \Drupal::destination()->getAsArray()]))->toString();
+  $variables['time'] = \Drupal::service('date.formatter')->formatInterval(REQUEST_TIME - $last);
+  $variables['link'] = \Drupal::l(t('Check manually'), new Url('locale.check_translation', array(), array('query' => \Drupal::destination()->getAsArray())));
 }

@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\EventSubscriber\CacheRouterRebuildSubscriber.
+ */
+
 namespace Drupal\Core\EventSubscriber;
 
 use Drupal\Core\Cache\Cache;
@@ -16,8 +21,7 @@ class CacheRouterRebuildSubscriber implements EventSubscriberInterface {
    */
   public function onRouterFinished() {
     // Requested URLs that formerly gave a 403/404 may now be valid.
-    // Also invalidate all cached routing as well as every HTTP response.
-    Cache::invalidateTags(['4xx-response', 'route_match', 'http_response']);
+    Cache::invalidateTags(['4xx-response']);
   }
 
   /**
@@ -26,7 +30,7 @@ class CacheRouterRebuildSubscriber implements EventSubscriberInterface {
   public static function getSubscribedEvents() {
     $events = [];
     // Act only when the router rebuild is finished.
-    $events[RoutingEvents::FINISHED][] = ['onRouterFinished', 200];
+    $events[RoutingEvents::FINISHED][] = ['onRouterFinished'];
     return $events;
   }
 

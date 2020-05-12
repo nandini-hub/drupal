@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Tests\Core\DependencyInjection\Compiler\StackedKernelPassTest.
+ */
+
 namespace Drupal\Tests\Core\DependencyInjection\Compiler;
 
 use Drupal\Core\DependencyInjection\Compiler\StackedKernelPass;
@@ -28,7 +33,7 @@ class StackedKernelPassTest extends UnitTestCase {
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  public function setUp() {
     $this->stackedKernelPass = new StackedKernelPass();
     $this->containerBuilder = new ContainerBuilder();
   }
@@ -51,12 +56,12 @@ class StackedKernelPassTest extends UnitTestCase {
     $stacked_kernel_args = $this->containerBuilder->getDefinition('http_kernel')->getArguments();
 
     // Check the stacked kernel args.
-    $this->assertSame('http_kernel.one', (string) $stacked_kernel_args[0]);
+    $this->assertSame((string) $stacked_kernel_args[0], 'http_kernel.one');
     $this->assertCount(4, $stacked_kernel_args[1]);
-    $this->assertSame('http_kernel.one', (string) $stacked_kernel_args[1][0]);
-    $this->assertSame('http_kernel.two', (string) $stacked_kernel_args[1][1]);
-    $this->assertSame('http_kernel.three', (string) $stacked_kernel_args[1][2]);
-    $this->assertSame('http_kernel.basic', (string) $stacked_kernel_args[1][3]);
+    $this->assertSame((string) $stacked_kernel_args[1][0], 'http_kernel.one');
+    $this->assertSame((string) $stacked_kernel_args[1][1], 'http_kernel.two');
+    $this->assertSame((string) $stacked_kernel_args[1][2], 'http_kernel.three');
+    $this->assertSame((string) $stacked_kernel_args[1][3], 'http_kernel.basic');
 
     // Check the modified definitions.
     $definition = $this->containerBuilder->getDefinition('http_kernel.one');
@@ -93,7 +98,7 @@ class StackedKernelPassTest extends UnitTestCase {
    * Creates a middleware definition.
    *
    * @param bool $tag
-   *   Whether or not to set the http_middleware tag.
+   *   Whether ot not to set the http_middleware tag.
    * @param int $priority
    *   The priority to be used for the tag.
    *

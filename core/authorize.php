@@ -21,14 +21,11 @@
  */
 
 use Drupal\Core\DrupalKernel;
-use Drupal\Core\Form\EnforcedResponseException;
 use Drupal\Core\Url;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Drupal\Core\Site\Settings;
-use Symfony\Cmf\Component\Routing\RouteObjectInterface;
-use Symfony\Component\Routing\Route;
 
 // Change the directory to the Drupal root.
 chdir('..');
@@ -51,7 +48,7 @@ const MAINTENANCE_MODE = 'update';
  * have access to the 'administer software updates' permission.
  *
  * @param \Symfony\Component\HttpFoundation\Request $request
- *   The incoming request.
+ *  The incoming request.
  *
  * @return bool
  *   TRUE if the current user can run authorize.php, and FALSE if not.
@@ -67,15 +64,7 @@ function authorize_access_allowed(Request $request) {
 try {
   $request = Request::createFromGlobals();
   $kernel = DrupalKernel::createFromRequest($request, $autoloader, 'prod');
-  $kernel->boot();
-  // A route is required for route matching.
-  $request->attributes->set(RouteObjectInterface::ROUTE_OBJECT, new Route('<none>'));
-  $request->attributes->set(RouteObjectInterface::ROUTE_NAME, '<none>');
-  $kernel->preHandle($request);
-  // Ensure our request includes the session if appropriate.
-  if (PHP_SAPI !== 'cli') {
-    $request->setSession($kernel->getContainer()->get('session'));
-  }
+  $kernel->prepareLegacyRequest($request);
 }
 catch (HttpExceptionInterface $e) {
   $response = new Response('', $e->getStatusCode());
@@ -96,10 +85,8 @@ drupal_maintenance_theme();
 $content = [];
 $show_messages = TRUE;
 
-$is_allowed = authorize_access_allowed($request);
-
-// Build content.
-if ($is_allowed) {
+$response = new Response();
+if (authorize_access_allowed($request)) {
   // Load both the Form API and Batch API.
   require_once __DIR__ . '/includes/form.inc';
   require_once __DIR__ . '/includes/batch.inc';
@@ -123,56 +110,34 @@ if ($is_allowed) {
       $page_title = $results['page_title'];
     }
     if (!empty($results['page_message'])) {
-      \Drupal::messenger()->addMessage($results['page_message']['message'], $results['page_message']['type']);
+      drupal_set_message($results['page_message']['message'], $results['page_message']['type']);
     }
 
-    $content['authorize_report'] = [
+    $content['authorize_report'] = array(
       '#theme' => 'authorize_report',
       '#messages' => $results['messages'],
-    ];
+    );
 
+    $links = array();
     if (is_array($results['tasks'])) {
-      $links = $results['tasks'];
+      $links += $results['tasks'];
     }
     else {
-      // Since this is being called outside of the primary front controller,
-      // the base_url needs to be set explicitly to ensure that links are
-      // relative to the site root.
-      // @todo Simplify with https://www.drupal.org/node/2548095
-      $default_options = [
-        '#type' => 'link',
-        '#options' => [
-          'absolute' => TRUE,
-          'base_url' => $GLOBALS['base_url'],
-        ],
-      ];
-      $links = [
-        $default_options + [
-          '#url' => Url::fromRoute('system.admin'),
-          '#title' => t('Administration pages'),
-        ],
-        $default_options + [
-          '#url' => Url::fromRoute('<front>'),
-          '#title' => t('Front page'),
-        ],
-      ];
+      $links = array_merge($links, array(
+        \Drupal::l(t('Administration pages'), new Url('system.admin')),
+        \Drupal::l(t('Front page'), new Url('<front>')),
+      ));
     }
 
-    $content['next_steps'] = [
+    $content['next_steps'] = array(
       '#theme' => 'item_list',
       '#items' => $links,
       '#title' => t('Next steps'),
-    ];
+    );
   }
   // If a batch is running, let it run.
   elseif ($request->query->has('batch')) {
-    $content = _batch_page($request);
-    // If _batch_page() returns a response object (likely a JsonResponse for
-    // JavaScript-based batch processing), send it immediately.
-    if ($content instanceof Response) {
-      $content->send();
-      exit;
-    }
+    $content = ['#markup' => _batch_page($request)];
   }
   else {
     if (empty($_SESSION['authorize_operation']) || empty($_SESSION['authorize_filetransfer_info'])) {
@@ -180,29 +145,23 @@ if ($is_allowed) {
     }
     elseif (!$batch = batch_get()) {
       // We have a batch to process, show the filetransfer form.
-      try {
-        $content = \Drupal::formBuilder()->getForm('Drupal\Core\FileTransfer\Form\FileTransferAuthorizeForm');
-      }
-      catch (EnforcedResponseException $e) {
-        $e->getResponse()->send();
-        exit;
-      }
+      $content = \Drupal::formBuilder()->getForm('Drupal\Core\FileTransfer\Form\FileTransferAuthorizeForm');
     }
   }
   // We defer the display of messages until all operations are done.
   $show_messages = !(($batch = batch_get()) && isset($batch['running']));
 }
 else {
+  $response->setStatusCode(403);
   \Drupal::logger('access denied')->warning('authorize.php');
   $page_title = t('Access denied');
   $content = ['#markup' => t('You are not allowed to access this page.')];
 }
 
-$bare_html_page_renderer = \Drupal::service('bare_html_page_renderer');
-$response = $bare_html_page_renderer->renderBarePage($content, $page_title, 'maintenance_page', [
-  '#show_messages' => $show_messages,
-]);
-if (!$is_allowed) {
-  $response->setStatusCode(403);
+if (!empty($content)) {
+  $response->headers->set('Content-Type', 'text/html; charset=utf-8');
+  $response->setContent(\Drupal::service('bare_html_page_renderer')->renderBarePage($content, $page_title, 'maintenance_page', array(
+    '#show_messages' => $show_messages,
+  )));
+  $response->send();
 }
-$response->send();

@@ -1,13 +1,16 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\system\Form\DateFormatAddForm.
+ */
+
 namespace Drupal\system\Form;
 
 use Drupal\Core\Form\FormStateInterface;
 
 /**
  * Provides a form for adding a date format.
- *
- * @internal
  */
 class DateFormatAddForm extends DateFormatFormBase {
 

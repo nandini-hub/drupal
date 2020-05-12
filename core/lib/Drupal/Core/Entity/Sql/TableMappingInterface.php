@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Entity\Sql\TableMappingInterface.
+ */
+
 namespace Drupal\Core\Entity\Sql;
 
 use Drupal\Core\Field\FieldStorageDefinitionInterface;
@@ -20,12 +25,7 @@ use Drupal\Core\Field\FieldStorageDefinitionInterface;
 interface TableMappingInterface {
 
   /**
-   * A property that represents delta used in entity query conditions.
-   */
-  const DELTA = '%delta';
-
-  /**
-   * Gets a list of table names for this mapping.
+   * Returns a list of table names for this mapping.
    *
    * @return string[]
    *   An array of table names.
@@ -33,7 +33,7 @@ interface TableMappingInterface {
   public function getTableNames();
 
   /**
-   * Gets a list of all database columns for a given table.
+   * Returns a list of all database columns for a given table.
    *
    * @param string $table_name
    *   The name of the table to return the columns for.
@@ -45,11 +45,7 @@ interface TableMappingInterface {
   public function getAllColumns($table_name);
 
   /**
-   * Gets a list of names for entity fields stored in the specified table.
-   *
-   * The return list is contains the entity field names, not database field
-   * (i.e. column) names. To get the mapping of specific entity field to
-   * database columns use ::getColumnNames().
+   * Returns a list of names of fields stored in the specified table.
    *
    * @param string $table_name
    *   The name of the table to return the field names for.
@@ -60,7 +56,7 @@ interface TableMappingInterface {
   public function getFieldNames($table_name);
 
   /**
-   * Gets a mapping of field columns to database columns for a given field.
+   * Returns a mapping of field columns to database columns for a given field.
    *
    * @param string $field_name
    *   The name of the entity field to return the column mapping for.
@@ -73,7 +69,7 @@ interface TableMappingInterface {
   public function getColumnNames($field_name);
 
   /**
-   * Gets a list of extra database columns, which store denormalized data.
+   * Returns a list of extra database columns, which store denormalized data.
    *
    * These database columns do not belong to any entity fields. Any normalized
    * data that is stored should be associated with an entity field.
@@ -87,7 +83,7 @@ interface TableMappingInterface {
   public function getExtraColumns($table_name);
 
   /**
-   * Gets the list of columns that can not be used as field type columns.
+   * A list of columns that can not be used as field type columns.
    *
    * @return array
    */
@@ -108,7 +104,7 @@ interface TableMappingInterface {
   public function getFieldColumnName(FieldStorageDefinitionInterface $storage_definition, $property_name);
 
   /**
-   * Gets the table name for a given column.
+   * Returns the table name for a given column.
    *
    * @param string $field_name
    *   The name of the entity field to return the column mapping for.

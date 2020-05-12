@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Field\FieldDefinitionInterface.
+ */
+
 namespace Drupal\Core\Field;
 
 use Drupal\Core\Cache\CacheableDependencyInterface;
@@ -137,13 +142,10 @@ interface FieldDefinitionInterface extends ListDataDefinitionInterface, Cacheabl
    *   - label: (string) Position of the field label. The default 'field' theme
    *     implementation supports the values 'inline', 'above' and 'hidden'.
    *     Defaults to 'above'. Only applies to 'view' context.
-   *   - region: (string) The region the field is in, or 'hidden'. If not
-   *     specified, the default region will be used.
    *   - type: (string) The plugin (widget or formatter depending on
-   *     $display_context) to use. If not specified or if the requested plugin
-   *     is unknown, the 'default_widget' / 'default_formatter' for the field
-   *     type will be used. Previously 'hidden' was a valid value, it is now
-   *     deprecated in favor of specifying 'region' => 'hidden'.
+   *     $display_context) to use, or 'hidden'. If not specified or if the
+   *     requested plugin is unknown, the 'default_widget' / 'default_formatter'
+   *     for the field type will be used.
    *   - settings: (array) Settings for the plugin specified above. The default
    *     settings for the plugin will be used for settings left unspecified.
    *   - third_party_settings: (array) Settings provided by other extensions
@@ -177,43 +179,7 @@ interface FieldDefinitionInterface extends ListDataDefinitionInterface, Cacheabl
   public function isRequired();
 
   /**
-   * Returns the default value literal for the field.
-   *
-   * This method retrieves the raw property assigned to the field definition.
-   * When computing the runtime default value for a field in a given entity,
-   * ::getDefaultValue() should be used instead.
-   *
-   * @return array
-   *   The default value for the field, as a numerically indexed array of items,
-   *   each item being a property/value array (array() for no default value).
-   *
-   * @see FieldDefinitionInterface::getDefaultValue()
-   * @see FieldDefinitionInterface::getDefaultValueCallback()
-   */
-  public function getDefaultValueLiteral();
-
-  /**
-   * Returns the default value callback for the field.
-   *
-   * This method retrieves the raw property assigned to the field definition.
-   * When computing the runtime default value for a field in a given entity,
-   * ::getDefaultValue() should be used instead.
-   *
-   * @return string|null
-   *   The default value callback for the field.
-   *
-   * @see FieldDefinitionInterface::getDefaultValue()
-   * @see FieldDefinitionInterface::getDefaultValueLiteral()
-   */
-  public function getDefaultValueCallback();
-
-  /**
    * Returns the default value for the field in a newly created entity.
-   *
-   * This method computes the runtime default value for a field in a given
-   * entity. To access the raw properties assigned to the field definition,
-   * ::getDefaultValueLiteral() or ::getDefaultValueCallback() should be used
-   * instead.
    *
    * @param \Drupal\Core\Entity\FieldableEntityInterface $entity
    *   The entity for which the default value is generated.
@@ -221,9 +187,6 @@ interface FieldDefinitionInterface extends ListDataDefinitionInterface, Cacheabl
    * @return array
    *   The default value for the field, as a numerically indexed array of items,
    *   each item being a property/value array (array() for no default value).
-   *
-   * @see FieldDefinitionInterface::getDefaultValueLiteral()
-   * @see FieldDefinitionInterface::getDefaultValueCallback()
    */
   public function getDefaultValue(FieldableEntityInterface $entity);
 
@@ -258,12 +221,5 @@ interface FieldDefinitionInterface extends ListDataDefinitionInterface, Cacheabl
    * @return \Drupal\Core\Field\FieldConfigInterface
    */
   public function getConfig($bundle);
-
-  /**
-   * Returns a unique identifier for the field.
-   *
-   * @return string
-   */
-  public function getUniqueIdentifier();
 
 }

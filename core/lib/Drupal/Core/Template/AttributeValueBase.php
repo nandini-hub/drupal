@@ -1,8 +1,13 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Template\AttributeValueBase.
+ */
+
 namespace Drupal\Core\Template;
 
-use Drupal\Component\Utility\Html;
+use Drupal\Component\Utility\SafeMarkup;
 
 /**
  * Defines the base class for an attribute type.
@@ -52,7 +57,7 @@ abstract class AttributeValueBase {
   public function render() {
     $value = (string) $this;
     if (isset($this->value) && static::RENDER_EMPTY_ATTRIBUTE || !empty($value)) {
-      return Html::escape($this->name) . '="' . $value . '"';
+      return SafeMarkup::checkPlain($this->name) . '="' . $value . '"';
     }
   }
 
@@ -66,6 +71,6 @@ abstract class AttributeValueBase {
   /**
    * Implements the magic __toString() method.
    */
-  abstract public function __toString();
+  abstract function __toString();
 
 }

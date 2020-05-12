@@ -1,6 +1,12 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\config_events_test\EventSubscriber.
+ */
+
 namespace Drupal\config_events_test;
+
 
 use Drupal\Core\Config\ConfigCrudEvent;
 use Drupal\Core\Config\ConfigEvents;
@@ -31,27 +37,24 @@ class EventSubscriber implements EventSubscriberInterface {
    *
    * @param \Drupal\Core\Config\ConfigCrudEvent $event
    *   The configuration event.
-   * @param string $name
-   *   The event name.
    */
-  public function configEventRecorder(ConfigCrudEvent $event, $name) {
+  public function configEventRecorder(ConfigCrudEvent $event) {
     $config = $event->getConfig();
-    $this->state->set('config_events_test.event', [
-      'event_name' => $name,
+    $this->state->set('config_events_test.event', array(
+      'event_name' => $event->getName(),
       'current_config_data' => $config->get(),
       'original_config_data' => $config->getOriginal(),
-      'raw_config_data' => $config->getRawData(),
-    ]);
+      'raw_config_data' => $config->getRawData()
+    ));
   }
 
   /**
    * {@inheritdoc}
    */
-  public static function getSubscribedEvents() {
-    $events[ConfigEvents::SAVE][] = ['configEventRecorder'];
-    $events[ConfigEvents::DELETE][] = ['configEventRecorder'];
-    $events[ConfigEvents::RENAME][] = ['configEventRecorder'];
+  static function getSubscribedEvents() {
+    $events[ConfigEvents::SAVE][] = array('configEventRecorder');
+    $events[ConfigEvents::DELETE][] = array('configEventRecorder');
+    $events[ConfigEvents::RENAME][] = array('configEventRecorder');
     return $events;
   }
-
 }

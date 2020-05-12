@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\file\FileStorageSchema.
+ */
+
 namespace Drupal\file;
 
 use Drupal\Core\Entity\Sql\SqlContentEntityStorageSchema;
@@ -17,19 +22,17 @@ class FileStorageSchema extends SqlContentEntityStorageSchema {
     $schema = parent::getSharedTableFieldSchema($storage_definition, $table_name, $column_mapping);
     $field_name = $storage_definition->getName();
 
-    if ($table_name == $this->storage->getBaseTable()) {
+    if ($table_name == 'file_managed') {
       switch ($field_name) {
         case 'status':
         case 'changed':
-        case 'uri':
           $this->addSharedTableFieldIndex($storage_definition, $schema, TRUE);
           break;
+
+        case 'uri':
+          $this->addSharedTableFieldUniqueKey($storage_definition, $schema, TRUE);
+          break;
       }
-    }
-    // Entity keys automatically have not null assigned to TRUE, but for the
-    // file entity, NULL is a valid value for uid.
-    if ($field_name === 'uid') {
-      $schema['fields']['uid']['not null'] = FALSE;
     }
 
     return $schema;

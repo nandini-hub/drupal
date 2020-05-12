@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\tracker\Plugin\Menu\UserTrackerTab.
+ */
+
 namespace Drupal\tracker\Plugin\Menu;
 
 use Drupal\Core\Menu\LocalTaskDefault;
@@ -20,7 +25,7 @@ class UserTrackerTab extends LocalTaskDefault {
   /**
    * Gets the current active user.
    *
-   * @todo: https://www.drupal.org/node/2105123 put this method in
+   * @todo: https://drupal.org/node/2105123 put this method in
    *   \Drupal\Core\Plugin\PluginBase instead.
    *
    * @return \Drupal\Core\Session\AccountInterface
@@ -32,11 +37,12 @@ class UserTrackerTab extends LocalTaskDefault {
     return $this->currentUser;
   }
 
+
   /**
    * {@inheritdoc}
    */
   public function getRouteParameters(RouteMatchInterface $route_match) {
-    return ['user' => $this->currentUser()->Id()];
+    return array('user' => $this->currentUser()->Id());
   }
 
 }

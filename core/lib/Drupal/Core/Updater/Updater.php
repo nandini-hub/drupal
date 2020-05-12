@@ -1,7 +1,13 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\Core\Updater\Updater.
+ */
+
 namespace Drupal\Core\Updater;
 
+use Drupal\Component\Utility\Unicode;
 use Drupal\Core\FileTransfer\FileTransferException;
 use Drupal\Core\FileTransfer\FileTransfer;
 
@@ -18,25 +24,13 @@ class Updater {
   public $source;
 
   /**
-   * The root directory under which new projects will be copied.
-   *
-   * @var string
-   */
-  protected $root;
-
-  /**
    * Constructs a new updater.
    *
    * @param string $source
    *   Directory to install from.
-   * @param string $root
-   *   The root directory under which the project will be copied to if it's a
-   *   new project. Usually this is the app root (the directory in which the
-   *   Drupal site is installed).
    */
-  public function __construct($source, $root) {
+  public function __construct($source) {
     $this->source = $source;
-    $this->root = $root;
     $this->name = self::getProjectName($source);
     $this->title = self::getProjectTitle($source);
   }
@@ -49,24 +43,20 @@ class Updater {
    *
    * @param string $source
    *   Directory of a Drupal project.
-   * @param string $root
-   *   The root directory under which the project will be copied to if it's a
-   *   new project. Usually this is the app root (the directory in which the
-   *   Drupal site is installed).
    *
    * @return \Drupal\Core\Updater\Updater
    *   A new Drupal\Core\Updater\Updater object.
    *
    * @throws \Drupal\Core\Updater\UpdaterException
    */
-  public static function factory($source, $root) {
+  public static function factory($source) {
     if (is_dir($source)) {
       $updater = self::getUpdaterFromDirectory($source);
     }
     else {
       throw new UpdaterException(t('Unable to determine the type of the source directory.'));
     }
-    return new $updater($source, $root);
+    return new $updater($source);
   }
 
   /**
@@ -85,7 +75,7 @@ class Updater {
     $updaters = drupal_get_updaters();
     foreach ($updaters as $updater) {
       $class = $updater['class'];
-      if (call_user_func([$class, 'canUpdateDirectory'], $directory)) {
+      if (call_user_func(array($class, 'canUpdateDirectory'), $directory)) {
         return $class;
       }
     }
@@ -106,17 +96,12 @@ class Updater {
    *   Path to the info file.
    */
   public static function findInfoFile($directory) {
-    /** @var \Drupal\Core\File\FileSystemInterface $file_system */
-    $file_system = \Drupal::service('file_system');
-    $info_files = [];
-    if (is_dir($directory)) {
-      $info_files = $file_system->scanDirectory($directory, '/.*\.info.yml$/');
-    }
+    $info_files = file_scan_directory($directory, '/.*\.info.yml$/');
     if (!$info_files) {
       return FALSE;
     }
     foreach ($info_files as $info_file) {
-      if (mb_substr($info_file->filename, 0, -9) == $file_system->basename($directory)) {
+      if (Unicode::substr($info_file->filename, 0, -9) == drupal_basename($directory)) {
         // Info file Has the same name as the directory, return it.
         return $info_file->uri;
       }
@@ -124,28 +109,6 @@ class Updater {
     // Otherwise, return the first one.
     $info_file = array_shift($info_files);
     return $info_file->uri;
-  }
-
-  /**
-   * Get Extension information from directory.
-   *
-   * @param string $directory
-   *   Directory to search in.
-   *
-   * @return array
-   *   Extension info.
-   *
-   * @throws \Drupal\Core\Updater\UpdaterException
-   *   If the info parser does not provide any info.
-   */
-  protected static function getExtensionInfo($directory) {
-    $info_file = static::findInfoFile($directory);
-    $info = \Drupal::service('info_parser')->parse($info_file);
-    if (empty($info)) {
-      throw new UpdaterException(t('Unable to parse info file: %info_file.', ['%info_file' => $info_file]));
-    }
-
-    return $info;
   }
 
   /**
@@ -160,7 +123,7 @@ class Updater {
    *   The name of the project.
    */
   public static function getProjectName($directory) {
-    return \Drupal::service('file_system')->basename($directory);
+    return drupal_basename($directory);
   }
 
   /**
@@ -178,7 +141,7 @@ class Updater {
     $info_file = self::findInfoFile($directory);
     $info = \Drupal::service('info_parser')->parse($info_file);
     if (empty($info)) {
-      throw new UpdaterException(t('Unable to parse info file: %info_file.', ['%info_file' => $info_file]));
+      throw new UpdaterException(t('Unable to parse info file: %info_file.', array('%info_file' => $info_file)));
     }
     return $info['name'];
   }
@@ -192,12 +155,12 @@ class Updater {
    * @return array
    *   An array of configuration parameters for an update or install operation.
    */
-  protected function getInstallArgs($overrides = []) {
-    $args = [
+  protected function getInstallArgs($overrides = array()) {
+    $args = array(
       'make_backup' => FALSE,
       'install_dir' => $this->getInstallDirectory(),
       'backup_dir'  => $this->getBackupDir(),
-    ];
+    );
     return array_merge($args, $overrides);
   }
 
@@ -216,7 +179,7 @@ class Updater {
    * @throws \Drupal\Core\Updater\UpdaterException
    * @throws \Drupal\Core\Updater\UpdaterFileTransferException
    */
-  public function update(&$filetransfer, $overrides = []) {
+  public function update(&$filetransfer, $overrides = array()) {
     try {
       // Establish arguments with possible overrides.
       $args = $this->getInstallArgs($overrides);
@@ -234,6 +197,9 @@ class Updater {
       // Make sure the installation parent directory exists and is writable.
       $this->prepareInstallDirectory($filetransfer, $args['install_dir']);
 
+      // Note: If the project is installed in the top-level, it will not be
+      // deleted. It will be installed in sites/default as that will override
+      // the top-level reference and not break other sites which are using it.
       if (is_dir($args['install_dir'] . '/' . $this->name)) {
         // Remove the existing installed file.
         $filetransfer->removeDirectory($args['install_dir'] . '/' . $this->name);
@@ -253,7 +219,7 @@ class Updater {
       return $this->postUpdateTasks();
     }
     catch (FileTransferException $e) {
-      throw new UpdaterFileTransferException(t('File Transfer failed, reason: @reason', ['@reason' => strtr($e->getMessage(), $e->arguments)]));
+      throw new UpdaterFileTransferException(t('File Transfer failed, reason: !reason', array('!reason' => strtr($e->getMessage(), $e->arguments))));
     }
   }
 
@@ -270,7 +236,7 @@ class Updater {
    *
    * @throws \Drupal\Core\Updater\UpdaterFileTransferException
    */
-  public function install(&$filetransfer, $overrides = []) {
+  public function install(&$filetransfer, $overrides = array()) {
     try {
       // Establish arguments with possible overrides.
       $args = $this->getInstallArgs($overrides);
@@ -291,7 +257,7 @@ class Updater {
       return $this->postInstallTasks();
     }
     catch (FileTransferException $e) {
-      throw new UpdaterFileTransferException(t('File Transfer failed, reason: @reason', ['@reason' => strtr($e->getMessage(), $e->arguments)]));
+      throw new UpdaterFileTransferException(t('File Transfer failed, reason: !reason', array('!reason' => strtr($e->getMessage(), $e->arguments))));
     }
   }
 
@@ -330,7 +296,7 @@ class Updater {
           }
           catch (FileTransferException $e) {
             $message = t($e->getMessage(), $e->arguments);
-            $throw_message = t('Unable to create %directory due to the following: %reason', ['%directory' => $directory, '%reason' => $message]);
+            $throw_message = t('Unable to create %directory due to the following: %reason', array('%directory' => $directory, '%reason' => $message));
             throw new UpdaterException($throw_message);
           }
         }
@@ -377,7 +343,7 @@ class Updater {
    * Returns the full path to a directory where backups should be written.
    */
   public function getBackupDir() {
-    return \Drupal::service('stream_wrapper_manager')->getViaScheme('temporary')->getDirectoryPath();
+    return file_stream_wrapper_get_instance_by_scheme('temporary')->getDirectoryPath();
   }
 
   /**
@@ -399,7 +365,7 @@ class Updater {
    *   Links which provide actions to take after the install is finished.
    */
   public function postInstallTasks() {
-    return [];
+    return array();
   }
 
   /**
@@ -409,7 +375,6 @@ class Updater {
    *   Links which provide actions to take after the update is finished.
    */
   public function postUpdateTasks() {
-    return [];
+    return array();
   }
-
 }

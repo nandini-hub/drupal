@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\editor\Entity\Editor.
+ */
+
 namespace Drupal\editor\Entity;
 
 use Drupal\Core\Config\Entity\ConfigEntityBase;
@@ -11,24 +16,8 @@ use Drupal\editor\EditorInterface;
  * @ConfigEntityType(
  *   id = "editor",
  *   label = @Translation("Text Editor"),
- *   label_collection = @Translation("Text Editors"),
- *   label_singular = @Translation("text editor"),
- *   label_plural = @Translation("text editors"),
- *   label_count = @PluralTranslation(
- *     singular = "@count text editor",
- *     plural = "@count text editors",
- *   ),
- *   handlers = {
- *     "access" = "Drupal\editor\EditorAccessControlHandler",
- *   },
  *   entity_keys = {
  *     "id" = "format"
- *   },
- *   config_export = {
- *     "format",
- *     "editor",
- *     "settings",
- *     "image_upload",
  *   }
  * )
  */
@@ -56,14 +45,14 @@ class Editor extends ConfigEntityBase implements EditorInterface {
    *
    * @var array
    */
-  protected $settings = [];
+  protected $settings = array();
 
   /**
    * The structured array of image upload settings.
    *
    * @var array
    */
-  protected $image_upload = [];
+  protected $image_upload = array();
 
   /**
    * The filter format this text editor is associated with.
@@ -112,7 +101,7 @@ class Editor extends ConfigEntityBase implements EditorInterface {
     //   config entity and dependency on provider is managed automatically.
     $definition = $this->editorPluginManager()->createInstance($this->editor)->getPluginDefinition();
     $this->addDependency('module', $definition['provider']);
-    return $this;
+    return $this->dependencies;
   }
 
   /**
@@ -127,7 +116,7 @@ class Editor extends ConfigEntityBase implements EditorInterface {
    */
   public function getFilterFormat() {
     if (!$this->filterFormat) {
-      $this->filterFormat = \Drupal::entityTypeManager()->getStorage('filter_format')->load($this->format);
+      $this->filterFormat = \Drupal::entityManager()->getStorage('filter_format')->load($this->format);
     }
     return $this->filterFormat;
   }

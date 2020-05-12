@@ -1,12 +1,17 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\Core\Database\Driver\sqlite\Statement
+ */
+
 namespace Drupal\Core\Database\Driver\sqlite;
 
 use Drupal\Core\Database\StatementPrefetch;
 use Drupal\Core\Database\StatementInterface;
 
 /**
- * SQLite implementation of \Drupal\Core\Database\Statement.
+ * Specific SQLite implementation of DatabaseConnection.
  *
  * The PDO SQLite driver only closes SELECT statements when the PDOStatement
  * destructor is called and SQLite does not allow data change (INSERT,
@@ -17,7 +22,7 @@ use Drupal\Core\Database\StatementInterface;
 class Statement extends StatementPrefetch implements StatementInterface {
 
   /**
-   * {@inheritdoc}
+   * SQLite specific implementation of getStatement().
    *
    * The PDO SQLite layer doesn't replace numeric placeholders in queries
    * correctly, and this makes numeric expressions (such as COUNT(*) >= :count)
@@ -26,13 +31,13 @@ class Statement extends StatementPrefetch implements StatementInterface {
    *
    * See http://bugs.php.net/bug.php?id=45259 for more details.
    */
-  protected function getStatement($query, &$args = []) {
-    if (is_array($args) && !empty($args)) {
+  protected function getStatement($query, &$args = array()) {
+    if (count($args)) {
       // Check if $args is a simple numeric array.
       if (range(0, count($args) - 1) === array_keys($args)) {
         // In that case, we have unnamed placeholders.
         $count = 0;
-        $new_args = [];
+        $new_args = array();
         foreach ($args as $value) {
           if (is_float($value) || is_int($value)) {
             if (is_float($value)) {
@@ -79,13 +84,10 @@ class Statement extends StatementPrefetch implements StatementInterface {
       }
     }
 
-    return $this->pdoConnection->prepare($query);
+    return $this->dbh->prepare($query);
   }
 
-  /**
-   * {@inheritdoc}
-   */
-  public function execute($args = [], $options = []) {
+  public function execute($args = array(), $options = array()) {
     try {
       $return = parent::execute($args, $options);
     }
@@ -103,7 +105,7 @@ class Statement extends StatementPrefetch implements StatementInterface {
     // In some weird cases, SQLite will prefix some column names by the name
     // of the table. We post-process the data, by renaming the column names
     // using the same convention as MySQL and PostgreSQL.
-    $rename_columns = [];
+    $rename_columns = array();
     foreach ($this->columnNames as $k => $column) {
       // In some SQLite versions, SELECT DISTINCT(field) will return "(field)"
       // instead of "field".
@@ -141,5 +143,4 @@ class Statement extends StatementPrefetch implements StatementInterface {
 
     return $return;
   }
-
 }

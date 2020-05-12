@@ -1,13 +1,17 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\book\Controller\BookController.
+ */
+
 namespace Drupal\book\Controller;
 
 use Drupal\book\BookExport;
 use Drupal\book\BookManagerInterface;
 use Drupal\Core\Controller\ControllerBase;
-use Drupal\Core\Link;
-use Drupal\Core\Render\RendererInterface;
 use Drupal\Core\Url;
+use Drupal\node\Entity\Node;
 use Drupal\node\NodeInterface;
 use Symfony\Component\DependencyInjection\Container;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -34,26 +38,16 @@ class BookController extends ControllerBase {
   protected $bookExport;
 
   /**
-   * The renderer.
-   *
-   * @var \Drupal\Core\Render\RendererInterface
-   */
-  protected $renderer;
-
-  /**
    * Constructs a BookController object.
    *
    * @param \Drupal\book\BookManagerInterface $bookManager
    *   The book manager.
    * @param \Drupal\book\BookExport $bookExport
    *   The book export service.
-   * @param \Drupal\Core\Render\RendererInterface $renderer
-   *   The renderer.
    */
-  public function __construct(BookManagerInterface $bookManager, BookExport $bookExport, RendererInterface $renderer) {
+  public function __construct(BookManagerInterface $bookManager, BookExport $bookExport) {
     $this->bookManager = $bookManager;
     $this->bookExport = $bookExport;
-    $this->renderer = $renderer;
   }
 
   /**
@@ -62,8 +56,7 @@ class BookController extends ControllerBase {
   public static function create(ContainerInterface $container) {
     return new static(
       $container->get('book.manager'),
-      $container->get('book.export'),
-      $container->get('renderer')
+      $container->get('book.export')
     );
   }
 
@@ -72,11 +65,12 @@ class BookController extends ControllerBase {
    *
    * @return array
    *   A render array representing the administrative page content.
+   *
    */
   public function adminOverview() {
-    $rows = [];
+    $rows = array();
 
-    $headers = [t('Book'), t('Operations')];
+    $headers = array(t('Book'), t('Operations'));
     // Add any recognized books to the table list.
     foreach ($this->bookManager->getAllBooks() as $book) {
       /** @var \Drupal\Core\Url $url */
@@ -84,28 +78,28 @@ class BookController extends ControllerBase {
       if (isset($book['options'])) {
         $url->setOptions($book['options']);
       }
-      $row = [
-        Link::fromTextAndUrl($book['title'], $url),
-      ];
-      $links = [];
-      $links['edit'] = [
+      $row = array(
+        $this->l($book['title'], $url),
+      );
+      $links = array();
+      $links['edit'] = array(
         'title' => t('Edit order and titles'),
         'url' => Url::fromRoute('book.admin_edit', ['node' => $book['nid']]),
-      ];
-      $row[] = [
-        'data' => [
+      );
+      $row[] = array(
+        'data' => array(
           '#type' => 'operations',
           '#links' => $links,
-        ],
-      ];
+        ),
+      );
       $rows[] = $row;
     }
-    return [
+    return array(
       '#type' => 'table',
       '#header' => $headers,
       '#rows' => $rows,
       '#empty' => t('No books available.'),
-    ];
+    );
   }
 
   /**
@@ -115,17 +109,17 @@ class BookController extends ControllerBase {
    *   A render array representing the listing of all books content.
    */
   public function bookRender() {
-    $book_list = [];
+    $book_list = array();
     foreach ($this->bookManager->getAllBooks() as $book) {
-      $book_list[] = Link::fromTextAndUrl($book['title'], $book['url']);
+      $book_list[] = $this->l($book['title'], $book['url']);
     }
-    return [
+    return array(
       '#theme' => 'item_list',
       '#items' => $book_list,
       '#cache' => [
-        'tags' => $this->entityTypeManager()->getDefinition('node')->getListCacheTags(),
+        'tags' => \Drupal::entityManager()->getDefinition('node')->getListCacheTags(),
       ],
-    ];
+    );
   }
 
   /**
@@ -155,12 +149,12 @@ class BookController extends ControllerBase {
 
     // @todo Convert the custom export functionality to serializer.
     if (!method_exists($this->bookExport, $method)) {
-      $this->messenger()->addStatus(t('Unknown export format.'));
+      drupal_set_message(t('Unknown export format.'));
       throw new NotFoundHttpException();
     }
 
     $exported_book = $this->bookExport->{$method}($node);
-    return new Response($this->renderer->renderRoot($exported_book));
+    return new Response(drupal_render($exported_book));
   }
 
 }

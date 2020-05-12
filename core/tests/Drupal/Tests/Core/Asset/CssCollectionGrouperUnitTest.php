@@ -1,5 +1,11 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\system\Tests\Asset\CssGrouperUnitTest.
+ */
+
+
 namespace Drupal\Tests\Core\Asset;
 
 use Drupal\Core\Asset\CssCollectionGrouper;
@@ -15,7 +21,7 @@ class CssCollectionGrouperUnitTest extends UnitTestCase {
   /**
    * A CSS asset grouper.
    *
-   * @var \Drupal\Core\Asset\CssCollectionGrouper
+   * @var \Drupal\Core\Asset\CssCollectionGrouper object.
    */
   protected $grouper;
 
@@ -28,129 +34,145 @@ class CssCollectionGrouperUnitTest extends UnitTestCase {
   /**
    * Tests \Drupal\Core\Asset\CssCollectionGrouper.
    */
-  public function testGrouper() {
-    $css_assets = [
-      'system.base.css' => [
+  function testGrouper() {
+    $css_assets = array(
+      'system.base.css' => array(
         'group' => -100,
+        'every_page' => TRUE,
         'type' => 'file',
         'weight' => 0.012,
         'media' => 'all',
         'preprocess' => TRUE,
         'data' => 'core/modules/system/system.base.css',
-        'browsers' => ['IE' => TRUE, '!IE' => TRUE],
+        'browsers' => array('IE' => TRUE, '!IE' => TRUE),
         'basename' => 'system.base.css',
-      ],
-      'js.module.css' => [
+      ),
+      'system.theme.css' => array(
         'group' => -100,
+        'every_page' => TRUE,
         'type' => 'file',
         'weight' => 0.013,
         'media' => 'all',
         'preprocess' => TRUE,
-        'data' => 'core/modules/system/js.module.css',
-        'browsers' => ['IE' => TRUE, '!IE' => TRUE],
-        'basename' => 'js.module.css',
-      ],
-      'jquery.ui.core.css' => [
+        'data' => 'core/modules/system/system.theme.css',
+        'browsers' => array('IE' => TRUE, '!IE' => TRUE),
+        'basename' => 'system.theme.css',
+      ),
+      'jquery.ui.core.css' => array(
         'group' => -100,
         'type' => 'file',
         'weight' => 0.004,
+        'every_page' => FALSE,
         'media' => 'all',
         'preprocess' => TRUE,
         'data' => 'core/misc/ui/themes/base/jquery.ui.core.css',
-        'browsers' => ['IE' => TRUE, '!IE' => TRUE],
+        'browsers' => array('IE' => TRUE, '!IE' => TRUE),
         'basename' => 'jquery.ui.core.css',
-      ],
-      'field.css' => [
+      ),
+      'field.css' => array(
+        'every_page' => TRUE,
         'group' => 0,
         'type' => 'file',
         'weight' => 0.011,
         'media' => 'all',
         'preprocess' => TRUE,
         'data' => 'core/modules/field/theme/field.css',
-        'browsers' => ['IE' => TRUE, '!IE' => TRUE],
+        'browsers' => array('IE' => TRUE, '!IE' => TRUE),
         'basename' => 'field.css',
-      ],
-      'external.css' => [
+      ),
+      'external.css' => array(
+        'every_page' => FALSE,
         'group' => 0,
         'type' => 'external',
         'weight' => 0.009,
         'media' => 'all',
         'preprocess' => TRUE,
         'data' => 'http://example.com/external.css',
-        'browsers' => ['IE' => TRUE, '!IE' => TRUE],
+        'browsers' => array('IE' => TRUE, '!IE' => TRUE),
         'basename' => 'external.css',
-      ],
-      'elements.css' => [
+      ),
+      'elements.css' => array(
         'group' => 100,
+        'every_page' => TRUE,
         'media' => 'all',
         'type' => 'file',
         'weight' => 0.001,
         'preprocess' => TRUE,
         'data' => 'core/themes/bartik/css/base/elements.css',
-        'browsers' => ['IE' => TRUE, '!IE' => TRUE],
+        'browsers' => array('IE' => TRUE, '!IE' => TRUE),
         'basename' => 'elements.css',
-      ],
-      'print.css' => [
+      ),
+      'print.css' => array(
         'group' => 100,
+        'every_page' => TRUE,
         'media' => 'print',
         'type' => 'file',
         'weight' => 0.003,
         'preprocess' => TRUE,
         'data' => 'core/themes/bartik/css/print.css',
-        'browsers' => ['IE' => TRUE, '!IE' => TRUE],
+        'browsers' => array('IE' => TRUE, '!IE' => TRUE),
         'basename' => 'print.css',
-      ],
-    ];
+      ),
+    );
 
     $groups = $this->grouper->group($css_assets);
 
-    $this->assertSame(5, count($groups), "5 groups created.");
+    $this->assertSame(count($groups), 6, "6 groups created.");
 
     // Check group 1.
-    $group = $groups[0];
-    $this->assertSame(-100, $group['group']);
-    $this->assertSame('file', $group['type']);
-    $this->assertSame('all', $group['media']);
-    $this->assertSame(TRUE, $group['preprocess']);
-    $this->assertSame(3, count($group['items']));
-    $this->assertContains($css_assets['system.base.css'], $group['items']);
-    $this->assertContains($css_assets['js.module.css'], $group['items']);
+    $this->assertSame($groups[0]['group'], -100);
+    $this->assertSame($groups[0]['every_page'], TRUE);
+    $this->assertSame($groups[0]['type'], 'file');
+    $this->assertSame($groups[0]['media'], 'all');
+    $this->assertSame($groups[0]['preprocess'], TRUE);
+    $this->assertSame(count($groups[0]['items']), 2);
+    $this->assertContains($css_assets['system.base.css'], $groups[0]['items']);
+    $this->assertContains($css_assets['system.theme.css'], $groups[0]['items']);
 
     // Check group 2.
-    $group = $groups[1];
-    $this->assertSame(0, $group['group']);
-    $this->assertSame('file', $group['type']);
-    $this->assertSame('all', $group['media']);
-    $this->assertSame(TRUE, $group['preprocess']);
-    $this->assertSame(1, count($group['items']));
-    $this->assertContains($css_assets['field.css'], $group['items']);
+    $this->assertSame($groups[1]['group'], -100);
+    $this->assertSame($groups[1]['every_page'], FALSE);
+    $this->assertSame($groups[1]['type'], 'file');
+    $this->assertSame($groups[1]['media'], 'all');
+    $this->assertSame($groups[1]['preprocess'], TRUE);
+    $this->assertSame(count($groups[1]['items']), 1);
+    $this->assertContains($css_assets['jquery.ui.core.css'], $groups[1]['items']);
 
     // Check group 3.
-    $group = $groups[2];
-    $this->assertSame(0, $group['group']);
-    $this->assertSame('external', $group['type']);
-    $this->assertSame('all', $group['media']);
-    $this->assertSame(TRUE, $group['preprocess']);
-    $this->assertSame(1, count($group['items']));
-    $this->assertContains($css_assets['external.css'], $group['items']);
+    $this->assertSame($groups[2]['group'], 0);
+    $this->assertSame($groups[2]['every_page'], TRUE);
+    $this->assertSame($groups[2]['type'], 'file');
+    $this->assertSame($groups[2]['media'], 'all');
+    $this->assertSame($groups[2]['preprocess'], TRUE);
+    $this->assertSame(count($groups[2]['items']), 1);
+    $this->assertContains($css_assets['field.css'], $groups[2]['items']);
 
     // Check group 4.
-    $group = $groups[3];
-    $this->assertSame(100, $group['group']);
-    $this->assertSame('file', $group['type']);
-    $this->assertSame('all', $group['media']);
-    $this->assertSame(TRUE, $group['preprocess']);
-    $this->assertSame(1, count($group['items']));
-    $this->assertContains($css_assets['elements.css'], $group['items']);
+    $this->assertSame($groups[3]['group'], 0);
+    $this->assertSame($groups[3]['every_page'], FALSE);
+    $this->assertSame($groups[3]['type'], 'external');
+    $this->assertSame($groups[3]['media'], 'all');
+    $this->assertSame($groups[3]['preprocess'], TRUE);
+    $this->assertSame(count($groups[3]['items']), 1);
+    $this->assertContains($css_assets['external.css'], $groups[3]['items']);
 
     // Check group 5.
-    $group = $groups[4];
-    $this->assertSame(100, $group['group']);
-    $this->assertSame('file', $group['type']);
-    $this->assertSame('print', $group['media']);
-    $this->assertSame(TRUE, $group['preprocess']);
-    $this->assertSame(1, count($group['items']));
-    $this->assertContains($css_assets['print.css'], $group['items']);
+    $this->assertSame($groups[4]['group'], 100);
+    $this->assertSame($groups[4]['every_page'], TRUE);
+    $this->assertSame($groups[4]['type'], 'file');
+    $this->assertSame($groups[4]['media'], 'all');
+    $this->assertSame($groups[4]['preprocess'], TRUE);
+    $this->assertSame(count($groups[4]['items']), 1);
+    $this->assertContains($css_assets['elements.css'], $groups[4]['items']);
+
+    // Check group 6.
+    $this->assertSame($groups[5]['group'], 100);
+    $this->assertSame($groups[5]['every_page'], TRUE);
+    $this->assertSame($groups[5]['type'], 'file');
+    $this->assertSame($groups[5]['media'], 'print');
+    $this->assertSame($groups[5]['preprocess'], TRUE);
+    $this->assertSame(count($groups[5]['items']), 1);
+    $this->assertContains($css_assets['print.css'], $groups[5]['items']);
   }
 
 }

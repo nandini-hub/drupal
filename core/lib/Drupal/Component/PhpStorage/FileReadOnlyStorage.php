@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\Component\PhpStorage\FileStorage.
+ */
+
 namespace Drupal\Component\PhpStorage;
 
 /**
@@ -29,14 +34,14 @@ class FileReadOnlyStorage implements PhpStorageInterface {
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Component\PhpStorage\PhpStorageInterface::exists().
    */
   public function exists($name) {
     return file_exists($this->getFullPath($name));
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Component\PhpStorage\PhpStorageInterface::load().
    */
   public function load($name) {
     // The FALSE returned on failure is enough for the caller to handle this,
@@ -45,14 +50,14 @@ class FileReadOnlyStorage implements PhpStorageInterface {
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Component\PhpStorage\PhpStorageInterface::save().
    */
   public function save($name, $code) {
     return FALSE;
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Component\PhpStorage\PhpStorageInterface::delete().
    */
   public function delete($name) {
     return FALSE;
@@ -66,14 +71,14 @@ class FileReadOnlyStorage implements PhpStorageInterface {
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Component\PhpStorage\PhpStorageInterface::writeable().
    */
-  public function writeable() {
+  function writeable() {
     return FALSE;
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Component\PhpStorage\PhpStorageInterface::deleteAll().
    */
   public function deleteAll() {
     return FALSE;
@@ -83,7 +88,7 @@ class FileReadOnlyStorage implements PhpStorageInterface {
    * {@inheritdoc}
    */
   public function listAll() {
-    $names = [];
+    $names = array();
     if (file_exists($this->directory)) {
       foreach (new \DirectoryIterator($this->directory) as $fileinfo) {
         if (!$fileinfo->isDot()) {
@@ -95,12 +100,6 @@ class FileReadOnlyStorage implements PhpStorageInterface {
       }
     }
     return $names;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function garbageCollection() {
   }
 
 }

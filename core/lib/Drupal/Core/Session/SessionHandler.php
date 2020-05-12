@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Session\SessionHandler.
+ */
+
 namespace Drupal\Core\Session;
 
 use Drupal\Component\Utility\Crypt;
@@ -58,7 +63,7 @@ class SessionHandler extends AbstractProxy implements \SessionHandlerInterface {
     if (!empty($sid)) {
       // Read the session data from the database.
       $query = $this->connection
-        ->queryRange('SELECT session FROM {sessions} WHERE sid = :sid', 0, 1, [':sid' => Crypt::hashBase64($sid)]);
+        ->queryRange('SELECT session FROM {sessions} WHERE sid = :sid', 0, 1, ['sid' => Crypt::hashBase64($sid)]);
       $data = (string) $query->fetchField();
     }
     return $data;
@@ -72,14 +77,14 @@ class SessionHandler extends AbstractProxy implements \SessionHandlerInterface {
     // manually.
     try {
       $request = $this->requestStack->getCurrentRequest();
-      $fields = [
+      $fields = array(
         'uid' => $request->getSession()->get('uid', 0),
         'hostname' => $request->getClientIP(),
         'session' => $value,
         'timestamp' => REQUEST_TIME,
-      ];
+      );
       $this->connection->merge('sessions')
-        ->keys(['sid' => Crypt::hashBase64($sid)])
+        ->keys(array('sid' => Crypt::hashBase64($sid)))
         ->fields($fields)
         ->execute();
       return TRUE;
@@ -123,7 +128,7 @@ class SessionHandler extends AbstractProxy implements \SessionHandlerInterface {
     // value. For example, if you want user sessions to stay in your database
     // for three weeks before deleting them, you need to set gc_maxlifetime
     // to '1814400'. At that value, only after a user doesn't log in after
-    // three weeks (1814400 seconds) will their session be removed.
+    // three weeks (1814400 seconds) will his/her session be removed.
     $this->connection->delete('sessions')
       ->condition('timestamp', REQUEST_TIME - $lifetime, '<')
       ->execute();

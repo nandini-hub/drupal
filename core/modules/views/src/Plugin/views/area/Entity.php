@@ -1,11 +1,14 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\views\Plugin\views\area\Entity.
+ */
+
 namespace Drupal\views\Plugin\views\area;
 
-use Drupal\Core\DependencyInjection\DeprecatedServicePropertyTrait;
-use Drupal\Core\Entity\EntityDisplayRepositoryInterface;
-use Drupal\Core\Entity\EntityRepositoryInterface;
-use Drupal\Core\Entity\EntityTypeManagerInterface;
+use Drupal\Component\Uuid\Uuid;
+use Drupal\Core\Entity\EntityManagerInterface;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\views\Plugin\views\display\DisplayPluginBase;
 use Drupal\views\ViewExecutable;
@@ -19,12 +22,6 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
  * @ViewsArea("entity")
  */
 class Entity extends TokenizeAreaPluginBase {
-  use DeprecatedServicePropertyTrait;
-
-  /**
-   * {@inheritdoc}
-   */
-  protected $deprecatedProperties = ['entityManager' => 'entity.manager'];
 
   /**
    * Stores the entity type of the result entities.
@@ -34,25 +31,11 @@ class Entity extends TokenizeAreaPluginBase {
   protected $entityType;
 
   /**
-   * The entity type manager.
+   * The entity manager.
    *
-   * @var \Drupal\Core\Entity\EntityTypeManagerInterface
+   * @var \Drupal\Core\Entity\EntityManagerInterface
    */
-  protected $entityTypeManager;
-
-  /**
-   * The entity repository service.
-   *
-   * @var \Drupal\Core\Entity\EntityRepositoryInterface
-   */
-  protected $entityRepository;
-
-  /**
-   * The entity display repository.
-   *
-   * @var \Drupal\Core\Entity\EntityDisplayRepositoryInterface
-   */
-  protected $entityDisplayRepository;
+  protected $entityManager;
 
   /**
    * Constructs a new Entity instance.
@@ -63,29 +46,13 @@ class Entity extends TokenizeAreaPluginBase {
    *   The plugin_id for the plugin instance.
    * @param mixed $plugin_definition
    *   The plugin implementation definition.
-   * @param \Drupal\Core\Entity\EntityTypeManagerInterface $entity_type_manager
-   *   The entity type manager.
-   * @param \Drupal\Core\Entity\EntityRepositoryInterface $entity_repository
-   *   The entity repository.
-   * @param \Drupal\Core\Entity\EntityDisplayRepositoryInterface $entity_display_repository
-   *   The entity display repository.
+   * @param \Drupal\Core\Entity\EntityManagerInterface $entity_manager
+   *   The entity manager.
    */
-  public function __construct(array $configuration, $plugin_id, $plugin_definition, EntityTypeManagerInterface $entity_type_manager, EntityRepositoryInterface $entity_repository = NULL, EntityDisplayRepositoryInterface $entity_display_repository = NULL) {
+  public function __construct(array $configuration, $plugin_id, $plugin_definition, EntityManagerInterface $entity_manager) {
     parent::__construct($configuration, $plugin_id, $plugin_definition);
 
-    $this->entityTypeManager = $entity_type_manager;
-
-    if (!$entity_repository) {
-      @trigger_error('Calling EntityRow::__construct() with the $entity_repository argument is supported in drupal:8.7.0 and will be required before drupal:9.0.0. See https://www.drupal.org/node/2549139.', E_USER_DEPRECATED);
-      $entity_repository = \Drupal::service('entity.repository');
-    }
-    $this->entityRepository = $entity_repository;
-
-    if (!$entity_display_repository) {
-      @trigger_error('Calling EntityRow::__construct() with the $entity_display_repository argument is supported in drupal:8.7.0 and will be required before drupal:9.0.0. See https://www.drupal.org/node/2549139.', E_USER_DEPRECATED);
-      $entity_display_repository = \Drupal::service('entity_display.repository');
-    }
-    $this->entityDisplayRepository = $entity_display_repository;
+    $this->entityManager = $entity_manager;
   }
 
   /**
@@ -96,14 +63,12 @@ class Entity extends TokenizeAreaPluginBase {
       $configuration,
       $plugin_id,
       $plugin_definition,
-      $container->get('entity_type.manager'),
-      $container->get('entity.repository'),
-      $container->get('entity_display.repository')
+      $container->get('entity.manager')
     );
   }
 
   /**
-   * {@inheritdoc}
+   * Overrides \Drupal\views\Plugin\views\area\AreaPluginBase::init().
    */
   public function init(ViewExecutable $view, DisplayPluginBase $display, array &$options = NULL) {
     parent::init($view, $display, $options);
@@ -134,40 +99,40 @@ class Entity extends TokenizeAreaPluginBase {
   public function buildOptionsForm(&$form, FormStateInterface $form_state) {
     parent::buildOptionsForm($form, $form_state);
 
-    $form['view_mode'] = [
+    $form['view_mode'] = array(
       '#type' => 'select',
-      '#options' => $this->entityDisplayRepository->getViewModeOptions($this->entityType),
+      '#options' => $this->entityManager->getViewModeOptions($this->entityType),
       '#title' => $this->t('View mode'),
       '#default_value' => $this->options['view_mode'],
-    ];
+    );
 
-    $label = $this->entityTypeManager->getDefinition($this->entityType)->getLabel();
+    $label = $this->entityManager->getDefinition($this->entityType)->getLabel();
     $target = $this->options['target'];
 
     // If the target does not contain tokens, try to load the entity and
     // display the entity ID to the admin form user.
     // @todo Use a method to check for tokens in
     //   https://www.drupal.org/node/2396607.
-    if (strpos($this->options['target'], '{{') === FALSE) {
+    if (strpos($this->options['target'], '{{') === FALSE && strpos($this->options['target'], '!') === FALSE && strpos($this->options['target'], '%') === FALSE && strpos($this->options['target'], '[') === FALSE) {
       // @todo If the entity does not exist, this will will show the config
       //   target identifier. Decide if this is the correct behavior in
       //   https://www.drupal.org/node/2415391.
-      if ($target_entity = $this->entityRepository->loadEntityByConfigTarget($this->entityType, $this->options['target'])) {
+      if ($target_entity = $this->entityManager->loadEntityByConfigTarget($this->entityType, $this->options['target'])) {
         $target = $target_entity->id();
       }
     }
-    $form['target'] = [
+      $form['target'] = [
       '#title' => $this->t('@entity_type_label ID', ['@entity_type_label' => $label]),
       '#type' => 'textfield',
       '#default_value' => $target,
     ];
 
-    $form['bypass_access'] = [
+    $form['bypass_access'] = array(
       '#type' => 'checkbox',
       '#title' => $this->t('Bypass access checks'),
       '#description' => $this->t('If enabled, access permissions for rendering the entity are not checked.'),
       '#default_value' => !empty($this->options['bypass_access']),
-    ];
+    );
   }
 
   /**
@@ -181,8 +146,8 @@ class Entity extends TokenizeAreaPluginBase {
     // @todo Use a method to check for tokens in
     //   https://www.drupal.org/node/2396607.
     $options = $form_state->getValue('options');
-    if (strpos($options['target'], '{{') === FALSE) {
-      if ($entity = $this->entityTypeManager->getStorage($this->entityType)->load($options['target'])) {
+    if (strpos($options['target'], '{{') === FALSE && strpos($options['target'], '!') === FALSE && strpos($options['target'], '%') === FALSE && strpos($options['target'], '[') === FALSE) {
+      if ($entity = $this->entityManager->getStorage($this->entityType)->load($options['target'])) {
         $options['target'] = $entity->getConfigTarget();
       }
       $form_state->setValue('options', $options);
@@ -196,21 +161,19 @@ class Entity extends TokenizeAreaPluginBase {
     if (!$empty || !empty($this->options['empty'])) {
       // @todo Use a method to check for tokens in
       //   https://www.drupal.org/node/2396607.
-      if (strpos($this->options['target'], '{{') !== FALSE) {
-        // We cast as we need the integer/string value provided by the
-        // ::tokenizeValue() call.
-        $target_id = (string) $this->tokenizeValue($this->options['target']);
-        if ($entity = $this->entityTypeManager->getStorage($this->entityType)->load($target_id)) {
+      if (strpos($this->options['target'], '{{') !== FALSE || strpos($this->options['target'], '!') !== FALSE || strpos($this->options['target'], '%') !== FALSE || strpos($this->options['target'], '[') !== FALSE) {
+        $target_id = $this->tokenizeValue($this->options['target']);
+        if ($entity = $this->entityManager->getStorage($this->entityType)->load($target_id)) {
           $target_entity = $entity;
         }
       }
       else {
-        if ($entity = $this->entityRepository->loadEntityByConfigTarget($this->entityType, $this->options['target'])) {
+        if ($entity = $this->entityManager->loadEntityByConfigTarget($this->entityType, $this->options['target'])) {
           $target_entity = $entity;
         }
       }
       if (isset($target_entity) && (!empty($this->options['bypass_access']) || $target_entity->access('view'))) {
-        $view_builder = $this->entityTypeManager->getViewBuilder($this->entityType);
+        $view_builder = $this->entityManager->getViewBuilder($this->entityType);
         return $view_builder->view($target_entity, $this->options['view_mode']);
       }
     }
@@ -227,13 +190,12 @@ class Entity extends TokenizeAreaPluginBase {
     // Ensure that we don't add dependencies for placeholders.
     // @todo Use a method to check for tokens in
     //   https://www.drupal.org/node/2396607.
-    if (strpos($this->options['target'], '{{') === FALSE) {
-      if ($entity = $this->entityRepository->loadEntityByConfigTarget($this->entityType, $this->options['target'])) {
-        $dependencies[$this->entityTypeManager->getDefinition($this->entityType)->getConfigDependencyKey()][] = $entity->getConfigDependencyName();
+    if (strpos($this->options['target'], '{{') === FALSE && strpos($this->options['target'], '!') === FALSE && strpos($this->options['target'], '%') === FALSE && strpos($this->options['target'], '[') === FALSE) {
+      if ($entity = $this->entityManager->loadEntityByConfigTarget($this->entityType, $this->options['target'])) {
+        $dependencies[$this->entityManager->getDefinition($this->entityType)->getConfigDependencyKey()][] = $entity->getConfigDependencyName();
       }
     }
 
     return $dependencies;
   }
-
 }

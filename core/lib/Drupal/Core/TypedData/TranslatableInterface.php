@@ -1,24 +1,14 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\TypedData\TranslatableInterface.
+ */
+
 namespace Drupal\Core\TypedData;
 
 /**
  * Interface for translatable data.
- *
- * Classes implementing this interface do not necessarily support translations.
- *
- * To detect whether an entity type supports translation, call
- * EntityTypeInterface::isTranslatable().
- *
- * Many entity interfaces are composed of numerous other interfaces such as this
- * one, which allow implementations to pick and choose which features to support
- * through stub implementations of various interface methods. This means that
- * even if an entity class implements TranslatableInterface, it might only have
- * a stub implementation and not a functional one.
- *
- * @see \Drupal\Core\Entity\EntityTypeInterface::isTranslatable()
- * @see https://www.drupal.org/docs/8/api/entity-api/structure-of-an-entity-annotation
- * @see https://www.drupal.org/docs/8/api/entity-api/entity-translation-api
  */
 interface TranslatableInterface {
 
@@ -39,14 +29,6 @@ interface TranslatableInterface {
   public function isDefaultTranslation();
 
   /**
-   * Checks whether the translation is new.
-   *
-   * @return bool
-   *   TRUE if the translation is new, FALSE otherwise.
-   */
-  public function isNewTranslation();
-
-  /**
    * Returns the languages the data is translated to.
    *
    * @param bool $include_default
@@ -62,7 +44,8 @@ interface TranslatableInterface {
    * Gets a translation of the data.
    *
    * The returned translation has to be of the same type than this typed data
-   * object.
+   * object. If the specified translation does not exist, a new one will be
+   * instantiated.
    *
    * @param $langcode
    *   The language code of the translation to get or
@@ -71,9 +54,6 @@ interface TranslatableInterface {
    *
    * @return $this
    *   A typed data object for the translated data.
-   *
-   * @throws \InvalidArgumentException
-   *   If an invalid or non-existing translation language is specified.
    */
   public function getTranslation($langcode);
 
@@ -86,7 +66,7 @@ interface TranslatableInterface {
   public function getUntranslated();
 
   /**
-   * Checks there is a translation for the given language code.
+   * Returns TRUE there is a translation for the given language code.
    *
    * @param string $langcode
    *   The language code identifying the translation.
@@ -99,11 +79,6 @@ interface TranslatableInterface {
   /**
    * Adds a new translation to the translatable object.
    *
-   * To create a translation of an entity prefilled with the original data:
-   * @code
-   *   $entity->addTranslation($langcode, $entity->toArray())
-   * @endcode
-   *
    * @param string $langcode
    *   The language code identifying the translation.
    * @param array $values
@@ -111,11 +86,8 @@ interface TranslatableInterface {
    *   fields. Defaults to none.
    *
    * @return $this
-   *
-   * @throws \InvalidArgumentException
-   *   If an invalid or existing translation language is specified.
    */
-  public function addTranslation($langcode, array $values = []);
+  public function addTranslation($langcode, array $values = array());
 
   /**
    * Removes the translation identified by the given language code.

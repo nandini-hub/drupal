@@ -1,6 +1,12 @@
 <?php
 
+/**
+ * Contains \Drupal\Core\Asset\JsCollectionGrouper.
+ */
+
 namespace Drupal\Core\Asset;
+
+use Drupal\Core\Asset\AssetCollectionGrouperInterface;
 
 /**
  * Groups JavaScript assets.
@@ -12,14 +18,15 @@ class JsCollectionGrouper implements AssetCollectionGrouperInterface {
    *
    * Puts multiple items into the same group if they are groupable and if they
    * are for the same browsers. Items of the 'file' type are groupable if their
-   * 'preprocess' flag is TRUE. Items of the 'external' type are not groupable.
+   * 'preprocess' flag is TRUE. Items of the 'inline', 'settings', or 'external'
+   * type are not groupable.
    *
    * Also ensures that the process of grouping items does not change their
    * relative order. This requirement may result in multiple groups for the same
    * type and browsers, if needed to accommodate other items in between.
    */
   public function group(array $js_assets) {
-    $groups = [];
+    $groups = array();
     // If a group can contain multiple items, we track the information that must
     // be the same for each item in the group, so that when we iterate the next
     // item, we can determine if it can be put into the current group, or if a
@@ -37,12 +44,15 @@ class JsCollectionGrouper implements AssetCollectionGrouperInterface {
         case 'file':
           // Group file items if their 'preprocess' flag is TRUE.
           // Help ensure maximum reuse of aggregate files by only grouping
-          // together items that share the same 'group' value.
-          $group_keys = $item['preprocess'] ? [$item['type'], $item['group'], $item['browsers']] : FALSE;
+          // together items that share the same 'group' value and 'every_page'
+          // flag.
+          $group_keys = $item['preprocess'] ? array($item['type'], $item['group'], $item['every_page'], $item['browsers']) : FALSE;
           break;
 
         case 'external':
-          // Do not group external items.
+        case 'setting':
+        case 'inline':
+          // Do not group external, settings, and inline items.
           $group_keys = FALSE;
           break;
       }
@@ -56,7 +66,7 @@ class JsCollectionGrouper implements AssetCollectionGrouperInterface {
         // unique to the item and should not be carried over to the group.
         $groups[$index] = $item;
         unset($groups[$index]['data'], $groups[$index]['weight']);
-        $groups[$index]['items'] = [];
+        $groups[$index]['items'] = array();
         $current_group_keys = $group_keys ? $group_keys : NULL;
       }
 

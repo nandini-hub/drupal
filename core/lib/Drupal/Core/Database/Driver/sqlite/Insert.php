@@ -1,11 +1,16 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\Core\Database\Driver\sqlite\Insert
+ */
+
 namespace Drupal\Core\Database\Driver\sqlite;
 
 use Drupal\Core\Database\Query\Insert as QueryInsert;
 
 /**
- * SQLite implementation of \Drupal\Core\Database\Query\Insert.
+ * SQLite specific implementation of InsertQuery.
  *
  * We ignore all the default fields and use the clever SQLite syntax:
  *   INSERT INTO table DEFAULT VALUES
@@ -21,7 +26,7 @@ class Insert extends QueryInsert {
       return parent::execute();
     }
     else {
-      return $this->connection->query('INSERT INTO {' . $this->table . '} DEFAULT VALUES', [], $this->queryOptions);
+      return $this->connection->query('INSERT INTO {' . $this->table . '} DEFAULT VALUES', array(), $this->queryOptions);
     }
   }
 
@@ -30,7 +35,7 @@ class Insert extends QueryInsert {
     $comments = $this->connection->makeComment($this->comments);
 
     // Produce as many generic placeholders as necessary.
-    $placeholders = [];
+    $placeholders = array();
     if (!empty($this->insertFields)) {
       $placeholders = array_fill(0, count($this->insertFields), '?');
     }

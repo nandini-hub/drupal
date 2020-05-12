@@ -1,8 +1,10 @@
 <?php
 
-namespace Drupal\Core\Config;
+/**
+ * Contains \Drupal\Core\Config\FileStorageFactory.
+ */
 
-use Drupal\Core\Site\Settings;
+namespace Drupal\Core\Config;
 
 /**
  * Provides a factory for creating config file storage objects.
@@ -13,31 +15,18 @@ class FileStorageFactory {
    * Returns a FileStorage object working with the active config directory.
    *
    * @return \Drupal\Core\Config\FileStorage FileStorage
-   *
-   * @deprecated in drupal:8.0.0 and is removed from drupal:9.0.0. Drupal core
-   * no longer creates an active directory.
    */
-  public static function getActive() {
+  static function getActive() {
     return new FileStorage(config_get_config_directory(CONFIG_ACTIVE_DIRECTORY));
   }
 
   /**
-   * Returns a FileStorage object working with the sync config directory.
+   * Returns a FileStorage object working with the staging config directory.
    *
    * @return \Drupal\Core\Config\FileStorage FileStorage
-   *
-   * @throws \Exception
-   *   In case the sync directory does not exist or is not defined in
-   *   $settings['config_sync_directory'].
    */
-  public static function getSync() {
-    $directory = Settings::get('config_sync_directory', FALSE);
-    if ($directory === FALSE) {
-      // @todo: throw a more specific exception.
-      // @see https://www.drupal.org/node/2696103
-      throw new \Exception('The config sync directory is not defined in $settings["config_sync_directory"]');
-    }
-    return new FileStorage($directory);
+  static function getStaging() {
+    return new FileStorage(config_get_config_directory(CONFIG_STAGING_DIRECTORY));
   }
 
 }

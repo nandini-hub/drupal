@@ -1,23 +1,27 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\simpletest\Form\SimpletestResultsForm.
+ */
+
 namespace Drupal\simpletest\Form;
 
+use Drupal\Component\Utility\SafeMarkup;
 use Drupal\Core\Database\Connection;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormState;
 use Drupal\Core\Form\FormStateInterface;
-use Drupal\Core\Test\EnvironmentCleanerInterface;
 use Drupal\Core\Url;
 use Drupal\simpletest\TestDiscovery;
 use Symfony\Component\DependencyInjection\ContainerInterface;
+use Symfony\Component\HttpFoundation\RedirectResponse;
 
 /**
  * Test results form for $test_id.
  *
  * Note that the UI strings are not translated because this form is also used
  * from run-tests.sh.
- *
- * @internal
  *
  * @see simpletest_script_open_browser()
  * @see run-tests.sh
@@ -39,19 +43,11 @@ class SimpletestResultsForm extends FormBase {
   protected $database;
 
   /**
-   * The environment cleaner service.
-   *
-   * @var \Drupal\Core\Test\EnvironmentCleanerInterface
-   */
-  protected $cleaner;
-
-  /**
    * {@inheritdoc}
    */
   public static function create(ContainerInterface $container) {
     return new static(
-      $container->get('database'),
-      $container->get('environment_cleaner')
+      $container->get('database')
     );
   }
 
@@ -61,49 +57,48 @@ class SimpletestResultsForm extends FormBase {
    * @param \Drupal\Core\Database\Connection $database
    *   The database connection service.
    */
-  public function __construct(Connection $database, EnvironmentCleanerInterface $cleaner) {
+  public function __construct(Connection $database) {
     $this->database = $database;
-    $this->cleaner = $cleaner;
   }
 
   /**
    * Builds the status image map.
    */
   protected static function buildStatusImageMap() {
-    $image_pass = [
+    $image_pass = array(
       '#theme' => 'image',
       '#uri' => 'core/misc/icons/73b355/check.svg',
       '#width' => 18,
       '#height' => 18,
       '#alt' => 'Pass',
-    ];
-    $image_fail = [
+    );
+    $image_fail = array(
       '#theme' => 'image',
-      '#uri' => 'core/misc/icons/e32700/error.svg',
+      '#uri' => 'core/misc/icons/ea2800/error.svg',
       '#width' => 18,
       '#height' => 18,
       '#alt' => 'Fail',
-    ];
-    $image_exception = [
+    );
+    $image_exception = array(
       '#theme' => 'image',
       '#uri' => 'core/misc/icons/e29700/warning.svg',
       '#width' => 18,
       '#height' => 18,
       '#alt' => 'Exception',
-    ];
-    $image_debug = [
+    );
+    $image_debug = array(
       '#theme' => 'image',
       '#uri' => 'core/misc/icons/e29700/warning.svg',
       '#width' => 18,
       '#height' => 18,
       '#alt' => 'Debug',
-    ];
-    return [
-      'pass' => $image_pass,
-      'fail' => $image_fail,
-      'exception' => $image_exception,
-      'debug' => $image_debug,
-    ];
+    );
+    return array(
+      'pass' => drupal_render($image_pass),
+      'fail' => drupal_render($image_fail),
+      'exception' => drupal_render($image_exception),
+      'debug' => drupal_render($image_debug),
+    );
   }
 
   /**
@@ -119,10 +114,10 @@ class SimpletestResultsForm extends FormBase {
   public function buildForm(array $form, FormStateInterface $form_state, $test_id = NULL) {
     // Make sure there are test results to display and a re-run is not being
     // performed.
-    $results = [];
+    $results = array();
     if (is_numeric($test_id) && !$results = $this->getResults($test_id)) {
-      $this->messenger()->addError($this->t('No test results to display.'));
-      return $this->redirect('simpletest.test_form');
+      drupal_set_message($this->t('No test results to display.'), 'error');
+      return new RedirectResponse($this->url('simpletest.test_form', array(), array('absolute' => TRUE)));
     }
 
     // Load all classes and include CSS.
@@ -131,48 +126,48 @@ class SimpletestResultsForm extends FormBase {
     $filter = static::addResultForm($form, $results, $this->getStringTranslation());
 
     // Actions.
-    $form['#action'] = Url::fromRoute('simpletest.result_form', ['test_id' => 're-run'])->toString();
-    $form['action'] = [
+    $form['#action'] = $this->url('simpletest.result_form', array('test_id' => 're-run'));
+    $form['action'] = array(
       '#type' => 'fieldset',
       '#title' => $this->t('Actions'),
-      '#attributes' => ['class' => ['container-inline']],
+      '#attributes' => array('class' => array('container-inline')),
       '#weight' => -11,
-    ];
+    );
 
-    $form['action']['filter'] = [
+    $form['action']['filter'] = array(
       '#type' => 'select',
       '#title' => 'Filter',
-      '#options' => [
-        'all' => $this->t('All (@count)', ['@count' => count($filter['pass']) + count($filter['fail'])]),
-        'pass' => $this->t('Pass (@count)', ['@count' => count($filter['pass'])]),
-        'fail' => $this->t('Fail (@count)', ['@count' => count($filter['fail'])]),
-      ],
-    ];
+      '#options' => array(
+        'all' => $this->t('All (@count)', array('@count' => count($filter['pass']) + count($filter['fail']))),
+        'pass' => $this->t('Pass (@count)', array('@count' => count($filter['pass']))),
+        'fail' => $this->t('Fail (@count)', array('@count' => count($filter['fail']))),
+      ),
+    );
     $form['action']['filter']['#default_value'] = ($filter['fail'] ? 'fail' : 'all');
 
     // Categorized test classes for to be used with selected filter value.
-    $form['action']['filter_pass'] = [
+    $form['action']['filter_pass'] = array(
       '#type' => 'hidden',
       '#default_value' => implode(',', $filter['pass']),
-    ];
-    $form['action']['filter_fail'] = [
+    );
+    $form['action']['filter_fail'] = array(
       '#type' => 'hidden',
       '#default_value' => implode(',', $filter['fail']),
-    ];
+    );
 
-    $form['action']['op'] = [
+    $form['action']['op'] = array(
       '#type' => 'submit',
       '#value' => $this->t('Run tests'),
-    ];
+    );
 
-    $form['action']['return'] = [
+    $form['action']['return'] = array(
       '#type' => 'link',
       '#title' => $this->t('Return to list'),
       '#url' => Url::fromRoute('simpletest.test_form'),
-    ];
+    );
 
     if (is_numeric($test_id)) {
-      $this->cleaner->cleanResultsTable($test_id);
+      simpletest_clean_results_table($test_id);
     }
 
     return $form;
@@ -182,8 +177,8 @@ class SimpletestResultsForm extends FormBase {
    * {@inheritdoc}
    */
   public function submitForm(array &$form, FormStateInterface $form_state) {
-    $pass = $form_state->getValue('filter_pass') ? explode(',', $form_state->getValue('filter_pass')) : [];
-    $fail = $form_state->getValue('filter_fail') ? explode(',', $form_state->getValue('filter_fail')) : [];
+    $pass = $form_state->getValue('filter_pass') ? explode(',', $form_state->getValue('filter_pass')) : array();
+    $fail = $form_state->getValue('filter_fail') ? explode(',', $form_state->getValue('filter_fail')) : array();
 
     if ($form_state->getValue('filter') == 'all') {
       $classes = array_merge($pass, $fail);
@@ -200,7 +195,7 @@ class SimpletestResultsForm extends FormBase {
       return;
     }
 
-    $form_execute = [];
+    $form_execute = array();
     $form_state_execute = new FormState();
     foreach ($classes as $class) {
       $form_state_execute->setValue(['tests', $class], $class);
@@ -210,7 +205,7 @@ class SimpletestResultsForm extends FormBase {
     // Under normal circumstances, a form object's submitForm() should never be
     // called directly, FormBuilder::submitForm() should be called instead.
     // However, it calls $form_state->setProgrammed(), which disables the Batch API.
-    $simpletest_test_form = SimpletestTestForm::create(\Drupal::getContainer());
+    $simpletest_test_form = new SimpletestTestForm();
     $simpletest_test_form->buildForm($form_execute, $form_state_execute);
     $simpletest_test_form->submitForm($form_execute, $form_state_execute);
     if ($redirect = $form_state_execute->getRedirect()) {
@@ -225,7 +220,7 @@ class SimpletestResultsForm extends FormBase {
    *   The test_id to retrieve results of.
    *
    * @return array
-   *   Array of results grouped by test_class.
+   *  Array of results grouped by test_class.
    */
   protected function getResults($test_id) {
     return $this->database->select('simpletest')
@@ -246,7 +241,7 @@ class SimpletestResultsForm extends FormBase {
    *
    * @param array $form
    *   The form to attach the results to.
-   * @param array $results
+   * @param array $test_results
    *   The simpletest results.
    *
    * @return array
@@ -258,10 +253,10 @@ class SimpletestResultsForm extends FormBase {
    */
   public static function addResultForm(array &$form, array $results) {
     // Transform the test results to be grouped by test class.
-    $test_results = [];
+    $test_results = array();
     foreach ($results as $result) {
       if (!isset($test_results[$result->test_class])) {
-        $test_results[$result->test_class] = [];
+        $test_results[$result->test_class] = array();
       }
       $test_results[$result->test_class][] = $result;
     }
@@ -269,76 +264,77 @@ class SimpletestResultsForm extends FormBase {
     $image_status_map = static::buildStatusImageMap();
 
     // Keep track of which test cases passed or failed.
-    $filter = [
-      'pass' => [],
-      'fail' => [],
-    ];
+    $filter = array(
+      'pass' => array(),
+      'fail' => array(),
+    );
 
     // Summary result widget.
-    $form['result'] = [
+    $form['result'] = array(
       '#type' => 'fieldset',
       '#title' => 'Results',
       // Because this is used in a theme-less situation need to provide a
       // default.
-      '#attributes' => [],
-    ];
-    $form['result']['summary'] = $summary = [
+      '#attributes' => array(),
+    );
+    $form['result']['summary'] = $summary = array(
       '#theme' => 'simpletest_result_summary',
       '#pass' => 0,
       '#fail' => 0,
       '#exception' => 0,
       '#debug' => 0,
-    ];
+    );
 
     \Drupal::service('test_discovery')->registerTestNamespaces();
 
     // Cycle through each test group.
-    $header = [
+    $header = array(
       'Message',
       'Group',
       'Filename',
       'Line',
       'Function',
-      ['colspan' => 2, 'data' => 'Status'],
-    ];
-    $form['result']['results'] = [];
+      array('colspan' => 2, 'data' => 'Status')
+    );
+    $form['result']['results'] = array();
     foreach ($test_results as $group => $assertions) {
       // Create group details with summary information.
       $info = TestDiscovery::getTestInfo($group);
-      $form['result']['results'][$group] = [
+      $form['result']['results'][$group] = array(
         '#type' => 'details',
         '#title' => $info['name'],
         '#open' => TRUE,
         '#description' => $info['description'],
-      ];
+      );
       $form['result']['results'][$group]['summary'] = $summary;
       $group_summary =& $form['result']['results'][$group]['summary'];
 
       // Create table of assertions for the group.
-      $rows = [];
+      $rows = array();
       foreach ($assertions as $assertion) {
-        $row = [];
-        $row[] = ['data' => ['#markup' => $assertion->message]];
+        $row = array();
+        // Assertion messages are in code, so we assume they are safe.
+        $row[] = SafeMarkup::set($assertion->message);
         $row[] = $assertion->message_group;
         $row[] = \Drupal::service('file_system')->basename(($assertion->file));
         $row[] = $assertion->line;
         $row[] = $assertion->function;
-        $row[] = ['data' => $image_status_map[$assertion->status]];
+        $row[] = $image_status_map[$assertion->status];
 
         $class = 'simpletest-' . $assertion->status;
         if ($assertion->message_group == 'Debug') {
           $class = 'simpletest-debug';
         }
-        $rows[] = ['data' => $row, 'class' => [$class]];
+        $rows[] = array('data' => $row, 'class' => array($class));
 
         $group_summary['#' . $assertion->status]++;
         $form['result']['summary']['#' . $assertion->status]++;
       }
-      $form['result']['results'][$group]['table'] = [
+      $form['result']['results'][$group]['table'] = array(
         '#type' => 'table',
         '#header' => $header,
         '#rows' => $rows,
-      ];
+      );
 
       // Set summary information.
       $group_summary['#ok'] = $group_summary['#fail'] + $group_summary['#exception'] == 0;

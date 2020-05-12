@@ -1,11 +1,7 @@
-langcode: en
-status: true
-dependencies:
-  module:
-    - editor
-name: 'Full HTML'
 format: full_html
-weight: 2
+name: 'Full HTML'
+status: true
+weight: 1
 roles:
   - administrator
 filters:
@@ -33,3 +29,7 @@ filters:
     status: true
     weight: 11
     settings: {  }
+langcode: en
+dependencies:
+  module:
+    - editor

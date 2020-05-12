@@ -5,45 +5,38 @@
  * Miscellaneous functions.
  */
 
+use Drupal\Component\Utility\Variable;
 use Drupal\Core\PhpStorage\PhpStorageFactory;
 use Drupal\Core\Cache\Cache;
 use Drupal\Core\DrupalKernel;
 use Symfony\Component\HttpFoundation\Request;
+use Composer\Autoload\ClassLoader;
 
 /**
  * Rebuilds all caches even when Drupal itself does not work.
  *
- * @param $class_loader
- *   The class loader. Normally Composer's ClassLoader, as included by the
- *   front controller, but may also be decorated; e.g.,
- *   \Symfony\Component\ClassLoader\ApcClassLoader, \Symfony\Component\ClassLoader\WinCacheClassLoader, or \Symfony\Component\ClassLoader\XcacheClassLoader
+ * @param \Composer\Autoload\ClassLoader $class_loader
+ *   The class loader.
  * @param \Symfony\Component\HttpFoundation\Request $request
  *   The current request.
  *
  * @see rebuild.php
  */
-function drupal_rebuild($class_loader, Request $request) {
+function drupal_rebuild(ClassLoader $class_loader, Request $request) {
   // Remove Drupal's error and exception handlers; they rely on a working
   // service container and other subsystems and will only cause a fatal error
   // that hides the actual error.
   restore_error_handler();
   restore_exception_handler();
 
-  // Force kernel to rebuild php cache.
+  // Force kernel to rebuild container.
+  PhpStorageFactory::get('service_container')->deleteAll();
   PhpStorageFactory::get('twig')->deleteAll();
 
   // Bootstrap up to where caches exist and clear them.
   $kernel = new DrupalKernel('prod', $class_loader);
   $kernel->setSitePath(DrupalKernel::findSitePath($request));
-  $kernel->boot();
-  $kernel->preHandle($request);
-  // Ensure our request includes the session if appropriate.
-  if (PHP_SAPI !== 'cli') {
-    $request->setSession($kernel->getContainer()->get('session'));
-  }
-
-  // Invalidate the container.
-  $kernel->invalidateContainer();
+  $kernel->prepareLegacyRequest($request);
 
   foreach (Cache::getBins() as $bin) {
     $bin->deleteAll();

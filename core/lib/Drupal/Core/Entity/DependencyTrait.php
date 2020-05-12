@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Entity\DependencyTrait.
+ */
+
 namespace Drupal\Core\Entity;
 
 /**
@@ -12,17 +17,16 @@ trait DependencyTrait {
    *
    * @var array
    */
-  protected $dependencies = [];
+  protected $dependencies = array();
 
   /**
    * Adds a dependency.
    *
    * @param string $type
-   *   Type of dependency being added: 'module', 'theme', 'config', 'content'.
+   *   The type of dependency being added: 'module', 'theme', or 'entity'.
    * @param string $name
    *   If $type is 'module' or 'theme', the name of the module or theme. If
-   *   $type is 'config' or 'content', the result of
-   *   EntityInterface::getConfigDependencyName().
+   *   $type is 'entity', the full configuration object name.
    *
    * @see \Drupal\Core\Entity\EntityInterface::getConfigDependencyName()
    *
@@ -30,7 +34,7 @@ trait DependencyTrait {
    */
   protected function addDependency($type, $name) {
     if (empty($this->dependencies[$type])) {
-      $this->dependencies[$type] = [$name];
+      $this->dependencies[$type] = array($name);
       if (count($this->dependencies) > 1) {
         // Ensure a consistent order of type keys.
         ksort($this->dependencies);
@@ -47,7 +51,7 @@ trait DependencyTrait {
   /**
    * Adds multiple dependencies.
    *
-   * @param array $dependencies
+   * @param array $dependencies.
    *   An array of dependencies keyed by the type of dependency. One example:
    *   @code
    *   array(

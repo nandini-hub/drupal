@@ -1,19 +1,28 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\Core\EventSubscriber\FinishResponseSubscriber.
+ */
+
 namespace Drupal\Core\EventSubscriber;
 
 use Drupal\Component\Datetime\DateTimePlus;
 use Drupal\Core\Cache\CacheableResponseInterface;
-use Drupal\Core\Cache\Context\CacheContextsManager;
+use Drupal\Core\Cache\CacheContextsManager;
+use Drupal\Core\Config\Config;
 use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Language\LanguageManagerInterface;
 use Drupal\Core\PageCache\RequestPolicyInterface;
 use Drupal\Core\PageCache\ResponsePolicyInterface;
 use Drupal\Core\Site\Settings;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 use Symfony\Component\HttpKernel\Event\FilterResponseEvent;
 use Symfony\Component\HttpKernel\KernelEvents;
+use Symfony\Component\HttpKernel\HttpKernelInterface;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 
 /**
@@ -52,16 +61,9 @@ class FinishResponseSubscriber implements EventSubscriberInterface {
   /**
    * The cache contexts manager service.
    *
-   * @var \Drupal\Core\Cache\Context\CacheContextsManager
+   * @var \Drupal\Core\Cache\CacheContextsManager
    */
   protected $cacheContexts;
-
-  /**
-   * Whether to send cacheability headers for debugging purposes.
-   *
-   * @var bool
-   */
-  protected $debugCacheabilityHeaders = FALSE;
 
   /**
    * Constructs a FinishResponseSubscriber object.
@@ -74,39 +76,21 @@ class FinishResponseSubscriber implements EventSubscriberInterface {
    *   A policy rule determining the cacheability of a request.
    * @param \Drupal\Core\PageCache\ResponsePolicyInterface $response_policy
    *   A policy rule determining the cacheability of a response.
-   * @param \Drupal\Core\Cache\Context\CacheContextsManager $cache_contexts_manager
+   * @param \Drupal\Core\Cache\CacheContextsManager $cache_contexts_manager
    *   The cache contexts manager service.
-   * @param bool $http_response_debug_cacheability_headers
-   *   (optional) Whether to send cacheability headers for debugging purposes.
    */
-  public function __construct(LanguageManagerInterface $language_manager, ConfigFactoryInterface $config_factory, RequestPolicyInterface $request_policy, ResponsePolicyInterface $response_policy, CacheContextsManager $cache_contexts_manager, $http_response_debug_cacheability_headers = FALSE) {
+  public function __construct(LanguageManagerInterface $language_manager, ConfigFactoryInterface $config_factory, RequestPolicyInterface $request_policy, ResponsePolicyInterface $response_policy, CacheContextsManager $cache_contexts_manager) {
     $this->languageManager = $language_manager;
     $this->config = $config_factory->get('system.performance');
     $this->requestPolicy = $request_policy;
     $this->responsePolicy = $response_policy;
     $this->cacheContextsManager = $cache_contexts_manager;
-    $this->debugCacheabilityHeaders = $http_response_debug_cacheability_headers;
-  }
-
-  /**
-   * Sets extra headers on any responses, also subrequest ones.
-   *
-   * @param \Symfony\Component\HttpKernel\Event\FilterResponseEvent $event
-   *   The event to process.
-   */
-  public function onAllResponds(FilterResponseEvent $event) {
-    $response = $event->getResponse();
-    // Always add the 'http_response' cache tag to be able to invalidate every
-    // response, for example after rebuilding routes.
-    if ($response instanceof CacheableResponseInterface) {
-      $response->getCacheableMetadata()->addCacheTags(['http_response']);
-    }
   }
 
   /**
    * Sets extra headers on successful responses.
    *
-   * @param \Symfony\Component\HttpKernel\Event\FilterResponseEvent $event
+   * @param Symfony\Component\HttpKernel\Event\FilterResponseEvent $event
    *   The event to process.
    */
   public function onRespond(FilterResponseEvent $event) {
@@ -129,30 +113,27 @@ class FinishResponseSubscriber implements EventSubscriberInterface {
     // XSS and other vulnerabilities.
     // https://www.owasp.org/index.php/List_of_useful_HTTP_headers
     $response->headers->set('X-Content-Type-Options', 'nosniff', FALSE);
-    $response->headers->set('X-Frame-Options', 'SAMEORIGIN', FALSE);
 
-    // If the current response isn't an implementation of the
-    // CacheableResponseInterface, we assume that a Response is either
-    // explicitly not cacheable or that caching headers are already set in
-    // another place.
-    if (!$response instanceof CacheableResponseInterface) {
-      if (!$this->isCacheControlCustomized($response)) {
-        $this->setResponseNotCacheable($response, $request);
+    // Attach globally-declared headers to the response object so that Symfony
+    // can send them for us correctly.
+    // @todo Remove this once drupal_process_attached() no longer calls
+    //    _drupal_add_http_header(), which has its own static. Instead,
+    //    _drupal_process_attached() should use
+    //    \Symfony\Component\HttpFoundation\Response->headers->set(), which is
+    //    already documented on the (deprecated) _drupal_process_attached() to
+    //    become the final, intended mechanism.
+    $headers = drupal_get_http_header();
+    foreach ($headers as $name => $value) {
+      // Symfony special-cases the 'Status' header.
+      if ($name === 'status') {
+        $response->setStatusCode($value);
       }
-
-      // HTTP/1.0 proxies do not support the Vary header, so prevent any caching
-      // by sending an Expires date in the past. HTTP/1.1 clients ignore the
-      // Expires header if a Cache-Control: max-age directive is specified (see
-      // RFC 2616, section 14.9.3).
-      if (!$response->headers->has('Expires')) {
-        $this->setExpiresNoCache($response);
-      }
-      return;
+      $response->headers->set($name, $value, FALSE);
     }
 
-    if ($this->debugCacheabilityHeaders) {
-      // Expose the cache contexts and cache tags associated with this page in a
-      // X-Drupal-Cache-Contexts and X-Drupal-Cache-Tags header respectively.
+    // Expose the cache contexts and cache tags associated with this page in a
+    // X-Drupal-Cache-Contexts and X-Drupal-Cache-Tags header respectively.
+    if ($response instanceof CacheableResponseInterface) {
       $response_cacheability = $response->getCacheableMetadata();
       $response->headers->set('X-Drupal-Cache-Tags', implode(' ', $response_cacheability->getCacheTags()));
       $response->headers->set('X-Drupal-Cache-Contexts', implode(' ', $this->cacheContextsManager->optimizeTokens($response_cacheability->getCacheContexts())));
@@ -189,9 +170,9 @@ class FinishResponseSubscriber implements EventSubscriberInterface {
    *
    * When neither Cache-Control nor any of the ETag, Last-Modified, Expires
    * headers are set on the response, ::get('Cache-Control') returns the value
-   * 'no-cache, private'. If any of ETag, Last-Modified or Expires are set but
-   * not Cache-Control, then 'private, must-revalidate' (in exactly this order)
-   * is returned.
+   * 'no-cache'. If any of ETag, Last-Modified or Expires are set but not
+   * Cache-Control, then 'private, must-revalidate' (in exactly this order) is
+   * returned.
    *
    * @see \Symfony\Component\HttpFoundation\ResponseHeaderBag::computeCacheControlValue()
    *
@@ -202,7 +183,7 @@ class FinishResponseSubscriber implements EventSubscriberInterface {
    */
   protected function isCacheControlCustomized(Response $response) {
     $cache_control = $response->headers->get('Cache-Control');
-    return $cache_control != 'no-cache, private' && $cache_control != 'private, must-revalidate';
+    return $cache_control != 'no-cache' && $cache_control != 'private, must-revalidate';
   }
 
   /**
@@ -273,7 +254,7 @@ class FinishResponseSubscriber implements EventSubscriberInterface {
    *   A response object.
    */
   protected function setCacheControlNoCache(Response $response) {
-    $response->headers->set('Cache-Control', 'no-cache, must-revalidate');
+    $response->headers->set('Cache-Control', 'no-cache, must-revalidate, post-check=0, pre-check=0');
   }
 
   /**
@@ -288,7 +269,7 @@ class FinishResponseSubscriber implements EventSubscriberInterface {
    *   A response object.
    */
   protected function setExpiresNoCache(Response $response) {
-    $response->setExpires(\DateTime::createFromFormat('j-M-Y H:i:s T', '19-Nov-1978 05:00:00 UTC'));
+    $response->setExpires(\DateTime::createFromFormat('j-M-Y H:i:s T', '19-Nov-1978 05:00:00 GMT'));
   }
 
   /**
@@ -298,11 +279,7 @@ class FinishResponseSubscriber implements EventSubscriberInterface {
    *   An array of event listener definitions.
    */
   public static function getSubscribedEvents() {
-    $events[KernelEvents::RESPONSE][] = ['onRespond'];
-    // There is no specific reason for choosing 16 beside it should be executed
-    // before ::onRespond().
-    $events[KernelEvents::RESPONSE][] = ['onAllResponds', 16];
+    $events[KernelEvents::RESPONSE][] = array('onRespond');
     return $events;
   }
-
 }

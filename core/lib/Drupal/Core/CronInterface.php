@@ -1,11 +1,13 @@
 <?php
 
+/**
+ * Contains \Drupal\Core\CronInterface.
+ */
+
 namespace Drupal\Core;
 
 /**
  * An interface for running cron tasks.
- *
- * @see https://www.drupal.org/cron
  */
 interface CronInterface {
 

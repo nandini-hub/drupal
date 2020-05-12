@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\TypedData\DataDefinitionInterface.
+ */
+
 namespace Drupal\Core\TypedData;
 
 /**
@@ -38,13 +43,13 @@ interface DataDefinitionInterface {
    * @param string $data_type
    *   The data type, for which a data definition should be created.
    *
-   * @return static
-   *
    * @throws \InvalidArgumentException
    *   If an unsupported data type gets passed to the class; e.g., 'string' to a
    *   definition class handling 'entity:* data types.
+   *
+   * @return static
    */
-  public static function createFromDataType($data_type);
+   public static function createFromDataType($data_type);
 
   /**
    * Returns the data type of the data.
@@ -57,9 +62,8 @@ interface DataDefinitionInterface {
   /**
    * Returns a human readable label.
    *
-   * @return string|\Drupal\Core\StringTranslation\TranslatableMarkup
-   *   The label. A string or an instance of TranslatableMarkup will be returned
-   *   based on the way the label translation is handled.
+   * @return string
+   *   The label.
    */
   public function getLabel();
 
@@ -217,16 +221,5 @@ interface DataDefinitionInterface {
    *   The object itself for chaining.
    */
   public function addConstraint($constraint_name, $options = NULL);
-
-  /**
-   * Determines whether the data value is internal.
-   *
-   * This can be used in a scenario when it is not desirable to expose this data
-   * value to an external system.
-   *
-   * @return bool
-   *   Whether the data value is internal.
-   */
-  public function isInternal();
 
 }

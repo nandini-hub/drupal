@@ -1,13 +1,18 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\user\Plugin\views\argument_default\User.
+ */
+
 namespace Drupal\user\Plugin\views\argument_default;
 
-use Drupal\Core\Cache\Cache;
-use Drupal\Core\Cache\CacheableDependencyInterface;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Routing\RouteMatchInterface;
+use Drupal\views\Plugin\CacheablePluginInterface;
 use Drupal\views\Plugin\views\argument_default\ArgumentDefaultPluginBase;
 use Symfony\Component\DependencyInjection\ContainerInterface;
+use Symfony\Component\HttpFoundation\Request;
 use Drupal\user\UserInterface;
 use Drupal\node\NodeInterface;
 
@@ -19,7 +24,7 @@ use Drupal\node\NodeInterface;
  *   title = @Translation("User ID from route context")
  * )
  */
-class User extends ArgumentDefaultPluginBase implements CacheableDependencyInterface {
+class User extends ArgumentDefaultPluginBase implements CacheablePluginInterface {
 
   /**
    * The route match.
@@ -64,7 +69,7 @@ class User extends ArgumentDefaultPluginBase implements CacheableDependencyInter
    */
   protected function defineOptions() {
     $options = parent::defineOptions();
-    $options['user'] = ['default' => ''];
+    $options['user'] = array('default' => '');
 
     return $options;
   }
@@ -73,11 +78,11 @@ class User extends ArgumentDefaultPluginBase implements CacheableDependencyInter
    * {@inheritdoc}
    */
   public function buildOptionsForm(&$form, FormStateInterface $form_state) {
-    $form['user'] = [
+    $form['user'] = array(
       '#type' => 'checkbox',
       '#title' => $this->t('Also look for a node and use the node author'),
       '#default_value' => $this->options['user'],
-    ];
+    );
   }
 
   /**
@@ -98,13 +103,20 @@ class User extends ArgumentDefaultPluginBase implements CacheableDependencyInter
         return $node->getOwnerId();
       }
     }
+
+    // If the current page is a view that takes uid as an argument.
+    $view = views_get_page_view();
+
+    if ($view && isset($view->argument['uid'])) {
+      return $view->argument['uid']->argument;
+    }
   }
 
   /**
    * {@inheritdoc}
    */
-  public function getCacheMaxAge() {
-    return Cache::PERMANENT;
+  public function isCacheable() {
+    return TRUE;
   }
 
   /**

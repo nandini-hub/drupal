@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\system\MenuAccessControlHandler.
+ */
+
 namespace Drupal\system;
 
 use Drupal\Core\Access\AccessResult;
@@ -17,27 +22,21 @@ class MenuAccessControlHandler extends EntityAccessControlHandler {
   /**
    * {@inheritdoc}
    */
-  protected $viewLabelOperation = TRUE;
-
-  /**
-   * {@inheritdoc}
-   */
-  protected function checkAccess(EntityInterface $entity, $operation, AccountInterface $account) {
-    // There are no restrictions on viewing the label of a date format.
-    if ($operation === 'view label') {
+  protected function checkAccess(EntityInterface $entity, $operation, $langcode, AccountInterface $account) {
+    if ($operation === 'view') {
       return AccessResult::allowed();
     }
     // Locked menus could not be deleted.
-    elseif ($operation === 'delete') {
+    elseif ($operation == 'delete') {
       if ($entity->isLocked()) {
-        return AccessResult::forbidden('The Menu config entity is locked.')->addCacheableDependency($entity);
+        return AccessResult::forbidden()->cacheUntilEntityChanges($entity);
       }
       else {
-        return parent::checkAccess($entity, $operation, $account)->addCacheableDependency($entity);
+        return parent::checkAccess($entity, $operation, $langcode, $account)->cacheUntilEntityChanges($entity);
       }
     }
 
-    return parent::checkAccess($entity, $operation, $account);
+    return parent::checkAccess($entity, $operation, $langcode, $account);
   }
 
 }

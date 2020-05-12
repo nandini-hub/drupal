@@ -1,11 +1,17 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Entity\EntityDisplayBase.
+ */
+
 namespace Drupal\Core\Entity;
 
 use Drupal\Core\Config\Entity\ConfigEntityBase;
 use Drupal\Core\Config\Entity\ConfigEntityInterface;
 use Drupal\Core\Field\FieldDefinitionInterface;
 use Drupal\Core\Entity\Display\EntityDisplayInterface;
+use Drupal\Component\Utility\SafeMarkup;
 
 /**
  * Provides a common base class for entity view and form displays.
@@ -69,14 +75,14 @@ abstract class EntityDisplayBase extends ConfigEntityBase implements EntityDispl
    *
    * @var array
    */
-  protected $content = [];
+  protected $content = array();
 
   /**
    * List of components that are set to be hidden.
    *
    * @var array
    */
-  protected $hidden = [];
+  protected $hidden = array();
 
   /**
    * The original view or form mode that was requested (case of view/form modes
@@ -91,10 +97,10 @@ abstract class EntityDisplayBase extends ConfigEntityBase implements EntityDispl
    *
    * @var array
    */
-  protected $plugins = [];
+  protected $plugins = array();
 
   /**
-   * Context in which this entity will be used (e.g. 'view', 'form').
+   * Context in which this entity will be used (e.g. 'display', 'form').
    *
    * @var string
    */
@@ -122,7 +128,7 @@ abstract class EntityDisplayBase extends ConfigEntityBase implements EntityDispl
       throw new \InvalidArgumentException('Missing required properties for an EntityDisplay entity.');
     }
 
-    if (!$this->entityTypeManager()->getDefinition($values['targetEntityType'])->entityClassImplements(FieldableEntityInterface::class)) {
+    if (!$this->entityManager()->getDefinition($values['targetEntityType'])->isSubclassOf('\Drupal\Core\Entity\FieldableEntityInterface')) {
       throw new \InvalidArgumentException('EntityDisplay entities can only handle fieldable entity types.');
     }
 
@@ -154,26 +160,21 @@ abstract class EntityDisplayBase extends ConfigEntityBase implements EntityDispl
   protected function init() {
     // Only populate defaults for "official" view modes and form modes.
     if ($this->mode !== static::CUSTOM_MODE) {
-      $default_region = $this->getDefaultRegion();
       // Fill in defaults for extra fields.
       $context = $this->displayContext == 'view' ? 'display' : $this->displayContext;
-      $extra_fields = \Drupal::service('entity_field.manager')->getExtraFields($this->targetEntityType, $this->bundle);
-      $extra_fields = isset($extra_fields[$context]) ? $extra_fields[$context] : [];
+      $extra_fields = \Drupal::entityManager()->getExtraFields($this->targetEntityType, $this->bundle);
+      $extra_fields = isset($extra_fields[$context]) ? $extra_fields[$context] : array();
       foreach ($extra_fields as $name => $definition) {
         if (!isset($this->content[$name]) && !isset($this->hidden[$name])) {
           // Extra fields are visible by default unless they explicitly say so.
           if (!isset($definition['visible']) || $definition['visible'] == TRUE) {
-            $this->setComponent($name, [
-              'weight' => $definition['weight'],
-            ]);
+            $this->content[$name] = array(
+              'weight' => $definition['weight']
+            );
           }
           else {
-            $this->removeComponent($name);
+            $this->hidden[$name] = TRUE;
           }
-        }
-        // Ensure extra fields have a 'region'.
-        if (isset($this->content[$name])) {
-          $this->content[$name] += ['region' => $default_region];
         }
       }
 
@@ -183,18 +184,11 @@ abstract class EntityDisplayBase extends ConfigEntityBase implements EntityDispl
         if (!$definition->isDisplayConfigurable($this->displayContext) || (!isset($this->content[$name]) && !isset($this->hidden[$name]))) {
           $options = $definition->getDisplayOptions($this->displayContext);
 
-          // @todo Remove handling of 'type' in https://www.drupal.org/node/2799641.
-          if (!isset($options['region']) && !empty($options['type']) && $options['type'] === 'hidden') {
-            $options['region'] = 'hidden';
-            @trigger_error("Support for using 'type' => 'hidden' in a component is deprecated in drupal:8.3.0 and is removed from drupal:9.0.0. Use 'region' => 'hidden' instead. See https://www.drupal.org/node/2801513", E_USER_DEPRECATED);
-          }
-
-          if (!empty($options['region']) && $options['region'] === 'hidden') {
-            $this->removeComponent($name);
+          if (!empty($options['type']) && $options['type'] == 'hidden') {
+            $this->hidden[$name] = TRUE;
           }
           elseif ($options) {
-            $options += ['region' => $default_region];
-            $this->setComponent($name, $options);
+            $this->content[$name] = $this->pluginManager->prepareConfiguration($definition->getType(), $options);
           }
           // Note: (base) fields that do not specify display options are not
           // tracked in the display at all, in order to avoid cluttering the
@@ -250,49 +244,10 @@ abstract class EntityDisplayBase extends ConfigEntityBase implements EntityDispl
   /**
    * {@inheritdoc}
    */
-  public function preSave(EntityStorageInterface $storage) {
-    // Ensure that a region is set on each component.
-    foreach ($this->getComponents() as $name => $component) {
-      // @todo Remove this BC layer in Drupal 9.
-      // @see https://www.drupal.org/project/drupal/issues/2799641
-      if (!isset($component['region']) && isset($component['type']) && $component['type'] === 'hidden') {
-        @trigger_error("Support for using 'type' => 'hidden' in a component is deprecated in drupal:8.3.0 and is removed from drupal:9.0.0. Use 'region' => 'hidden' instead. See https://www.drupal.org/node/2801513", E_USER_DEPRECATED);
-        $this->removeComponent($name);
-      }
-
-      // Ensure that a region is set.
-      if (isset($this->content[$name]) && !isset($component['region'])) {
-        // Directly set the component to bypass other changes in setComponent().
-        $this->content[$name]['region'] = $this->getDefaultRegion();
-      }
-    }
-
+  public function preSave(EntityStorageInterface $storage, $update = TRUE) {
     ksort($this->content);
     ksort($this->hidden);
-    parent::preSave($storage);
-  }
-
-  /**
-   * Handles a component type of 'hidden'.
-   *
-   * The logic of this method has been duplicated inline in the preSave()
-   * method so that this method may remain deprecated and trigger an error.
-   *
-   * @param string $name
-   *   The name of the component.
-   * @param array $component
-   *   The component array.
-   *
-   * @deprecated in drupal:8.3.0 and is removed from drupal:9.0.0. No
-   *   replacement is provided.
-   *
-   * @see https://www.drupal.org/node/2801513
-   */
-  protected function handleHiddenType($name, array $component) {
-    @trigger_error(__METHOD__ . ' is deprecated in drupal:8.3.0 and is removed from drupal:9.0.0. No replacement is provided. See https://www.drupal.org/node/2801513', E_USER_DEPRECATED);
-    if (!isset($component['region']) && isset($component['type']) && $component['type'] === 'hidden') {
-      $this->removeComponent($name);
-    }
+    parent::preSave($storage, $update);
   }
 
   /**
@@ -300,18 +255,28 @@ abstract class EntityDisplayBase extends ConfigEntityBase implements EntityDispl
    */
   public function calculateDependencies() {
     parent::calculateDependencies();
-    $target_entity_type = $this->entityTypeManager()->getDefinition($this->targetEntityType);
+    $target_entity_type = $this->entityManager()->getDefinition($this->targetEntityType);
 
-    // Create dependency on the bundle.
-    $bundle_config_dependency = $target_entity_type->getBundleConfigDependency($this->bundle);
-    $this->addDependency($bundle_config_dependency['type'], $bundle_config_dependency['name']);
+    $bundle_entity_type_id = $target_entity_type->getBundleEntityType();
+    if ($bundle_entity_type_id != 'bundle') {
+      // If the target entity type uses entities to manage its bundles then
+      // depend on the bundle entity.
+      if (!$bundle_entity = $this->entityManager()->getStorage($bundle_entity_type_id)->load($this->bundle)) {
+        throw new \LogicException(SafeMarkup::format('Missing bundle entity, entity type %type, entity id %bundle.', array('%type' => $bundle_entity_type_id, '%bundle' => $this->bundle)));
+      }
+      $this->addDependency('config', $bundle_entity->getConfigDependencyName());
+    }
+    else {
+      // Depend on the provider of the entity type.
+      $this->addDependency('module', $target_entity_type->getProvider());
+    }
 
     // If field.module is enabled, add dependencies on 'field_config' entities
     // for both displayed and hidden fields. We intentionally leave out base
     // field overrides, since the field still exists without them.
     if (\Drupal::moduleHandler()->moduleExists('field')) {
       $components = $this->content + $this->hidden;
-      $field_definitions = \Drupal::service('entity_field.manager')->getFieldDefinitions($this->targetEntityType, $this->bundle);
+      $field_definitions = $this->entityManager()->getFieldDefinitions($this->targetEntityType, $this->bundle);
       foreach (array_intersect_key($field_definitions, $components) as $field_name => $field_definition) {
         if ($field_definition instanceof ConfigEntityInterface && $field_definition->getEntityTypeId() == 'field_config') {
           $this->addDependency('config', $field_definition->getConfigDependencyName());
@@ -321,10 +286,10 @@ abstract class EntityDisplayBase extends ConfigEntityBase implements EntityDispl
 
     // Depend on configured modes.
     if ($this->mode != 'default') {
-      $mode_entity = $this->entityTypeManager()->getStorage('entity_' . $this->displayContext . '_mode')->load($target_entity_type->id() . '.' . $this->mode);
+      $mode_entity = $this->entityManager()->getStorage('entity_' . $this->displayContext . '_mode')->load($target_entity_type->id() . '.' . $this->mode);
       $this->addDependency('config', $mode_entity->getConfigDependencyName());
     }
-    return $this;
+    return $this->dependencies;
   }
 
   /**
@@ -370,7 +335,7 @@ abstract class EntityDisplayBase extends ConfigEntityBase implements EntityDispl
   /**
    * {@inheritdoc}
    */
-  public function setComponent($name, array $options = []) {
+  public function setComponent($name, array $options = array()) {
     // If no weight specified, make sure the field sinks at the bottom.
     if (!isset($options['weight'])) {
       $max = $this->getHighestWeight();
@@ -407,7 +372,7 @@ abstract class EntityDisplayBase extends ConfigEntityBase implements EntityDispl
    * {@inheritdoc}
    */
   public function getHighestWeight() {
-    $weights = [];
+    $weights = array();
 
     // Collect weights for the components in the display.
     foreach ($this->content as $options) {
@@ -417,13 +382,13 @@ abstract class EntityDisplayBase extends ConfigEntityBase implements EntityDispl
     }
 
     // Let other modules feedback about their own additions.
-    $weights = array_merge($weights, \Drupal::moduleHandler()->invokeAll('field_info_max_weight', [$this->targetEntityType, $this->bundle, $this->displayContext, $this->mode]));
+    $weights = array_merge($weights, \Drupal::moduleHandler()->invokeAll('field_info_max_weight', array($this->targetEntityType, $this->bundle, $this->displayContext, $this->mode)));
 
     return $weights ? max($weights) : NULL;
   }
 
   /**
-   * Gets the field definition of a field.
+   * Returns the field definition of a field.
    */
   protected function getFieldDefinition($field_name) {
     $definitions = $this->getFieldDefinitions();
@@ -431,15 +396,15 @@ abstract class EntityDisplayBase extends ConfigEntityBase implements EntityDispl
   }
 
   /**
-   * Gets the definitions of the fields that are candidate for display.
+   * Returns the definitions of the fields that are candidate for display.
    */
   protected function getFieldDefinitions() {
     if (!isset($this->fieldDefinitions)) {
-      $definitions = \Drupal::service('entity_field.manager')->getFieldDefinitions($this->targetEntityType, $this->bundle);
+      $definitions = \Drupal::entityManager()->getFieldDefinitions($this->targetEntityType, $this->bundle);
       // For "official" view modes and form modes, ignore fields whose
       // definition states they should not be displayed.
       if ($this->mode !== static::CUSTOM_MODE) {
-        $definitions = array_filter($definitions, [$this, 'fieldHasDisplayOptions']);
+        $definitions = array_filter($definitions, array($this, 'fieldHasDisplayOptions'));
       }
       $this->fieldDefinitions = $definitions;
     }
@@ -450,7 +415,7 @@ abstract class EntityDisplayBase extends ConfigEntityBase implements EntityDispl
   /**
    * Determines if a field has options for a given display.
    *
-   * @param \Drupal\Core\Field\FieldDefinitionInterface $definition
+   * @param FieldDefinitionInterface $definition
    *   A field definition.
    * @return array|null
    */
@@ -474,95 +439,16 @@ abstract class EntityDisplayBase extends ConfigEntityBase implements EntityDispl
       }
     }
     foreach ($this->getComponents() as $name => $component) {
-      if ($renderer = $this->getRenderer($name)) {
-        if (in_array($renderer->getPluginDefinition()['provider'], $dependencies['module'])) {
+      if (isset($component['type']) && $definition = $this->pluginManager->getDefinition($component['type'], FALSE)) {
+        if (in_array($definition['provider'], $dependencies['module'])) {
           // Revert to the defaults if the plugin that supplies the widget or
           // formatter depends on a module that is being uninstalled.
           $this->setComponent($name);
           $changed = TRUE;
         }
-
-        // Give this component the opportunity to react on dependency removal.
-        $component_removed_dependencies = $this->getPluginRemovedDependencies($renderer->calculateDependencies(), $dependencies);
-        if ($component_removed_dependencies) {
-          if ($renderer->onDependencyRemoval($component_removed_dependencies)) {
-            // Update component settings to reflect changes.
-            $component['settings'] = $renderer->getSettings();
-            $component['third_party_settings'] = [];
-            foreach ($renderer->getThirdPartyProviders() as $module) {
-              $component['third_party_settings'][$module] = $renderer->getThirdPartySettings($module);
-            }
-            $this->setComponent($name, $component);
-            $changed = TRUE;
-          }
-          // If there are unresolved deleted dependencies left, disable this
-          // component to avoid the removal of the entire display entity.
-          if ($this->getPluginRemovedDependencies($renderer->calculateDependencies(), $dependencies)) {
-            $this->removeComponent($name);
-            $arguments = [
-              '@display' => (string) $this->getEntityType()->getLabel(),
-              '@id' => $this->id(),
-              '@name' => $name,
-            ];
-            $this->getLogger()->warning("@display '@id': Component '@name' was disabled because its settings depend on removed dependencies.", $arguments);
-            $changed = TRUE;
-          }
-        }
       }
     }
     return $changed;
-  }
-
-  /**
-   * Returns the plugin dependencies being removed.
-   *
-   * The function recursively computes the intersection between all plugin
-   * dependencies and all removed dependencies.
-   *
-   * Note: The two arguments do not have the same structure.
-   *
-   * @param array[] $plugin_dependencies
-   *   A list of dependencies having the same structure as the return value of
-   *   ConfigEntityInterface::calculateDependencies().
-   * @param array[] $removed_dependencies
-   *   A list of dependencies having the same structure as the input argument of
-   *   ConfigEntityInterface::onDependencyRemoval().
-   *
-   * @return array
-   *   A recursively computed intersection.
-   *
-   * @see \Drupal\Core\Config\Entity\ConfigEntityInterface::calculateDependencies()
-   * @see \Drupal\Core\Config\Entity\ConfigEntityInterface::onDependencyRemoval()
-   */
-  protected function getPluginRemovedDependencies(array $plugin_dependencies, array $removed_dependencies) {
-    $intersect = [];
-    foreach ($plugin_dependencies as $type => $dependencies) {
-      if ($removed_dependencies[$type]) {
-        // Config and content entities have the dependency names as keys while
-        // module and theme dependencies are indexed arrays of dependency names.
-        // @see \Drupal\Core\Config\ConfigManager::callOnDependencyRemoval()
-        if (in_array($type, ['config', 'content'])) {
-          $removed = array_intersect_key($removed_dependencies[$type], array_flip($dependencies));
-        }
-        else {
-          $removed = array_values(array_intersect($removed_dependencies[$type], $dependencies));
-        }
-        if ($removed) {
-          $intersect[$type] = $removed;
-        }
-      }
-    }
-    return $intersect;
-  }
-
-  /**
-   * Gets the default region.
-   *
-   * @return string
-   *   The default region for this display.
-   */
-  protected function getDefaultRegion() {
-    return 'content';
   }
 
   /**
@@ -594,16 +480,6 @@ abstract class EntityDisplayBase extends ConfigEntityBase implements EntityDispl
     // Run those values through the __construct(), as if they came from a
     // regular entity load.
     $this->__construct($values, $this->entityTypeId);
-  }
-
-  /**
-   * Provides the 'system' channel logger service.
-   *
-   * @return \Psr\Log\LoggerInterface
-   *   The 'system' channel logger.
-   */
-  protected function getLogger() {
-    return \Drupal::logger('system');
   }
 
 }

@@ -1,12 +1,14 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\contextual\Element\ContextualLinksPlaceholder.
+ */
+
 namespace Drupal\contextual\Element;
 
-use Drupal\Component\Utility\Crypt;
-use Drupal\Core\Site\Settings;
 use Drupal\Core\Template\Attribute;
 use Drupal\Core\Render\Element\RenderElement;
-use Drupal\Component\Render\FormattableMarkup;
 
 /**
  * Provides a contextual_links_placeholder element.
@@ -20,12 +22,12 @@ class ContextualLinksPlaceholder extends RenderElement {
    */
   public function getInfo() {
     $class = get_class($this);
-    return [
-      '#pre_render' => [
-        [$class, 'preRenderPlaceholder'],
-      ],
+    return array(
+      '#pre_render' => array(
+        array($class, 'preRenderPlaceholder'),
+      ),
       '#id' => NULL,
-    ];
+    );
   }
 
   /**
@@ -45,13 +47,7 @@ class ContextualLinksPlaceholder extends RenderElement {
    * @see _contextual_links_to_id()
    */
   public static function preRenderPlaceholder(array $element) {
-    $token = Crypt::hmacBase64($element['#id'], Settings::getHashSalt() . \Drupal::service('private_key')->get());
-    $attribute = new Attribute([
-      'data-contextual-id' => $element['#id'],
-      'data-contextual-token' => $token,
-    ]);
-    $element['#markup'] = new FormattableMarkup('<div@attributes></div>', ['@attributes' => $attribute]);
-
+    $element['#markup'] = '<div' . new Attribute(array('data-contextual-id' => $element['#id'])) . '></div>';
     return $element;
   }
 

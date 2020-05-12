@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Tests\migrate\Unit\process\MigrateProcessTestCase.
+ */
+
 namespace Drupal\Tests\migrate\Unit\process;
 
 use Drupal\Tests\migrate\Unit\MigrateTestCase;
@@ -17,7 +22,7 @@ abstract class MigrateProcessTestCase extends MigrateTestCase {
   protected $row;
 
   /**
-   * @var \Drupal\migrate\MigrateExecutable|\PHPUnit\Framework\MockObject\MockObject
+   * @var \Drupal\migrate\MigrateExecutable
    */
   protected $migrateExecutable;
 

@@ -1,9 +1,14 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Entity\KeyValueStore\KeyValueEntityStorage.
+ */
+
 namespace Drupal\Core\Entity\KeyValueStore;
 
+use Drupal\Component\Utility\SafeMarkup;
 use Drupal\Component\Uuid\UuidInterface;
-use Drupal\Core\Cache\MemoryCache\MemoryCacheInterface;
 use Drupal\Core\Config\Entity\Exception\ConfigEntityIdLengthException;
 use Drupal\Core\Entity\FieldableEntityInterface;
 use Drupal\Core\Entity\EntityInterface;
@@ -61,11 +66,9 @@ class KeyValueEntityStorage extends EntityStorageBase {
    *   The UUID service.
    * @param \Drupal\Core\Language\LanguageManagerInterface $language_manager
    *   The language manager.
-   * @param \Drupal\Core\Cache\MemoryCache\MemoryCacheInterface $memory_cache
-   *   The memory cache.
    */
-  public function __construct(EntityTypeInterface $entity_type, KeyValueStoreInterface $key_value_store, UuidInterface $uuid_service, LanguageManagerInterface $language_manager, MemoryCacheInterface $memory_cache = NULL) {
-    parent::__construct($entity_type, $memory_cache);
+  public function __construct(EntityTypeInterface $entity_type, KeyValueStoreInterface $key_value_store, UuidInterface $uuid_service, LanguageManagerInterface $language_manager) {
+    parent::__construct($entity_type);
     $this->keyValueStore = $key_value_store;
     $this->uuidService = $uuid_service;
     $this->languageManager = $language_manager;
@@ -82,22 +85,21 @@ class KeyValueEntityStorage extends EntityStorageBase {
       $entity_type,
       $container->get('keyvalue')->get('entity_storage__' . $entity_type->id()),
       $container->get('uuid'),
-      $container->get('language_manager'),
-      $container->get('entity.memory_cache')
+      $container->get('language_manager')
     );
   }
 
   /**
    * {@inheritdoc}
    */
-  public function doCreate(array $values = []) {
+  public function doCreate(array $values = array()) {
     // Set default language to site default if not provided.
-    $values += [$this->getEntityType()->getKey('langcode') => $this->languageManager->getDefaultLanguage()->getId()];
+    $values += array($this->getEntityType()->getKey('langcode') => $this->languageManager->getDefaultLanguage()->getId());
     $entity = new $this->entityClass($values, $this->entityTypeId);
 
     // @todo This is handled by ContentEntityStorageBase, which assumes
     //   FieldableEntityInterface. The current approach in
-    //   https://www.drupal.org/node/1867228 improves this but does not solve it
+    //   https://drupal.org/node/1867228 improves this but does not solve it
     //   completely.
     if ($entity instanceof FieldableEntityInterface) {
       foreach ($entity as $name => $field) {
@@ -145,7 +147,10 @@ class KeyValueEntityStorage extends EntityStorageBase {
    * {@inheritdoc}
    */
   public function doDelete($entities) {
-    $entity_ids = array_keys($entities);
+    $entity_ids = array();
+    foreach ($entities as $entity) {
+      $entity_ids[] = $entity->id();
+    }
     $this->keyValueStore->deleteMultiple($entity_ids);
   }
 
@@ -162,7 +167,10 @@ class KeyValueEntityStorage extends EntityStorageBase {
     // @todo This is not config-specific, but serial IDs will likely never hit
     //   this limit. Consider renaming the exception class.
     if (strlen($entity->id()) > static::MAX_ID_LENGTH) {
-      throw new ConfigEntityIdLengthException("Entity ID {$entity->id()} exceeds maximum allowed length of " . static::MAX_ID_LENGTH . ' characters.');
+      throw new ConfigEntityIdLengthException(SafeMarkup::format('Entity ID @id exceeds maximum allowed length of @length characters.', array(
+        '@id' => $entity->id(),
+        '@length' => static::MAX_ID_LENGTH,
+      )));
     }
     return parent::save($entity);
   }
@@ -189,13 +197,6 @@ class KeyValueEntityStorage extends EntityStorageBase {
    */
   protected function has($id, EntityInterface $entity) {
     return $this->keyValueStore->has($id);
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function hasData() {
-    return (bool) $this->keyValueStore->getAll();
   }
 
   /**

@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\Core\Config\ConfigException.
+ */
+
 namespace Drupal\Core\Config;
 
 /**

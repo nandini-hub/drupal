@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\block\Entity\Block.
+ */
+
 namespace Drupal\block\Entity;
 
 use Drupal\Core\Cache\Cache;
@@ -17,13 +22,6 @@ use Drupal\Core\Entity\EntityStorageInterface;
  * @ConfigEntityType(
  *   id = "block",
  *   label = @Translation("Block"),
- *   label_collection = @Translation("Blocks"),
- *   label_singular = @Translation("block"),
- *   label_plural = @Translation("blocks"),
- *   label_count = @PluralTranslation(
- *     singular = "@count block",
- *     plural = "@count blocks",
- *   ),
  *   handlers = {
  *     "access" = "Drupal\block\BlockAccessControlHandler",
  *     "view_builder" = "Drupal\block\BlockViewBuilder",
@@ -35,27 +33,11 @@ use Drupal\Core\Entity\EntityStorageInterface;
  *   },
  *   admin_permission = "administer blocks",
  *   entity_keys = {
- *     "id" = "id",
- *     "status" = "status"
+ *     "id" = "id"
  *   },
  *   links = {
  *     "delete-form" = "/admin/structure/block/manage/{block}/delete",
- *     "edit-form" = "/admin/structure/block/manage/{block}",
- *     "enable" = "/admin/structure/block/manage/{block}/enable",
- *     "disable" = "/admin/structure/block/manage/{block}/disable",
- *   },
- *   config_export = {
- *     "id",
- *     "theme",
- *     "region",
- *     "weight",
- *     "provider",
- *     "plugin",
- *     "settings",
- *     "visibility",
- *   },
- *   lookup_keys = {
- *     "theme"
+ *     "edit-form" = "/admin/structure/block/manage/{block}"
  *   }
  * )
  */
@@ -73,14 +55,14 @@ class Block extends ConfigEntityBase implements BlockInterface, EntityWithPlugin
    *
    * @var array
    */
-  protected $settings = [];
+  protected $settings = array();
 
   /**
    * The region this block is placed in.
    *
    * @var string
    */
-  protected $region;
+  protected $region = self::BLOCK_REGION_NONE;
 
   /**
    * The block weight.
@@ -219,13 +201,13 @@ class Block extends ConfigEntityBase implements BlockInterface, EntityWithPlugin
     if ($status !== 0) {
       return $status;
     }
-
-    // Sort by weight.
-    $weight = $a->getWeight() - $b->getWeight();
-    if ($weight) {
-      return $weight;
+    // Sort by weight, unless disabled.
+    if ($a->getRegion() != static::BLOCK_REGION_NONE) {
+      $weight = $a->getWeight() - $b->getWeight();
+      if ($weight) {
+        return $weight;
+      }
     }
-
     // Sort by label.
     return strcmp($a->label(), $b->label());
   }
@@ -236,7 +218,7 @@ class Block extends ConfigEntityBase implements BlockInterface, EntityWithPlugin
   public function calculateDependencies() {
     parent::calculateDependencies();
     $this->addDependency('theme', $this->theme);
-    return $this;
+    return $this->dependencies;
   }
 
   /**
@@ -251,8 +233,23 @@ class Block extends ConfigEntityBase implements BlockInterface, EntityWithPlugin
     // so we must invalidate the associated block's cache tag (which includes
     // the theme cache tag).
     if (!$update) {
-      Cache::invalidateTags($this->getCacheTagsToInvalidate());
+      Cache::invalidateTags($this->getCacheTags());
     }
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function setContexts(array $contexts) {
+    $this->contexts = $contexts;
+    return $this;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getContexts() {
+    return $this->contexts;
   }
 
   /**
@@ -301,6 +298,7 @@ class Block extends ConfigEntityBase implements BlockInterface, EntityWithPlugin
    *   The condition plugin manager.
    */
   protected function conditionPluginManager() {
+    $this->conditionPluginManager;
     if (!isset($this->conditionPluginManager)) {
       $this->conditionPluginManager = \Drupal::service('plugin.manager.condition');
     }
@@ -335,23 +333,6 @@ class Block extends ConfigEntityBase implements BlockInterface, EntityWithPlugin
       $duplicate->theme = $new_theme;
     }
     return $duplicate;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function preSave(EntityStorageInterface $storage) {
-    parent::preSave($storage);
-
-    // Ensure the region is valid to mirror the behavior of block_rebuild().
-    // This is done primarily for backwards compatibility support of
-    // \Drupal\block\BlockInterface::BLOCK_REGION_NONE.
-    $regions = system_region_list($this->theme);
-    if (!isset($regions[$this->region]) && $this->status()) {
-      $this
-        ->setRegion(system_default_region($this->theme))
-        ->disable();
-    }
   }
 
 }

@@ -1,8 +1,14 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Tests\Core\Transliteration\PhpTransliterationTest.
+ */
+
 namespace Drupal\Tests\Core\Transliteration;
 
 use Drupal\Component\Utility\Random;
+use Drupal\Component\Utility\SafeMarkup;
 use Drupal\Core\Transliteration\PhpTransliteration;
 use Drupal\Tests\UnitTestCase;
 
@@ -24,7 +30,7 @@ class PhpTransliterationTest extends UnitTestCase {
    *   The string which was not transliterated yet.
    * @param string $expected
    *   The string expected after the transliteration.
-   * @param string|null $printable
+   * @param string|NULL $printable
    *   (optional) An alternative version of the original string which is
    *   printable in the output.
    *
@@ -37,15 +43,15 @@ class PhpTransliterationTest extends UnitTestCase {
 
     // Test each case both with a new instance of the transliteration class,
     // and with one that builds as it goes.
-    $module_handler = $this->createMock('Drupal\Core\Extension\ModuleHandlerInterface');
+    $module_handler = $this->getMock('Drupal\Core\Extension\ModuleHandlerInterface');
     $module_handler->expects($this->any())
       ->method('alter')
-      ->will($this->returnCallback(function ($hook, &$overrides, $langcode) {
+      ->will($this->returnCallback(function($hook, &$overrides, $langcode) {
         if ($langcode == 'zz') {
           // The default transliteration of Ä is A, but change it to Z for testing.
           $overrides[0xC4] = 'Z';
           // Also provide transliterations of two 5-byte characters from
-          // http://wikipedia.org/wiki/Gothic_alphabet.
+          // http://en.wikipedia.org/wiki/Gothic_alphabet.
           $overrides[0x10330] = 'A';
           $overrides[0x10338] = 'Th';
         }
@@ -53,7 +59,12 @@ class PhpTransliterationTest extends UnitTestCase {
     $transliteration = new PhpTransliteration(NULL, $module_handler);
 
     $actual = $transliteration->transliterate($original, $langcode);
-    $this->assertSame($expected, $actual, "'$printable' transliteration to '$actual' is identical to '$expected' for language '$langcode' in service instance.");
+    $this->assertSame($expected, $actual, SafeMarkup::format('@original transliteration to @actual is identical to @expected for language @langcode in service instance.', array(
+      '@original' => $printable,
+      '@langcode' => $langcode,
+      '@expected' => $expected,
+      '@actual' => $actual,
+    )));
   }
 
   /**
@@ -68,19 +79,19 @@ class PhpTransliterationTest extends UnitTestCase {
     // Note that the 3-byte character is overridden by the 'kg' language.
     $two_byte = 'Ä Ö Ü Å Ø äöüåøhello';
     // These are two Gothic alphabet letters. See
-    // http://wikipedia.org/wiki/Gothic_alphabet
+    // http://en.wikipedia.org/wiki/Gothic_alphabet
     // They are not in our tables, but should at least give us '?' (unknown).
     $five_byte = html_entity_decode('&#x10330;&#x10338;', ENT_NOQUOTES, 'UTF-8');
     // Five-byte characters do not work in MySQL, so make a printable version.
     $five_byte_printable = '&#x10330;&#x10338;';
 
-    $cases = [
+    $cases = array(
       // Test the language override hook in the test module, which changes
       // the transliteration of Ä to Z and provides for the 5-byte characters.
-      ['zz', $two_byte, 'Z O U A O aouaohello'],
-      ['zz', $random, $random],
-      ['zz', $five_byte, 'ATh', $five_byte_printable],
-    ];
+      array('zz', $two_byte, 'Z O U A O aouaohello'),
+      array('zz', $random, $random),
+      array('zz', $five_byte, 'ATh', $five_byte_printable),
+    );
 
     return $cases;
   }

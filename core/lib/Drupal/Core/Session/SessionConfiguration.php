@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Session\SessionConfiguration
+ */
+
 namespace Drupal\Core\Session;
 
 use Symfony\Component\HttpFoundation\Request;
@@ -106,7 +111,7 @@ class SessionConfiguration implements SessionConfigurationInterface {
    * Return the session cookie domain.
    *
    * The Set-Cookie response header and its domain attribute are defined in RFC
-   * 2109, RFC 2965 and RFC 6265 each one superseding the previous version.
+   * 2109, RFC 2965 and RFC 6265 each one superseeding the previous version.
    *
    * @see http://tools.ietf.org/html/rfc2109
    * @see http://tools.ietf.org/html/rfc2965
@@ -124,6 +129,12 @@ class SessionConfiguration implements SessionConfigurationInterface {
     }
     else {
       $host = $request->getHost();
+
+      // Strip www. from hostname.
+      if (strpos($host, 'www.') === 0) {
+        $host = substr($host, 4);
+      }
+
       // To maximize compatibility and normalize the behavior across user
       // agents, the cookie domain should start with a dot.
       $cookie_domain = '.' . $host;
@@ -141,7 +152,7 @@ class SessionConfiguration implements SessionConfigurationInterface {
   /**
    * Wraps drupal_valid_test_ua().
    *
-   * @return string|false
+   * @return string|FALSE
    *   Either the simpletest prefix (the string "simpletest" followed by any
    *   number of digits) or FALSE if the user agent does not contain a valid
    *   HMAC and timestamp.

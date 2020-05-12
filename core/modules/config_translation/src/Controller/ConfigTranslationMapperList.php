@@ -1,7 +1,13 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\config_translation\Controller\ConfigTranslationMapperList.
+ */
+
 namespace Drupal\config_translation\Controller;
 
+use Drupal\Component\Utility\SafeMarkup;
 use Drupal\config_translation\ConfigMapperInterface;
 use Drupal\Core\Controller\ControllerBase;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -46,13 +52,13 @@ class ConfigTranslationMapperList extends ControllerBase {
    *   Renderable array with config translation mappers.
    */
   public function render() {
-    $build = [
+    $build = array(
       '#type' => 'table',
       '#header' => $this->buildHeader(),
-      '#rows' => [],
-    ];
+      '#rows' => array(),
+    );
 
-    $mappers = [];
+    $mappers = array();
 
     foreach ($this->mappers as $mapper) {
       if ($row = $this->buildRow($mapper)) {
@@ -88,7 +94,7 @@ class ConfigTranslationMapperList extends ControllerBase {
    *   A render array structure of fields for this mapper.
    */
   public function buildRow(ConfigMapperInterface $mapper) {
-    $row['label'] = $mapper->getTypeLabel();
+    $row['label'] = SafeMarkup::checkPlain($mapper->getTypeLabel());
     $row['operations']['data'] = $this->buildOperations($mapper);
     return $row;
   }
@@ -120,10 +126,10 @@ class ConfigTranslationMapperList extends ControllerBase {
     // Retrieve and sort operations.
     $operations = $mapper->getOperations();
     uasort($operations, 'Drupal\Component\Utility\SortArray::sortByWeightElement');
-    $build = [
+    $build = array(
       '#type' => 'operations',
       '#links' => $operations,
-    ];
+    );
     return $build;
   }
 

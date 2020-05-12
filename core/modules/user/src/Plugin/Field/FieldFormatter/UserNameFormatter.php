@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\user\Plugin\Field\FieldFormatter\UserNameFormatter.
+ */
+
 namespace Drupal\user\Plugin\Field\FieldFormatter;
 
 use Drupal\Core\Field\FieldDefinitionInterface;
@@ -49,7 +54,7 @@ class UserNameFormatter extends FormatterBase {
   /**
    * {@inheritdoc}
    */
-  public function viewElements(FieldItemListInterface $items, $langcode) {
+  public function viewElements(FieldItemListInterface $items) {
     $elements = [];
 
     foreach ($items as $delta => $item) {
@@ -67,7 +72,7 @@ class UserNameFormatter extends FormatterBase {
         }
         else {
           $elements[$delta] = [
-            '#markup' => $user->getDisplayName(),
+            '#markup' => $user->getUsername(),
             '#cache' => [
               'tags' => $user->getCacheTags(),
             ],

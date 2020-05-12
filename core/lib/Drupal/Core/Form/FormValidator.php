@@ -1,8 +1,14 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Form\FormValidator.
+ */
+
 namespace Drupal\Core\Form;
 
 use Drupal\Component\Utility\NestedArray;
+use Drupal\Component\Utility\Unicode;
 use Drupal\Core\Access\CsrfTokenGenerator;
 use Drupal\Core\Render\Element;
 use Drupal\Core\StringTranslation\StringTranslationTrait;
@@ -39,13 +45,6 @@ class FormValidator implements FormValidatorInterface {
   protected $logger;
 
   /**
-   * The form error handler.
-   *
-   * @var \Drupal\Core\Form\FormErrorHandlerInterface
-   */
-  protected $formErrorHandler;
-
-  /**
    * Constructs a new FormValidator.
    *
    * @param \Symfony\Component\HttpFoundation\RequestStack $request_stack
@@ -56,15 +55,12 @@ class FormValidator implements FormValidatorInterface {
    *   The CSRF token generator.
    * @param \Psr\Log\LoggerInterface $logger
    *   A logger instance.
-   * @param \Drupal\Core\Form\FormErrorHandlerInterface $form_error_handler
-   *   The form error handler.
    */
-  public function __construct(RequestStack $request_stack, TranslationInterface $string_translation, CsrfTokenGenerator $csrf_token, LoggerInterface $logger, FormErrorHandlerInterface $form_error_handler) {
+  public function __construct(RequestStack $request_stack, TranslationInterface $string_translation, CsrfTokenGenerator $csrf_token, LoggerInterface $logger) {
     $this->requestStack = $request_stack;
     $this->stringTranslation = $string_translation;
     $this->csrfToken = $csrf_token;
     $this->logger = $logger;
-    $this->formErrorHandler = $form_error_handler;
   }
 
   /**
@@ -79,7 +75,7 @@ class FormValidator implements FormValidatorInterface {
     }
 
     foreach ($handlers as $callback) {
-      call_user_func_array($form_state->prepareCallback($callback), [&$form, &$form_state]);
+      call_user_func_array($form_state->prepareCallback($callback), array(&$form, &$form_state));
     }
   }
 
@@ -99,12 +95,13 @@ class FormValidator implements FormValidatorInterface {
     }
 
     // If the session token was set by self::prepareForm(), ensure that it
-    // matches the current user's session. This is duplicate to code in
-    // FormBuilder::doBuildForm() but left to protect any custom form handling
-    // code.
+    // matches the current user's session.
     if (isset($form['#token'])) {
-      if (!$this->csrfToken->validate($form_state->getValue('form_token'), $form['#token']) || $form_state->hasInvalidToken()) {
-        $this->setInvalidTokenError($form_state);
+      if (!$this->csrfToken->validate($form_state->getValue('form_token'), $form['#token'])) {
+        $url = $this->requestStack->getCurrentRequest()->getRequestUri();
+
+        // Setting this error will cause the form to fail validation.
+        $form_state->setErrorByName('form_token', $this->t('The form has become outdated. Copy any unsaved work in the form below and then <a href="@link">reload this page</a>.', array('@link' => $url)));
 
         // Stop here and don't run any further validation handlers, because they
         // could invoke non-safe operations which opens the door for CSRF
@@ -118,16 +115,6 @@ class FormValidator implements FormValidatorInterface {
     $this->doValidateForm($form, $form_state, $form_id);
     $this->finalizeValidation($form, $form_state, $form_id);
     $this->handleErrorsWithLimitedValidation($form, $form_state, $form_id);
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function setInvalidTokenError(FormStateInterface $form_state) {
-    $url = $this->requestStack->getCurrentRequest()->getRequestUri();
-
-    // Setting this error will cause the form to fail validation.
-    $form_state->setErrorByName('form_token', $this->t('The form has become outdated. Copy any unsaved work in the form below and then <a href=":link">reload this page</a>.', [':link' => $url]));
   }
 
   /**
@@ -148,7 +135,7 @@ class FormValidator implements FormValidatorInterface {
     // so that only values that passed validation are left for submit callbacks.
     $triggering_element = $form_state->getTriggeringElement();
     if (isset($triggering_element['#limit_validation_errors']) && $triggering_element['#limit_validation_errors'] !== FALSE) {
-      $values = [];
+      $values = array();
       foreach ($triggering_element['#limit_validation_errors'] as $section) {
         // If the section exists within $form_state->getValues(), even if the
         // value is NULL, copy it to $values.
@@ -197,9 +184,8 @@ class FormValidator implements FormValidatorInterface {
    *   The unique string identifying the form.
    */
   protected function finalizeValidation(&$form, FormStateInterface &$form_state, $form_id) {
-    // Delegate handling of form errors to a service.
-    $this->formErrorHandler->handleFormErrors($form, $form_state);
-
+    // After validation, loop through and assign each element its errors.
+    $this->setElementErrorsFromFormState($form, $form_state);
     // Mark this form as validated.
     $form_state->setValidationComplete();
   }
@@ -228,12 +214,8 @@ class FormValidator implements FormValidatorInterface {
    *   theming, and hook_form_alter functions.
    */
   protected function doValidateForm(&$elements, FormStateInterface &$form_state, $form_id = NULL) {
-    // Recurse through all children, sorting the elements so that the order of
-    // error messages displayed to the user matches the order of elements in
-    // the form. Use a copy of $elements so that it is not modified by the
-    // sorting itself.
-    $elements_sorted = $elements;
-    foreach (Element::children($elements_sorted, TRUE) as $key) {
+    // Recurse through all children.
+    foreach (Element::children($elements) as $key) {
       if (isset($elements[$key]) && $elements[$key]) {
         $this->doValidateForm($elements[$key], $form_state);
       }
@@ -256,12 +238,10 @@ class FormValidator implements FormValidatorInterface {
         // length if it's a string, and the item count if it's an array.
         // An unchecked checkbox has a #value of integer 0, different than
         // string '0', which could be a valid value.
-        $is_countable = is_array($elements['#value']) || $elements['#value'] instanceof \Countable;
-        $is_empty_multiple = $is_countable && count($elements['#value']) == 0;
-        $is_empty_string = (is_string($elements['#value']) && mb_strlen(trim($elements['#value'])) == 0);
+        $is_empty_multiple = (!count($elements['#value']));
+        $is_empty_string = (is_string($elements['#value']) && Unicode::strlen(trim($elements['#value'])) == 0);
         $is_empty_value = ($elements['#value'] === 0);
-        $is_empty_null = is_null($elements['#value']);
-        if ($is_empty_multiple || $is_empty_string || $is_empty_value || $is_empty_null) {
+        if ($is_empty_multiple || $is_empty_string || $is_empty_value) {
           // Flag this element as #required_but_empty to allow #element_validate
           // handlers to set a custom required error message, but without having
           // to re-implement the complex logic to figure out whether the field
@@ -279,7 +259,7 @@ class FormValidator implements FormValidatorInterface {
       elseif (isset($elements['#element_validate'])) {
         foreach ($elements['#element_validate'] as $callback) {
           $complete_form = &$form_state->getCompleteForm();
-          call_user_func_array($form_state->prepareCallback($callback), [&$elements, &$form_state, &$complete_form]);
+          call_user_func_array($form_state->prepareCallback($callback), array(&$elements, &$form_state, &$complete_form));
         }
       }
 
@@ -287,7 +267,7 @@ class FormValidator implements FormValidatorInterface {
       // #element_validate handlers changed any properties. If $is_empty_value
       // is defined, then above #required validation code ran, so the other
       // variables are also known to be defined and we can test them again.
-      if (isset($is_empty_value) && ($is_empty_multiple || $is_empty_string || $is_empty_value || $is_empty_null)) {
+      if (isset($is_empty_value) && ($is_empty_multiple || $is_empty_string || $is_empty_value)) {
         if (isset($elements['#required_error'])) {
           $form_state->setError($elements, $elements['#required_error']);
         }
@@ -296,7 +276,7 @@ class FormValidator implements FormValidatorInterface {
         // form constructors are encouraged to set #title anyway, and then set
         // #title_display to 'invisible'. This improves accessibility.
         elseif (isset($elements['#title'])) {
-          $form_state->setError($elements, $this->t('@name field is required.', ['@name' => $elements['#title']]));
+          $form_state->setError($elements, $this->t('!name field is required.', array('!name' => $elements['#title'])));
         }
         else {
           $form_state->setError($elements);
@@ -330,8 +310,8 @@ class FormValidator implements FormValidatorInterface {
    */
   protected function performRequiredValidation(&$elements, FormStateInterface &$form_state) {
     // Verify that the value is not longer than #maxlength.
-    if (isset($elements['#maxlength']) && mb_strlen($elements['#value']) > $elements['#maxlength']) {
-      $form_state->setError($elements, $this->t('@name cannot be longer than %max characters but is currently %length characters long.', ['@name' => empty($elements['#title']) ? $elements['#parents'][0] : $elements['#title'], '%max' => $elements['#maxlength'], '%length' => mb_strlen($elements['#value'])]));
+    if (isset($elements['#maxlength']) && Unicode::strlen($elements['#value']) > $elements['#maxlength']) {
+      $form_state->setError($elements, $this->t('!name cannot be longer than %max characters but is currently %length characters long.', array('!name' => empty($elements['#title']) ? $elements['#parents'][0] : $elements['#title'], '%max' => $elements['#maxlength'], '%length' => Unicode::strlen($elements['#value']))));
     }
 
     if (isset($elements['#options']) && isset($elements['#value'])) {
@@ -342,11 +322,11 @@ class FormValidator implements FormValidatorInterface {
         $options = $elements['#options'];
       }
       if (is_array($elements['#value'])) {
-        $value = in_array($elements['#type'], ['checkboxes', 'tableselect']) ? array_keys($elements['#value']) : $elements['#value'];
+        $value = in_array($elements['#type'], array('checkboxes', 'tableselect')) ? array_keys($elements['#value']) : $elements['#value'];
         foreach ($value as $v) {
           if (!isset($options[$v])) {
             $form_state->setError($elements, $this->t('An illegal choice has been detected. Please contact the site administrator.'));
-            $this->logger->error('Illegal choice %choice in %name element.', ['%choice' => $v, '%name' => empty($elements['#title']) ? $elements['#parents'][0] : $elements['#title']]);
+            $this->logger->error('Illegal choice %choice in !name element.', array('%choice' => $v, '!name' => empty($elements['#title']) ? $elements['#parents'][0] : $elements['#title']));
           }
         }
       }
@@ -365,7 +345,7 @@ class FormValidator implements FormValidatorInterface {
       }
       elseif (!isset($options[$elements['#value']])) {
         $form_state->setError($elements, $this->t('An illegal choice has been detected. Please contact the site administrator.'));
-        $this->logger->error('Illegal choice %choice in %name element.', ['%choice' => $elements['#value'], '%name' => empty($elements['#title']) ? $elements['#parents'][0] : $elements['#title']]);
+        $this->logger->error('Illegal choice %choice in %name element.', array('%choice' => $elements['#value'], '%name' => empty($elements['#title']) ? $elements['#parents'][0] : $elements['#title']));
       }
     }
   }
@@ -403,7 +383,7 @@ class FormValidator implements FormValidatorInterface {
     // types, #limit_validation_errors defaults to FALSE, so that full
     // validation is their default behavior.
     elseif ($triggering_element && !isset($triggering_element['#limit_validation_errors']) && !$form_state->isSubmitted()) {
-      return [];
+      return array();
     }
     // As an extra security measure, explicitly turn off error suppression if
     // one of the above conditions wasn't met. Since this is also done at the
@@ -412,6 +392,28 @@ class FormValidator implements FormValidatorInterface {
     else {
       return NULL;
     }
+  }
+
+  /**
+   * Stores the errors of each element directly on the element.
+   *
+   * We must provide a way for non-form functions to check the errors for a
+   * specific element. The most common usage of this is a #pre_render callback.
+   *
+   * @param array $elements
+   *   An associative array containing the structure of a form element.
+   * @param \Drupal\Core\Form\FormStateInterface $form_state
+   *   The current state of the form.
+   */
+  protected function setElementErrorsFromFormState(array &$elements, FormStateInterface &$form_state) {
+    // Recurse through all children.
+    foreach (Element::children($elements) as $key) {
+      if (isset($elements[$key]) && $elements[$key]) {
+        $this->setElementErrorsFromFormState($elements[$key], $form_state);
+      }
+    }
+    // Store the errors for this element on the element directly.
+    $elements['#errors'] = $form_state->getError($elements);
   }
 
 }

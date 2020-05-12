@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\filter\Element\TextFormat.
+ */
+
 namespace Drupal\filter\Element;
 
 use Drupal\Core\Form\FormStateInterface;
@@ -10,27 +15,6 @@ use Drupal\Core\Url;
 /**
  * Provides a text format render element.
  *
- * Properties:
- * - #base_type: The form element #type to use for the 'value' element.
- *   'textarea' by default.
- * - #format: (optional) The text format ID to preselect. If omitted, the
- *   default format for the current user will be used.
- * - #allowed_formats: (optional) An array of text format IDs that are available
- *   for this element. If omitted, all text formats that the current user has
- *   access to will be allowed.
- *
- * Usage Example:
- * @code
- * $form['body'] = array(
- *   '#type' => 'text_format',
- *   '#title' => 'Body',
- *   '#format' => 'full_html',
- *   '#default_value' => '<p>The quick brown fox jumped over the lazy dog.</p>',
- * );
- * @endcode
- *
- * @see \Drupal\Core\Render\Element\Textarea
- *
  * @RenderElement("text_format")
  */
 class TextFormat extends RenderElement {
@@ -40,13 +24,13 @@ class TextFormat extends RenderElement {
    */
   public function getInfo() {
     $class = get_class($this);
-    return [
-      '#process' => [
-        [$class, 'processFormat'],
-      ],
+    return array(
+      '#process' => array(
+        array($class, 'processFormat'),
+      ),
       '#base_type' => 'textarea',
-      '#theme_wrappers' => ['text_format_wrapper'],
-    ];
+      '#theme_wrappers' => array('text_format_wrapper'),
+    );
   }
 
   /**
@@ -70,7 +54,14 @@ class TextFormat extends RenderElement {
    * @endcode
    *
    * @param array $element
-   *   The form element to process. See main class documentation for properties.
+   *   The form element to process. Properties used:
+   *   - #base_type: The form element #type to use for the 'value' element.
+   *     'textarea' by default.
+   *   - #format: (optional) The text format ID to preselect. If omitted, the
+   *     default format for the current user will be used.
+   *   - #allowed_formats: (optional) An array of text format IDs that are
+   *     available for this element. If omitted, all text formats that the
+   *     current user has access to will be allowed.
    * @param \Drupal\Core\Form\FormStateInterface $form_state
    *   The current state of the form.
    * @param array $complete_form
@@ -84,7 +75,7 @@ class TextFormat extends RenderElement {
 
     // Ensure that children appear as subkeys of this element.
     $element['#tree'] = TRUE;
-    $blacklist = [
+    $blacklist = array(
       // Make \Drupal::formBuilder()->doBuildForm() regenerate child properties.
       '#parents',
       '#id',
@@ -104,7 +95,7 @@ class TextFormat extends RenderElement {
       '#attached',
       '#processed',
       '#theme_wrappers',
-    ];
+    );
     // Move this element into sub-element 'value'.
     unset($element['value']);
     foreach (Element::properties($element) as $key) {
@@ -116,16 +107,16 @@ class TextFormat extends RenderElement {
     $element['value']['#type'] = $element['#base_type'];
     $element['value'] += static::elementInfo()->getInfo($element['#base_type']);
     // Make sure the #default_value key is set, so we can use it below.
-    $element['value'] += ['#default_value' => ''];
+    $element['value'] += array('#default_value' => '');
 
     // Turn original element into a text format wrapper.
     $element['#attached']['library'][] = 'filter/drupal.filter';
 
     // Setup child container for the text format widget.
-    $element['format'] = [
+    $element['format'] = array(
       '#type' => 'container',
-      '#attributes' => ['class' => ['js-filter-wrapper']],
-    ];
+      '#attributes' => array('class' => array('filter-wrapper')),
+    );
 
     // Get a list of formats that the current user has access to.
     $formats = filter_formats($user);
@@ -148,8 +139,7 @@ class TextFormat extends RenderElement {
     // If #allowed_formats is set, the list of formats must not be modified in
     // any way. Otherwise, however, if all of the following conditions are true,
     // remove the fallback format from the list of formats:
-    // 1. The 'always_show_fallback_choice' filter setting has not been
-    //    activated.
+    // 1. The 'always_show_fallback_choice' filter setting has not been activated.
     // 2. Multiple text formats are available.
     // 3. The fallback format is not the default format.
     // The 'always_show_fallback_choice' filter setting is a hidden setting that
@@ -163,41 +153,37 @@ class TextFormat extends RenderElement {
     }
 
     // Prepare text format guidelines.
-    $element['format']['guidelines'] = [
+    $element['format']['guidelines'] = array(
       '#type' => 'container',
-      '#attributes' => ['class' => ['js-filter-guidelines']],
+      '#attributes' => array('class' => array('filter-guidelines')),
       '#weight' => 20,
-    ];
-    $options = [];
+    );
+    $options = array();
     foreach ($formats as $format) {
       $options[$format->id()] = $format->label();
-      $element['format']['guidelines'][$format->id()] = [
+      $element['format']['guidelines'][$format->id()] = array(
         '#theme' => 'filter_guidelines',
         '#format' => $format,
-      ];
+      );
     }
 
-    $element['format']['format'] = [
+    $element['format']['format'] = array(
       '#type' => 'select',
       '#title' => t('Text format'),
       '#options' => $options,
       '#default_value' => $element['#format'],
       '#access' => count($formats) > 1,
       '#weight' => 10,
-      '#attributes' => ['class' => ['js-filter-list']],
-      '#parents' => array_merge($element['#parents'], ['format']),
-    ];
+      '#attributes' => array('class' => array('filter-list')),
+      '#parents' => array_merge($element['#parents'], array('format')),
+    );
 
-    $element['format']['help'] = [
+    $element['format']['help'] = array(
       '#type' => 'container',
-      'about' => [
-        '#type' => 'link',
-        '#title' => t('About text formats'),
-        '#url' => new Url('filter.tips_all'),
-        '#attributes' => ['target' => '_blank'],
-      ],
+      '#attributes' => array('class' => array('filter-help')),
+      '#markup' => \Drupal::l(t('About text formats'), new Url('filter.tips_all', array(), array('attributes' => array('target' => '_blank')))),
       '#weight' => 0,
-    ];
+    );
 
     $all_formats = filter_formats();
     $format_exists = isset($all_formats[$element['#format']]);
@@ -225,8 +211,8 @@ class TextFormat extends RenderElement {
 
       // Prepend #pre_render callback to replace field value with user notice
       // prior to rendering.
-      $element['value'] += ['#pre_render' => []];
-      array_unshift($element['value']['#pre_render'], [static::class, 'accessDeniedCallback']);
+      $element['value'] += array('#pre_render' => array());
+      array_unshift($element['value']['#pre_render'], 'filter_form_access_denied');
 
       // Cosmetic adjustments.
       if (isset($element['value']['#rows'])) {
@@ -244,26 +230,6 @@ class TextFormat extends RenderElement {
       }
     }
 
-    return $element;
-  }
-
-  /**
-   * Render API callback: Hides the field value of 'text_format' elements.
-   *
-   * To not break form processing and previews if a user does not have access to
-   * a stored text format, the expanded form elements in filter_process_format()
-   * are forced to take over the stored #default_values for 'value' and
-   * 'format'. However, to prevent the unfiltered, original #value from being
-   * displayed to the user, we replace it with a friendly notice here.
-   *
-   * @param array $element
-   *   The render array to add the access denied message to.
-   *
-   * @return array
-   *   The updated render array.
-   */
-  public static function accessDeniedCallback(array $element) {
-    $element['#value'] = t('This field has been disabled because you do not have sufficient permissions to edit it.');
     return $element;
   }
 

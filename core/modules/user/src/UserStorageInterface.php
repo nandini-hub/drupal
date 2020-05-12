@@ -1,14 +1,19 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\user\UserStorageInterface.
+ */
+
 namespace Drupal\user;
 
-use Drupal\Core\Entity\ContentEntityStorageInterface;
+use Drupal\Core\Entity\EntityStorageInterface;
 use Drupal\Core\Session\AccountInterface;
 
 /**
  * Defines an interface for user entity storage classes.
  */
-interface UserStorageInterface extends ContentEntityStorageInterface {
+interface UserStorageInterface extends EntityStorageInterface{
 
   /**
    * Update the last login timestamp of the user.

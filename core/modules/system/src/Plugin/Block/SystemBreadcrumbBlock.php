@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\system\Plugin\Block\SystemBreadcrumbBlock.
+ */
+
 namespace Drupal\system\Plugin\Block;
 
 use Drupal\Core\Block\BlockBase;
@@ -69,7 +74,23 @@ class SystemBreadcrumbBlock extends BlockBase implements ContainerFactoryPluginI
    * {@inheritdoc}
    */
   public function build() {
-    return $this->breadcrumbManager->build($this->routeMatch)->toRenderable();
+    $breadcrumb = $this->breadcrumbManager->build($this->routeMatch);
+    if (!empty($breadcrumb)) {
+      // $breadcrumb is expected to be an array of rendered breadcrumb links.
+      return array(
+        '#theme' => 'breadcrumb',
+        '#links' => $breadcrumb,
+      );
+    }
+  }
+
+  /**
+   * {@inheritdoc}
+   *
+   * @todo Make cacheable as part of https://drupal.org/node/1805054
+   */
+  public function getCacheMaxAge() {
+    return 0;
   }
 
 }

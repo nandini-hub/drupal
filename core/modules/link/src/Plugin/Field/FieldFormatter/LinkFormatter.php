@@ -1,8 +1,15 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\link\Plugin\field\formatter\LinkFormatter.
+ */
+
 namespace Drupal\link\Plugin\Field\FieldFormatter;
 
+use Drupal\Component\Utility\SafeMarkup;
 use Drupal\Component\Utility\Unicode;
+use Drupal\Component\Utility\UrlHelper;
 use Drupal\Core\Field\FieldDefinitionInterface;
 use Drupal\Core\Field\FieldItemListInterface;
 use Drupal\Core\Field\FormatterBase;
@@ -12,6 +19,7 @@ use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Drupal\Core\Url;
 use Drupal\link\LinkItemInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
+use Symfony\Component\HttpFoundation\Request;
 
 /**
  * Plugin implementation of the 'link' formatter.
@@ -78,13 +86,13 @@ class LinkFormatter extends FormatterBase implements ContainerFactoryPluginInter
    * {@inheritdoc}
    */
   public static function defaultSettings() {
-    return [
+    return array(
       'trim_length' => '80',
       'url_only' => '',
       'url_plain' => '',
       'rel' => '',
       'target' => '',
-    ] + parent::defaultSettings();
+    ) + parent::defaultSettings();
   }
 
   /**
@@ -93,43 +101,43 @@ class LinkFormatter extends FormatterBase implements ContainerFactoryPluginInter
   public function settingsForm(array $form, FormStateInterface $form_state) {
     $elements = parent::settingsForm($form, $form_state);
 
-    $elements['trim_length'] = [
+    $elements['trim_length'] = array(
       '#type' => 'number',
       '#title' => t('Trim link text length'),
       '#field_suffix' => t('characters'),
       '#default_value' => $this->getSetting('trim_length'),
       '#min' => 1,
       '#description' => t('Leave blank to allow unlimited link text lengths.'),
-    ];
-    $elements['url_only'] = [
+    );
+    $elements['url_only'] = array(
       '#type' => 'checkbox',
       '#title' => t('URL only'),
       '#default_value' => $this->getSetting('url_only'),
       '#access' => $this->getPluginId() == 'link',
-    ];
-    $elements['url_plain'] = [
+    );
+    $elements['url_plain'] = array(
       '#type' => 'checkbox',
       '#title' => t('Show URL as plain text'),
       '#default_value' => $this->getSetting('url_plain'),
       '#access' => $this->getPluginId() == 'link',
-      '#states' => [
-        'visible' => [
-          ':input[name*="url_only"]' => ['checked' => TRUE],
-        ],
-      ],
-    ];
-    $elements['rel'] = [
+      '#states' => array(
+        'visible' => array(
+          ':input[name*="url_only"]' => array('checked' => TRUE),
+        ),
+      ),
+    );
+    $elements['rel'] = array(
       '#type' => 'checkbox',
       '#title' => t('Add rel="nofollow" to links'),
       '#return_value' => 'nofollow',
       '#default_value' => $this->getSetting('rel'),
-    ];
-    $elements['target'] = [
+    );
+    $elements['target'] = array(
       '#type' => 'checkbox',
       '#title' => t('Open link in new window'),
       '#return_value' => '_blank',
       '#default_value' => $this->getSetting('target'),
-    ];
+    );
 
     return $elements;
   }
@@ -138,12 +146,12 @@ class LinkFormatter extends FormatterBase implements ContainerFactoryPluginInter
    * {@inheritdoc}
    */
   public function settingsSummary() {
-    $summary = [];
+    $summary = array();
 
     $settings = $this->getSettings();
 
     if (!empty($settings['trim_length'])) {
-      $summary[] = t('Link text trimmed to @limit characters', ['@limit' => $settings['trim_length']]);
+      $summary[] = t('Link text trimmed to @limit characters', array('@limit' => $settings['trim_length']));
     }
     else {
       $summary[] = t('Link text not trimmed');
@@ -157,7 +165,7 @@ class LinkFormatter extends FormatterBase implements ContainerFactoryPluginInter
       }
     }
     if (!empty($settings['rel'])) {
-      $summary[] = t('Add rel="@rel"', ['@rel' => $settings['rel']]);
+      $summary[] = t('Add rel="@rel"', array('@rel' => $settings['rel']));
     }
     if (!empty($settings['target'])) {
       $summary[] = t('Open link in new window');
@@ -169,8 +177,8 @@ class LinkFormatter extends FormatterBase implements ContainerFactoryPluginInter
   /**
    * {@inheritdoc}
    */
-  public function viewElements(FieldItemListInterface $items, $langcode) {
-    $element = [];
+  public function viewElements(FieldItemListInterface $items) {
+    $element = array();
     $entity = $items->getEntity();
     $settings = $this->getSettings();
 
@@ -182,9 +190,8 @@ class LinkFormatter extends FormatterBase implements ContainerFactoryPluginInter
       // If the title field value is available, use it for the link text.
       if (empty($settings['url_only']) && !empty($item->title)) {
         // Unsanitized token replacement here because the entire link title
-        // gets auto-escaped during link generation in
-        // \Drupal\Core\Utility\LinkGenerator::generate().
-        $link_title = \Drupal::token()->replace($item->title, [$entity->getEntityTypeId() => $entity], ['clear' => TRUE]);
+        // gets auto-escaped during link generation.
+        $link_title = \Drupal::token()->replace($item->title, array($entity->getEntityTypeId() => $entity), array('sanitize' => FALSE, 'clear' => TRUE));
       }
 
       // Trim the link text to the desired length.
@@ -193,30 +200,30 @@ class LinkFormatter extends FormatterBase implements ContainerFactoryPluginInter
       }
 
       if (!empty($settings['url_only']) && !empty($settings['url_plain'])) {
-        $element[$delta] = [
-          '#plain_text' => $link_title,
-        ];
+        $element[$delta] = array(
+          '#markup' => SafeMarkup::checkPlain($link_title),
+        );
 
         if (!empty($item->_attributes)) {
           // Piggyback on the metadata attributes, which will be placed in the
           // field template wrapper, and set the URL value in a content
           // attribute.
           // @todo Does RDF need a URL rather than an internal URI here?
-          // @see \Drupal\Tests\rdf\Kernel\Field\LinkFieldRdfaTest.
+          // @see \Drupal\rdf\Tests\Field\LinkFieldRdfaTest.
           $content = str_replace('internal:/', '', $item->uri);
-          $item->_attributes += ['content' => $content];
+          $item->_attributes += array('content' => $content);
         }
       }
       else {
-        $element[$delta] = [
+        $element[$delta] = array(
           '#type' => 'link',
           '#title' => $link_title,
           '#options' => $url->getOptions(),
-        ];
+        );
         $element[$delta]['#url'] = $url;
 
         if (!empty($item->_attributes)) {
-          $element[$delta]['#options'] += ['attributes' => []];
+          $element[$delta]['#options'] += array ('attributes' => array());
           $element[$delta]['#options']['attributes'] += $item->_attributes;
           // Unset field item attributes since they have been included in the
           // formatter output and should not be rendered in the field template.
@@ -235,14 +242,13 @@ class LinkFormatter extends FormatterBase implements ContainerFactoryPluginInter
    *   The link field item being rendered.
    *
    * @return \Drupal\Core\Url
-   *   A Url object.
+   *   An Url object.
    */
   protected function buildUrl(LinkItemInterface $item) {
     $url = $item->getUrl() ?: Url::fromRoute('<none>');
 
     $settings = $this->getSettings();
     $options = $item->options;
-    $options += $url->getOptions();
 
     // Add optional 'rel' attribute to link options.
     if (!empty($settings['rel'])) {

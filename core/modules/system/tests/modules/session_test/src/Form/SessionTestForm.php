@@ -1,22 +1,25 @@
 <?php
 
+/**
+ * @file
+ * Contains Drupal\session_test\Form\SessionTestForm
+ */
+
 namespace Drupal\session_test\Form;
 
-use Drupal\Component\Render\FormattableMarkup;
+use Drupal\Component\Utility\SafeMarkup;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
 
 /**
  * Form controller for the test config edit forms.
- *
- * @internal
  */
 class SessionTestForm extends FormBase {
 
   /**
    * {@inheritdoc}
    */
-  public function getFormId() {
+  public function getFormID() {
     return 'session_test_form';
   }
 
@@ -24,17 +27,17 @@ class SessionTestForm extends FormBase {
    * {@inheritdoc}
    */
   public function buildForm(array $form, FormStateInterface $form_state) {
-    $form['input'] = [
+    $form['input'] = array(
       '#type' => 'textfield',
       '#title' => 'Input',
       '#required' => TRUE,
-    ];
+    );
 
-    $form['actions'] = ['#type' => 'actions'];
-    $form['actions']['submit'] = [
+    $form['actions'] = array('#type' => 'actions');
+    $form['actions']['submit'] = array(
       '#type' => 'submit',
       '#value' => 'Save',
-    ];
+    );
 
     return $form;
   }
@@ -43,7 +46,7 @@ class SessionTestForm extends FormBase {
    * {@inheritdoc}
    */
   public function submitForm(array &$form, FormStateInterface $form_state) {
-    $this->messenger()->addStatus(new FormattableMarkup('Ok: @input', ['@input' => $form_state->getValue('input')]));
+    drupal_set_message(SafeMarkup::format('Ok: @input', array('@input' => $form_state->getValue('input'))));
   }
 
 }

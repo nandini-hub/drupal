@@ -17,7 +17,8 @@ filter.tips:
 filter.admin_overview:
   path: '/admin/config/content/formats'
   defaults:
-    _entity_list: 'filter_format'
+    _controller: '\Drupal\Core\Entity\Controller\EntityListController::listing'
+    entity_type: 'filter_format'
     _title: 'Text formats and editors'
   requirements:
     _permission: 'administer filters'

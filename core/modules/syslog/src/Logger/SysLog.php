@@ -1,8 +1,13 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\syslog\Logger\SysLog.
+ */
+
 namespace Drupal\syslog\Logger;
 
-use Drupal\Core\Config\ConfigFactoryInterface;
+use Drupal\Core\Config\ConfigFactory;
 use Drupal\Core\Logger\LogMessageParserInterface;
 use Drupal\Core\Logger\RfcLoggerTrait;
 use Psr\Log\LoggerInterface;
@@ -37,12 +42,12 @@ class SysLog implements LoggerInterface {
   /**
    * Constructs a SysLog object.
    *
-   * @param \Drupal\Core\Config\ConfigFactoryInterface $config_factory
+   * @param \Drupal\Core\Config\ConfigFactory $config_factory
    *   The configuration factory object.
    * @param \Drupal\Core\Logger\LogMessageParserInterface $parser
    *   The parser to use when extracting message variables.
    */
-  public function __construct(ConfigFactoryInterface $config_factory, LogMessageParserInterface $parser) {
+  public function __construct(ConfigFactory $config_factory, LogMessageParserInterface $parser) {
     $this->config = $config_factory->get('syslog.settings');
     $this->parser = $parser;
   }
@@ -53,6 +58,9 @@ class SysLog implements LoggerInterface {
   protected function openConnection() {
     if (!$this->connectionOpened) {
       $facility = $this->config->get('facility');
+      if ($facility === '') {
+        $facility = defined('LOG_LOCAL0') ? LOG_LOCAL0 : LOG_USER;
+      }
       $this->connectionOpened = openlog($this->config->get('identity'), LOG_NDELAY, $facility);
     }
   }
@@ -60,7 +68,7 @@ class SysLog implements LoggerInterface {
   /**
    * {@inheritdoc}
    */
-  public function log($level, $message, array $context = []) {
+  public function log($level, $message, array $context = array()) {
     global $base_url;
 
     // Ensure we have a connection available.
@@ -70,31 +78,18 @@ class SysLog implements LoggerInterface {
     $message_placeholders = $this->parser->parseMessagePlaceholders($message, $context);
     $message = empty($message_placeholders) ? $message : strtr($message, $message_placeholders);
 
-    $entry = strtr($this->config->get('format'), [
+    $entry = strtr($this->config->get('format'), array(
       '!base_url' => $base_url,
       '!timestamp' => $context['timestamp'],
       '!type' => $context['channel'],
       '!ip' => $context['ip'],
       '!request_uri' => $context['request_uri'],
       '!referer' => $context['referer'],
-      '!severity' => $level,
       '!uid' => $context['uid'],
       '!link' => strip_tags($context['link']),
       '!message' => strip_tags($message),
-    ]);
+    ));
 
-    $this->syslogWrapper($level, $entry);
-  }
-
-  /**
-   * A syslog wrapper to make syslog functionality testable.
-   *
-   * @param int $level
-   *   The syslog priority.
-   * @param string $entry
-   *   The message to send to syslog function.
-   */
-  protected function syslogWrapper($level, $entry) {
     syslog($level, $entry);
   }
 

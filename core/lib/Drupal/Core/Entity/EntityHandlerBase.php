@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Entity\EntityHandlerBase.
+ */
+
 namespace Drupal\Core\Entity;
 
 use Drupal\Core\DependencyInjection\DependencySerializationTrait;
@@ -9,7 +14,7 @@ use Drupal\Core\StringTranslation\StringTranslationTrait;
 /**
  * Provides a base class for entity handlers.
  *
- * @ingroup entity_api
+ * @todo Deprecate this in https://www.drupal.org/node/2471663.
  */
 abstract class EntityHandlerBase {
   use StringTranslationTrait;
@@ -23,7 +28,7 @@ abstract class EntityHandlerBase {
   protected $moduleHandler;
 
   /**
-   * Gets the module handler.
+   * Returns the module handler.
    *
    * @return \Drupal\Core\Extension\ModuleHandlerInterface
    *   The module handler.

@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\views\Plugin\views\sort\GroupByNumeric.
+ */
+
 namespace Drupal\views\Plugin\views\sort;
 
 use Drupal\views\Plugin\views\display\DisplayPluginBase;
@@ -14,7 +19,7 @@ use Drupal\views\Views;
 class GroupByNumeric extends SortPluginBase {
 
   /**
-   * {@inheritdoc}
+   * Overrides \Drupal\views\Plugin\views\HandlerBase::init().
    */
   public function init(ViewExecutable $view, DisplayPluginBase $display, array &$options = NULL) {
     parent::init($view, $display, $options);
@@ -30,9 +35,9 @@ class GroupByNumeric extends SortPluginBase {
   public function query() {
     $this->ensureMyTable();
 
-    $params = [
+    $params = array(
       'function' => $this->options['group_type'],
-    ];
+    );
 
     $this->query->addOrderBy($this->tableAlias, $this->realField, $this->options['order'], NULL, $params);
   }

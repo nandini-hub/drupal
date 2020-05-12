@@ -1,9 +1,19 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\Core\Database\StatementInterface
+ */
+
 namespace Drupal\Core\Database;
 
 /**
  * Represents a prepared statement.
+ *
+ * Some methods in that class are purposefully commented out. Due to a change in
+ * how PHP defines PDOStatement, we can't define a signature for those methods
+ * that will work the same way between versions older than 5.2.6 and later
+ * versions.  See http://bugs.php.net/bug.php?id=42452 for more details.
  *
  * Child implementations should either extend PDOStatement:
  * @code
@@ -37,21 +47,21 @@ interface StatementInterface extends \Traversable {
    * "the access type must be omitted" if it is protected; i.e., conflicting
    * statements). The access type has to be protected.
    */
-  // protected function __construct(Connection $dbh);
+  //protected function __construct(Connection $dbh);
 
   /**
    * Executes a prepared statement
    *
    * @param $args
    *   An array of values with as many elements as there are bound parameters in
-   *   the SQL statement being executed. This can be NULL.
+   *   the SQL statement being executed.
    * @param $options
    *   An array of options for this query.
    *
    * @return
    *   TRUE on success, or FALSE on failure.
    */
-  public function execute($args = [], $options = []);
+  public function execute($args = array(), $options = array());
 
   /**
    * Gets the query string of this statement.
@@ -90,7 +100,7 @@ interface StatementInterface extends \Traversable {
    *   If $mode is PDO::FETCH_CLASS, the optional arguments to pass to the
    *   constructor.
    */
-  public function setFetchMode($mode, $a1 = NULL, $a2 = []);
+  // public function setFetchMode($mode, $a1 = NULL, $a2 = array());
 
   /**
    * Fetches the next row from a result set.
@@ -109,7 +119,7 @@ interface StatementInterface extends \Traversable {
    * @return
    *   A result, formatted according to $mode.
    */
-  public function fetch($mode = NULL, $cursor_orientation = NULL, $cursor_offset = NULL);
+  // public function fetch($mode = NULL, $cursor_orientation = NULL, $cursor_offset = NULL);
 
   /**
    * Returns a single field from the next record of a result set.
@@ -128,7 +138,7 @@ interface StatementInterface extends \Traversable {
    * The object will be of the class specified by StatementInterface::setFetchMode()
    * or stdClass if not specified.
    */
-  public function fetchObject();
+  // public function fetchObject();
 
   /**
    * Fetches the next row and returns it as an associative array.
@@ -155,7 +165,7 @@ interface StatementInterface extends \Traversable {
    * @return
    *   An array of results.
    */
-  public function fetchAll($mode = NULL, $column_index = NULL, $constructor_arguments = NULL);
+  // function fetchAll($mode = NULL, $column_index = NULL, array $constructor_arguments);
 
   /**
    * Returns an entire single column of a result set as an indexed array.
@@ -208,5 +218,4 @@ interface StatementInterface extends \Traversable {
    *   An associative array, or an empty array if there is no result set.
    */
   public function fetchAllAssoc($key, $fetch = NULL);
-
 }

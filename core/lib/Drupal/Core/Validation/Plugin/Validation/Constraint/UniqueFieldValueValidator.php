@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Validation\Plugin\Validation\Constraint\UniqueFieldValueValidator.
+ */
+
 namespace Drupal\Core\Validation\Plugin\Validation\Constraint;
 
 use Symfony\Component\Validator\Constraint;
@@ -14,7 +19,7 @@ class UniqueFieldValueValidator extends ConstraintValidator {
    * {@inheritdoc}
    */
   public function validate($items, Constraint $constraint) {
-    if (!$item = $items->first()) {
+    if (!isset($items)) {
       return;
     }
     $field_name = $items->getFieldDefinition()->getName();
@@ -23,28 +28,16 @@ class UniqueFieldValueValidator extends ConstraintValidator {
     $entity_type_id = $entity->getEntityTypeId();
     $id_key = $entity->getEntityType()->getKey('id');
 
-    $query = \Drupal::entityQuery($entity_type_id);
-
-    $entity_id = $entity->id();
-    // Using isset() instead of !empty() as 0 and '0' are valid ID values for
-    // entity types using string IDs.
-    if (isset($entity_id)) {
-      $query->condition($id_key, $entity_id, '<>');
-    }
-
-    $value_taken = (bool) $query
-      ->condition($field_name, $item->value)
+    $value_taken = (bool) \Drupal::entityQuery($entity_type_id)
+      // The id could be NULL, so we cast it to 0 in that case.
+      ->condition($id_key, (int) $items->getEntity()->id(), '<>')
+      ->condition($field_name, $items->first()->value)
       ->range(0, 1)
       ->count()
       ->execute();
 
     if ($value_taken) {
-      $this->context->addViolation($constraint->message, [
-        '%value' => $item->value,
-        '@entity_type' => $entity->getEntityType()->getSingularLabel(),
-        '@field_name' => mb_strtolower($items->getFieldDefinition()->getLabel()),
-      ]);
+      $this->context->addViolation($constraint->message, array("%value" => $items->value));
     }
   }
-
 }

@@ -11,4 +11,3 @@ history.read_node:
     _controller: '\Drupal\history\Controller\HistoryController::readNode'
   requirements:
     _entity_access: 'node.view'
-    node: \d+

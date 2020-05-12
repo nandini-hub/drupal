@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\config_test\ConfigTestAccessControlHandler.
+ */
+
 namespace Drupal\config_test;
 
 use Drupal\Core\Access\AccessResult;
@@ -17,7 +22,7 @@ class ConfigTestAccessControlHandler extends EntityAccessControlHandler {
   /**
    * {@inheritdoc}
    */
-  public function checkAccess(EntityInterface $entity, $operation, AccountInterface $account) {
+  public function checkAccess(EntityInterface $entity, $operation, $langcode, AccountInterface $account) {
     return AccessResult::allowed();
   }
 

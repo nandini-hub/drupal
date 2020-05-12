@@ -1,21 +1,68 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\user\SharedTempStoreFactory.
+ */
+
 namespace Drupal\user;
 
-use Drupal\Core\TempStore\SharedTempStoreFactory as CoreSharedTempStoreFactory;
-
-@trigger_error('\Drupal\user\SharedTempStoreFactory is scheduled for removal in Drupal 9.0.0. Use \Drupal\Core\TempStore\SharedTempStoreFactory instead. See https://www.drupal.org/node/2935639.', E_USER_DEPRECATED);
+use Drupal\Component\Serialization\SerializationInterface;
+use Drupal\Core\KeyValueStore\KeyValueExpirableFactoryInterface;
+use Drupal\Core\Lock\LockBackendInterface;
+use Symfony\Component\HttpFoundation\RequestStack;
 
 /**
  * Creates a shared temporary storage for a collection.
- *
- * @deprecated in drupal:8.5.0 and is removed from drupal:9.0.0.
- *   Use \Drupal\Core\TempStore\SharedTempStoreFactory instead.
- *
- * @see \Drupal\Core\TempStore\SharedTempStoreFactory
- * @see https://www.drupal.org/node/2935639
  */
-class SharedTempStoreFactory extends CoreSharedTempStoreFactory {
+class SharedTempStoreFactory {
+
+  /**
+   * The storage factory creating the backend to store the data.
+   *
+   * @var \Drupal\Core\KeyValueStore\KeyValueExpirableFactoryInterface
+   */
+  protected $storageFactory;
+
+  /**
+   * The lock object used for this data.
+   *
+   * @var \Drupal\Core\Lock\LockBackendInterface $lockBackend
+   */
+  protected $lockBackend;
+
+  /**
+   * The request stack.
+   *
+   * @var \Symfony\Component\HttpFoundation\RequestStack
+   */
+  protected $requestStack;
+
+  /**
+   * The time to live for items in seconds.
+   *
+   * @var int
+   */
+  protected $expire;
+
+  /**
+   * Constructs a Drupal\user\SharedTempStoreFactory object.
+   *
+   * @param \Drupal\Core\Database\Connection $connection
+   *   The connection object used for this data.
+   * @param \Drupal\Core\Lock\LockBackendInterface $lockBackend
+   *   The lock object used for this data.
+   * @param \Symfony\Component\HttpFoundation\RequestStack $request_stack
+   *   The request stack.
+   * @param int $expire
+   *   The time to live for items, in seconds.
+   */
+  function __construct(KeyValueExpirableFactoryInterface $storage_factory, LockBackendInterface $lockBackend, RequestStack $request_stack, $expire = 604800) {
+    $this->storageFactory = $storage_factory;
+    $this->lockBackend = $lockBackend;
+    $this->requestStack = $request_stack;
+    $this->expire = $expire;
+  }
 
   /**
    * Creates a SharedTempStore for the current user or anonymous session.
@@ -31,7 +78,7 @@ class SharedTempStoreFactory extends CoreSharedTempStoreFactory {
    * @return \Drupal\user\SharedTempStore
    *   An instance of the key/value store.
    */
-  public function get($collection, $owner = NULL) {
+  function get($collection, $owner = NULL) {
     // Use the currently authenticated user ID or the active user ID unless
     // the owner is overridden.
     if (!isset($owner)) {

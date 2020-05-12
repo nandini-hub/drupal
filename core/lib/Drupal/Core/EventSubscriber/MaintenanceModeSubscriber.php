@@ -1,11 +1,16 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\EventSubscriber\MaintenanceModeSubscriber.
+ */
+
 namespace Drupal\Core\EventSubscriber;
 
-use Drupal\Component\Render\FormattableMarkup;
+use Drupal\Component\Utility\SafeMarkup;
+use Drupal\Component\Utility\Xss;
 use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Render\BareHtmlPageRendererInterface;
-use Drupal\Core\Messenger\MessengerInterface;
 use Drupal\Core\Routing\RouteMatch;
 use Drupal\Core\Routing\UrlGeneratorInterface;
 use Drupal\Core\Session\AccountInterface;
@@ -60,13 +65,6 @@ class MaintenanceModeSubscriber implements EventSubscriberInterface {
   protected $bareHtmlPageRenderer;
 
   /**
-   * The messenger.
-   *
-   * @var \Drupal\Core\Messenger\MessengerInterface
-   */
-  protected $messenger;
-
-  /**
    * Constructs a new MaintenanceModeSubscriber.
    *
    * @param \Drupal\Core\Site\MaintenanceModeInterface $maintenance_mode
@@ -81,17 +79,14 @@ class MaintenanceModeSubscriber implements EventSubscriberInterface {
    *   The current user.
    * @param \Drupal\Core\Render\BareHtmlPageRendererInterface $bare_html_page_renderer
    *   The bare HTML page renderer.
-   * @param \Drupal\Core\Messenger\MessengerInterface $messenger
-   *   The messenger.
    */
-  public function __construct(MaintenanceModeInterface $maintenance_mode, ConfigFactoryInterface $config_factory, TranslationInterface $translation, UrlGeneratorInterface $url_generator, AccountInterface $account, BareHtmlPageRendererInterface $bare_html_page_renderer, MessengerInterface $messenger) {
+  public function __construct(MaintenanceModeInterface $maintenance_mode, ConfigFactoryInterface $config_factory, TranslationInterface $translation, UrlGeneratorInterface $url_generator, AccountInterface $account, BareHtmlPageRendererInterface $bare_html_page_renderer) {
     $this->maintenanceMode = $maintenance_mode;
     $this->config = $config_factory;
     $this->stringTranslation = $translation;
     $this->urlGenerator = $url_generator;
     $this->account = $account;
     $this->bareHtmlPageRenderer = $bare_html_page_renderer;
-    $this->messenger = $messenger;
   }
 
   /**
@@ -101,26 +96,19 @@ class MaintenanceModeSubscriber implements EventSubscriberInterface {
    *   The event to process.
    */
   public function onKernelRequestMaintenance(GetResponseEvent $event) {
-    $request = $event->getRequest();
-    $route_match = RouteMatch::createFromRequest($request);
+    $route_match = RouteMatch::createFromRequest($event->getRequest());
     if ($this->maintenanceMode->applies($route_match)) {
       // Don't cache maintenance mode pages.
       \Drupal::service('page_cache_kill_switch')->trigger();
-
       if (!$this->maintenanceMode->exempt($this->account)) {
         // Deliver the 503 page if the site is in maintenance mode and the
         // logged in user is not allowed to bypass it.
-
-        // If the request format is not 'html' then show default maintenance
-        // mode page else show a text/plain page with maintenance message.
-        if ($request->getRequestFormat() !== 'html') {
-          $response = new Response($this->getSiteMaintenanceMessage(), 503, ['Content-Type' => 'text/plain']);
-          $event->setResponse($response);
-          return;
-        }
         drupal_maintenance_theme();
-        $response = $this->bareHtmlPageRenderer->renderBarePage(['#markup' => $this->getSiteMaintenanceMessage()], $this->t('Site under maintenance'), 'maintenance_page');
-        $response->setStatusCode(503);
+        $content = Xss::filterAdmin(SafeMarkup::format($this->config->get('system.maintenance')->get('message'), array(
+          '@site' => $this->config->get('system.site')->get('name'),
+        )));
+        $output = $this->bareHtmlPageRenderer->renderBarePage(['#markup' => $content], $this->t('Site under maintenance'), 'maintenance_page');
+        $response = new Response($output, 503);
         $event->setResponse($response);
       }
       else {
@@ -129,10 +117,10 @@ class MaintenanceModeSubscriber implements EventSubscriberInterface {
         // settings page.
         if ($route_match->getRouteName() != 'system.site_maintenance_mode') {
           if ($this->account->hasPermission('administer site configuration')) {
-            $this->messenger->addMessage($this->t('Operating in maintenance mode. <a href=":url">Go online.</a>', [':url' => $this->urlGenerator->generate('system.site_maintenance_mode')]), 'status', FALSE);
+            $this->drupalSetMessage($this->t('Operating in maintenance mode. <a href="@url">Go online.</a>', array('@url' => $this->urlGenerator->generate('system.site_maintenance_mode'))), 'status', FALSE);
           }
           else {
-            $this->messenger->addMessage($this->t('Operating in maintenance mode.'), 'status', FALSE);
+            $this->drupalSetMessage($this->t('Operating in maintenance mode.'), 'status', FALSE);
           }
         }
       }
@@ -140,23 +128,18 @@ class MaintenanceModeSubscriber implements EventSubscriberInterface {
   }
 
   /**
-   * Gets the site maintenance message.
-   *
-   * @return \Drupal\Component\Render\MarkupInterface
-   *   The formatted site maintenance message.
+   * Wraps the drupal_set_message function.
    */
-  protected function getSiteMaintenanceMessage() {
-    return new FormattableMarkup($this->config->get('system.maintenance')->get('message'), [
-      '@site' => $this->config->get('system.site')->get('name'),
-    ]);
+  protected function drupalSetMessage($message = NULL, $type = 'status', $repeat = FALSE) {
+    return drupal_set_message($message, $type, $repeat);
   }
 
   /**
    * {@inheritdoc}
    */
   public static function getSubscribedEvents() {
-    $events[KernelEvents::REQUEST][] = ['onKernelRequestMaintenance', 30];
-    $events[KernelEvents::EXCEPTION][] = ['onKernelRequestMaintenance'];
+    $events[KernelEvents::REQUEST][] = array('onKernelRequestMaintenance', 30);
+    $events[KernelEvents::EXCEPTION][] = array('onKernelRequestMaintenance');
     return $events;
   }
 

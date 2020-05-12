@@ -1,8 +1,14 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\comment\Entity\CommentType.
+ */
+
 namespace Drupal\comment\Entity;
 
 use Drupal\Core\Config\Entity\ConfigEntityBundleBase;
+use Drupal\Core\Entity\EntityStorageInterface;
 use Drupal\comment\CommentTypeInterface;
 
 /**
@@ -11,12 +17,6 @@ use Drupal\comment\CommentTypeInterface;
  * @ConfigEntityType(
  *   id = "comment_type",
  *   label = @Translation("Comment type"),
- *   label_singular = @Translation("comment type"),
- *   label_plural = @Translation("comment types"),
- *   label_count = @PluralTranslation(
- *     singular = "@count comment type",
- *     plural = "@count comment types",
- *   ),
  *   handlers = {
  *     "form" = {
  *       "default" = "Drupal\comment\CommentTypeForm",
@@ -37,13 +37,7 @@ use Drupal\comment\CommentTypeInterface;
  *     "delete-form" = "/admin/structure/comment/manage/{comment_type}/delete",
  *     "edit-form" = "/admin/structure/comment/manage/{comment_type}",
  *     "add-form" = "/admin/structure/comment/types/add",
- *     "collection" = "/admin/structure/comment",
- *   },
- *   config_export = {
- *     "id",
- *     "label",
- *     "target_entity_type_id",
- *     "description",
+ *     "collection" = "/admin/structure/comment/types",
  *   }
  * )
  */

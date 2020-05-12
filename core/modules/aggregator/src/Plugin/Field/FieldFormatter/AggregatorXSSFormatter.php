@@ -1,9 +1,16 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\aggregator\Plugin\Field\FieldFormatter\AggregatorXSSFormatter.
+ */
+
 namespace Drupal\aggregator\Plugin\Field\FieldFormatter;
 
+use Drupal\Core\Field\FieldDefinitionInterface;
 use Drupal\Core\Field\FieldItemListInterface;
 use Drupal\Core\Field\FormatterBase;
+use Drupal\Core\Form\FormStateInterface;
 
 /**
  * Plugin implementation of the 'aggregator_xss' formatter.
@@ -23,17 +30,15 @@ class AggregatorXSSFormatter extends FormatterBase {
   /**
    * {@inheritdoc}
    */
-  public function viewElements(FieldItemListInterface $items, $langcode) {
+  public function viewElements(FieldItemListInterface $items) {
     $elements = [];
 
     foreach ($items as $delta => $item) {
       $elements[$delta] = [
         '#type' => 'markup',
-        '#markup' => $item->value,
-        '#allowed_tags' => _aggregator_allowed_tags(),
+        '#markup' => aggregator_filter_xss($item->value),
       ];
     }
     return $elements;
   }
-
 }

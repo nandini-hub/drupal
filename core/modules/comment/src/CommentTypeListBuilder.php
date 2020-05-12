@@ -1,7 +1,14 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\comment\CommentTypeListBuilder.
+ */
+
 namespace Drupal\comment;
 
+use Drupal\Component\Utility\SafeMarkup;
+use Drupal\Component\Utility\Xss;
 use Drupal\Core\Config\Entity\ConfigEntityListBuilder;
 use Drupal\Core\Entity\EntityInterface;
 
@@ -38,8 +45,8 @@ class CommentTypeListBuilder extends ConfigEntityListBuilder {
    * {@inheritdoc}
    */
   public function buildRow(EntityInterface $entity) {
-    $row['type'] = $entity->label();
-    $row['description']['data'] = ['#markup' => $entity->getDescription()];
+    $row['type'] = SafeMarkup::checkPlain($entity->label());
+    $row['description'] = Xss::filterAdmin($entity->getDescription());
     return $row + parent::buildRow($entity);
   }
 

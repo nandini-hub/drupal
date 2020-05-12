@@ -1,19 +1,20 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Plugin\DefaultPluginManager
+ */
+
 namespace Drupal\Core\Plugin;
 
-use Drupal\Component\Assertion\Inspector;
-use Drupal\Component\Plugin\Definition\PluginDefinitionInterface;
 use Drupal\Component\Plugin\Discovery\CachedDiscoveryInterface;
-use Drupal\Core\Cache\CacheableDependencyInterface;
-use Drupal\Core\Cache\CacheBackendInterface;
-use Drupal\Core\Cache\UseCacheBackendTrait;
 use Drupal\Component\Plugin\Discovery\DiscoveryCachedTrait;
 use Drupal\Core\Plugin\Discovery\ContainerDerivativeDiscoveryDecorator;
 use Drupal\Component\Plugin\PluginManagerBase;
 use Drupal\Component\Plugin\PluginManagerInterface;
 use Drupal\Component\Utility\NestedArray;
 use Drupal\Core\Cache\Cache;
+use Drupal\Core\Cache\CacheBackendInterface;
 use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\Core\Plugin\Discovery\AnnotatedClassDiscovery;
 use Drupal\Core\Plugin\Factory\ContainerFactory;
@@ -23,10 +24,16 @@ use Drupal\Core\Plugin\Factory\ContainerFactory;
  *
  * @ingroup plugin_api
  */
-class DefaultPluginManager extends PluginManagerBase implements PluginManagerInterface, CachedDiscoveryInterface, CacheableDependencyInterface {
+class DefaultPluginManager extends PluginManagerBase implements PluginManagerInterface, CachedDiscoveryInterface {
 
   use DiscoveryCachedTrait;
-  use UseCacheBackendTrait;
+
+  /**
+   * Cache backend instance.
+   *
+   * @var \Drupal\Core\Cache\CacheBackendInterface
+   */
+  protected $cacheBackend;
 
   /**
    * The cache key.
@@ -40,7 +47,7 @@ class DefaultPluginManager extends PluginManagerBase implements PluginManagerInt
    *
    * @var array
    */
-  protected $cacheTags = [];
+  protected $cacheTags = array();
 
   /**
    * Name of the alter hook if one should be invoked.
@@ -71,37 +78,14 @@ class DefaultPluginManager extends PluginManagerBase implements PluginManagerInt
    *
    * @var array
    */
-  protected $defaults = [];
+  protected $defaults = array();
 
   /**
-   * The name of the annotation that contains the plugin definition.
+   * Flag whether persistent caches should be used.
    *
-   * @var string
+   * @var bool
    */
-  protected $pluginDefinitionAnnotationName;
-
-  /**
-   * The interface each plugin should implement.
-   *
-   * @var string|null
-   */
-  protected $pluginInterface;
-
-  /**
-   * An object that implements \Traversable which contains the root paths
-   * keyed by the corresponding namespace to look for plugin implementations.
-   *
-   * @var \Traversable
-   */
-  protected $namespaces;
-
-  /**
-   * Additional namespaces the annotation discovery mechanism should scan for
-   * annotation definitions.
-   *
-   * @var string[]
-   */
-  protected $additionalAnnotationNamespaces = [];
+  protected $useCaches = TRUE;
 
   /**
    * Creates the discovery object.
@@ -118,27 +102,26 @@ class DefaultPluginManager extends PluginManagerBase implements PluginManagerInt
    * @param string $plugin_definition_annotation_name
    *   (optional) The name of the annotation that contains the plugin definition.
    *   Defaults to 'Drupal\Component\Annotation\Plugin'.
-   * @param string[] $additional_annotation_namespaces
-   *   (optional) Additional namespaces to scan for annotation definitions.
    */
-  public function __construct($subdir, \Traversable $namespaces, ModuleHandlerInterface $module_handler, $plugin_interface = NULL, $plugin_definition_annotation_name = 'Drupal\Component\Annotation\Plugin', array $additional_annotation_namespaces = []) {
+  public function __construct($subdir, \Traversable $namespaces, ModuleHandlerInterface $module_handler, $plugin_interface = NULL, $plugin_definition_annotation_name = 'Drupal\Component\Annotation\Plugin') {
     $this->subdir = $subdir;
-    $this->namespaces = $namespaces;
-    $this->pluginDefinitionAnnotationName = $plugin_definition_annotation_name;
-    $this->pluginInterface = $plugin_interface;
+    $this->discovery = new AnnotatedClassDiscovery($subdir, $namespaces, $plugin_definition_annotation_name);
+    $this->discovery = new ContainerDerivativeDiscoveryDecorator($this->discovery);
+    $this->factory = new ContainerFactory($this, $plugin_interface);
     $this->moduleHandler = $module_handler;
-    $this->additionalAnnotationNamespaces = $additional_annotation_namespaces;
   }
 
   /**
    * Initialize the cache backend.
    *
-   * Plugin definitions are cached using the provided cache backend.
+   * Plugin definitions are cached using the provided cache backend. The
+   * interface language is added as a suffix to the cache key.
    *
    * @param \Drupal\Core\Cache\CacheBackendInterface $cache_backend
    *   Cache backend instance to use.
    * @param string $cache_key
-   *   Cache key prefix to use.
+   *   Cache key prefix to use, the language code will be appended
+   *   automatically.
    * @param array $cache_tags
    *   (optional) When providing a list of cache tags, the cached plugin
    *   definitions are tagged with the provided cache tags. These cache tags can
@@ -148,15 +131,15 @@ class DefaultPluginManager extends PluginManagerBase implements PluginManagerInt
    *   clearCachedDefinitions() method. Only use cache tags when cached plugin
    *   definitions should be cleared along with other, related cache entries.
    */
-  public function setCacheBackend(CacheBackendInterface $cache_backend, $cache_key, array $cache_tags = []) {
-    assert(Inspector::assertAllStrings($cache_tags), 'Cache Tags must be strings.');
+  public function setCacheBackend(CacheBackendInterface $cache_backend, $cache_key, array $cache_tags = array()) {
+    Cache::validateTags($cache_tags);
     $this->cacheBackend = $cache_backend;
     $this->cacheKey = $cache_key;
     $this->cacheTags = $cache_tags;
   }
 
   /**
-   * Sets the alter hook name.
+   * Initializes the alter hook.
    *
    * @param string $alter_hook
    *   Name of the alter hook; for example, to invoke
@@ -232,6 +215,30 @@ class DefaultPluginManager extends PluginManagerBase implements PluginManagerInt
   }
 
   /**
+   * Fetches from the cache backend, respecting the use caches flag.
+   *
+   * @see \Drupal\Core\Cache\CacheBackendInterface::get()
+   */
+  protected function cacheGet($cid) {
+    if ($this->useCaches && $this->cacheBackend) {
+      return $this->cacheBackend->get($cid);
+    }
+    return FALSE;
+  }
+
+  /**
+   * Stores data in the persistent cache, respecting the use caches flag.
+   *
+   * @see \Drupal\Core\Cache\CacheBackendInterface::set()
+   */
+  protected function cacheSet($cid, $data, $expire = Cache::PERMANENT, array $tags = array()) {
+    if ($this->cacheBackend && $this->useCaches) {
+      $this->cacheBackend->set($cid, $data, $expire, $tags);
+    }
+  }
+
+
+  /**
    * Performs extra processing on plugin definitions.
    *
    * By default we add defaults for the type to the definition. If a type has
@@ -239,39 +246,9 @@ class DefaultPluginManager extends PluginManagerBase implements PluginManagerInt
    * method.
    */
   public function processDefinition(&$definition, $plugin_id) {
-    // Only array-based definitions can have defaults merged in.
-    if (is_array($definition) && !empty($this->defaults) && is_array($this->defaults)) {
+    if (!empty($this->defaults) && is_array($this->defaults)) {
       $definition = NestedArray::mergeDeep($this->defaults, $definition);
     }
-
-    // Keep class definitions standard with no leading slash.
-    if ($definition instanceof PluginDefinitionInterface) {
-      $definition->setClass(ltrim($definition->getClass(), '\\'));
-    }
-    elseif (is_array($definition) && isset($definition['class'])) {
-      $definition['class'] = ltrim($definition['class'], '\\');
-    }
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  protected function getDiscovery() {
-    if (!$this->discovery) {
-      $discovery = new AnnotatedClassDiscovery($this->subdir, $this->namespaces, $this->pluginDefinitionAnnotationName, $this->additionalAnnotationNamespaces);
-      $this->discovery = new ContainerDerivativeDiscoveryDecorator($discovery);
-    }
-    return $this->discovery;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  protected function getFactory() {
-    if (!$this->factory) {
-      $this->factory = new ContainerFactory($this, $this->pluginInterface);
-    }
-    return $this->factory;
   }
 
   /**
@@ -281,17 +258,20 @@ class DefaultPluginManager extends PluginManagerBase implements PluginManagerInt
    *   List of definitions to store in cache.
    */
   protected function findDefinitions() {
-    $definitions = $this->getDiscovery()->getDefinitions();
+    $definitions = $this->discovery->getDefinitions();
     foreach ($definitions as $plugin_id => &$definition) {
       $this->processDefinition($definition, $plugin_id);
     }
     $this->alterDefinitions($definitions);
-    $this->fixContextAwareDefinitions($definitions);
     // If this plugin was provided by a module that does not exist, remove the
     // plugin definition.
     foreach ($definitions as $plugin_id => $plugin_definition) {
-      $provider = $this->extractProviderFromDefinition($plugin_definition);
-      if ($provider && !in_array($provider, ['core', 'component']) && !$this->providerExists($provider)) {
+      // If the plugin definition is an object, attempt to convert it to an
+      // array, if that is not possible, skip further processing.
+      if (is_object($plugin_definition) && !($plugin_definition = (array) $plugin_definition)) {
+        continue;
+      }
+      if (isset($plugin_definition['provider']) && !in_array($plugin_definition['provider'], array('core', 'component')) && !$this->moduleHandler->moduleExists($plugin_definition['provider'])) {
         unset($definitions[$plugin_id]);
       }
     }
@@ -299,103 +279,15 @@ class DefaultPluginManager extends PluginManagerBase implements PluginManagerInt
   }
 
   /**
-   * Fix the definitions of context-aware plugins.
-   *
-   * @param array $definitions
-   *   The array of plugin definitions.
-   *
-   * @todo Remove before Drupal 9.0.0.
-   */
-  private function fixContextAwareDefinitions(array &$definitions) {
-    foreach ($definitions as $name => &$definition) {
-      if (is_array($definition) && (!empty($definition['context']) || !empty($definition['context_definitions']))) {
-        // Ensure the new definition key is available.
-        if (!isset($definition['context_definitions'])) {
-          $definition['context_definitions'] = [];
-        }
-
-        // If a context definition is defined with the old key, add it to the
-        // new key and trigger a deprecation error.
-        if (!empty($definition['context'])) {
-          $definition['context_definitions'] += $definition['context'];
-          @trigger_error('Providing context definitions via the "context" key is deprecated in Drupal 8.7.x and will be removed before Drupal 9.0.0. Use the "context_definitions" key instead.', E_USER_DEPRECATED);
-        }
-
-        // Copy the context definitions from the new key to the old key for
-        // backwards compatibility.
-        if (isset($definition['context'])) {
-          $definition['context'] = $definition['context_definitions'];
-        }
-      }
-    }
-  }
-
-  /**
-   * Extracts the provider from a plugin definition.
-   *
-   * @param mixed $plugin_definition
-   *   The plugin definition. Usually either an array or an instance of
-   *   \Drupal\Component\Plugin\Definition\PluginDefinitionInterface
-   *
-   * @return string|null
-   *   The provider string, if it exists. NULL otherwise.
-   */
-  protected function extractProviderFromDefinition($plugin_definition) {
-    if ($plugin_definition instanceof PluginDefinitionInterface) {
-      return $plugin_definition->getProvider();
-    }
-
-    // Attempt to convert the plugin definition to an array.
-    if (is_object($plugin_definition)) {
-      $plugin_definition = (array) $plugin_definition;
-    }
-
-    if (isset($plugin_definition['provider'])) {
-      return $plugin_definition['provider'];
-    }
-  }
-
-  /**
    * Invokes the hook to alter the definitions if the alter hook is set.
    *
    * @param $definitions
-   *   The discovered plugin definitions.
+   *   The discovered plugin defintions.
    */
   protected function alterDefinitions(&$definitions) {
     if ($this->alterHook) {
       $this->moduleHandler->alter($this->alterHook, $definitions);
     }
-  }
-
-  /**
-   * Determines if the provider of a definition exists.
-   *
-   * @return bool
-   *   TRUE if provider exists, FALSE otherwise.
-   */
-  protected function providerExists($provider) {
-    return $this->moduleHandler->moduleExists($provider);
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function getCacheContexts() {
-    return [];
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function getCacheTags() {
-    return $this->cacheTags;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function getCacheMaxAge() {
-    return Cache::PERMANENT;
   }
 
 }

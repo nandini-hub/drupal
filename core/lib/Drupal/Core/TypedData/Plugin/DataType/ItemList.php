@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\TypedData\Plugin\DataType\ItemList.
+ */
+
 namespace Drupal\Core\TypedData\Plugin\DataType;
 
 use Drupal\Core\TypedData\ComplexDataInterface;
@@ -30,13 +35,13 @@ class ItemList extends TypedData implements \IteratorAggregate, ListInterface {
    *
    * @var \Drupal\Core\TypedData\TypedDataInterface[]
    */
-  protected $list = [];
+  protected $list = array();
 
   /**
-   * {@inheritdoc}
+   * Overrides \Drupal\Core\TypedData\TypedData::getValue().
    */
   public function getValue() {
-    $values = [];
+    $values = array();
     foreach ($this->list as $delta => $item) {
       $values[$delta] = $item->getValue();
     }
@@ -50,8 +55,8 @@ class ItemList extends TypedData implements \IteratorAggregate, ListInterface {
    *   An array of values of the field items, or NULL to unset the field.
    */
   public function setValue($values, $notify = TRUE) {
-    if (!isset($values) || $values === []) {
-      $this->list = [];
+    if (!isset($values) || $values === array()) {
+      $this->list = array();
     }
     else {
       // Only arrays with numeric keys are supported.
@@ -79,15 +84,15 @@ class ItemList extends TypedData implements \IteratorAggregate, ListInterface {
   }
 
   /**
-   * {@inheritdoc}
+   * Overrides \Drupal\Core\TypedData\TypedData::getString().
    */
   public function getString() {
-    $strings = [];
+    $strings = array();
     foreach ($this->list as $item) {
       $strings[] = $item->getString();
     }
     // Remove any empty strings resulting from empty items.
-    return implode(', ', array_filter($strings, 'mb_strlen'));
+    return implode(', ', array_filter($strings, '\Drupal\Component\Utility\Unicode::strlen'));
   }
 
   /**
@@ -98,10 +103,7 @@ class ItemList extends TypedData implements \IteratorAggregate, ListInterface {
       throw new \InvalidArgumentException('Unable to get a value with a non-numeric delta in a list.');
     }
     // Automatically create the first item for computed fields.
-    // @deprecated in Drupal 8.5.x, will be removed before Drupal 9.0.0.
-    // Use \Drupal\Core\TypedData\ComputedItemListTrait instead.
     if ($index == 0 && !isset($this->list[0]) && $this->definition->isComputed()) {
-      @trigger_error('Automatically creating the first item for computed fields is deprecated in Drupal 8.5.x and will be removed before Drupal 9.0.0. Use \Drupal\Core\TypedData\ComputedItemListTrait instead.', E_USER_DEPRECATED);
       $this->list[0] = $this->createItem(0);
     }
     return isset($this->list[$index]) ? $this->list[$index] : NULL;
@@ -170,7 +172,7 @@ class ItemList extends TypedData implements \IteratorAggregate, ListInterface {
   }
 
   /**
-   * {@inheritdoc}
+   * Implements \ArrayAccess::offsetExists().
    */
   public function offsetExists($offset) {
     // We do not want to throw exceptions here, so we do not use get().
@@ -178,7 +180,7 @@ class ItemList extends TypedData implements \IteratorAggregate, ListInterface {
   }
 
   /**
-   * {@inheritdoc}
+   * Implements \ArrayAccess::offsetUnset().
    */
   public function offsetUnset($offset) {
     $this->removeItem($offset);
@@ -220,32 +222,32 @@ class ItemList extends TypedData implements \IteratorAggregate, ListInterface {
    * @return \Drupal\Core\TypedData\TypedDataInterface
    */
   protected function createItem($offset = 0, $value = NULL) {
-    return $this->getTypedDataManager()->getPropertyInstance($this, $offset, $value);
+    return \Drupal::typedDataManager()->getPropertyInstance($this, $offset, $value);
   }
 
   /**
-   * {@inheritdoc}
+   * Implements \Drupal\Core\TypedData\ListInterface::getItemDefinition().
    */
   public function getItemDefinition() {
     return $this->definition->getItemDefinition();
   }
 
   /**
-   * {@inheritdoc}
+   * Implements \IteratorAggregate::getIterator().
    */
   public function getIterator() {
     return new \ArrayIterator($this->list);
   }
 
   /**
-   * {@inheritdoc}
+   * Implements \Countable::count().
    */
   public function count() {
     return count($this->list);
   }
 
   /**
-   * {@inheritdoc}
+   * Implements \Drupal\Core\TypedData\ListInterface::isEmpty().
    */
   public function isEmpty() {
     foreach ($this->list as $item) {
@@ -285,7 +287,7 @@ class ItemList extends TypedData implements \IteratorAggregate, ListInterface {
   }
 
   /**
-   * {@inheritdoc}
+   * Implements \Drupal\Core\TypedData\ListInterface::onChange().
    */
   public function onChange($delta) {
     // Notify the parent of changes.

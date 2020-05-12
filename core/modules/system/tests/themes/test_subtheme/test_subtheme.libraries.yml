@@ -4,4 +4,3 @@ global-styling:
     base:
       css/sub-add.css: {}
       css/samename.css: {}
-      css/sub-libraries-extend.css: {}

@@ -9,10 +9,10 @@ services:
       - { name: access_check, applies_to: _access_system_update }
   system.manager:
     class: Drupal\system\SystemManager
-    arguments: ['@module_handler', null, '@request_stack', '@menu.link_tree', '@menu.active_trail']
+    arguments: ['@module_handler', '@entity.manager', '@request_stack', '@menu.link_tree', '@menu.active_trail']
   system.breadcrumb.default:
     class: Drupal\system\PathBasedBreadcrumbBuilder
-    arguments: ['@router.request_context', '@access_manager', '@router', '@path_processor_manager', '@config.factory',  '@title_resolver', '@current_user', '@path.current', '@path.matcher']
+    arguments: ['@router.request_context', '@access_manager', '@router', '@path_processor_manager', '@config.factory',  '@title_resolver', '@current_user', '@path.current']
     tags:
       - { name: breadcrumb_builder, priority: 0 }
   path_processor.files:
@@ -35,16 +35,15 @@ services:
       - { name: theme_negotiator, priority: 100 }
   system.config_subscriber:
     class: Drupal\system\SystemConfigSubscriber
-    arguments: ['@router.builder']
     tags:
       - { name: event_subscriber }
-  system.config_cache_tag:
-    class: Drupal\system\EventSubscriber\ConfigCacheTag
+  system.automatic_cron:
+    class: Drupal\system\EventSubscriber\AutomaticCron
+    arguments: ['@cron', '@config.factory', '@state']
+    tags:
+      - { name: event_subscriber }
+  system.theme_settings_cache_tag:
+    class: Drupal\system\EventSubscriber\ThemeSettingsCacheTag
     arguments: ['@theme_handler', '@cache_tags.invalidator']
-    tags:
-      - { name: event_subscriber }
-  system.timezone_resolver:
-    class: Drupal\system\TimeZoneResolver
-    arguments: ['@current_user', '@config.factory']
     tags:
       - { name: event_subscriber }

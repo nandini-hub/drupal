@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\EventSubscriber\HttpExceptionSubscriberBase.
+ */
+
 namespace Drupal\Core\EventSubscriber;
 
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
@@ -13,18 +18,10 @@ use Symfony\Component\HttpKernel\KernelEvents;
  * A subscriber may extend this class and implement getHandledFormats() to
  * indicate which request formats it will respond to. Then implement an on*()
  * method for any error code (HTTP response code) that should be handled. For
- * example, to handle a specific error code like 404 Not Found messages add the
- * method:
+ * example, to handle 404 Not Found messages add a method:
  *
  * @code
  * public function on404(GetResponseForExceptionEvent $event) {}
- * @endcode
- *
- * To implement a fallback for the entire 4xx class of codes, implement the
- * method:
- *
- * @code
- * public function on4xx(GetResponseForExceptionEvent $event) {}
  * @endcode
  *
  * That method should then call $event->setResponse() to set the response object
@@ -59,7 +56,7 @@ abstract class HttpExceptionSubscriberBase implements EventSubscriberInterface {
    *
    * @return array
    *   An indexed array of the format machine names that this subscriber will
-   *   attempt to process, such as "html" or "json". Returning an empty array
+   *   attempt ot process,such as "html" or "json". Returning an empty array
    *   will apply to all formats.
    *
    * @see \Symfony\Component\HttpFoundation\Request
@@ -89,27 +86,20 @@ abstract class HttpExceptionSubscriberBase implements EventSubscriberInterface {
     $exception = $event->getException();
 
     // Make the exception available for example when rendering a block.
-    $request = $event->getRequest();
-    $request->attributes->set('exception', $exception);
+    $event->getRequest()->attributes->set('exception', $exception);
 
     $handled_formats = $this->getHandledFormats();
 
-    $format = $request->query->get(MainContentViewSubscriber::WRAPPER_FORMAT, $request->getRequestFormat());
+    $format = $event->getRequest()->getRequestFormat();
 
     if ($exception instanceof HttpExceptionInterface && (empty($handled_formats) || in_array($format, $handled_formats))) {
       $method = 'on' . $exception->getStatusCode();
-      // Keep just the leading number of the status code to produce either a
-      // on400 or a 500 method callback.
-      $method_fallback = 'on' . substr($exception->getStatusCode(), 0, 1) . 'xx';
       // We want to allow the method to be called and still not set a response
       // if it has additional filtering logic to determine when it will apply.
       // It is therefore the method's responsibility to set the response on the
       // event if appropriate.
       if (method_exists($this, $method)) {
         $this->$method($event);
-      }
-      elseif (method_exists($this, $method_fallback)) {
-        $this->$method_fallback($event);
       }
     }
   }

@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\views\Entity\Render\ConfigurableLanguageRenderer.
+ */
+
 namespace Drupal\views\Entity\Render;
 
 use Drupal\Core\Entity\EntityTypeInterface;
@@ -10,7 +15,7 @@ use Drupal\views\ViewExecutable;
 /**
  * Renders entities in a configured language.
  */
-class ConfigurableLanguageRenderer extends EntityTranslationRendererBase {
+class ConfigurableLanguageRenderer extends RendererBase {
 
   /**
    * A specific language code for rendering if available.

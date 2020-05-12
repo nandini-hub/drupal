@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Entity\Query\Sql\QueryAggregate.
+ */
+
 namespace Drupal\Core\Entity\Query\Sql;
 
 use Drupal\Core\Entity\Query\QueryAggregateInterface;
@@ -15,10 +20,10 @@ class QueryAggregate extends Query implements QueryAggregateInterface {
    * @var array
    *   An array of expressions.
    */
-  protected $sqlExpressions = [];
+  protected $sqlExpressions = array();
 
   /**
-   * {@inheritdoc}
+   * Implements \Drupal\Core\Entity\Query\QueryAggregateInterface::execute().
    */
   public function execute() {
     return $this
@@ -34,41 +39,41 @@ class QueryAggregate extends Query implements QueryAggregateInterface {
   }
 
   /**
-   * {@inheritdoc}
+   * Overrides \Drupal\Core\Entity\Query\Sql::prepare().
    */
   public function prepare() {
     parent::prepare();
     // Throw away the id fields.
-    $this->sqlFields = [];
+    $this->sqlFields = array();
     return $this;
   }
 
   /**
-   * {@inheritdoc}
+   * Implements \Drupal\Core\Entity\Query\QueryAggregateInterface::conditionAggregateGroupFactory().
    */
   public function conditionAggregateGroupFactory($conjunction = 'AND') {
-    $class = static::getClass($this->namespaces, 'ConditionAggregate');
-    return new $class($conjunction, $this, $this->namespaces);
+    return new ConditionAggregate($conjunction, $this);
   }
 
   /**
-   * {@inheritdoc}
+   * Overrides \Drupal\Core\Entity\QueryBase::exists().
    */
   public function existsAggregate($field, $function, $langcode = NULL) {
     return $this->conditionAggregate->exists($field, $function, $langcode);
   }
 
   /**
-   * {@inheritdoc}
+   * Overrides \Drupal\Core\Entity\QueryBase::notExists().
    */
   public function notExistsAggregate($field, $function, $langcode = NULL) {
     return $this->conditionAggregate->notExists($field, $function, $langcode);
   }
 
+
   /**
    * Adds the aggregations to the query.
    *
-   * @return $this
+   * @return \Drupal\Core\Entity\Query\Sql\QueryAggregate
    *   Returns the called object.
    */
   protected function addAggregate() {
@@ -84,7 +89,7 @@ class QueryAggregate extends Query implements QueryAggregateInterface {
   /**
    * Builds the aggregation conditions part of the query.
    *
-   * @return $this
+   * @return \Drupal\Core\Entity\Query\Sql\QueryAggregate
    *   Returns the called object.
    */
   protected function compileAggregate() {
@@ -95,7 +100,7 @@ class QueryAggregate extends Query implements QueryAggregateInterface {
   /**
    * Adds the groupby values to the actual query.
    *
-   * @return $this
+   * @return \Drupal\Core\Entity\Query\Sql\QueryAggregate
    *   Returns the called object.
    */
   protected function addGroupBy() {
@@ -104,7 +109,7 @@ class QueryAggregate extends Query implements QueryAggregateInterface {
       $sql_field = $this->getSqlField($field, $group_by['langcode']);
       $this->sqlGroupBy[$sql_field] = $sql_field;
       list($table, $real_sql_field) = explode('.', $sql_field);
-      $this->sqlFields[$sql_field] = [$table, $real_sql_field, $this->createSqlAlias($field, $real_sql_field)];
+      $this->sqlFields[$sql_field] = array($table, $real_sql_field, $this->createSqlAlias($field, $real_sql_field));
     }
 
     return $this;
@@ -113,17 +118,18 @@ class QueryAggregate extends Query implements QueryAggregateInterface {
   /**
    * Builds the aggregation sort part of the query.
    *
-   * @return $this
+   * @return \Drupal\Core\Entity\Query\Sql\QueryAggregate
    *   Returns the called object.
    */
   protected function addSortAggregate() {
-    if (!$this->count) {
+    if(!$this->count) {
       foreach ($this->sortAggregate as $alias => $sort) {
         $this->sqlQuery->orderBy($alias, $sort['direction']);
       }
     }
     return $this;
   }
+
 
   /**
    * Overrides \Drupal\Core\Entity\Query\Sql\Query::finish().
@@ -149,7 +155,7 @@ class QueryAggregate extends Query implements QueryAggregateInterface {
    *   replaced with underscores and if a default fallback to .value happened,
    *   the _value is stripped.
    */
-  public function createSqlAlias($field, $sql_field) {
+  function createSqlAlias($field, $sql_field) {
     $alias = str_replace('.', '_', $sql_field);
     // If the alias contains of field_*_value remove the _value at the end.
     if (substr($alias, 0, 6) === 'field_' && substr($field, -6) !== '_value' && substr($alias, -6) === '_value') {
@@ -168,9 +174,9 @@ class QueryAggregate extends Query implements QueryAggregateInterface {
     if ($this->count) {
       return parent::result();
     }
-    $return = [];
+    $return = array();
     foreach ($this->sqlQuery->execute() as $row) {
-      $return[] = (array) $row;
+      $return[] = (array)$row;
     }
     return $return;
   }

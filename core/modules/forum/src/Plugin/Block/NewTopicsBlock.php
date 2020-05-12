@@ -1,8 +1,11 @@
 <?php
 
-namespace Drupal\forum\Plugin\Block;
+/**
+ * @file
+ * Contains \Drupal\forum\Plugin\Block\NewTopicsBlock.
+ */
 
-use Drupal\Core\Database\Database;
+namespace Drupal\forum\Plugin\Block;
 
 /**
  * Provides a 'New forum topics' block.
@@ -19,12 +22,11 @@ class NewTopicsBlock extends ForumBlockBase {
    * {@inheritdoc}
    */
   protected function buildForumQuery() {
-    return Database::getConnection()->select('forum_index', 'f')
+    return db_select('forum_index', 'f')
       ->fields('f')
       ->addTag('node_access')
       ->addMetaData('base_table', 'forum_index')
       ->orderBy('f.created', 'DESC')
       ->range(0, $this->configuration['block_count']);
   }
-
 }

@@ -1,10 +1,16 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\shortcut\Controller\ShortcutController.
+ */
+
 namespace Drupal\shortcut\Controller;
 
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\shortcut\ShortcutSetInterface;
 use Drupal\shortcut\ShortcutInterface;
+use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
  * Provides route responses for taxonomy.module.
@@ -12,7 +18,8 @@ use Drupal\shortcut\ShortcutInterface;
 class ShortcutController extends ControllerBase {
 
   /**
-   * Returns a form to add a new shortcut to a given set.
+   * Returns a rendered edit form to create a new shortcut associated to the
+   * given shortcut set.
    *
    * @param \Drupal\shortcut\ShortcutSetInterface $shortcut_set
    *   The shortcut set this shortcut will be added to.
@@ -21,7 +28,7 @@ class ShortcutController extends ControllerBase {
    *   The shortcut add form.
    */
   public function addForm(ShortcutSetInterface $shortcut_set) {
-    $shortcut = $this->entityTypeManager()->getStorage('shortcut')->create(['shortcut_set' => $shortcut_set->id()]);
+    $shortcut = $this->entityManager()->getStorage('shortcut')->create(array('shortcut_set' => $shortcut_set->id()));
     return $this->entityFormBuilder()->getForm($shortcut, 'add');
   }
 
@@ -40,10 +47,10 @@ class ShortcutController extends ControllerBase {
 
     try {
       $shortcut->delete();
-      $this->messenger()->addStatus($this->t('The shortcut %title has been deleted.', ['%title' => $label]));
+      drupal_set_message($this->t('The shortcut %title has been deleted.', array('%title' => $label)));
     }
     catch (\Exception $e) {
-      $this->messenger()->addStatus($this->t('Unable to delete the shortcut for %title.', ['%title' => $label]), 'error');
+      drupal_set_message($this->t('Unable to delete the shortcut for %title.', array('%title' => $label)), 'error');
     }
 
     return $this->redirect('<front>');

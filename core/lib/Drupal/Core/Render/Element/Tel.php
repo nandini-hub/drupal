@@ -1,29 +1,16 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Render\Element\Tel.
+ */
+
 namespace Drupal\Core\Render\Element;
 
 use Drupal\Core\Render\Element;
 
 /**
  * Provides a form element for entering a telephone number.
- *
- * Provides an HTML5 input element with type of "tel". It provides no special
- * validation.
- *
- * Properties:
- * - #size: The size of the input element in characters.
- * - #pattern: A string for the native HTML5 pattern attribute.
- *
- * Usage example:
- * @code
- * $form['phone'] = array(
- *   '#type' => 'tel',
- *   '#title' => $this->t('Phone'),
- *   '#pattern' => '[^\d]*',
- * );
- * @endcode
- *
- * @see \Drupal\Core\Render\Element
  *
  * @FormElement("tel")
  */
@@ -34,22 +21,22 @@ class Tel extends FormElement {
    */
   public function getInfo() {
     $class = get_class($this);
-    return [
+    return array(
       '#input' => TRUE,
       '#size' => 30,
       '#maxlength' => 128,
       '#autocomplete_route_name' => FALSE,
-      '#process' => [
-        [$class, 'processAutocomplete'],
-        [$class, 'processAjaxForm'],
-        [$class, 'processPattern'],
-      ],
-      '#pre_render' => [
-        [$class, 'preRenderTel'],
-      ],
+      '#process' => array(
+        array($class, 'processAutocomplete'),
+        array($class, 'processAjaxForm'),
+        array($class, 'processPattern'),
+      ),
+      '#pre_render' => array(
+        array($class, 'preRenderTel'),
+      ),
       '#theme' => 'input__tel',
-      '#theme_wrappers' => ['form_element'],
-    ];
+      '#theme_wrappers' => array('form_element'),
+    );
   }
 
   /**
@@ -65,8 +52,8 @@ class Tel extends FormElement {
    */
   public static function preRenderTel($element) {
     $element['#attributes']['type'] = 'tel';
-    Element::setAttributes($element, ['id', 'name', 'value', 'size', 'maxlength', 'placeholder']);
-    static::setAttributes($element, ['form-tel']);
+    Element::setAttributes($element, array('id', 'name', 'value', 'size', 'maxlength', 'placeholder'));
+    static::setAttributes($element, array('form-tel'));
 
     return $element;
   }

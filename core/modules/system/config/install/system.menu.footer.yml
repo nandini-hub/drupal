@@ -1,7 +1,5 @@
-langcode: en
-status: true
-dependencies: {  }
 id: footer
 label: Footer
-description: 'Site information links'
+description: 'Use this for linking to site information.'
+langcode: en
 locked: true

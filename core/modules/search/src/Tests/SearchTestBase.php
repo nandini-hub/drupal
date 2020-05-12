@@ -1,19 +1,17 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\search\Tests\SearchTestBase.
+ */
+
 namespace Drupal\search\Tests;
 
-@trigger_error(__NAMESPACE__ . '\SearchTestBase is deprecated for removal before Drupal 9.0.0. Use \Drupal\Tests\search\Functional\SearchTestBase instead. See https://www.drupal.org/node/2999939', E_USER_DEPRECATED);
-
 use Drupal\simpletest\WebTestBase;
-use Drupal\Component\Render\FormattableMarkup;
+use Drupal\Component\Utility\SafeMarkup;
 
 /**
  * Defines the common search test code.
- *
- * @deprecated in drupal:8.?.? and is removed from drupal:9.0.0.
- *   Use \Drupal\Tests\search\Functional\SearchTestBase instead.
- *
- * @see https://www.drupal.org/node/2999939
  */
 abstract class SearchTestBase extends WebTestBase {
 
@@ -22,15 +20,15 @@ abstract class SearchTestBase extends WebTestBase {
    *
    * @var array
    */
-  public static $modules = ['node', 'search', 'dblog'];
+  public static $modules = array('node', 'search', 'dblog');
 
   protected function setUp() {
     parent::setUp();
 
     // Create Basic page and Article node types.
     if ($this->profile != 'standard') {
-      $this->drupalCreateContentType(['type' => 'page', 'name' => 'Basic page']);
-      $this->drupalCreateContentType(['type' => 'article', 'name' => 'Article']);
+      $this->drupalCreateContentType(array('type' => 'page', 'name' => 'Basic page'));
+      $this->drupalCreateContentType(array('type' => 'article', 'name' => 'Article'));
     }
   }
 
@@ -75,13 +73,13 @@ abstract class SearchTestBase extends WebTestBase {
       foreach ($forms as $form) {
         // Try to set the fields of this form as specified in $edit.
         $edit = $edit_save;
-        $post = [];
-        $upload = [];
+        $post = array();
+        $upload = array();
         $submit_matches = $this->handleForm($post, $edit, $upload, $submit, $form);
         if (!$edit && $submit_matches) {
           // Everything matched, so "submit" the form.
           $action = isset($form['action']) ? $this->getAbsoluteUrl((string) $form['action']) : NULL;
-          $this->drupalGet($action, ['query' => $post]);
+          $this->drupalGet($action, array('query' => $post));
           return;
         }
       }
@@ -89,11 +87,10 @@ abstract class SearchTestBase extends WebTestBase {
       // We have not found a form which contained all fields of $edit and
       // the submit button.
       foreach ($edit as $name => $value) {
-        $this->fail(new FormattableMarkup('Failed to set field @name to @value', ['@name' => $name, '@value' => $value]));
+        $this->fail(SafeMarkup::format('Failed to set field @name to @value', array('@name' => $name, '@value' => $value)));
       }
-      $this->assertTrue($submit_matches, new FormattableMarkup('Found the @submit button', ['@submit' => $submit]));
-      $this->fail(new FormattableMarkup('Found the requested form fields at @path', ['@path' => $path]));
+      $this->assertTrue($submit_matches, format_string('Found the @submit button', array('@submit' => $submit)));
+      $this->fail(format_string('Found the requested form fields at @path', array('@path' => $path)));
     }
   }
-
 }

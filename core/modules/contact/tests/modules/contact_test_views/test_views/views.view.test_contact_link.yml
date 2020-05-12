@@ -3,14 +3,14 @@ status: true
 dependencies:
   module:
     - contact
-    - user
 id: test_contact_link
 label: test_contact_link
 module: views
 description: ''
 tag: ''
-base_table: users_field_data
+base_table: users
 base_field: uid
+core: 8.x
 display:
   default:
     display_plugin: default
@@ -21,7 +21,7 @@ display:
       access:
         type: none
       cache:
-        type: tag
+        type: none
         options: {  }
       query:
         type: views_query
@@ -57,10 +57,10 @@ display:
             offset: false
             offset_label: Offset
           tags:
-            previous: '‹ Previous'
-            next: 'Next ›'
-            first: '« First'
-            last: 'Last »'
+            previous: '‹ previous'
+            next: 'next ›'
+            first: '« first'
+            last: 'last »'
           quantity: 9
       style:
         type: default
@@ -69,7 +69,7 @@ display:
       fields:
         name:
           id: name
-          table: users_field_data
+          table: users
           field: name
           label: ''
           alter:
@@ -110,8 +110,8 @@ display:
           entity_type: user
       filters:
         status:
-          value: '1'
-          table: users_field_data
+          value: true
+          table: users
           field: status
           id: status
           expose:
@@ -127,22 +127,10 @@ display:
       empty: {  }
       relationships: {  }
       arguments: {  }
-      display_extenders: {  }
-    cache_metadata:
-      contexts:
-        - 'languages:language_content'
-        - 'languages:language_interface'
-      max-age: 0
   page_1:
     display_plugin: page
     id: page_1
     display_title: Page
     position: 1
     display_options:
-      display_extenders: {  }
       path: test-contact-link
-    cache_metadata:
-      contexts:
-        - 'languages:language_content'
-        - 'languages:language_interface'
-      max-age: 0

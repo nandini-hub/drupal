@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Config\Entity\ConfigDependencyManager.
+ */
+
 namespace Drupal\Core\Config\Entity;
 
 use Drupal\Component\Graph\Graph;
@@ -17,10 +22,10 @@ use Drupal\Component\Utility\SortArray;
  * The configuration dependency value is structured like this:
  * @code
  * array(
- *   'config' => array(
+ *   'config => array(
  *     // An array of configuration entity object names. Recalculated on save.
  *   ),
- *   'content' => array(
+ *   'content => array(
  *     // An array of content entity configuration dependency names. The default
  *     // format is "ENTITY_TYPE_ID:BUNDLE:UUID". Recalculated on save.
  *   ),
@@ -53,11 +58,11 @@ use Drupal\Component\Utility\SortArray;
  * Configuration entity classes usually extend
  * \Drupal\Core\Config\Entity\ConfigEntityBase. The base class provides a
  * generic implementation of the calculateDependencies() method that can
- * discover dependencies due to plugins, and third party settings. If the
- * configuration entity has dependencies that cannot be discovered by the base
- * class's implementation, then it needs to implement
+ * discover dependencies due to enforced dependencies, plugins, and third party
+ * settings. If the configuration entity has dependencies that cannot be
+ * discovered by the base class's implementation, then it needs to implement
  * \Drupal\Core\Config\Entity\ConfigEntityInterface::calculateDependencies() to
- * calculate the dependencies. In this method, use
+ * calculate (and return) the dependencies. In this method, use
  * \Drupal\Core\Config\Entity\ConfigEntityBase::addDependency() to add
  * dependencies. Implementations should call the base class implementation to
  * inherit the generic functionality.
@@ -80,9 +85,9 @@ use Drupal\Component\Utility\SortArray;
  * configuration object so that they can be checked without the module that
  * provides the configuration entity class being installed. This is important
  * for configuration synchronization, which needs to be able to validate
- * configuration in the sync directory before the synchronization has occurred.
- * Also, if you have a configuration entity object and you want to get the
- * current dependencies (without recalculation), you can use
+ * configuration in the staging directory before the synchronization has
+ * occurred. Also, if you have a configuration entity object and you want to
+ * get the current dependencies without recalculation, you can use
  * \Drupal\Core\Config\Entity\ConfigEntityInterface::getDependencies().
  *
  * When uninstalling a module or a theme, configuration entities that are
@@ -110,7 +115,6 @@ use Drupal\Component\Utility\SortArray;
  * module dependency in the sub-module only.
  *
  * @see \Drupal\Core\Config\Entity\ConfigEntityInterface::calculateDependencies()
- * @see \Drupal\Core\Config\Entity\ConfigEntityInterface::getDependencies()
  * @see \Drupal\Core\Config\Entity\ConfigEntityInterface::onDependencyRemoval()
  * @see \Drupal\Core\Config\Entity\ConfigEntityBase::addDependency()
  * @see \Drupal\Core\Config\ConfigInstallerInterface::installDefaultConfig()
@@ -126,7 +130,7 @@ class ConfigDependencyManager {
    *
    * @var \Drupal\Core\Config\Entity\ConfigEntityDependency[]
    */
-  protected $data = [];
+  protected $data = array();
 
   /**
    * The directed acyclic graph.
@@ -150,9 +154,9 @@ class ConfigDependencyManager {
    *   An array of config entity dependency objects that are dependent.
    */
   public function getDependentEntities($type, $name) {
-    $dependent_entities = [];
+    $dependent_entities = array();
 
-    $entities_to_check = [];
+    $entities_to_check = array();
     if ($type == 'config') {
       $entities_to_check[] = $name;
     }
@@ -165,7 +169,7 @@ class ConfigDependencyManager {
       // If checking content, module, or theme dependencies, discover which
       // entities are dependent on the entities that have a direct dependency.
       foreach ($dependent_entities as $entity) {
-        $entities_to_check[] = $entity->getConfigDependencyName();
+        $entities_to_check[] =  $entity->getConfigDependencyName();
       }
     }
     $dependencies = array_merge($this->createGraphConfigEntityDependencies($entities_to_check), $dependent_entities);
@@ -173,33 +177,7 @@ class ConfigDependencyManager {
     // dependent is at the top. For example, this ensures that fields are
     // always after field storages. This is because field storages need to be
     // created before a field.
-    $graph = $this->getGraph();
-    $sorts = $this->prepareMultisort($graph, ['weight', 'name']);
-    array_multisort($sorts['weight'], SORT_DESC, SORT_NUMERIC, $sorts['name'], SORT_ASC, SORT_NATURAL | SORT_FLAG_CASE, $graph);
-    return array_replace(array_intersect_key($graph, $dependencies), $dependencies);
-  }
-
-  /**
-   * Extracts data from the graph for use in array_multisort().
-   *
-   * @param array $graph
-   *   The graph to extract data from.
-   * @param array $keys
-   *   The keys whose values to extract.
-   *
-   * @return
-   *   An array keyed by the $keys passed in. The values are arrays keyed by the
-   *   row from the graph and the value is the corresponding value for the key
-   *   from the graph.
-   */
-  protected function prepareMultisort($graph, $keys) {
-    $return = array_fill_keys($keys, []);
-    foreach ($graph as $graph_key => $graph_row) {
-      foreach ($keys as $key) {
-        $return[$key][$graph_key] = $graph_row[$key];
-      }
-    }
-    return $return;
+    return array_reverse(array_intersect_key($this->graph, $dependencies));
   }
 
   /**
@@ -211,60 +189,29 @@ class ConfigDependencyManager {
    */
   public function sortAll() {
     $graph = $this->getGraph();
-    // Sort by weight and alphabetically. The most dependent entities
+    // Sort by reverse weight and alphabetically. The most dependent entities
     // are last and entities with the same weight are alphabetically ordered.
-    $sorts = $this->prepareMultisort($graph, ['weight', 'name']);
-    array_multisort($sorts['weight'], SORT_ASC, SORT_NUMERIC, $sorts['name'], SORT_ASC, SORT_NATURAL | SORT_FLAG_CASE, $graph);
-    // Use array_intersect_key() to exclude modules and themes from the list.
-    return array_keys(array_intersect_key($graph, $this->data));
-  }
-
-  /**
-   * Sorts the dependency graph by weight and alphabetically.
-   *
-   * @deprecated in drupal:8.2.0 and is removed from drupal:9.0.0. Use
-   * \Drupal\Core\Config\Entity\ConfigDependencyManager::prepareMultisort() and
-   * array_multisort() instead.
-   *
-   * @param array $a
-   *   First item for comparison. The compared items should be associative
-   *   arrays that include a 'weight' and a 'name' key.
-   * @param array $b
-   *   Second item for comparison.
-   *
-   * @return int
-   *   The comparison result for uasort().
-   */
-  protected static function sortGraphByWeight(array $a, array $b) {
-    $weight_cmp = SortArray::sortByKeyInt($a, $b, 'weight');
-
-    if ($weight_cmp === 0) {
-      return SortArray::sortByKeyString($a, $b, 'name');
-    }
-    return $weight_cmp;
+    uasort($graph, array($this, 'sortGraph'));
+    return array_keys($graph);
   }
 
   /**
    * Sorts the dependency graph by reverse weight and alphabetically.
    *
-   * @deprecated in drupal:8.2.0 and is removed from drupal:9.0.0. Use
-   * \Drupal\Core\Config\Entity\ConfigDependencyManager::prepareMultisort() and
-   * array_multisort() instead.
-   *
    * @param array $a
    *   First item for comparison. The compared items should be associative
-   *   arrays that include a 'weight' and a 'name' key.
+   *   arrays that include a 'weight' and a 'component' key.
    * @param array $b
    *   Second item for comparison.
    *
    * @return int
    *   The comparison result for uasort().
    */
-  public static function sortGraph(array $a, array $b) {
+  public function sortGraph(array $a, array $b) {
     $weight_cmp = SortArray::sortByKeyInt($a, $b, 'weight') * -1;
 
     if ($weight_cmp === 0) {
-      return SortArray::sortByKeyString($a, $b, 'name');
+      return SortArray::sortByKeyString($a, $b, 'component');
     }
     return $weight_cmp;
   }
@@ -281,15 +228,13 @@ class ConfigDependencyManager {
    *   supplied entities to check.
    */
   protected function createGraphConfigEntityDependencies($entities_to_check) {
-    $dependent_entities = [];
+    $dependent_entities = array();
     $graph = $this->getGraph();
 
     foreach ($entities_to_check as $entity) {
-      if (isset($graph[$entity]) && !empty($graph[$entity]['paths'])) {
-        foreach ($graph[$entity]['paths'] as $dependency => $value) {
-          if (isset($this->data[$dependency])) {
-            $dependent_entities[$dependency] = $this->data[$dependency];
-          }
+      if (isset($graph[$entity]) && !empty($graph[$entity]['reverse_paths'])){
+        foreach ($graph[$entity]['reverse_paths'] as $dependency => $value) {
+          $dependent_entities[$dependency] = $this->data[$dependency];
         }
       }
     }
@@ -304,24 +249,17 @@ class ConfigDependencyManager {
    */
   protected function getGraph() {
     if (!isset($this->graph)) {
-      $graph = [];
+      $graph = array();
       foreach ($this->data as $entity) {
         $graph_key = $entity->getConfigDependencyName();
-        if (!isset($graph[$graph_key])) {
-          $graph[$graph_key] = [
-            'edges' => [],
-            'name' => $graph_key,
-          ];
-        }
-        // Include all dependencies in the graph so that topographical sorting
-        // works.
-        foreach (array_merge($entity->getDependencies('config'), $entity->getDependencies('module'), $entity->getDependencies('theme')) as $dependency) {
-          $graph[$dependency]['edges'][$graph_key] = TRUE;
-          $graph[$dependency]['name'] = $dependency;
+        $graph[$graph_key]['edges'] = array();
+        $dependencies = $entity->getDependencies('config');
+        if (!empty($dependencies)) {
+          foreach ($dependencies as $dependency) {
+            $graph[$graph_key]['edges'][$dependency] = TRUE;
+          }
         }
       }
-      // Ensure that order of the graph is consistent.
-      krsort($graph);
       $graph_object = new Graph($graph);
       $this->graph = $graph_object->searchAndSort();
     }
@@ -357,10 +295,10 @@ class ConfigDependencyManager {
    *   The configuration dependencies. The array is structured like this:
    *   @code
    *   array(
-   *     'config' => array(
+   *     'config => array(
    *       // An array of configuration entity object names.
    *     ),
-   *     'content' => array(
+   *     'content => array(
    *       // An array of content entity configuration dependency names. The default
    *       // format is "ENTITY_TYPE_ID:BUNDLE:UUID".
    *     ),

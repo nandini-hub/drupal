@@ -1,8 +1,13 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\locale\StringBase.
+ */
+
 namespace Drupal\locale;
 
-use Drupal\Component\Gettext\PoItem;
+use Drupal\Component\Utility\SafeMarkup;
 
 /**
  * Defines the locale string base class.
@@ -14,7 +19,7 @@ abstract class StringBase implements StringInterface {
   /**
    * The string identifier.
    *
-   * @var int
+   * @var integer
    */
   public $lid;
 
@@ -59,19 +64,19 @@ abstract class StringBase implements StringInterface {
    * @param object|array $values
    *   Object or array with initial values.
    */
-  public function __construct($values = []) {
+  public function __construct($values = array()) {
     $this->setValues((array) $values);
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\locale\StringInterface::getId().
    */
   public function getId() {
     return isset($this->lid) ? $this->lid : NULL;
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\locale\StringInterface::setId().
    */
   public function setId($lid) {
     $this->lid = $lid;
@@ -79,14 +84,14 @@ abstract class StringBase implements StringInterface {
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\locale\StringInterface::getVersion().
    */
   public function getVersion() {
     return isset($this->version) ? $this->version : NULL;
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\locale\StringInterface::setVersion().
    */
   public function setVersion($version) {
     $this->version = $version;
@@ -94,29 +99,29 @@ abstract class StringBase implements StringInterface {
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\locale\StringInterface::getPlurals().
    */
   public function getPlurals() {
-    return explode(PoItem::DELIMITER, $this->getString());
+    return explode(LOCALE_PLURAL_DELIMITER, $this->getString());
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\locale\StringInterface::setPlurals().
    */
   public function setPlurals($plurals) {
-    $this->setString(implode(PoItem::DELIMITER, $plurals));
+    $this->setString(implode(LOCALE_PLURAL_DELIMITER, $plurals));
     return $this;
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\locale\StringInterface::getStorage().
    */
   public function getStorage() {
     return isset($this->storage) ? $this->storage : NULL;
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\locale\StringInterface::setStorage().
    */
   public function setStorage($storage) {
     $this->storage = $storage;
@@ -124,7 +129,7 @@ abstract class StringBase implements StringInterface {
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\locale\StringInterface::setValues().
    */
   public function setValues(array $values, $override = TRUE) {
     foreach ($values as $key => $value) {
@@ -136,10 +141,10 @@ abstract class StringBase implements StringInterface {
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\locale\StringInterface::getValues().
    */
   public function getValues(array $fields) {
-    $values = [];
+    $values = array();
     foreach ($fields as $field) {
       if (isset($this->$field)) {
         $values[$field] = $this->$field;
@@ -149,20 +154,20 @@ abstract class StringBase implements StringInterface {
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\locale\StringInterface::getLocation().
    */
   public function getLocations($check_only = FALSE) {
     if (!isset($this->locations) && !$check_only) {
-      $this->locations = [];
-      foreach ($this->getStorage()->getLocations(['sid' => $this->getId()]) as $location) {
+      $this->locations = array();
+      foreach ($this->getStorage()->getLocations(array('sid' => $this->getId())) as $location) {
         $this->locations[$location->type][$location->name] = $location->lid;
       }
     }
-    return isset($this->locations) ? $this->locations : [];
+    return isset($this->locations) ? $this->locations : array();
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\locale\StringInterface::addLocation().
    */
   public function addLocation($type, $name) {
     $this->locations[$type][$name] = TRUE;
@@ -170,7 +175,7 @@ abstract class StringBase implements StringInterface {
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\locale\StringInterface::hasLocation().
    */
   public function hasLocation($type, $name) {
     $locations = $this->getLocations();
@@ -178,20 +183,22 @@ abstract class StringBase implements StringInterface {
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\locale\LocaleString::save().
    */
   public function save() {
     if ($storage = $this->getStorage()) {
       $storage->save($this);
     }
     else {
-      throw new StringStorageException('The string cannot be saved because its not bound to a storage: ' . $this->getString());
+      throw new StringStorageException(SafeMarkup::format('The string cannot be saved because its not bound to a storage: @string', array(
+        '@string' => $this->getString(),
+      )));
     }
     return $this;
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\locale\LocaleString::delete().
    */
   public function delete() {
     if (!$this->isNew()) {
@@ -199,7 +206,9 @@ abstract class StringBase implements StringInterface {
         $storage->delete($this);
       }
       else {
-        throw new StringStorageException('The string cannot be deleted because its not bound to a storage: ' . $this->getString());
+        throw new StringStorageException(SafeMarkup::format('The string cannot be deleted because its not bound to a storage: @string', array(
+          '@string' => $this->getString(),
+        )));
       }
     }
     return $this;

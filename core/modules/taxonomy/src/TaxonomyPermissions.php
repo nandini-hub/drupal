@@ -1,12 +1,15 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\taxonomy\TaxonomyPermissions.
+ */
+
 namespace Drupal\taxonomy;
 
 use Drupal\Core\DependencyInjection\ContainerInjectionInterface;
-use Drupal\Core\DependencyInjection\DeprecatedServicePropertyTrait;
-use Drupal\Core\Entity\EntityTypeManagerInterface;
+use Drupal\Core\Entity\EntityManagerInterface;
 use Drupal\Core\StringTranslation\StringTranslationTrait;
-use Drupal\taxonomy\Entity\Vocabulary;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
@@ -17,35 +20,29 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
 class TaxonomyPermissions implements ContainerInjectionInterface {
 
   use StringTranslationTrait;
-  use DeprecatedServicePropertyTrait;
 
   /**
-   * {@inheritdoc}
-   */
-  protected $deprecatedProperties = ['entityManager' => 'entity.manager'];
-
-  /**
-   * The entity type manager.
+   * The entity manager.
    *
-   * @var \Drupal\Core\Entity\EntityTypeManagerInterface
+   * @var \Drupal\Core\Entity\EntityManagerInterface
    */
-  protected $entityTypeManager;
+  protected $entityManager;
 
   /**
    * Constructs a TaxonomyPermissions instance.
    *
-   * @param \Drupal\Core\Entity\EntityTypeManagerInterface $entity_type_manager
-   *   The entity type manager.
+   * @param \Drupal\Core\Entity\EntityManagerInterface $entity_manager
+   *   The entity manager.
    */
-  public function __construct(EntityTypeManagerInterface $entity_type_manager) {
-    $this->entityTypeManager = $entity_type_manager;
+  public function __construct(EntityManagerInterface $entity_manager) {
+    $this->entityManager = $entity_manager;
   }
 
   /**
    * {@inheritdoc}
    */
   public static function create(ContainerInterface $container) {
-    return new static($container->get('entity_type.manager'));
+    return new static($container->get('entity.manager'));
   }
 
   /**
@@ -56,30 +53,19 @@ class TaxonomyPermissions implements ContainerInjectionInterface {
    */
   public function permissions() {
     $permissions = [];
-    foreach (Vocabulary::loadMultiple() as $vocabulary) {
-      $permissions += $this->buildPermissions($vocabulary);
+    foreach ($this->entityManager->getStorage('taxonomy_vocabulary')->loadMultiple() as $vocabulary) {
+      $permissions += [
+        'edit terms in ' . $vocabulary->id() => [
+          'title' => $this->t('Edit terms in %vocabulary', ['%vocabulary' => $vocabulary->label()]),
+        ],
+      ];
+      $permissions += [
+        'delete terms in ' . $vocabulary->id() => [
+          'title' => $this->t('Delete terms from %vocabulary', ['%vocabulary' => $vocabulary->label()]),
+        ],
+      ];
     }
     return $permissions;
-  }
-
-  /**
-   * Builds a standard list of taxonomy term permissions for a given vocabulary.
-   *
-   * @param \Drupal\taxonomy\VocabularyInterface $vocabulary
-   *   The vocabulary.
-   *
-   * @return array
-   *   An array of permission names and descriptions.
-   */
-  protected function buildPermissions(VocabularyInterface $vocabulary) {
-    $id = $vocabulary->id();
-    $args = ['%vocabulary' => $vocabulary->label()];
-
-    return [
-      "create terms in $id" => ['title' => $this->t('%vocabulary: Create terms', $args)],
-      "delete terms in $id" => ['title' => $this->t('%vocabulary: Delete terms', $args)],
-      "edit terms in $id" => ['title' => $this->t('%vocabulary: Edit terms', $args)],
-    ];
   }
 
 }

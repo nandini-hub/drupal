@@ -1,8 +1,13 @@
 <?php
+/**
+ * @file
+ * Contains \Drupal\locale\Controller\LocaleController.
+ */
 
 namespace Drupal\locale\Controller;
 
 use Drupal\Core\Controller\ControllerBase;
+use Symfony\Component\HttpFoundation\RedirectResponse;
 
 /**
  * Return response for manual check translations.
@@ -42,10 +47,10 @@ class LocaleController extends ControllerBase {
    *   The render array for the string search screen.
    */
   public function translatePage() {
-    return [
+    return array(
       'filter' => $this->formBuilder()->getForm('Drupal\locale\Form\TranslateFilterForm'),
       'form' => $this->formBuilder()->getForm('Drupal\locale\Form\TranslateEditForm'),
-    ];
+    );
   }
 
 }

@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\TypedData\DataDefinition.
+ */
+
 namespace Drupal\Core\TypedData;
 
 /**
@@ -7,14 +12,12 @@ namespace Drupal\Core\TypedData;
  */
 class DataDefinition implements DataDefinitionInterface, \ArrayAccess {
 
-  use TypedDataTrait;
-
   /**
    * The array holding values for all definition keys.
    *
    * @var array
    */
-  protected $definition = [];
+  protected $definition = array();
 
   /**
    * Creates a new data definition.
@@ -43,7 +46,7 @@ class DataDefinition implements DataDefinitionInterface, \ArrayAccess {
    * @param array $values
    *   (optional) If given, an array of initial values to set on the definition.
    */
-  public function __construct(array $values = []) {
+  public function __construct(array $values = array()) {
     $this->definition = $values;
   }
 
@@ -215,7 +218,7 @@ class DataDefinition implements DataDefinitionInterface, \ArrayAccess {
    * {@inheritdoc}
    */
   public function getSettings() {
-    return isset($this->definition['settings']) ? $this->definition['settings'] : [];
+    return isset($this->definition['settings']) ? $this->definition['settings'] : array();
   }
 
   /**
@@ -259,8 +262,8 @@ class DataDefinition implements DataDefinitionInterface, \ArrayAccess {
    * {@inheritdoc}
    */
   public function getConstraints() {
-    $constraints = isset($this->definition['constraints']) ? $this->definition['constraints'] : [];
-    $constraints += $this->getTypedDataManager()->getDefaultConstraints($this);
+    $constraints = isset($this->definition['constraints']) ? $this->definition['constraints'] : array();
+    $constraints += \Drupal::typedDataManager()->getDefaultConstraints($this);
     return $constraints;
   }
 
@@ -273,14 +276,7 @@ class DataDefinition implements DataDefinitionInterface, \ArrayAccess {
   }
 
   /**
-   * Sets an array of validation constraints.
-   *
-   * @param array $constraints
-   *   An array of validation constraint definitions, keyed by constraint name.
-   *   Each constraint definition can be used for instantiating
-   *   \Symfony\Component\Validator\Constraint objects.
-   *
-   * @return $this
+   * {@inheritdoc}
    */
   public function setConstraints(array $constraints) {
     $this->definition['constraints'] = $constraints;
@@ -299,7 +295,7 @@ class DataDefinition implements DataDefinitionInterface, \ArrayAccess {
    * {@inheritdoc}
    *
    * This is for BC support only.
-   * @todo: Remove in https://www.drupal.org/node/1928868.
+   * @todo: Remove in https://drupal.org/node/1928868.
    */
   public function offsetExists($offset) {
     // PHP's array access does not work correctly with isset(), so we have to
@@ -311,7 +307,7 @@ class DataDefinition implements DataDefinitionInterface, \ArrayAccess {
    * {@inheritdoc}
    *
    * This is for BC support only.
-   * @todo: Remove in https://www.drupal.org/node/1928868.
+   * @todo: Remove in https://drupal.org/node/1928868.
    */
   public function &offsetGet($offset) {
     if (!isset($this->definition[$offset])) {
@@ -324,7 +320,7 @@ class DataDefinition implements DataDefinitionInterface, \ArrayAccess {
    * {@inheritdoc}
    *
    * This is for BC support only.
-   * @todo: Remove in https://www.drupal.org/node/1928868.
+   * @todo: Remove in https://drupal.org/node/1928868.
    */
   public function offsetSet($offset, $value) {
     $this->definition[$offset] = $value;
@@ -334,7 +330,7 @@ class DataDefinition implements DataDefinitionInterface, \ArrayAccess {
    * {@inheritdoc}
    *
    * This is for BC support only.
-   * @todo: Remove in https://www.drupal.org/node/1928868.
+   * @todo: Remove in https://drupal.org/node/1928868.
    */
   public function offsetUnset($offset) {
     unset($this->definition[$offset]);
@@ -347,40 +343,6 @@ class DataDefinition implements DataDefinitionInterface, \ArrayAccess {
    */
   public function toArray() {
     return $this->definition;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function __sleep() {
-    // Never serialize the typed data manager.
-    $vars = get_object_vars($this);
-    unset($vars['typedDataManager']);
-    return array_keys($vars);
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function isInternal() {
-    // Respect the definition, otherwise default to TRUE for computed fields.
-    if (isset($this->definition['internal'])) {
-      return $this->definition['internal'];
-    }
-    return $this->isComputed();
-  }
-
-  /**
-   * Sets the whether the data value should be internal.
-   *
-   * @param bool $internal
-   *   Whether the data value should be internal.
-   *
-   * @return $this
-   */
-  public function setInternal($internal) {
-    $this->definition['internal'] = $internal;
-    return $this;
   }
 
 }

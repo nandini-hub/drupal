@@ -3,6 +3,10 @@
  * @file
  * Default theme implementation for a single field in a view.
  *
+ * It is not actually used in default views, as this is registered as a theme
+ * function which has better performance. For single overrides, the template is
+ * perfectly okay.
+ *
  * Available variables:
  * - view: The view that the field belongs to.
  * - field: The field handler that can process the input.
@@ -20,4 +24,4 @@
  * @ingroup themeable
  */
 #}
-{{ output -}}
+{{ output }}

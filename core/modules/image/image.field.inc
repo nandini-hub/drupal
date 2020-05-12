@@ -5,6 +5,8 @@
  * Implement an image field, based on the file module's file field.
  */
 
+use Drupal\Component\Utility\NestedArray;
+use Drupal\Component\Utility\Unicode;
 use Drupal\Core\Render\Element;
 
 /**
@@ -19,9 +21,14 @@ use Drupal\Core\Render\Element;
 function template_preprocess_image_widget(&$variables) {
   $element = $variables['element'];
 
-  $variables['attributes'] = ['class' => ['image-widget', 'js-form-managed-file', 'form-managed-file', 'clearfix']];
+  $variables['attributes'] = array('class' => array('image-widget', 'form-managed-file', 'clearfix'));
 
-  $variables['data'] = [];
+  if (!empty($element['fids']['#value'])) {
+    $file = reset($element['#files']);
+    $element['file_' . $file->id()]['filename']['#suffix'] = ' <span class="file-size">(' . format_size($file->getSize()) . ')</span> ';
+  }
+
+  $variables['data'] = array();
   foreach (Element::children($element) as $child) {
     $variables['data'][$child] = $element[$child];
   }
@@ -43,22 +50,22 @@ function template_preprocess_image_widget(&$variables) {
  */
 function template_preprocess_image_formatter(&$variables) {
   if ($variables['image_style']) {
-    $variables['image'] = [
+    $variables['image'] = array(
       '#theme' => 'image_style',
       '#style_name' => $variables['image_style'],
-    ];
+    );
   }
   else {
-    $variables['image'] = [
+    $variables['image'] = array(
       '#theme' => 'image',
-    ];
+    );
   }
   $variables['image']['#attributes'] = $variables['item_attributes'];
 
   $item = $variables['item'];
 
   // Do not output an empty 'title' attribute.
-  if (mb_strlen($item->title) != 0) {
+  if (Unicode::strlen($item->title) != 0) {
     $variables['image']['#title'] = $item->title;
   }
 
@@ -69,7 +76,7 @@ function template_preprocess_image_formatter(&$variables) {
     $variables['image']['#uri'] = $item->uri;
   }
 
-  foreach (['width', 'height', 'alt'] as $key) {
+  foreach (array('width', 'height', 'alt') as $key) {
     $variables['image']["#$key"] = $item->$key;
   }
 }

@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Entity\EntityStorageInterface.
+ */
+
 namespace Drupal\Core\Entity;
 
 /**
@@ -74,17 +79,11 @@ interface EntityStorageInterface {
   /**
    * Load a specific entity revision.
    *
-   * @param int|string $revision_id
+   * @param int $revision_id
    *   The revision id.
    *
    * @return \Drupal\Core\Entity\EntityInterface|null
    *   The specified entity revision or NULL if not found.
-   *
-   * @todo Deprecated in Drupal 8.5.0 and will be removed before Drupal 9.0.0.
-   *   Use \Drupal\Core\Entity\RevisionableStorageInterface instead.
-   *
-   * @see https://www.drupal.org/node/2926958
-   * @see https://www.drupal.org/node/2927226
    */
   public function loadRevision($revision_id);
 
@@ -95,12 +94,6 @@ interface EntityStorageInterface {
    *
    * @param int $revision_id
    *   The revision id.
-   *
-   * @todo Deprecated in Drupal 8.5.0 and will be removed before Drupal 9.0.0.
-   *   Use \Drupal\Core\Entity\RevisionableStorageInterface instead.
-   *
-   * @see https://www.drupal.org/node/2926958
-   * @see https://www.drupal.org/node/2927226
    */
   public function deleteRevision($revision_id);
 
@@ -114,7 +107,7 @@ interface EntityStorageInterface {
    * @return \Drupal\Core\Entity\EntityInterface[]
    *   An array of entity objects indexed by their ids.
    */
-  public function loadByProperties(array $values = []);
+  public function loadByProperties(array $values = array());
 
   /**
    * Constructs a new entity object, without permanently saving it.
@@ -126,7 +119,7 @@ interface EntityStorageInterface {
    * @return \Drupal\Core\Entity\EntityInterface
    *   A new entity object.
    */
-  public function create(array $values = []);
+  public function create(array $values = array());
 
   /**
    * Deletes permanently saved entities.
@@ -155,37 +148,7 @@ interface EntityStorageInterface {
   public function save(EntityInterface $entity);
 
   /**
-   * Restores a previously saved entity.
-   *
-   * Note that the entity is assumed to be in a valid state for the storage, so
-   * the restore process does not invoke any hooks, nor does it perform any pre
-   * or post-save operations.
-   *
-   * @param \Drupal\Core\Entity\EntityInterface $entity
-   *   The entity to restore.
-   *
-   * @throws \Drupal\Core\Entity\EntityStorageException
-   *   In case of failures, an exception is thrown.
-   *
-   * @internal
-   *   This method should never be used to perform a regular entity save. Its
-   *   only use-case is to assist updating entity types when there are complex
-   *   schema changes, for example, to make them revisionable. Note that
-   *   overriding this method to fix data prior to restoring is a likely sign
-   *   that the current data is corrupt.
-   */
-  public function restore(EntityInterface $entity);
-
-  /**
-   * Determines if the storage contains any data.
-   *
-   * @return bool
-   *   TRUE if the storage contains data, FALSE if not.
-   */
-  public function hasData();
-
-  /**
-   * Gets an entity query instance.
+   * Returns an entity query instance.
    *
    * @param string $conjunction
    *   (optional) The logical operator for the query, either:
@@ -200,7 +163,7 @@ interface EntityStorageInterface {
   public function getQuery($conjunction = 'AND');
 
   /**
-   * Gets an aggregated query instance.
+   * Returns an aggregated query instance.
    *
    * @param string $conjunction
    *   (optional) The logical operator for the query, either:
@@ -215,7 +178,7 @@ interface EntityStorageInterface {
   public function getAggregateQuery($conjunction = 'AND');
 
   /**
-   * Gets the entity type ID.
+   * Returns the entity type ID.
    *
    * @return string
    *   The entity type ID.
@@ -223,7 +186,7 @@ interface EntityStorageInterface {
   public function getEntityTypeId();
 
   /**
-   * Gets the entity type definition.
+   * Returns the entity type definition.
    *
    * @return \Drupal\Core\Entity\EntityTypeInterface
    *   Entity type definition.

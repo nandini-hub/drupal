@@ -5,57 +5,58 @@
  * Builds placeholder replacement tokens for node visitor statistics.
  */
 
-use Drupal\Core\Render\BubbleableMetadata;
-
 /**
  * Implements hook_token_info().
  */
 function statistics_token_info() {
-  $node['total-count'] = [
+  $node['total-count'] = array(
     'name' => t("Number of views"),
     'description' => t("The number of visitors who have read the node."),
-  ];
-  $node['day-count'] = [
+  );
+  $node['day-count'] = array(
     'name' => t("Views today"),
     'description' => t("The number of visitors who have read the node today."),
-  ];
-  $node['last-view'] = [
+  );
+  $node['last-view'] = array(
     'name' => t("Last view"),
     'description' => t("The date on which a visitor last read the node."),
     'type' => 'date',
-  ];
+  );
 
-  return [
-    'tokens' => ['node' => $node],
-  ];
+  return array(
+    'tokens' => array('node' => $node),
+  );
 }
 
 /**
  * Implements hook_tokens().
  */
-function statistics_tokens($type, $tokens, array $data, array $options, BubbleableMetadata $bubbleable_metadata) {
+function statistics_tokens($type, $tokens, array $data = array(), array $options = array()) {
   $token_service = \Drupal::token();
 
-  $replacements = [];
+  $replacements = array();
 
   if ($type == 'node' & !empty($data['node'])) {
     $node = $data['node'];
-    /** @var \Drupal\statistics\StatisticsStorageInterface $stats_storage */
-    $stats_storage = \Drupal::service('statistics.storage.node');
+
     foreach ($tokens as $name => $original) {
       if ($name == 'total-count') {
-        $replacements[$original] = $stats_storage->fetchView($node->id())->getTotalCount();
+        $statistics = statistics_get($node->id());
+        $replacements[$original] = $statistics['totalcount'];
       }
       elseif ($name == 'day-count') {
-        $replacements[$original] = $stats_storage->fetchView($node->id())->getDayCount();
+        $statistics = statistics_get($node->id());
+        $replacements[$original] = $statistics['daycount'];
       }
       elseif ($name == 'last-view') {
-        $replacements[$original] = \Drupal::service('date.formatter')->format($stats_storage->fetchView($node->id())->getTimestamp());
+        $statistics = statistics_get($node->id());
+        $replacements[$original] = format_date($statistics['timestamp']);
       }
     }
 
     if ($created_tokens = $token_service->findWithPrefix($tokens, 'last-view')) {
-      $replacements += $token_service->generate('date', $created_tokens, ['date' => $stats_storage->fetchView($node->id())->getTimestamp()], $options, $bubbleable_metadata);
+      $statistics = statistics_get($node->id());
+      $replacements += $token_service->generate('date', $created_tokens, array('date' => $statistics['timestamp']), $options);
     }
   }
 

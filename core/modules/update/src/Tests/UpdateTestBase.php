@@ -1,16 +1,8 @@
 <?php
 
-namespace Drupal\update\Tests;
-
-@trigger_error(__NAMESPACE__ . '\UpdateTestBase is deprecated in Drupal 8.4.0 and will be removed before Drupal 9.0.0. Instead, use \Drupal\Tests\update\Functional\UpdateTestBase', E_USER_DEPRECATED);
-
-use Drupal\Core\DrupalKernel;
-use Drupal\Core\Link;
-use Drupal\Core\Url;
-use Drupal\simpletest\WebTestBase;
-
 /**
- * Defines some shared functions used by all update tests.
+ * @file
+ * Definition of Drupal\update\Tests\UpdateTestBase.
  *
  * The overarching methodology of these tests is we need to compare a given
  * state of installed modules and themes (e.g., version, project grouping,
@@ -25,34 +17,17 @@ use Drupal\simpletest\WebTestBase;
  * (via the 'update_test_xml_map' variable), and then performs a series of
  * assertions that the report matches our expectations given the specific
  * initial state and availability scenario.
- *
- * @deprecated in drupal:8.?.? and is removed from drupal:9.0.0.
- *   Use \Drupal\Tests\update\Functional\UpdateTestBase instead.
+ */
+
+namespace Drupal\update\Tests;
+
+use Drupal\Core\Url;
+use Drupal\simpletest\WebTestBase;
+
+/**
+ * Defines some shared functions used by all update tests.
  */
 abstract class UpdateTestBase extends WebTestBase {
-
-  protected function setUp() {
-    parent::setUp();
-
-    // Change the root path which Update Manager uses to install and update
-    // projects to be inside the testing site directory. See
-    // \Drupal\update\UpdateRootFactory::get() for equivalent changes to the
-    // test child site.
-    $request = \Drupal::request();
-    $update_root = $this->container->get('update.root') . '/' . DrupalKernel::findSitePath($request);
-    $this->container->set('update.root', $update_root);
-    \Drupal::setContainer($this->container);
-
-    // Create the directories within the root path within which the Update
-    // Manager will install projects.
-    foreach (drupal_get_updaters() as $updater_info) {
-      $updater = $updater_info['class'];
-      $install_directory = $update_root . '/' . $updater::getRootDirectoryRelativePath();
-      if (!is_dir($install_directory)) {
-        mkdir($install_directory);
-      }
-    }
-  }
 
   /**
    * Refreshes the update status based on the desired available update scenario.
@@ -64,17 +39,16 @@ abstract class UpdateTestBase extends WebTestBase {
    *   (optional) A string containing the URL to fetch update data from.
    *   Defaults to 'update-test'.
    *
-   * @see \Drupal\update_test\Controller\UpdateTestController::updateTest()
+   * @see Drupal\update_test\Controller\UpdateTestController::updateTest()
    */
   protected function refreshUpdateStatus($xml_map, $url = 'update-test') {
     // Tell the Update Manager module to fetch from the URL provided by
     // update_test module.
-    $this->config('update.settings')->set('fetch.url', Url::fromUri('base:' . $url, ['absolute' => TRUE])->toString())->save();
+    $this->config('update.settings')->set('fetch.url', Url::fromUri('base:' . $url, array('absolute' => TRUE))->toString())->save();
     // Save the map for UpdateTestController::updateTest() to use.
     $this->config('update_test.settings')->set('xml_map', $xml_map)->save();
     // Manually check the update status.
-    $this->drupalGet('admin/reports/updates');
-    $this->clickLink(t('Check manually'));
+    $this->drupalGet('admin/reports/updates/check');
   }
 
   /**
@@ -82,8 +56,7 @@ abstract class UpdateTestBase extends WebTestBase {
    */
   protected function standardTests() {
     $this->assertRaw('<h3>' . t('Drupal core') . '</h3>');
-    $this->assertRaw(Link::fromTextAndUrl(t('Drupal'), Url::fromUri('http://example.com/project/drupal'))->toString(), 'Link to the Drupal project appears.');
+    $this->assertRaw(\Drupal::l(t('Drupal'), Url::fromUri('http://example.com/project/drupal')), 'Link to the Drupal project appears.');
     $this->assertNoText(t('No available releases found'));
   }
-
 }

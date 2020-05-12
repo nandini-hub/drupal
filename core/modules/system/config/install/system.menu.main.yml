@@ -1,7 +1,5 @@
-langcode: en
-status: true
-dependencies: {  }
 id: main
 label: 'Main navigation'
-description: 'Site section links'
+description: 'Use this for linking to the main site sections.'
+langcode: en
 locked: true

@@ -1,14 +1,20 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Field\FieldItemList.
+ */
+
 namespace Drupal\Core\Field;
 
-use Drupal\Core\Access\AccessResult;
 use Drupal\Core\Entity\FieldableEntityInterface;
+use Drupal\Core\Access\AccessResult;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Language\LanguageInterface;
 use Drupal\Core\Session\AccountInterface;
 use Drupal\Core\TypedData\DataDefinitionInterface;
 use Drupal\Core\TypedData\Plugin\DataType\ItemList;
+use Drupal\Core\TypedData\TypedDataInterface;
 
 /**
  * Represents an entity field; that is, a list of field item objects.
@@ -25,7 +31,7 @@ class FieldItemList extends ItemList implements FieldItemListInterface {
    *
    * @var \Drupal\Core\Field\FieldItemInterface[]
    */
-  protected $list = [];
+  protected $list = array();
 
   /**
    * The langcode of the field values held in the object.
@@ -97,12 +103,24 @@ class FieldItemList extends ItemList implements FieldItemListInterface {
 
   /**
    * {@inheritdoc}
+   * @todo Revisit the need when all entity types are converted to NG entities.
+   */
+  public function getValue($include_computed = FALSE) {
+    $values = array();
+    foreach ($this->list as $delta => $item) {
+      $values[$delta] = $item->getValue($include_computed);
+    }
+    return $values;
+  }
+
+  /**
+   * {@inheritdoc}
    */
   public function setValue($values, $notify = TRUE) {
-    // Support passing in only the value of the first item, either as a literal
+    // Support passing in only the value of the first item, either as a litteral
     // (value of the first property) or as an array of properties.
     if (isset($values) && (!is_array($values) || (!empty($values) && !is_numeric(current(array_keys($values)))))) {
-      $values = [0 => $values];
+      $values = array(0 => $values);
     }
     parent::setValue($values, $notify);
   }
@@ -150,7 +168,7 @@ class FieldItemList extends ItemList implements FieldItemListInterface {
    * {@inheritdoc}
    */
   public function access($operation = 'view', AccountInterface $account = NULL, $return_as_object = FALSE) {
-    $access_control_handler = \Drupal::entityTypeManager()->getAccessControlHandler($this->getEntity()->getEntityTypeId());
+    $access_control_handler = \Drupal::entityManager()->getAccessControlHandler($this->getEntity()->getEntityTypeId());
     return $access_control_handler->fieldAccess($operation, $this->getFieldDefinition(), $account, $this, $return_as_object);
   }
 
@@ -194,9 +212,15 @@ class FieldItemList extends ItemList implements FieldItemListInterface {
   /**
    * {@inheritdoc}
    */
-  public function postSave($update) {
-    $result = $this->delegateMethod('postSave', $update);
-    return (bool) array_filter($result);
+  public function insert() {
+    $this->delegateMethod('insert');
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function update() {
+    $this->delegateMethod('update');
   }
 
   /**
@@ -216,39 +240,29 @@ class FieldItemList extends ItemList implements FieldItemListInterface {
   /**
    * Calls a method on each FieldItem.
    *
-   * Any argument passed will be forwarded to the invoked method.
-   *
    * @param string $method
-   *   The name of the method to be invoked.
-   *
-   * @return array
-   *   An array of results keyed by delta.
+   *   The name of the method.
    */
   protected function delegateMethod($method) {
-    $result = [];
-    $args = array_slice(func_get_args(), 1);
-    foreach ($this->list as $delta => $item) {
-      // call_user_func_array() is way slower than a direct call so we avoid
-      // using it if have no parameters.
-      $result[$delta] = $args ? call_user_func_array([$item, $method], $args) : $item->{$method}();
+    foreach ($this->list as $item) {
+      $item->{$method}();
     }
-    return $result;
   }
 
   /**
    * {@inheritdoc}
    */
-  public function view($display_options = []) {
-    $view_builder = \Drupal::entityTypeManager()->getViewBuilder($this->getEntity()->getEntityTypeId());
+  public function view($display_options = array()) {
+    $view_builder = \Drupal::entityManager()->getViewBuilder($this->getEntity()->getEntityTypeId());
     return $view_builder->viewField($this, $display_options);
   }
 
   /**
    * {@inheritdoc}
    */
-  public function generateSampleItems($count = 1) {
+   public function generateSampleItems($count = 1) {
     $field_definition = $this->getFieldDefinition();
-    $field_type_class = $field_definition->getItemDefinition()->getClass();
+    $field_type_class = \Drupal::service('plugin.manager.field.field_type')->getPluginClass($field_definition->getType());
     for ($delta = 0; $delta < $count; $delta++) {
       $values[$delta] = $field_type_class::generateSampleValue($field_definition);
     }
@@ -265,12 +279,12 @@ class FieldItemList extends ItemList implements FieldItemListInterface {
     // widgets.
     $cardinality = $this->getFieldDefinition()->getFieldStorageDefinition()->getCardinality();
     if ($cardinality != FieldStorageDefinitionInterface::CARDINALITY_UNLIMITED) {
-      $constraints[] = $this->getTypedDataManager()
+      $constraints[] = \Drupal::typedDataManager()
         ->getValidationConstraintManager()
-        ->create('Count', [
+        ->create('Count', array(
           'max' => $cardinality,
-          'maxMessage' => t('%name: this field cannot hold more than @count values.', ['%name' => $this->getFieldDefinition()->getLabel(), '@count' => $cardinality]),
-        ]);
+          'maxMessage' => t('%name: this field cannot hold more than @count values.', array('%name' => $this->getFieldDefinition()->getLabel(), '@count' => $cardinality)),
+        ));
     }
 
     return $constraints;
@@ -280,17 +294,14 @@ class FieldItemList extends ItemList implements FieldItemListInterface {
    * {@inheritdoc}
    */
   public function defaultValuesForm(array &$form, FormStateInterface $form_state) {
-    if (empty($this->getFieldDefinition()->getDefaultValueCallback())) {
-      if ($widget = $this->defaultValueWidget($form_state)) {
-        // Place the input in a separate place in the submitted values tree.
-        $element = ['#parents' => ['default_value_input']];
-        $element += $widget->form($this, $element, $form_state);
+    if (empty($this->getFieldDefinition()->default_value_callback)) {
+      // Place the input in a separate place in the submitted values tree.
+      $widget = $this->defaultValueWidget($form_state);
 
-        return $element;
-      }
-      else {
-        return ['#markup' => $this->t('No widget available for: %type.', ['%type' => $this->getFieldDefinition()->getType()])];
-      }
+      $element = array('#parents' => array('default_value_input'));
+      $element += $widget->form($this, $element, $form_state);
+
+      return $element;
     }
   }
 
@@ -299,17 +310,16 @@ class FieldItemList extends ItemList implements FieldItemListInterface {
    */
   public function defaultValuesFormValidate(array $element, array &$form, FormStateInterface $form_state) {
     // Extract the submitted value, and validate it.
-    if ($widget = $this->defaultValueWidget($form_state)) {
-      $widget->extractFormValues($this, $element, $form_state);
-      // Force a non-required field definition.
-      // @see self::defaultValueWidget().
-      $this->getFieldDefinition()->setRequired(FALSE);
-      $violations = $this->validate();
+    $widget = $this->defaultValueWidget($form_state);
+    $widget->extractFormValues($this, $element, $form_state);
+    // Force a non-required field definition.
+    // @see self::defaultValueWidget().
+    $this->definition->required = FALSE;
+    $violations = $this->validate();
 
-      // Assign reported errors to the correct form element.
-      if (count($violations)) {
-        $widget->flagErrors($this, $violations, $element, $form_state);
-      }
+    // Assign reported errors to the correct form element.
+    if (count($violations)) {
+      $widget->flagErrors($this, $violations, $element, $form_state);
     }
   }
 
@@ -318,11 +328,9 @@ class FieldItemList extends ItemList implements FieldItemListInterface {
    */
   public function defaultValuesFormSubmit(array $element, array &$form, FormStateInterface $form_state) {
     // Extract the submitted value, and return it as an array.
-    if ($widget = $this->defaultValueWidget($form_state)) {
-      $widget->extractFormValues($this, $element, $form_state);
-      return $this->getValue();
-    }
-    return [];
+    $widget = $this->defaultValueWidget($form_state);
+    $widget->extractFormValues($this, $element, $form_state);
+    return $this->getValue();
   }
 
   /**
@@ -338,25 +346,23 @@ class FieldItemList extends ItemList implements FieldItemListInterface {
    * @param \Drupal\Core\Form\FormStateInterface $form_state
    *   The form state of the (entire) configuration form.
    *
-   * @return \Drupal\Core\Field\WidgetInterface|null
-   *   A Widget object or NULL if no widget is available.
+   * @return \Drupal\Core\Field\WidgetInterface
+   *   A Widget object.
    */
   protected function defaultValueWidget(FormStateInterface $form_state) {
     if (!$form_state->has('default_value_widget')) {
       $entity = $this->getEntity();
 
       // Force a non-required widget.
-      $definition = $this->getFieldDefinition();
-      $definition->setRequired(FALSE);
-      $definition->setDescription('');
+      $this->getFieldDefinition()->required = FALSE;
+      $this->getFieldDefinition()->description = '';
 
       // Use the widget currently configured for the 'default' form mode, or
       // fallback to the default widget for the field type.
-      $entity_form_display = \Drupal::service('entity_display.repository')
-        ->getFormDisplay($entity->getEntityTypeId(), $entity->bundle());
+      $entity_form_display = entity_get_form_display($entity->getEntityTypeId(), $entity->bundle(), 'default');
       $widget = $entity_form_display->getRenderer($this->getFieldDefinition()->getName());
       if (!$widget) {
-        $widget = \Drupal::service('plugin.manager.field.widget')->getInstance(['field_definition' => $this->getFieldDefinition()]);
+        $widget = \Drupal::service('plugin.manager.field.widget')->getInstance(array('field_definition' => $this->getFieldDefinition()));
       }
 
       $form_state->set('default_value_widget', $widget);
@@ -369,6 +375,7 @@ class FieldItemList extends ItemList implements FieldItemListInterface {
    * {@inheritdoc}
    */
   public function equals(FieldItemListInterface $list_to_compare) {
+    $columns = $this->getFieldDefinition()->getFieldStorageDefinition()->getColumns();
     $count1 = count($this);
     $count2 = count($list_to_compare);
     if ($count1 === 0 && $count2 === 0) {
@@ -386,27 +393,16 @@ class FieldItemList extends ItemList implements FieldItemListInterface {
     }
     // If the values are not equal ensure a consistent order of field item
     // properties and remove properties which will not be saved.
-    $property_definitions = $this->getFieldDefinition()->getFieldStorageDefinition()->getPropertyDefinitions();
-    $non_computed_properties = array_filter($property_definitions, function (DataDefinitionInterface $property) {
-      return !$property->isComputed();
-    });
-    $callback = function (&$value) use ($non_computed_properties) {
+    $callback = function (&$value) use ($columns) {
       if (is_array($value)) {
-        $value = array_intersect_key($value, $non_computed_properties);
+        $value = array_intersect_key($value, $columns);
         ksort($value);
       }
     };
     array_walk($value1, $callback);
     array_walk($value2, $callback);
 
-    return $value1 == $value2;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function hasAffectingChanges(FieldItemListInterface $original_items, $langcode) {
-    return !$this->equals($original_items);
+    return $value1 === $value2;
   }
 
 }

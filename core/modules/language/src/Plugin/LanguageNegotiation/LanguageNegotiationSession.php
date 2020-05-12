@@ -1,10 +1,14 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\language\Plugin\LanguageNegotiation\LanguageNegotiationSession.
+ */
+
 namespace Drupal\language\Plugin\LanguageNegotiation;
 
 use Drupal\Core\Language\LanguageInterface;
 use Drupal\Core\PathProcessor\OutboundPathProcessorInterface;
-use Drupal\Core\Render\BubbleableMetadata;
 use Drupal\Core\Url;
 use Drupal\language\LanguageNegotiationMethodBase;
 use Drupal\language\LanguageSwitcherInterface;
@@ -13,7 +17,7 @@ use Symfony\Component\HttpFoundation\Request;
 /**
  * Identify language from a request/session parameter.
  *
- * @LanguageNegotiation(
+ * @Plugin(
  *   id = Drupal\language\Plugin\LanguageNegotiation\LanguageNegotiationSession::METHOD_ID,
  *   weight = -6,
  *   name = @Translation("Session"),
@@ -81,7 +85,7 @@ class LanguageNegotiationSession extends LanguageNegotiationMethodBase implement
   /**
    * {@inheritdoc}
    */
-  public function processOutbound($path, &$options = [], Request $request = NULL, BubbleableMetadata $bubbleable_metadata = NULL) {
+  public function processOutbound($path, &$options = array(), Request $request = NULL) {
     if ($request) {
       // The following values are not supposed to change during a single page
       // request processing.
@@ -102,18 +106,13 @@ class LanguageNegotiationSession extends LanguageNegotiationMethodBase implement
       // enabled, and the corresponding option has been set, we must preserve
       // any explicit user language preference even with cookies disabled.
       if ($this->queryRewrite) {
+        if (isset($options['query']) && is_string($options['query'])) {
+          $query = array();
+          parse_str($options['query'], $query);
+          $options['query'] = $query;
+        }
         if (!isset($options['query'][$this->queryParam])) {
           $options['query'][$this->queryParam] = $this->queryValue;
-        }
-        if ($bubbleable_metadata) {
-          // Cached URLs that have been processed by this outbound path
-          // processor must be:
-          $bubbleable_metadata
-            // - invalidated when the language negotiation config changes, since
-            //   another query parameter may be used to determine the language.
-            ->addCacheTags($this->config->get('language.negotiation')->getCacheTags())
-            // - varied by the configured query parameter.
-            ->addCacheContexts(['url.query_args:' . $this->queryParam]);
         }
       }
     }
@@ -124,24 +123,21 @@ class LanguageNegotiationSession extends LanguageNegotiationMethodBase implement
    * {@inheritdoc}
    */
   public function getLanguageSwitchLinks(Request $request, $type, Url $url) {
-    $links = [];
+    $links = array();
     $config = $this->config->get('language.negotiation')->get('session');
     $param = $config['parameter'];
     $language_query = isset($_SESSION[$param]) ? $_SESSION[$param] : $this->languageManager->getCurrentLanguage($type)->getId();
-    $query = [];
+    $query = array();
     parse_str($request->getQueryString(), $query);
 
     foreach ($this->languageManager->getNativeLanguages() as $language) {
       $langcode = $language->getId();
-      $links[$langcode] = [
-        // We need to clone the $url object to avoid using the same one for all
-        // links. When the links are rendered, options are set on the $url
-        // object, so if we use the same one, they would be set for all links.
-        'url' => clone $url,
+      $links[$langcode] = array(
+        'url' => $url,
         'title' => $language->getName(),
-        'attributes' => ['class' => ['language-link']],
+        'attributes' => array('class' => array('language-link')),
         'query' => $query,
-      ];
+      );
       if ($language_query != $langcode) {
         $links[$langcode]['query'][$param] = $langcode;
       }

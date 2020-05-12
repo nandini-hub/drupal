@@ -1,21 +1,17 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\node\Tests\NodeTestBase.
+ */
+
 namespace Drupal\node\Tests;
 
-@trigger_error(__NAMESPACE__ . '\NodeTestBase is deprecated for removal before Drupal 9.0.0. Use Drupal\Tests\node\Functional\NodeTestBase instead. See https://www.drupal.org/node/2999939', E_USER_DEPRECATED);
-
-use Drupal\Component\Render\FormattableMarkup;
 use Drupal\Core\Session\AccountInterface;
-use Drupal\node\NodeInterface;
 use Drupal\simpletest\WebTestBase;
 
 /**
  * Sets up page and article content types.
- *
- * @deprecated in drupal:8.?.? and is removed from drupal:9.0.0.
- *   Use \Drupal\Tests\node\Functional\NodeTestBase instead.
- *
- * @see https://www.drupal.org/node/2999939
  */
 abstract class NodeTestBase extends WebTestBase {
 
@@ -24,7 +20,7 @@ abstract class NodeTestBase extends WebTestBase {
    *
    * @var array
    */
-  public static $modules = ['node', 'datetime'];
+  public static $modules = array('node', 'datetime');
 
   /**
    * The node access control handler.
@@ -41,14 +37,14 @@ abstract class NodeTestBase extends WebTestBase {
 
     // Create Basic page and Article node types.
     if ($this->profile != 'standard') {
-      $this->drupalCreateContentType([
+      $this->drupalCreateContentType(array(
         'type' => 'page',
         'name' => 'Basic page',
         'display_submitted' => FALSE,
-      ]);
-      $this->drupalCreateContentType(['type' => 'article', 'name' => 'Article']);
+      ));
+      $this->drupalCreateContentType(array('type' => 'article', 'name' => 'Article'));
     }
-    $this->accessHandler = \Drupal::entityTypeManager()->getAccessControlHandler('node');
+    $this->accessHandler = \Drupal::entityManager()->getAccessControlHandler('node');
   }
 
   /**
@@ -59,14 +55,20 @@ abstract class NodeTestBase extends WebTestBase {
    *   and account, with each key as the name of an operation (e.g. 'view',
    *   'delete') and each value a Boolean indicating whether access to that
    *   operation should be granted.
-   * @param \Drupal\node\NodeInterface $node
+   * @param \Drupal\node\Entity\Node $node
    *   The node object to check.
    * @param \Drupal\Core\Session\AccountInterface $account
    *   The user account for which to check access.
+   * @param string|null $langcode
+   *   (optional) The language code indicating which translation of the node
+   *   to check. If NULL, the untranslated (fallback) access is checked.
    */
-  public function assertNodeAccess(array $ops, NodeInterface $node, AccountInterface $account) {
+  function assertNodeAccess(array $ops, $node, AccountInterface $account, $langcode = NULL) {
     foreach ($ops as $op => $result) {
-      $this->assertEqual($result, $this->accessHandler->access($node, $op, $account), $this->nodeAccessAssertMessage($op, $result, $node->language()->getId()));
+      if (empty($langcode)) {
+        $langcode = $node->prepareLangcode();
+      }
+      $this->assertEqual($result, $this->accessHandler->access($node, $op, $langcode, $account), $this->nodeAccessAssertMessage($op, $result, $langcode));
     }
   }
 
@@ -83,14 +85,14 @@ abstract class NodeTestBase extends WebTestBase {
    *   (optional) The language code indicating which translation of the node
    *   to check. If NULL, the untranslated (fallback) access is checked.
    */
-  public function assertNodeCreateAccess($bundle, $result, AccountInterface $account, $langcode = NULL) {
-    $this->assertEqual($result, $this->accessHandler->createAccess($bundle, $account, [
+  function assertNodeCreateAccess($bundle, $result, AccountInterface $account, $langcode = NULL) {
+    $this->assertEqual($result, $this->accessHandler->createAccess($bundle, $account, array(
       'langcode' => $langcode,
-    ]), $this->nodeAccessAssertMessage('create', $result, $langcode));
+    )), $this->nodeAccessAssertMessage('create', $result, $langcode));
   }
 
   /**
-   * Constructs an assert message to display which node access was tested.
+   * Constructs an assert message for checking node access.
    *
    * @param string $operation
    *   The operation to check access for.
@@ -101,17 +103,15 @@ abstract class NodeTestBase extends WebTestBase {
    *   to check. If NULL, the untranslated (fallback) access is checked.
    *
    * @return string
-   *   An assert message string which contains information in plain English
-   *   about the node access permission test that was performed.
    */
-  public function nodeAccessAssertMessage($operation, $result, $langcode = NULL) {
-    return new FormattableMarkup(
+  function nodeAccessAssertMessage($operation, $result, $langcode = NULL) {
+    return format_string(
       'Node access returns @result with operation %op, language code %langcode.',
-      [
+      array(
         '@result' => $result ? 'true' : 'false',
         '%op' => $operation,
-        '%langcode' => !empty($langcode) ? $langcode : 'empty',
-      ]
+        '%langcode' => !empty($langcode) ? $langcode : 'empty'
+      )
     );
   }
 

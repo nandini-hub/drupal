@@ -1,70 +1,22 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\views\Form\ViewsFormMainForm.
+ */
+
 namespace Drupal\views\Form;
 
-use Drupal\Component\Render\MarkupInterface;
-use Drupal\Component\Utility\Html;
 use Drupal\Core\Form\FormInterface;
 use Drupal\Core\Form\FormStateInterface;
-use Drupal\Core\Security\TrustedCallbackInterface;
-use Drupal\views\Render\ViewsRenderPipelineMarkup;
 use Drupal\views\ViewExecutable;
 
-class ViewsFormMainForm implements FormInterface, TrustedCallbackInterface {
+class ViewsFormMainForm implements FormInterface {
 
   /**
    * {@inheritdoc}
    */
-  public function getFormId() {
-  }
-
-  /**
-   * Replaces views substitution placeholders.
-   *
-   * @param array $element
-   *   An associative array containing the properties of the element.
-   *   Properties used: #substitutions, #children.
-   *
-   * @return array
-   *   The $element with prepared variables ready for #theme 'form'
-   *   in views_form_views_form.
-   */
-  public static function preRenderViewsForm(array $element) {
-    // Placeholders and their substitutions (usually rendered form elements).
-    $search = [];
-    $replace = [];
-
-    // Add in substitutions provided by the form.
-    foreach ($element['#substitutions']['#value'] as $substitution) {
-      $field_name = $substitution['field_name'];
-      $row_id = $substitution['row_id'];
-
-      $search[] = $substitution['placeholder'];
-      $replace[] = isset($element[$field_name][$row_id]) ? \Drupal::service('renderer')->render($element[$field_name][$row_id]) : '';
-    }
-    // Add in substitutions from hook_views_form_substitutions().
-    $substitutions = \Drupal::moduleHandler()->invokeAll('views_form_substitutions');
-    foreach ($substitutions as $placeholder => $substitution) {
-      $search[] = Html::escape($placeholder);
-      // Ensure that any replacements made are safe to make.
-      if (!($substitution instanceof MarkupInterface)) {
-        $substitution = Html::escape($substitution);
-      }
-      $replace[] = $substitution;
-    }
-
-    // Apply substitutions to the rendered output.
-    $output = str_replace($search, $replace, \Drupal::service('renderer')->render($element['output']));
-    $element['output'] = ['#markup' => ViewsRenderPipelineMarkup::create($output)];
-
-    return $element;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public static function trustedCallbacks() {
-    return ['preRenderViewsForm'];
+  public function getFormID() {
   }
 
   /**
@@ -73,8 +25,8 @@ class ViewsFormMainForm implements FormInterface, TrustedCallbackInterface {
   public function buildForm(array $form, FormStateInterface $form_state, ViewExecutable $view = NULL, $output = []) {
     $form['#prefix'] = '<div class="views-form">';
     $form['#suffix'] = '</div>';
-
-    $form['#pre_render'][] = [static::class, 'preRenderViewsForm'];
+    $form['#theme'] = 'form';
+    $form['#pre_render'][] = 'views_pre_render_views_form_views_form';
 
     // Add the output markup to the form array so that it's included when the form
     // array is passed to the theme function.
@@ -83,15 +35,15 @@ class ViewsFormMainForm implements FormInterface, TrustedCallbackInterface {
     // (below the exposed widgets).
     $form['output']['#weight'] = 50;
 
-    $form['actions'] = [
+    $form['actions'] = array(
       '#type' => 'actions',
-    ];
-    $form['actions']['submit'] = [
+    );
+    $form['actions']['submit'] = array(
       '#type' => 'submit',
       '#value' => t('Save'),
-    ];
+    );
 
-    $substitutions = [];
+    $substitutions = array();
     foreach ($view->field as $field_name => $field) {
       $form_element_name = $field_name;
       if (method_exists($field, 'form_element_name')) {
@@ -124,11 +76,11 @@ class ViewsFormMainForm implements FormInterface, TrustedCallbackInterface {
             $form_element_row_id = $row_id;
           }
 
-          $substitutions[] = [
+          $substitutions[] = array(
             'placeholder' => '<!--form-item-' . $form_element_name . '--' . $form_element_row_id . '-->',
             'field_name' => $form_element_name,
             'row_id' => $form_element_row_id,
-          ];
+          );
         }
       }
     }
@@ -142,10 +94,10 @@ class ViewsFormMainForm implements FormInterface, TrustedCallbackInterface {
       }
     }
 
-    $form['#substitutions'] = [
+    $form['#substitutions'] = array(
       '#type' => 'value',
       '#value' => $substitutions,
-    ];
+    );
 
     return $form;
   }
@@ -164,7 +116,7 @@ class ViewsFormMainForm implements FormInterface, TrustedCallbackInterface {
     }
 
     // Call the validate method on every area handler that has it.
-    foreach (['header', 'footer'] as $area) {
+    foreach (array('header', 'footer') as $area) {
       foreach ($view->{$area} as $area_handler) {
         if (method_exists($area_handler, 'viewsFormValidate')) {
           $area_handler->viewsFormValidate($form, $form_state);
@@ -187,7 +139,7 @@ class ViewsFormMainForm implements FormInterface, TrustedCallbackInterface {
     }
 
     // Call the submit method on every area handler that has it.
-    foreach (['header', 'footer'] as $area) {
+    foreach (array('header', 'footer') as $area) {
       foreach ($view->{$area} as $area_handler) {
         if (method_exists($area_handler, 'viewsFormSubmit')) {
           $area_handler->viewsFormSubmit($form, $form_state);

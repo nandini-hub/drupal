@@ -1,21 +1,18 @@
 <?php
 
-namespace Drupal\comment\Tests\Views;
+/**
+ * @file
+ * Contains \Drupal\comment\Tests\Views\CommentTestBase.
+ */
 
-@trigger_error(__NAMESPACE__ . '\CommentTestBase is deprecated in Drupal 8.4.0 and will be removed before Drupal 9.0.0. Use \Drupal\Tests\comment\Functional\Views\CommentTestBase instead. See http://www.drupal.org/node/2908490', E_USER_DEPRECATED);
+namespace Drupal\comment\Tests\Views;
 
 use Drupal\comment\Tests\CommentTestTrait;
 use Drupal\views\Tests\ViewTestBase;
 use Drupal\views\Tests\ViewTestData;
-use Drupal\comment\Entity\Comment;
 
 /**
- * Provides setup and helper methods for comment views tests.
- *
- * @deprecated in drupal:8.4.0 and is removed from drupal:9.0.0.
- *   Use \Drupal\Tests\comment\Functional\Views\CommentTestBase instead.
- *
- * @see https://www.drupal.org/node/2908490
+ * Tests the argument_comment_user_uid handler.
  */
 abstract class CommentTestBase extends ViewTestBase {
 
@@ -26,7 +23,7 @@ abstract class CommentTestBase extends ViewTestBase {
    *
    * @var array
    */
-  public static $modules = ['node', 'comment', 'comment_test_views'];
+  public static $modules = array('node', 'comment', 'comment_test_views');
 
   /**
    * A normal user with permission to post comments (without approval).
@@ -63,24 +60,24 @@ abstract class CommentTestBase extends ViewTestBase {
    */
   protected $comment;
 
-  protected function setUp($import_test_views = TRUE) {
-    parent::setUp($import_test_views);
+  protected function setUp() {
+    parent::setUp();
 
-    ViewTestData::createTestViews(get_class($this), ['comment_test_views']);
+    ViewTestData::createTestViews(get_class($this), array('comment_test_views'));
 
     // Add two users, create a node with the user1 as author and another node
     // with user2 as author. For the second node add a comment from user1.
-    $this->account = $this->drupalCreateUser(['skip comment approval']);
+    $this->account = $this->drupalCreateUser(array('skip comment approval'));
     $this->account2 = $this->drupalCreateUser();
     $this->drupalLogin($this->account);
 
-    $this->drupalCreateContentType(['type' => 'page', 'name' => t('Basic page')]);
+    $this->drupalCreateContentType(array('type' => 'page', 'name' => t('Basic page')));
     $this->addDefaultCommentField('node', 'page');
 
     $this->nodeUserPosted = $this->drupalCreateNode();
-    $this->nodeUserCommented = $this->drupalCreateNode(['uid' => $this->account2->id()]);
+    $this->nodeUserCommented = $this->drupalCreateNode(array('uid' => $this->account2->id()));
 
-    $comment = [
+    $comment = array(
       'uid' => $this->loggedInUser->id(),
       'entity_id' => $this->nodeUserCommented->id(),
       'entity_type' => 'node',
@@ -89,8 +86,8 @@ abstract class CommentTestBase extends ViewTestBase {
       'cid' => '',
       'pid' => '',
       'mail' => 'someone@example.com',
-    ];
-    $this->comment = Comment::create($comment);
+    );
+    $this->comment = entity_create('comment', $comment);
     $this->comment->save();
   }
 

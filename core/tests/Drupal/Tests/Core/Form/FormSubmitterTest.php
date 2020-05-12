@@ -1,12 +1,15 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Tests\Core\Form\FormSubmitterTest.
+ */
+
 namespace Drupal\Tests\Core\Form;
 
 use Drupal\Core\DependencyInjection\ContainerBuilder;
 use Drupal\Core\Form\FormState;
-use Drupal\Core\Routing\UrlGeneratorInterface;
 use Drupal\Core\Url;
-use Drupal\Core\Utility\UnroutedUrlAssemblerInterface;
 use Drupal\Tests\UnitTestCase;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -21,24 +24,16 @@ class FormSubmitterTest extends UnitTestCase {
   /**
    * The mocked URL generator.
    *
-   * @var \PHPUnit\Framework\MockObject\MockObject|\Drupal\Core\Routing\UrlGeneratorInterface
+   * @var \PHPUnit_Framework_MockObject_MockObject|\Drupal\Core\Routing\UrlGeneratorInterface
    */
   protected $urlGenerator;
-
-  /**
-   * The mocked unrouted URL assembler.
-   *
-   * @var \PHPUnit\Framework\MockObject\MockObject|\Drupal\Core\Utility\UnroutedUrlAssemblerInterface
-   */
-  protected $unroutedUrlAssembler;
 
   /**
    * {@inheritdoc}
    */
   protected function setUp() {
     parent::setUp();
-    $this->urlGenerator = $this->createMock(UrlGeneratorInterface::class);
-    $this->unroutedUrlAssembler = $this->createMock(UnroutedUrlAssemblerInterface::class);
+    $this->urlGenerator = $this->getMock('Drupal\Core\Routing\UrlGeneratorInterface');
   }
 
   /**
@@ -46,7 +41,7 @@ class FormSubmitterTest extends UnitTestCase {
    */
   public function testHandleFormSubmissionNotSubmitted() {
     $form_submitter = $this->getFormSubmitter();
-    $form = [];
+    $form = array();
     $form_state = new FormState();
 
     $return = $form_submitter->doSubmitForm($form, $form_state);
@@ -59,7 +54,7 @@ class FormSubmitterTest extends UnitTestCase {
    */
   public function testHandleFormSubmissionNoRedirect() {
     $form_submitter = $this->getFormSubmitter();
-    $form = [];
+    $form = array();
     $form_state = (new FormState())
       ->setSubmitted()
       ->disableRedirect();
@@ -87,17 +82,17 @@ class FormSubmitterTest extends UnitTestCase {
       ->setFormState([$form_state_key => $response]);
 
     $form_submitter = $this->getFormSubmitter();
-    $form = [];
+    $form = array();
     $return = $form_submitter->doSubmitForm($form, $form_state);
 
     $this->assertInstanceOf('Symfony\Component\HttpFoundation\Response', $return);
   }
 
   public function providerTestHandleFormSubmissionWithResponses() {
-    return [
-      ['Symfony\Component\HttpFoundation\Response', 'response'],
-      ['Symfony\Component\HttpFoundation\RedirectResponse', 'redirect'],
-    ];
+    return array(
+      array('Symfony\Component\HttpFoundation\Response', 'response'),
+      array('Symfony\Component\HttpFoundation\RedirectResponse', 'redirect'),
+    );
   }
 
   /**
@@ -108,7 +103,7 @@ class FormSubmitterTest extends UnitTestCase {
   public function testRedirectWithNull() {
     $form_submitter = $this->getFormSubmitter();
 
-    $form_state = $this->createMock('Drupal\Core\Form\FormStateInterface');
+    $form_state = $this->getMock('Drupal\Core\Form\FormStateInterface');
     $form_state->expects($this->once())
       ->method('getRedirect')
       ->willReturn(NULL);
@@ -138,13 +133,13 @@ class FormSubmitterTest extends UnitTestCase {
     $form_submitter = $this->getFormSubmitter();
     $this->urlGenerator->expects($this->once())
       ->method('generateFromRoute')
-      ->will($this->returnValueMap([
-          ['test_route_a', [], ['absolute' => TRUE], FALSE, 'test-route'],
-          ['test_route_b', ['key' => 'value'], ['absolute' => TRUE], FALSE, 'test-route/value'],
-        ])
+      ->will($this->returnValueMap(array(
+          array('test_route_a', array(), array('absolute' => TRUE), 'test-route'),
+          array('test_route_b', array('key' => 'value'), array('absolute' => TRUE), 'test-route/value'),
+        ))
       );
 
-    $form_state = $this->createMock('Drupal\Core\Form\FormStateInterface');
+    $form_state = $this->getMock('Drupal\Core\Form\FormStateInterface');
     $form_state->expects($this->once())
       ->method('getRedirect')
       ->willReturn($redirect_value);
@@ -160,10 +155,10 @@ class FormSubmitterTest extends UnitTestCase {
    *   Returns some test data.
    */
   public function providerTestRedirectWithUrl() {
-    return [
-      [new Url('test_route_a', [], ['absolute' => TRUE]), 'test-route'],
-      [new Url('test_route_b', ['key' => 'value'], ['absolute' => TRUE]), 'test-route/value'],
-    ];
+    return array(
+      array(new Url('test_route_a', array(), array('absolute' => TRUE)), 'test-route'),
+      array(new Url('test_route_b', array('key' => 'value'), array('absolute' => TRUE)), 'test-route/value'),
+    );
   }
 
   /**
@@ -174,7 +169,7 @@ class FormSubmitterTest extends UnitTestCase {
   public function testRedirectWithResponseObject() {
     $form_submitter = $this->getFormSubmitter();
     $redirect = new RedirectResponse('/example');
-    $form_state = $this->createMock('Drupal\Core\Form\FormStateInterface');
+    $form_state = $this->getMock('Drupal\Core\Form\FormStateInterface');
     $form_state->expects($this->once())
       ->method('getRedirect')
       ->willReturn($redirect);
@@ -192,14 +187,10 @@ class FormSubmitterTest extends UnitTestCase {
   public function testRedirectWithoutResult() {
     $form_submitter = $this->getFormSubmitter();
     $this->urlGenerator->expects($this->never())
+      ->method('generateFromPath');
+    $this->urlGenerator->expects($this->never())
       ->method('generateFromRoute');
-    $this->unroutedUrlAssembler->expects($this->never())
-      ->method('assemble');
-    $container = new ContainerBuilder();
-    $container->set('url_generator', $this->urlGenerator);
-    $container->set('unrouted_url_assembler', $this->unroutedUrlAssembler);
-    \Drupal::setContainer($container);
-    $form_state = $this->createMock('Drupal\Core\Form\FormStateInterface');
+    $form_state = $this->getMock('Drupal\Core\Form\FormStateInterface');
     $form_state->expects($this->once())
       ->method('getRedirect')
       ->willReturn(FALSE);
@@ -223,11 +214,11 @@ class FormSubmitterTest extends UnitTestCase {
       ->method('simple_string_submit')
       ->with($this->isType('array'), $this->isInstanceOf('Drupal\Core\Form\FormStateInterface'));
 
-    $form = [];
+    $form = array();
     $form_state = new FormState();
     $form_submitter->executeSubmitHandlers($form, $form_state);
 
-    $form['#submit'][] = [$mock, 'hash_submit'];
+    $form['#submit'][] = array($mock, 'hash_submit');
     $form_submitter->executeSubmitHandlers($form, $form_state);
 
     // $form_state submit handlers will supersede $form handlers.
@@ -248,8 +239,8 @@ class FormSubmitterTest extends UnitTestCase {
     $request_stack = new RequestStack();
     $request_stack->push(Request::create('/test-path'));
     return $this->getMockBuilder('Drupal\Core\Form\FormSubmitter')
-      ->setConstructorArgs([$request_stack, $this->urlGenerator])
-      ->setMethods(['batchGet', 'drupalInstallationAttempted'])
+      ->setConstructorArgs(array($request_stack, $this->urlGenerator))
+      ->setMethods(array('batchGet', 'drupalInstallationAttempted'))
       ->getMock();
   }
 

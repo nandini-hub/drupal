@@ -4,18 +4,13 @@
  * Bartik's theme implementation to display a node.
  *
  * Available variables:
- * - node: The node entity with limited access to object properties and methods.
- *   Only method names starting with "get", "has", or "is" and a few common
- *   methods such as "id", "label", and "bundle" are available. For example:
- *   - node.getCreatedTime() will return the node creation timestamp.
- *   - node.hasField('field_example') returns TRUE if the node bundle includes
- *     field_example. (This does not indicate the presence of a value in this
- *     field.)
- *   - node.isPublished() will return whether the node is published or not.
- *   Calling other methods, such as node.delete(), will result in an exception.
- *   See \Drupal\node\Entity\Node for a full list of public properties and
- *   methods for the node object.
- * - label: (optional) The title of the node.
+ * - node: Full node entity.
+ *   - id: The node ID.
+ *   - bundle: The type of the node, for example, "page" or "article".
+ *   - authorid: The user ID of the node author.
+ *   - createdtime: Time the node was published formatted in Unix timestamp.
+ *   - changedtime: Time the node was changed formatted in Unix timestamp.
+ * - label: The title of the node.
  * - content: All node items. Use {{ content }} to print them all,
  *   or print a subset such as {{ content.field_example }}. Use
  *   {{ content|without('field_example') }} to temporarily suppress the printing
@@ -23,8 +18,8 @@
  * - author_picture: The node author user entity, rendered using the "compact"
  *   view mode.
  * - metadata: Metadata for this node.
- * - date: (optional) Themed creation date field.
- * - author_name: (optional) Themed author name field.
+ * - date: Themed creation date field.
+ * - author_name: Themed author name field.
  * - url: Direct URL of the current node.
  * - display_submitted: Whether submission information should be displayed.
  * - attributes: HTML attributes for the containing element.
@@ -77,11 +72,10 @@
     'clearfix',
   ]
 %}
-{{ attach_library('classy/node') }}
 <article{{ attributes.addClass(classes) }}>
   <header>
     {{ title_prefix }}
-      {% if label and not page %}
+    {% if not page %}
       <h2{{ title_attributes.addClass('node__title') }}>
         <a href="{{ url }}" rel="bookmark">{{ label }}</a>
       </h2>
@@ -98,6 +92,10 @@
     {% endif %}
   </header>
   <div{{ content_attributes.addClass('node__content', 'clearfix') }}>
-    {{ content }}
+    {{ content|without('comment', 'links') }}
   </div>
+  {% if content.links %}
+    <div class="node__links">{{ content.links }}</div>
+  {% endif %}
+  {{ content.comment }}
 </article>

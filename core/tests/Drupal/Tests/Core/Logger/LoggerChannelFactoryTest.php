@@ -1,9 +1,16 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Tests\Core\Logger\LoggerChannelFactoryTest.
+ */
+
 namespace Drupal\Tests\Core\Logger;
 
 use Drupal\Core\Logger\LoggerChannelFactory;
+use Drupal\Core\Session\AccountInterface;
 use Drupal\Tests\UnitTestCase;
+use Symfony\Component\HttpFoundation\Request;
 
 /**
  * @coversDefaultClass \Drupal\Core\Logger\LoggerChannelFactory
@@ -18,7 +25,7 @@ class LoggerChannelFactoryTest extends UnitTestCase {
    */
   public function testGet() {
     $factory = new LoggerChannelFactory();
-    $factory->setContainer($this->createMock('Symfony\Component\DependencyInjection\ContainerInterface'));
+    $factory->setContainer($this->getMock('Symfony\Component\DependencyInjection\ContainerInterface'));
 
     // Ensure that when called with the same argument, always the same instance
     // will be returned.

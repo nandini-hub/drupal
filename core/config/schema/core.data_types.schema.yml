@@ -1,6 +1,6 @@
 # Base types provided by Drupal core.
 
-# Read https://www.drupal.org/node/1905070 for more details about configuration
+# Read https://drupal.org/node/1905070 for more details about configuration
 # schema, types and type resolution.
 
 # Undefined type used by the system to assign to elements at any level where
@@ -28,9 +28,6 @@ email:
 integer:
   label: 'Integer'
   class: '\Drupal\Core\TypedData\Plugin\DataType\IntegerData'
-timestamp:
-  label: 'Timestamp'
-  class: '\Drupal\Core\TypedData\Plugin\DataType\Timestamp'
 float:
   label: 'Float'
   class: '\Drupal\Core\TypedData\Plugin\DataType\FloatData'
@@ -49,7 +46,7 @@ mapping:
 sequence:
   label: Sequence
   class: '\Drupal\Core\Config\Schema\Sequence'
-  definition_class: '\Drupal\Core\Config\Schema\SequenceDataDefinition'
+  definition_class: '\Drupal\Core\TypedData\ListDataDefinition'
 
 # Simple extended data types:
 
@@ -58,11 +55,6 @@ label:
   type: string
   label: 'Label'
   translatable: true
-
-# String containing plural variants, separated by EXT.
-plural_label:
-  type: label
-  label: 'Plural variants'
 
 # Internal Drupal path
 path:
@@ -74,13 +66,6 @@ text:
   type: string
   label: 'Text'
   translatable: true
-
-# A UUID.
-uuid:
-  type: string
-  label: 'UUID'
-  constraints:
-    Uuid: {}
 
 # PHP Date format string that is translatable.
 date_format:
@@ -97,22 +82,12 @@ color_hex:
 # Complex extended data types:
 
 # Root of a configuration object.
-
-_core_config_info:
-  type: mapping
-  mapping:
-    default_config_hash:
-      type: string
-      label: 'Default configuration hash'
-
 config_object:
   type: mapping
   mapping:
     langcode:
       type: string
       label: 'Language code'
-    _core:
-      type: _core_config_info
 
 # Mail text with subject and body parts.
 mail:
@@ -216,6 +191,23 @@ theme_settings:
       sequence:
         type: theme_settings.third_party.[%key]
 
+views_field_bulk_form:
+  type: views_field
+  label: 'Bulk operation'
+  mapping:
+    action_title:
+      type: label
+      label: 'Action title'
+    include_exclude:
+      type: string
+      label: 'Available actions'
+    selected_actions:
+      type: sequence
+      label: 'Available actions'
+      sequence:
+        type: string
+        label: 'Action'
+
 # Array of routes with route_name and route_params keys.
 route:
   type: mapping
@@ -268,7 +260,7 @@ config_entity:
   type: mapping
   mapping:
     uuid:
-      type: uuid
+      type: string
       label: 'UUID'
     langcode:
       type: string
@@ -284,11 +276,6 @@ config_entity:
       label: 'Third party settings'
       sequence:
         type: '[%parent.%parent.%type].third_party.[%key]'
-    _core:
-      type: _core_config_info
-
-block.settings.*:
-  type: block_settings
 
 block_settings:
   type: mapping
@@ -303,6 +290,13 @@ block_settings:
     label_display:
       type: string
       label: 'Display title'
+    cache:
+      type: mapping
+      label: 'Cache settings'
+      mapping:
+        max_age:
+          type: integer
+          label: 'Maximum age'
     status:
       type: boolean
       label: 'Status'
@@ -315,11 +309,6 @@ block_settings:
     provider:
       type: string
       label: 'Provider'
-    context_mapping:
-      type: sequence
-      label: 'Context assignments'
-      sequence:
-        type: string
 
 condition.plugin:
   type: mapping
@@ -332,7 +321,8 @@ condition.plugin:
       type: boolean
       label: 'Negate'
     uuid:
-      type: uuid
+      type: string
+      label: 'UUID'
     context_mapping:
       type: sequence
       label: 'Context assignments'
@@ -353,18 +343,8 @@ display_variant.plugin:
       type: integer
       label: 'Weight'
     uuid:
-      type: uuid
-
-layout_plugin.settings:
-  type: mapping
-  label: 'Layout settings'
-  mapping:
-    label:
-      type: label
-      label: 'Label'
-
-layout_plugin.settings.*:
-  type: layout_plugin.settings
+      type: string
+      label: 'UUID'
 
 base_entity_reference_field_settings:
   type: mapping
@@ -372,6 +352,9 @@ base_entity_reference_field_settings:
     target_type:
       type: string
       label: 'Type of item to reference'
+    target_bundle:
+      type: string
+      label: 'Bundle of item to reference'
 
 field_config_base:
   type: config_entity
@@ -433,18 +416,8 @@ core.date_format.*:
       type: boolean
       label: 'Locked'
     pattern:
-      type: core_date_format_pattern.[%parent.locked]
+      type: date_format
       label: 'PHP date format'
-
-# Unlocked date formats should use the translatable type.
-core_date_format_pattern.0:
-  type: date_format
-  label: 'Date format'
-
-# Locked date formats are just used to transport the value.
-core_date_format_pattern.1:
-  type: string
-  label: 'Date format'
 
 # Generic field settings schemas.
 
@@ -472,9 +445,6 @@ field.storage_settings.string:
     case_sensitive:
       type: boolean
       label: 'Case sensitive'
-    is_ascii:
-      type: boolean
-      label: 'Contains US ASCII characters only'
 
 field.field_settings.string:
   type: mapping
@@ -485,7 +455,7 @@ field.value.string:
   label: 'Default value'
   mapping:
     value:
-      type: label
+      type: string
       label: 'Value'
 
 # Schema for the configuration of the  String (long) field type.
@@ -513,7 +483,7 @@ field.value.string_long:
 # Schema for the configuration of the URI field type.
 
 field.storage_settings.uri:
-  type: field.storage_settings.string
+  type: mapping
   label: 'URI settings'
   mapping:
     max_length:
@@ -600,7 +570,8 @@ field.value.entity_reference:
       type: string
       label: 'Value'
     target_uuid:
-      type: uuid
+      type: string
+      label: 'Target UUID'
 
 # Schema for the configuration of the Boolean field type.
 
@@ -609,10 +580,10 @@ field.field_settings.boolean:
   type: mapping
   mapping:
     on_label:
-      type: label
+      type: string
       label: 'On label'
     off_label:
-      type: label
+      type: string
       label: 'Off label'
 
 field.value.boolean:
@@ -667,10 +638,10 @@ field.field_settings.integer:
       type: integer
       label: 'Maximum'
     prefix:
-      type: label
+      type: string
       label: 'Prefix'
     suffix:
-      type: label
+      type: string
       label: 'Suffix'
 
 field.value.integer:
@@ -705,10 +676,10 @@ field.field_settings.decimal:
       type: float
       label: 'Maximum'
     prefix:
-      type: label
+      type: string
       label: 'Prefix'
     suffix:
-      type: label
+      type: string
       label: 'Suffix'
 
 field.value.decimal:
@@ -736,10 +707,10 @@ field.field_settings.float:
       type: float
       label: 'Maximum'
     prefix:
-      type: label
+      type: string
       label: 'Prefix'
     suffix:
-      type: label
+      type: string
       label: 'Suffix'
 
 field.value.float:
@@ -748,16 +719,6 @@ field.value.float:
   mapping:
     value:
       type: float
-      label: 'Value'
-
-# Schema for the configuration of the Timestamp field type.
-
-field.value.timestamp:
-  type: mapping
-  label: 'Timestamp value'
-  mapping:
-    value:
-      type: timestamp
       label: 'Value'
 
 # Text with a text format.
@@ -783,32 +744,18 @@ text_format:
       # The text format should not be translated as part of the string
       # translation system, so this is not marked as translatable.
 
-# Base schema for all entity reference selection handler schemas.
+# Schema for the configuration of the Entity reference selection plugins.
+
 entity_reference_selection:
   type: mapping
-  label: 'Entity reference selection handler settings'
-  mapping:
-    target_type:
-      type: string
-      label: 'Type of item to reference'
-
-# Schema for all entity reference selection handlers that are not providing a
-# specific schema.
-entity_reference_selection.*:
-  type: entity_reference_selection
-
-# Schema for the entity reference 'default' selection handler settings.
-entity_reference_selection.default:
-  type: entity_reference_selection
-  label: 'Default selection handler settings'
+  label: 'Entity reference selection plugin configuration'
   mapping:
     target_bundles:
       type: sequence
       label: 'types'
-      nullable: true
       sequence:
         type: string
-        label: 'Bundle'
+        label: 'Type'
     sort:
       type: mapping
       label: 'Sort settings'
@@ -822,11 +769,6 @@ entity_reference_selection.default:
     auto_create:
       type: boolean
       label: 'Create referenced entities if they don''t already exist'
-    auto_create_bundle:
-      type: string
-      label: 'Bundle assigned to the auto-created entities.'
 
-# Schema for all entity reference 'default:*' selection handlers that are not
-# providing a specific schema.
-entity_reference_selection.default:*:
-  type: entity_reference_selection.default
+entity_reference_selection.*:
+  type: entity_reference_selection

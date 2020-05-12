@@ -1,9 +1,15 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\ckeditor\Plugin\CKEditorPlugin\StylesCombo.
+ */
+
 namespace Drupal\ckeditor\Plugin\CKEditorPlugin;
 
 use Drupal\ckeditor\CKEditorPluginBase;
 use Drupal\ckeditor\CKEditorPluginConfigurableInterface;
+use Drupal\Component\Utility\NestedArray;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\editor\Entity\Editor;
 
@@ -18,14 +24,14 @@ use Drupal\editor\Entity\Editor;
 class StylesCombo extends CKEditorPluginBase implements CKEditorPluginConfigurableInterface {
 
   /**
-   * {@inheritdoc}
+   * Implements \Drupal\ckeditor\Plugin\CKEditorPluginInterface::isInternal().
    */
   public function isInternal() {
     return TRUE;
   }
 
   /**
-   * {@inheritdoc}
+   * Implements \Drupal\ckeditor\Plugin\CKEditorPluginInterface::getFile().
    */
   public function getFile() {
     // This plugin is already part of Drupal core's CKEditor build.
@@ -33,10 +39,10 @@ class StylesCombo extends CKEditorPluginBase implements CKEditorPluginConfigurab
   }
 
   /**
-   * {@inheritdoc}
+   * Implements \Drupal\ckeditor\Plugin\CKEditorPluginInterface::getConfig().
    */
   public function getConfig(Editor $editor) {
-    $config = [];
+    $config = array();
     $settings = $editor->getSettings();
     if (!isset($settings['plugins']['stylescombo']['styles'])) {
       return $config;
@@ -47,47 +53,41 @@ class StylesCombo extends CKEditorPluginBase implements CKEditorPluginConfigurab
   }
 
   /**
-   * {@inheritdoc}
+   * Implements \Drupal\ckeditor\Plugin\CKEditorPluginButtonsInterface::getButtons().
    */
   public function getButtons() {
-    return [
-      'Styles' => [
-        'label' => $this->t('Font style'),
-        'image_alternative' => [
-          '#type' => 'inline_template',
-          '#template' => '<a href="#" role="button" aria-label="{{ styles_text }}"><span class="ckeditor-button-dropdown">{{ styles_text }}<span class="ckeditor-button-arrow"></span></span></a>',
-          '#context' => [
-            'styles_text' => $this->t('Styles'),
-          ],
-        ],
-      ],
-    ];
+    return array(
+      'Styles' => array(
+        'label' => t('Font style'),
+        'image_alternative' => '<a href="#" role="button" aria-label="' . t('Styles') . '"><span class="ckeditor-button-dropdown">' . t('Styles') . '<span class="ckeditor-button-arrow"></span></span></a>',
+      ),
+    );
   }
 
   /**
-   * {@inheritdoc}
+   * Implements \Drupal\ckeditor\Plugin\CKEditorPluginConfigurableInterface::settingsForm().
    */
   public function settingsForm(array $form, FormStateInterface $form_state, Editor $editor) {
     // Defaults.
-    $config = ['styles' => ''];
+    $config = array('styles' => '');
     $settings = $editor->getSettings();
     if (isset($settings['plugins']['stylescombo'])) {
       $config = $settings['plugins']['stylescombo'];
     }
 
-    $form['styles'] = [
-      '#title' => $this->t('Styles'),
+    $form['styles'] = array(
+      '#title' => t('Styles'),
       '#title_display' => 'invisible',
       '#type' => 'textarea',
       '#default_value' => $config['styles'],
-      '#description' => $this->t('A list of classes that will be provided in the "Styles" dropdown. Enter one or more classes on each line in the format: element.classA.classB|Label. Example: h1.title|Title. Advanced example: h1.fancy.title|Fancy title.<br />These styles should be available in your theme\'s CSS file.'),
-      '#attached' => [
-        'library' => ['ckeditor/drupal.ckeditor.stylescombo.admin'],
-      ],
-      '#element_validate' => [
-        [$this, 'validateStylesValue'],
-      ],
-    ];
+      '#description' => t('A list of classes that will be provided in the "Styles" dropdown. Enter one class on each line in the format: element.class|Label. Example: h1.title|Title.<br />These styles should be available in your theme\'s CSS file.'),
+      '#attached' => array(
+        'library' => array('ckeditor/drupal.ckeditor.stylescombo.admin'),
+      ),
+      '#element_validate' => array(
+        array($this, 'validateStylesValue'),
+      ),
+    );
 
     return $form;
   }
@@ -96,17 +96,8 @@ class StylesCombo extends CKEditorPluginBase implements CKEditorPluginConfigurab
    * #element_validate handler for the "styles" element in settingsForm().
    */
   public function validateStylesValue(array $element, FormStateInterface $form_state) {
-    $styles_setting = $this->generateStylesSetSetting($element['#value']);
-    if ($styles_setting === FALSE) {
-      $form_state->setError($element, $this->t('The provided list of styles is syntactically incorrect.'));
-    }
-    else {
-      $style_names = array_map(function ($style) {
-        return $style['name'];
-      }, $styles_setting);
-      if (count($style_names) !== count(array_unique($style_names))) {
-        $form_state->setError($element, $this->t('Each style must have a unique label.'));
-      }
+    if ($this->generateStylesSetSetting($element['#value']) === FALSE) {
+      $form_state->setError($element, t('The provided list of styles is syntactically incorrect.'));
     }
   }
 
@@ -117,12 +108,12 @@ class StylesCombo extends CKEditorPluginBase implements CKEditorPluginConfigurab
    *
    * @param string $styles
    *   The "styles" setting.
-   * @return array|false
+   * @return array|FALSE
    *   An array containing the "stylesSet" configuration, or FALSE when the
    *   syntax is invalid.
    */
   protected function generateStylesSetSetting($styles) {
-    $styles_set = [];
+    $styles_set = array();
 
     // Early-return when empty.
     $styles = trim($styles);
@@ -130,7 +121,7 @@ class StylesCombo extends CKEditorPluginBase implements CKEditorPluginConfigurab
       return $styles_set;
     }
 
-    $styles = str_replace(["\r\n", "\r"], "\n", $styles);
+    $styles = str_replace(array("\r\n", "\r"), "\n", $styles);
     foreach (explode("\n", $styles) as $style) {
       $style = trim($style);
 
@@ -150,15 +141,15 @@ class StylesCombo extends CKEditorPluginBase implements CKEditorPluginConfigurab
       $element = array_shift($classes);
 
       // Build the data structure CKEditor's stylescombo plugin expects.
-      // @see https://ckeditor.com/docs/ckeditor4/latest/guide/dev_howtos_styles.html
-      $configured_style = [
+      // @see http://docs.cksource.com/CKEditor_3.x/Developers_Guide/Styles
+      $configured_style = array(
         'name' => trim($label),
         'element' => trim($element),
-      ];
+      );
       if (!empty($classes)) {
-        $configured_style['attributes'] = [
-          'class' => implode(' ', array_map('trim', $classes)),
-        ];
+        $configured_style['attributes'] = array(
+          'class' => implode(' ', array_map('trim', $classes))
+        );
       }
       $styles_set[] = $configured_style;
     }

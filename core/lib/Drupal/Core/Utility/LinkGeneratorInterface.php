@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Utility\LinkGeneratorInterface.
+ */
+
 namespace Drupal\Core\Utility;
 
 use Drupal\Core\Link;
@@ -26,17 +31,17 @@ interface LinkGeneratorInterface {
    * However, for links enclosed in translatable text you should use t() and
    * embed the HTML anchor tag directly in the translated string. For example:
    * @code
-   * $text = t('Visit the <a href=":url">content types</a> page', array(':url' => Url::fromRoute('entity.node_type.collection')->toString()));
+   * $text = t('Visit the <a href="@url">content types</a> page', array('@url' => \Drupal::url('entity.node_type.collection')));
    * @endcode
    * This keeps the context of the link title ('settings' in the example) for
    * translators.
    *
-   * @param string|array|\Drupal\Component\Render\MarkupInterface $text
+   * @param string|array $text
    *   The link text for the anchor tag as a translated string or render array.
    *   Strings will be sanitized automatically. If you need to output HTML in
    *   the link text, use a render array or an already sanitized string such as
    *   the output of \Drupal\Component\Utility\Xss::filter() or
-   *   \Drupal\Component\Render\FormattableMarkup.
+   *   \Drupal\Component\Utility\SafeMarkup::format().
    * @param \Drupal\Core\Url $url
    *   The URL object used for the link. Amongst its options, the following may
    *   be set to affect the generated link:
@@ -56,9 +61,8 @@ interface LinkGeneratorInterface {
    *     sparingly since it is usually unnecessary and requires extra
    *     processing.
    *
-   * @return \Drupal\Core\GeneratedLink
-   *   A GeneratedLink object containing a link to the given route and
-   *   parameters and bubbleable metadata.
+   * @return string
+   *   An HTML string containing a link to the given route and parameters.
    *
    * @throws \Symfony\Component\Routing\Exception\RouteNotFoundException
    *   Thrown when the named route doesn't exist.
@@ -67,9 +71,6 @@ interface LinkGeneratorInterface {
    * @throws \Symfony\Component\Routing\Exception\InvalidParameterException
    *   Thrown when a parameter value for a placeholder is not correct because it
    *   does not match the requirement.
-   *
-   * @internal
-   *   Should not be used in user code. Use \Drupal\Core\Link instead.
    */
   public function generate($text, Url $url);
 
@@ -79,13 +80,8 @@ interface LinkGeneratorInterface {
    * @param \Drupal\Core\Link $link
    *   A link object to convert to a string.
    *
-   * @return \Drupal\Core\GeneratedLink
-   *   A GeneratedLink object containing a link to the given route and
-   *   parameters and bubbleable metadata.
-   *
-   * @internal
-   *   Should not be used in user code.
-   *   Use \Drupal\Core\Link instead.
+   * @return string
+   *   An HTML string containing a link to the given link.
    */
   public function generateFromLink(Link $link);
 

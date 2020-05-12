@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Entity\KeyValueStore\Query\Query.
+ */
+
 namespace Drupal\Core\Entity\KeyValueStore\Query;
 
 use Drupal\Core\Entity\EntityTypeInterface;
@@ -50,7 +55,7 @@ class Query extends QueryBase {
     foreach ($this->sort as $sort) {
       $direction = $sort['direction'] == 'ASC' ? -1 : 1;
       $field = $sort['field'];
-      uasort($result, function ($a, $b) use ($field, $direction) {
+      uasort($result, function($a, $b) use ($field, $direction) {
         return ($a[$field] <= $b[$field]) ? $direction : -$direction;
       });
     }

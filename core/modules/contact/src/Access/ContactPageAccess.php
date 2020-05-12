@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\contact\Access\ContactPageAccess.
+ */
+
 namespace Drupal\contact\Access;
 
 use Drupal\Core\Access\AccessResult;
@@ -24,7 +29,7 @@ class ContactPageAccess implements AccessInterface {
   /**
    * The user data service.
    *
-   * @var \Drupal\user\UserDataInterface
+   * @var \Drupal\user\UserDataInterface;
    */
   protected $userData;
 
@@ -57,38 +62,39 @@ class ContactPageAccess implements AccessInterface {
 
     // Anonymous users cannot have contact forms.
     if ($contact_account->isAnonymous()) {
-      return AccessResult::forbidden();
+      return AccessResult::forbidden()->cachePerPermissions();
     }
 
-    // Users may not contact themselves by default, hence this requires user
-    // granularity for caching.
-    $access = AccessResult::neutral()->cachePerUser();
+    // Users may not contact themselves.
     if ($account->id() == $contact_account->id()) {
-      return $access;
+      return AccessResult::forbidden()->cachePerUser();
     }
 
     // User administrators should always have access to personal contact forms.
+    $access = AccessResult::neutral()->cachePerPermissions();
     $permission_access = AccessResult::allowedIfHasPermission($account, 'administer users');
     if ($permission_access->isAllowed()) {
       return $access->orIf($permission_access);
     }
 
     // If requested user has been blocked, do not allow users to contact them.
-    $access->addCacheableDependency($contact_account);
+    $access->cacheUntilEntityChanges($contact_account);
     if ($contact_account->isBlocked()) {
       return $access;
     }
 
-    // Forbid access if the requested user has disabled their contact form.
+    // Load preference of the requested user.
     $account_data = $this->userData->get('contact', $contact_account->id(), 'enabled');
-    if (isset($account_data) && !$account_data) {
-      return $access;
+    if (isset($account_data)) {
+      // Forbid access if the requested user has disabled their contact form.
+      if (empty($account_data)) {
+        return $access;
+      }
     }
-
     // If the requested user did not save a preference yet, deny access if the
     // configured default is disabled.
     $contact_settings = $this->configFactory->get('contact.settings');
-    $access->addCacheableDependency($contact_settings);
+    $access->cacheUntilConfigurationChanges($contact_settings);
     if (!isset($account_data) && !$contact_settings->get('user_default_enabled')) {
       return $access;
     }

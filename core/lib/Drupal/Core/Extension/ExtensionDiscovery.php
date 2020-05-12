@@ -1,21 +1,17 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Extension\ExtensionDiscovery.
+ */
+
 namespace Drupal\Core\Extension;
 
-use Drupal\Component\FileCache\FileCacheFactory;
-use Drupal\Core\DrupalKernel;
 use Drupal\Core\Extension\Discovery\RecursiveExtensionFilterIterator;
 use Drupal\Core\Site\Settings;
-use Symfony\Component\HttpFoundation\Request;
 
 /**
  * Discovers available extensions in the filesystem.
- *
- * To also discover test modules, add
- * @code
- * $settings['extension_discovery_scan_tests'] = TRUE;
- * @endcode
- * to your settings.php.
  */
 class ExtensionDiscovery {
 
@@ -57,11 +53,18 @@ class ExtensionDiscovery {
   const PHP_FUNCTION_PATTERN = '/^[a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*$/';
 
   /**
+   * InfoParser instance for parsing .info.yml files.
+   *
+   * @var \Drupal\Core\Extension\InfoParser
+   */
+  protected $infoParser;
+
+  /**
    * Previously discovered files keyed by origin directory and extension type.
    *
    * @var array
    */
-  protected static $files = [];
+  protected static $files = array();
 
   /**
    * List of installation profile directories to additionally scan.
@@ -71,43 +74,20 @@ class ExtensionDiscovery {
   protected $profileDirectories;
 
   /**
-   * The app root for the current operation.
+   * The app root.
    *
    * @var string
    */
   protected $root;
 
   /**
-   * The file cache object.
-   *
-   * @var \Drupal\Component\FileCache\FileCacheInterface
-   */
-  protected $fileCache;
-
-  /**
-   * The site path.
-   *
-   * @var string
-   */
-  protected $sitePath;
-
-  /**
    * Constructs a new ExtensionDiscovery object.
    *
    * @param string $root
    *   The app root.
-   * @param bool $use_file_cache
-   *   Whether file cache should be used.
-   * @param string[] $profile_directories
-   *   The available profile directories
-   * @param string $site_path
-   *   The path to the site.
    */
-  public function __construct($root, $use_file_cache = TRUE, $profile_directories = NULL, $site_path = NULL) {
+  public function __construct($root) {
     $this->root = $root;
-    $this->fileCache = $use_file_cache ? FileCacheFactory::get('extension_discovery') : NULL;
-    $this->profileDirectories = $profile_directories;
-    $this->sitePath = $site_path;
   }
 
   /**
@@ -128,12 +108,6 @@ class ExtensionDiscovery {
    * - the site-wide directory; i.e., /
    * - the site-specific directory; e.g., /sites/example.com
    *
-   * To also find test modules, add
-   * @code
-   * $settings['extension_discovery_scan_tests'] = TRUE;
-   * @endcode
-   * to your settings.php.
-   *
    * The information is returned in an associative array, keyed by the extension
    * name (without .info.yml extension). Extensions found later in the search
    * will take precedence over extensions found earlier - unless they are not
@@ -151,9 +125,8 @@ class ExtensionDiscovery {
    */
   public function scan($type, $include_tests = NULL) {
     // Determine the installation profile directories to scan for extensions,
-    // unless explicit profile directories have been set. Exclude profiles as we
-    // cannot have profiles within profiles.
-    if (!isset($this->profileDirectories) && $type != 'profile') {
+    // unless explicit profile directories have been set.
+    if (!isset($this->profileDirectories)) {
       $this->setProfileDirectoriesFromSettings();
     }
 
@@ -179,34 +152,26 @@ class ExtensionDiscovery {
       $searchdirs[static::ORIGIN_PARENT_SITE] = $parent_site;
     }
 
-    // Find the site-specific directory to search. Since we are using this
-    // method to discover extensions including profiles, we might be doing this
-    // at install time. Therefore Kernel service is not always available, but is
-    // preferred.
-    if (\Drupal::hasService('kernel')) {
-      $searchdirs[static::ORIGIN_SITE] = \Drupal::service('site.path');
-    }
-    else {
-      $searchdirs[static::ORIGIN_SITE] = $this->sitePath ?: DrupalKernel::findSitePath(Request::createFromGlobals());
-    }
+    // Search the site-specific directory.
+    $searchdirs[static::ORIGIN_SITE] = conf_path();
 
     // Unless an explicit value has been passed, manually check whether we are
     // in a test environment, in which case test extensions must be included.
     // Test extensions can also be included for debugging purposes by setting a
     // variable in settings.php.
     if (!isset($include_tests)) {
-      $include_tests = Settings::get('extension_discovery_scan_tests') || drupal_valid_test_ua();
+      $include_tests = drupal_valid_test_ua() || Settings::get('extension_discovery_scan_tests');
     }
 
-    $files = [];
+    $files = array();
     foreach ($searchdirs as $dir) {
       // Discover all extensions in the directory, unless we did already.
-      if (!isset(static::$files[$this->root][$dir][$include_tests])) {
-        static::$files[$this->root][$dir][$include_tests] = $this->scanDirectory($dir, $include_tests);
+      if (!isset(static::$files[$dir][$include_tests])) {
+        static::$files[$dir][$include_tests] = $this->scanDirectory($dir, $include_tests);
       }
       // Only return extensions of the requested type.
-      if (isset(static::$files[$this->root][$dir][$include_tests][$type])) {
-        $files += static::$files[$this->root][$dir][$include_tests][$type];
+      if (isset(static::$files[$dir][$include_tests][$type])) {
+        $files += static::$files[$dir][$include_tests][$type];
       }
     }
 
@@ -227,8 +192,20 @@ class ExtensionDiscovery {
    * @return $this
    */
   public function setProfileDirectoriesFromSettings() {
-    $this->profileDirectories = [];
-    if ($profile = \Drupal::installProfile()) {
+    $this->profileDirectories = array();
+    $profile = drupal_get_profile();
+    // For SimpleTest to be able to test modules packaged together with a
+    // distribution we need to include the profile of the parent site (in
+    // which test runs are triggered).
+    if (drupal_valid_test_ua() && !drupal_installation_attempted()) {
+      $testing_profile = \Drupal::config('simpletest.settings')->get('parent_profile');
+      if ($testing_profile && $testing_profile != $profile) {
+        $this->profileDirectories[] = drupal_get_path('profile', $testing_profile);
+      }
+    }
+    // In case both profile directories contain the same extension, the actual
+    // profile always has precedence.
+    if ($profile) {
       $this->profileDirectories[] = drupal_get_path('profile', $profile);
     }
     return $this;
@@ -262,7 +239,7 @@ class ExtensionDiscovery {
   /**
    * Filters out extensions not belonging to the scanned installation profiles.
    *
-   * @param \Drupal\Core\Extension\Extension[] $all_files
+   * @param \Drupal\Core\Extension\Extension[] $all_files.
    *   The list of all extensions.
    *
    * @return \Drupal\Core\Extension\Extension[]
@@ -295,7 +272,7 @@ class ExtensionDiscovery {
   /**
    * Sorts the discovered extensions.
    *
-   * @param \Drupal\Core\Extension\Extension[] $all_files
+   * @param \Drupal\Core\Extension\Extension[] $all_files.
    *   The list of all extensions.
    * @param array $weights
    *   An array of weights, keyed by originating directory.
@@ -304,8 +281,8 @@ class ExtensionDiscovery {
    *   The sorted list of extensions.
    */
   protected function sort(array $all_files, array $weights) {
-    $origins = [];
-    $profiles = [];
+    $origins = array();
+    $profiles = array();
     foreach ($all_files as $key => $file) {
       // If the extension does not belong to a profile, just apply the weight
       // of the originating directory.
@@ -359,7 +336,7 @@ class ExtensionDiscovery {
    *   The filtered list of extensions, keyed by extension name.
    */
   protected function process(array $all_files) {
-    $files = [];
+    $files = array();
     // Duplicate files found in later search directories take precedence over
     // earlier ones; they replace the extension in the existing $files array.
     foreach ($all_files as $file) {
@@ -369,7 +346,7 @@ class ExtensionDiscovery {
   }
 
   /**
-   * Recursively scans a base directory for the extensions it contains.
+   * Recursively scans a base directory for the requested extension type.
    *
    * @param string $dir
    *   A relative base directory path to scan, without trailing slash.
@@ -385,7 +362,7 @@ class ExtensionDiscovery {
    * @see \Drupal\Core\Extension\Discovery\RecursiveExtensionFilterIterator
    */
   protected function scanDirectory($dir, $include_tests) {
-    $files = [];
+    $files = array();
 
     // In order to scan top-level directories, absolute directory paths have to
     // be used (which also improves performance, since any configured PHP
@@ -408,17 +385,11 @@ class ExtensionDiscovery {
     $flags |= \FilesystemIterator::CURRENT_AS_SELF;
     $directory_iterator = new \RecursiveDirectoryIterator($absolute_dir, $flags);
 
-    // Allow directories specified in settings.php to be ignored. You can use
-    // this to not check for files in common special-purpose directories. For
-    // example, node_modules and bower_components. Ignoring irrelevant
-    // directories is a performance boost.
-    $ignore_directories = Settings::get('file_scan_ignore_directories', []);
-
     // Filter the recursive scan to discover extensions only.
     // Important: Without a RecursiveFilterIterator, RecursiveDirectoryIterator
     // would recurse into the entire filesystem directory tree without any kind
     // of limitations.
-    $filter = new RecursiveExtensionFilterIterator($directory_iterator, $ignore_directories);
+    $filter = new RecursiveExtensionFilterIterator($directory_iterator);
     $filter->acceptTests($include_tests);
 
     // The actual recursive filesystem scan is only invoked by instantiating the
@@ -435,12 +406,6 @@ class ExtensionDiscovery {
       if (!preg_match(static::PHP_FUNCTION_PATTERN, $fileinfo->getBasename('.info.yml'))) {
         continue;
       }
-
-      if ($this->fileCache && $cached_extension = $this->fileCache->get($fileinfo->getPathName())) {
-        $files[$cached_extension->getType()][$key] = $cached_extension;
-        continue;
-      }
-
       // Determine extension type from info file.
       $type = FALSE;
       $file = $fileinfo->openFile('r');
@@ -465,7 +430,7 @@ class ExtensionDiscovery {
       else {
         $filename = $name . '.' . $type;
       }
-      if (!file_exists($this->root . '/' . dirname($pathname) . '/' . $filename)) {
+      if (!file_exists(dirname($pathname) . '/' . $filename)) {
         $filename = NULL;
       }
 
@@ -476,12 +441,21 @@ class ExtensionDiscovery {
       $extension->origin = $dir;
 
       $files[$type][$key] = $extension;
-
-      if ($this->fileCache) {
-        $this->fileCache->set($fileinfo->getPathName(), $extension);
-      }
     }
     return $files;
+  }
+
+  /**
+   * Returns a parser for .info.yml files.
+   *
+   * @return \Drupal\Core\Extension\InfoParser
+   *   The InfoParser instance.
+   */
+  protected function getInfoParser() {
+    if (!isset($this->infoParser)) {
+      $this->infoParser = new InfoParser();
+    }
+    return $this->infoParser;
   }
 
 }

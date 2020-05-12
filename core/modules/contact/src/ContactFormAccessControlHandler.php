@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\contact\ContactFormAccessControlHandler.
+ */
+
 namespace Drupal\contact;
 
 use Drupal\Core\Access\AccessResult;
@@ -17,18 +22,18 @@ class ContactFormAccessControlHandler extends EntityAccessControlHandler {
   /**
    * {@inheritdoc}
    */
-  protected function checkAccess(EntityInterface $entity, $operation, AccountInterface $account) {
+  public function checkAccess(EntityInterface $entity, $operation, $langcode, AccountInterface $account) {
     if ($operation == 'view') {
       // Do not allow access personal form via site-wide route.
-      return AccessResult::allowedIfHasPermission($account, 'access site-wide contact form')->andIf(AccessResult::allowedIf($entity->id() !== 'personal'));
+      return AccessResult::allowedIf($account->hasPermission('access site-wide contact form') && $entity->id() !== 'personal')->cachePerPermissions();
     }
     elseif ($operation == 'delete' || $operation == 'update') {
       // Do not allow the 'personal' form to be deleted, as it's used for
       // the personal contact form.
-      return AccessResult::allowedIfHasPermission($account, 'administer contact forms')->andIf(AccessResult::allowedIf($entity->id() !== 'personal'));
+      return AccessResult::allowedIf($account->hasPermission('administer contact forms') && $entity->id() !== 'personal')->cachePerPermissions();
     }
 
-    return parent::checkAccess($entity, $operation, $account);
+    return parent::checkAccess($entity, $operation, $langcode, $account);
   }
 
 }

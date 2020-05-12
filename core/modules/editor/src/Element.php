@@ -1,20 +1,23 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\editor\Element.
+ */
+
 namespace Drupal\editor;
 
-use Drupal\Core\Security\TrustedCallbackInterface;
 use Drupal\editor\Entity\Editor;
 use Drupal\filter\Entity\FilterFormat;
 use Drupal\Component\Plugin\PluginManagerInterface;
-use Drupal\Core\Render\BubbleableMetadata;
 
 /**
  * Defines a service for Text Editor's render elements.
  */
-class Element implements TrustedCallbackInterface {
+class Element {
 
   /**
-   * The Text Editor plugin manager service.
+   * The Text Editor plugin manager manager service.
    *
    * @var \Drupal\Component\Plugin\PluginManagerInterface
    */
@@ -31,16 +34,9 @@ class Element implements TrustedCallbackInterface {
   }
 
   /**
-   * {@inheritdoc}
-   */
-  public static function trustedCallbacks() {
-    return ['preRenderTextFormat'];
-  }
-
-  /**
    * Additional #pre_render callback for 'text_format' elements.
    */
-  public function preRenderTextFormat(array $element) {
+  function preRenderTextFormat(array $element) {
     // Allow modules to programmatically enforce no client-side editor by
     // setting the #editor property to FALSE.
     if (isset($element['#editor']) && !$element['#editor']) {
@@ -72,14 +68,14 @@ class Element implements TrustedCallbackInterface {
     if (!$element['format']['format']['#access']) {
       // Use the first (and only) available text format.
       $format_id = $format_ids[0];
-      $element['format']['editor'] = [
+      $element['format']['editor'] = array(
         '#type' => 'hidden',
         '#name' => $element['format']['format']['#name'],
         '#value' => $format_id,
-        '#attributes' => [
+        '#attributes' => array(
           'data-editor-for' => $field_id,
-        ],
-      ];
+        ),
+      );
     }
     // Otherwise, attach to text format selector.
     else {
@@ -97,7 +93,7 @@ class Element implements TrustedCallbackInterface {
     $element['#attached']['library'][] = 'editor/drupal.editor';
 
     // Attach attachments for all available editors.
-    $element['#attached'] = BubbleableMetadata::mergeAttachments($element['#attached'], $this->pluginManager->getAttachments($format_ids));
+    $element['#attached'] = drupal_merge_attached($element['#attached'], $this->pluginManager->getAttachments($format_ids));
 
     // Apply XSS filters when editing content if necessary. Some types of text
     // editors cannot guarantee that the end user won't become a victim of XSS.

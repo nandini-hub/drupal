@@ -1,14 +1,21 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Menu\MenuLinkManager.
+ */
+
 namespace Drupal\Core\Menu;
 
 use Drupal\Component\Plugin\Exception\PluginException;
 use Drupal\Component\Plugin\Exception\PluginNotFoundException;
 use Drupal\Component\Utility\NestedArray;
+use Drupal\Component\Utility\SafeMarkup;
 use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\Core\Plugin\Discovery\ContainerDerivativeDiscoveryDecorator;
 use Drupal\Core\Plugin\Discovery\YamlDiscovery;
 use Drupal\Core\Plugin\Factory\ContainerFactory;
+
 
 /**
  * Manages discovery, instantiation, and tree building of menu link plugins.
@@ -25,38 +32,42 @@ class MenuLinkManager implements MenuLinkManagerInterface {
    *
    * @var array
    */
-  protected $defaults = [
+  protected $defaults = array(
     // (required) The name of the menu for this link.
     'menu_name' => 'tools',
     // (required) The name of the route this links to, unless it's external.
     'route_name' => '',
     // Parameters for route variables when generating a link.
-    'route_parameters' => [],
+    'route_parameters' => array(),
     // The external URL if this link has one (required if route_name is empty).
     'url' => '',
-    // The static title for the menu link. If this came from a YAML definition
-    // or other safe source this may be a TranslatableMarkup object.
+    // The static title for the menu link. You can specify placeholders like on
+    // any translatable string and the values in title_arguments.
     'title' => '',
-    // The description. If this came from a YAML definition or other safe source
-    // this may be a TranslatableMarkup object.
+    // The values for the menu link placeholders.
+    'title_arguments' => array(),
+    // A context for the title string.
+    // @see \Drupal\Core\StringTranslation\TranslationInterface::translate()
+    'title_context' => '',
+    // The description.
     'description' => '',
     // The plugin ID of the parent link (or NULL for a top-level link).
     'parent' => '',
     // The weight of the link.
     'weight' => 0,
     // The default link options.
-    'options' => [],
+    'options' => array(),
     'expanded' => 0,
     'enabled' => 1,
     // The name of the module providing this link.
     'provider' => '',
-    'metadata' => [],
+    'metadata' => array(),
     // Default class for local task implementations.
     'class' => 'Drupal\Core\Menu\MenuLinkDefault',
     'form_class' => 'Drupal\Core\Menu\Form\MenuLinkDefaultForm',
     // The plugin ID. Set by the plugin system based on the top-level YAML key.
     'id' => '',
-  ];
+  );
 
   /**
    * The object that discovers plugins managed by this manager.
@@ -93,6 +104,7 @@ class MenuLinkManager implements MenuLinkManagerInterface {
    */
   protected $moduleHandler;
 
+
   /**
    * Constructs a \Drupal\Core\Menu\MenuLinkManager object.
    *
@@ -106,6 +118,7 @@ class MenuLinkManager implements MenuLinkManagerInterface {
   public function __construct(MenuTreeStorageInterface $tree_storage, StaticMenuLinkOverridesInterface $overrides, ModuleHandlerInterface $module_handler) {
     $this->treeStorage = $tree_storage;
     $this->overrides = $overrides;
+    $this->factory = new ContainerFactory($this);
     $this->moduleHandler = $module_handler;
   }
 
@@ -130,30 +143,21 @@ class MenuLinkManager implements MenuLinkManagerInterface {
   }
 
   /**
-   * Gets the plugin discovery.
+   * Instantiates if necessary and returns a YamlDiscovery instance.
    *
-   * @return \Drupal\Component\Plugin\Discovery\DiscoveryInterface
+   * Since the discovery is very rarely used - only when the rebuild() method
+   * is called - it's instantiated only when actually needed instead of in the
+   * constructor.
+   *
+   * @return \Drupal\Core\Plugin\Discovery\ContainerDerivativeDiscoveryDecorator
+   *   A plugin discovery instance.
    */
   protected function getDiscovery() {
-    if (!isset($this->discovery)) {
-      $yaml_discovery = new YamlDiscovery('links.menu', $this->moduleHandler->getModuleDirectories());
-      $yaml_discovery->addTranslatableProperty('title', 'title_context');
-      $yaml_discovery->addTranslatableProperty('description', 'description_context');
-      $this->discovery = new ContainerDerivativeDiscoveryDecorator($yaml_discovery);
+    if (empty($this->discovery)) {
+      $yaml = new YamlDiscovery('links.menu', $this->moduleHandler->getModuleDirectories());
+      $this->discovery = new ContainerDerivativeDiscoveryDecorator($yaml);
     }
     return $this->discovery;
-  }
-
-  /**
-   * Gets the plugin factory.
-   *
-   * @return \Drupal\Component\Plugin\Factory\FactoryInterface
-   */
-  protected function getFactory() {
-    if (!isset($this->factory)) {
-      $this->factory = new ContainerFactory($this);
-    }
-    return $this->factory;
   }
 
   /**
@@ -229,8 +233,8 @@ class MenuLinkManager implements MenuLinkManagerInterface {
    * @throws \Drupal\Component\Plugin\Exception\PluginException
    *   If the instance cannot be created, such as if the ID is invalid.
    */
-  public function createInstance($plugin_id, array $configuration = []) {
-    return $this->getFactory()->createInstance($plugin_id, $configuration);
+  public function createInstance($plugin_id, array $configuration = array()) {
+    return $this->factory->createInstance($plugin_id, $configuration);
   }
 
   /**
@@ -246,7 +250,7 @@ class MenuLinkManager implements MenuLinkManagerInterface {
    * {@inheritdoc}
    */
   public function deleteLinksInMenu($menu_name) {
-    foreach ($this->treeStorage->loadByProperties(['menu_name' => $menu_name]) as $plugin_id => $definition) {
+    foreach ($this->treeStorage->loadByProperties(array('menu_name' => $menu_name)) as $plugin_id => $definition) {
       $instance = $this->createInstance($plugin_id);
       if ($instance->isDeletable()) {
         $this->deleteInstance($instance, TRUE);
@@ -277,7 +281,7 @@ class MenuLinkManager implements MenuLinkManagerInterface {
       }
     }
     else {
-      throw new PluginException("Menu link plugin with ID '$id' does not support deletion");
+      throw new PluginException(SafeMarkup::format('Menu link plugin with ID @id does not support deletion', array('@id' => $id)));
     }
     $this->treeStorage->delete($id);
   }
@@ -331,8 +335,8 @@ class MenuLinkManager implements MenuLinkManagerInterface {
   /**
    * {@inheritdoc}
    */
-  public function loadLinksByRoute($route_name, array $route_parameters = [], $menu_name = NULL) {
-    $instances = [];
+  public function loadLinksByRoute($route_name, array $route_parameters = array(), $menu_name = NULL) {
+    $instances = array();
     $loaded = $this->treeStorage->loadByRoute($route_name, $route_parameters, $menu_name);
     foreach ($loaded as $plugin_id => $definition) {
       $instances[$plugin_id] = $this->createInstance($plugin_id);
@@ -344,11 +348,8 @@ class MenuLinkManager implements MenuLinkManagerInterface {
    * {@inheritdoc}
    */
   public function addDefinition($id, array $definition) {
-    if ($this->treeStorage->load($id)) {
-      throw new PluginException("The menu link ID $id already exists as a plugin definition");
-    }
-    elseif ($id === '') {
-      throw new PluginException("The menu link ID cannot be empty");
+    if ($this->treeStorage->load($id) || $id === '') {
+      throw new PluginException(SafeMarkup::format('The ID @id already exists as a plugin definition or is not valid', array('@id' => $id)));
     }
     // Add defaults, so there is no requirement to specify everything.
     $this->processDefinition($definition, $id);
@@ -395,7 +396,7 @@ class MenuLinkManager implements MenuLinkManagerInterface {
     $id = $instance->getPluginId();
 
     if (!$instance->isResettable()) {
-      throw new PluginException("Menu link $id is not resettable");
+      throw new PluginException(SafeMarkup::format('Menu link %id is not resettable', array('%id' => $id)));
     }
     // Get the original data from disk, reset the override and re-save the menu
     // tree for this link.

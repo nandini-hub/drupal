@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\views\Plugin\views\argument_validator\None.
+ */
+
 namespace Drupal\views\Plugin\views\argument_validator;
 
 /**

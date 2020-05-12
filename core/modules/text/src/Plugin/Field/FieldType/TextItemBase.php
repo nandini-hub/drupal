@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\text\Plugin\Field\FieldType\TextItemBase.
+ */
+
 namespace Drupal\text\Plugin\Field\FieldType;
 
 use Drupal\Component\Utility\Random;
@@ -29,8 +34,7 @@ abstract class TextItemBase extends FieldItemBase {
       ->setDescription(t('The text with the text format applied.'))
       ->setComputed(TRUE)
       ->setClass('\Drupal\text\TextProcessed')
-      ->setSetting('text source', 'value')
-      ->setInternal(FALSE);
+      ->setSetting('text source', 'value');
 
     return $properties;
   }
@@ -39,8 +43,9 @@ abstract class TextItemBase extends FieldItemBase {
    * {@inheritdoc}
    */
   public function applyDefaultValue($notify = TRUE) {
+    // Default to a simple \Drupal\Component\Utility\SafeMarkup::checkPlain().
     // @todo: Add in the filter default format here.
-    $this->setValue(['format' => NULL], $notify);
+    $this->setValue(array('format' => NULL), $notify);
     return $this;
   }
 
@@ -83,11 +88,11 @@ abstract class TextItemBase extends FieldItemBase {
       $value = substr($random->sentences(mt_rand(1, $settings['max_length'] / 3), FALSE), 0, $settings['max_length']);
     }
 
-    $values = [
+    $values = array(
       'value' => $value,
       'summary' => $value,
       'format' => filter_fallback_format(),
-    ];
+    );
     return $values;
   }
 

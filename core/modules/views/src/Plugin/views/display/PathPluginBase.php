@@ -1,8 +1,14 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\views\Plugin\views\display\PathPluginBase.
+ */
+
 namespace Drupal\views\Plugin\views\display;
 
 use Drupal\Component\Utility\UrlHelper;
+use Drupal\Core\Access\AccessManagerInterface;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Language\LanguageInterface;
 use Drupal\Core\Routing\UrlGeneratorTrait;
@@ -11,6 +17,7 @@ use Drupal\Core\Routing\RouteCompiler;
 use Drupal\Core\Routing\RouteProviderInterface;
 use Drupal\Core\Url;
 use Drupal\views\Views;
+
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
@@ -22,7 +29,7 @@ use Symfony\Component\Routing\RouteCollection;
  *
  * @see \Drupal\views\EventSubscriber\RouteSubscriber
  */
-abstract class PathPluginBase extends DisplayPluginBase implements DisplayRouterInterface, DisplayMenuInterface {
+abstract class PathPluginBase extends DisplayPluginBase implements DisplayRouterInterface {
 
   use UrlGeneratorTrait;
 
@@ -75,7 +82,7 @@ abstract class PathPluginBase extends DisplayPluginBase implements DisplayRouter
   }
 
   /**
-   * {@inheritdoc}
+   * Overrides \Drupal\views\Plugin\views\display\DisplayPluginBase::hasPath().
    */
   public function hasPath() {
     return TRUE;
@@ -101,7 +108,7 @@ abstract class PathPluginBase extends DisplayPluginBase implements DisplayRouter
   protected function isDefaultTabPath() {
     $menu = $this->getOption('menu');
     $tab_options = $this->getOption('tab_options');
-    return $menu && $menu['type'] == 'default tab' && !empty($tab_options['type']) && $tab_options['type'] != 'none';
+    return $menu['type'] == 'default tab' && !empty($tab_options['type']) && $tab_options['type'] != 'none';
   }
 
   /**
@@ -109,8 +116,8 @@ abstract class PathPluginBase extends DisplayPluginBase implements DisplayRouter
    */
   protected function defineOptions() {
     $options = parent::defineOptions();
-    $options['path'] = ['default' => ''];
-    $options['route_name'] = ['default' => ''];
+    $options['path'] = array('default' => '');
+    $options['route_name'] = array('default' => '');
 
     return $options;
   }
@@ -127,13 +134,11 @@ abstract class PathPluginBase extends DisplayPluginBase implements DisplayRouter
    *   The route for the view.
    */
   protected function getRoute($view_id, $display_id) {
-    $defaults = [
+    $defaults = array(
       '_controller' => 'Drupal\views\Routing\ViewPageController::handle',
-      '_title' => $this->view->getTitle(),
       'view_id' => $view_id,
       'display_id' => $display_id,
-      '_view_display_show_admin_links' => $this->getOption('show_admin_links'),
-    ];
+    );
 
     // @todo How do we apply argument validation?
     $bits = explode('/', $this->getOption('path'));
@@ -145,7 +150,7 @@ abstract class PathPluginBase extends DisplayPluginBase implements DisplayRouter
     $argument_ids = array_keys((array) $this->getOption('arguments'));
     $total_arguments = count($argument_ids);
 
-    $argument_map = [];
+    $argument_map = array();
 
     // Replace arguments in the views UI (defined via %) with parameters in
     // routes (defined via {}). As a name for the parameter use arg_$key, so
@@ -156,7 +161,6 @@ abstract class PathPluginBase extends DisplayPluginBase implements DisplayRouter
         // handler.
         $arg_id = 'arg_' . $arg_counter++;
         $bits[$pos] = '{' . $arg_id . '}';
-        $argument_map[$arg_id] = $arg_id;
       }
       elseif (strpos($bit, '%') === 0) {
         // Use the name defined in the path.
@@ -174,7 +178,6 @@ abstract class PathPluginBase extends DisplayPluginBase implements DisplayRouter
       // In contrast to the previous loop add the defaults here, as % was not
       // specified, which means the argument is optional.
       $defaults[$arg_id] = NULL;
-      $argument_map[$arg_id] = $arg_id;
       $bits[] = $bit;
     }
 
@@ -200,12 +203,6 @@ abstract class PathPluginBase extends DisplayPluginBase implements DisplayRouter
 
     // Set the argument map, in order to support named parameters.
     $route->setOption('_view_argument_map', $argument_map);
-    $route->setOption('_view_display_plugin_id', $this->getPluginId());
-    $route->setOption('_view_display_plugin_class', get_called_class());
-    $route->setOption('_view_display_show_admin_links', $this->getOption('show_admin_links'));
-
-    // Store whether the view will return a response.
-    $route->setOption('returns_response', !empty($this->getPluginDefinition()['returns_response']));
 
     return $route;
   }
@@ -223,65 +220,22 @@ abstract class PathPluginBase extends DisplayPluginBase implements DisplayRouter
       $route_name = "view.$view_id.$display_id";
     }
     $collection->add($route_name, $route);
-    return ["$view_id.$display_id" => $route_name];
-  }
-
-  /**
-   * Determines whether the view overrides the given route.
-   *
-   * @param string $view_path
-   *   The path of the view.
-   * @param \Symfony\Component\Routing\Route $view_route
-   *   The route of the view.
-   * @param \Symfony\Component\Routing\Route $route
-   *   The route itself.
-   *
-   * @return bool
-   *   TRUE, when the view should override the given route.
-   */
-  protected function overrideApplies($view_path, Route $view_route, Route $route) {
-    return $this->overrideAppliesPathAndMethod($view_path, $view_route, $route)
-      && (!$route->hasRequirement('_format') || $route->getRequirement('_format') === 'html');
-  }
-
-  /**
-   * Determines whether a override for the path and method should happen.
-   *
-   * @param string $view_path
-   *   The path of the view.
-   * @param \Symfony\Component\Routing\Route $view_route
-   *   The route of the view.
-   * @param \Symfony\Component\Routing\Route $route
-   *   The route itself.
-   *
-   * @return bool
-   *   TRUE, when the view should override the given route.
-   */
-  protected function overrideAppliesPathAndMethod($view_path, Route $view_route, Route $route) {
-    // Find all paths which match the path of the current display..
-    $route_path = RouteCompiler::getPathWithoutDefaults($route);
-    $route_path = RouteCompiler::getPatternOutline($route_path);
-
-    // Ensure that we don't override a route which is already controlled by
-    // views.
-    return !$route->hasDefault('view_id')
-    && ('/' . $view_path == $route_path)
-    // Also ensure that we don't override for example REST routes.
-    && (!$route->getMethods() || in_array('GET', $route->getMethods()));
+    return array("$view_id.$display_id" => $route_name);
   }
 
   /**
    * {@inheritdoc}
    */
   public function alterRoutes(RouteCollection $collection) {
-    $view_route_names = [];
+    $view_route_names = array();
     $view_path = $this->getPath();
-    $view_id = $this->view->storage->id();
-    $display_id = $this->display['id'];
-    $view_route = $this->getRoute($view_id, $display_id);
-
     foreach ($collection->all() as $name => $route) {
-      if ($this->overrideApplies($view_path, $view_route, $route)) {
+      // Find all paths which match the path of the current display..
+      $route_path = RouteCompiler::getPathWithoutDefaults($route);
+      $route_path = RouteCompiler::getPatternOutline($route_path);
+      // Ensure that we don't override a route which is already controlled by
+      // views.
+      if (!$route->hasDefault('view_id') && ('/' . $view_path == $route_path)) {
         $parameters = $route->compile()->getPathVariables();
 
         // @todo Figure out whether we need to merge some settings (like
@@ -291,9 +245,13 @@ abstract class PathPluginBase extends DisplayPluginBase implements DisplayRouter
         $original_route = $collection->get($name);
         $collection->remove($name);
 
-        $path = $view_route->getPath();
+        $view_id = $this->view->storage->id();
+        $display_id = $this->display['id'];
+        $route = $this->getRoute($view_id, $display_id);
+
+        $path = $route->getPath();
         // Replace the path with the original parameter names and add a mapping.
-        $argument_map = [];
+        $argument_map = array();
         // We assume that the numeric ids of the parameters match the one from
         // the view argument handlers.
         foreach ($parameters as $position => $parameter_name) {
@@ -302,17 +260,13 @@ abstract class PathPluginBase extends DisplayPluginBase implements DisplayRouter
         }
         // Copy the original options from the route, so for example we ensure
         // that parameter conversion options is carried over.
-        $view_route->setOptions($view_route->getOptions() + $original_route->getOptions());
-
-        if ($original_route->hasDefault('_title_callback')) {
-          $view_route->setDefault('_title_callback', $original_route->getDefault('_title_callback'));
-        }
+        $route->setOptions($route->getOptions() + $original_route->getOptions());
 
         // Set the corrected path and the mapping to the route object.
-        $view_route->setOption('_view_argument_map', $argument_map);
-        $view_route->setPath($path);
+        $route->setOption('_view_argument_map', $argument_map);
+        $route->setPath($path);
 
-        $collection->add($name, $view_route);
+        $collection->add($name, $route);
         $view_route_names[$view_id . '.' . $display_id] = $name;
       }
     }
@@ -324,7 +278,7 @@ abstract class PathPluginBase extends DisplayPluginBase implements DisplayRouter
    * {@inheritdoc}
    */
   public function getMenuLinks() {
-    $links = [];
+    $links = array();
 
     // Replace % with the link to our standard views argument loader
     // views_arg_load -- which lives in views.module.
@@ -336,33 +290,31 @@ abstract class PathPluginBase extends DisplayPluginBase implements DisplayRouter
     foreach ($bits as $pos => $bit) {
       if ($bit == '%') {
         // If a view requires any arguments we cannot create a static menu link.
-        return [];
+        return array();
       }
     }
 
     $path = implode('/', $bits);
     $view_id = $this->view->storage->id();
     $display_id = $this->display['id'];
-    $view_id_display = "{$view_id}.{$display_id}";
+    $view_id_display =  "{$view_id}.{$display_id}";
     $menu_link_id = 'views.' . str_replace('/', '.', $view_id_display);
 
     if ($path) {
       $menu = $this->getOption('menu');
       if (!empty($menu['type']) && $menu['type'] == 'normal') {
-        $links[$menu_link_id] = [];
+        $links[$menu_link_id] = array();
         // Some views might override existing paths, so we have to set the route
         // name based upon the altering.
-        $links[$menu_link_id] = [
+        $links[$menu_link_id] = array(
           'route_name' => $this->getRouteName(),
           // Identify URL embedded arguments and correlate them to a handler.
-          'load arguments'  => [$this->view->storage->id(), $this->display['id'], '%index'],
+          'load arguments'  => array($this->view->storage->id(), $this->display['id'], '%index'),
           'id' => $menu_link_id,
-        ];
+        );
         $links[$menu_link_id]['title'] = $menu['title'];
         $links[$menu_link_id]['description'] = $menu['description'];
         $links[$menu_link_id]['parent'] = $menu['parent'];
-        $links[$menu_link_id]['enabled'] = $menu['enabled'];
-        $links[$menu_link_id]['expanded'] = $menu['expanded'];
 
         if (isset($menu['weight'])) {
           $links[$menu_link_id]['weight'] = intval($menu['weight']);
@@ -371,10 +323,10 @@ abstract class PathPluginBase extends DisplayPluginBase implements DisplayRouter
         // Insert item into the proper menu.
         $links[$menu_link_id]['menu_name'] = $menu['menu_name'];
         // Keep track of where we came from.
-        $links[$menu_link_id]['metadata'] = [
+        $links[$menu_link_id]['metadata'] = array(
           'view_id' => $view_id,
           'display_id' => $display_id,
-        ];
+        );
       }
     }
 
@@ -382,7 +334,7 @@ abstract class PathPluginBase extends DisplayPluginBase implements DisplayRouter
   }
 
   /**
-   * {@inheritdoc}
+   * Overrides \Drupal\views\Plugin\views\display\DisplayPluginBase::execute().
    */
   public function execute() {
     // Prior to this being called, the $view should already be set to this
@@ -399,18 +351,18 @@ abstract class PathPluginBase extends DisplayPluginBase implements DisplayRouter
   }
 
   /**
-   * {@inheritdoc}
+   * Overrides \Drupal\views\Plugin\views\display\DisplayPluginBase::optionsSummary().
    */
   public function optionsSummary(&$categories, &$options) {
     parent::optionsSummary($categories, $options);
 
-    $categories['page'] = [
+    $categories['page'] = array(
       'title' => $this->t('Page settings'),
       'column' => 'second',
-      'build' => [
+      'build' => array(
         '#weight' => -10,
-      ],
-    ];
+      ),
+    );
 
     $path = strip_tags($this->getOption('path'));
 
@@ -421,15 +373,15 @@ abstract class PathPluginBase extends DisplayPluginBase implements DisplayRouter
       $path = '/' . $path;
     }
 
-    $options['path'] = [
+    $options['path'] = array(
       'category' => 'page',
       'title' => $this->t('Path'),
       'value' => views_ui_truncate($path, 24),
-    ];
+    );
   }
 
   /**
-   * {@inheritdoc}
+   * Overrides \Drupal\views\Plugin\views\display\DisplayPluginBase::buildOptionsForm().
    */
   public function buildOptionsForm(&$form, FormStateInterface $form_state) {
     parent::buildOptionsForm($form, $form_state);
@@ -437,23 +389,23 @@ abstract class PathPluginBase extends DisplayPluginBase implements DisplayRouter
     switch ($form_state->get('section')) {
       case 'path':
         $form['#title'] .= $this->t('The menu path or URL of this view');
-        $form['path'] = [
+        $form['path'] = array(
           '#type' => 'textfield',
           '#title' => $this->t('Path'),
           '#description' => $this->t('This view will be displayed by visiting this path on your site. You may use "%" in your URL to represent values that will be used for contextual filters: For example, "node/%/feed". If needed you can even specify named route parameters like taxonomy/term/%taxonomy_term'),
           '#default_value' => $this->getOption('path'),
-          '#field_prefix' => '<span dir="ltr">' . Url::fromRoute('<none>', [], ['absolute' => TRUE])->toString(),
+          '#field_prefix' => '<span dir="ltr">' . $this->url('<none>', [], ['absolute' => TRUE]),
           '#field_suffix' => '</span>&lrm;',
-          '#attributes' => ['dir' => LanguageInterface::DIRECTION_LTR],
+          '#attributes' => array('dir' => LanguageInterface::DIRECTION_LTR),
           // Account for the leading backslash.
           '#maxlength' => 254,
-        ];
+        );
         break;
     }
   }
 
   /**
-   * {@inheritdoc}
+   * Overrides \Drupal\views\Plugin\views\display\DisplayPluginBase::validateOptionsForm().
    */
   public function validateOptionsForm(&$form, FormStateInterface $form_state) {
     parent::validateOptionsForm($form, $form_state);
@@ -470,7 +422,7 @@ abstract class PathPluginBase extends DisplayPluginBase implements DisplayRouter
   }
 
   /**
-   * {@inheritdoc}
+   * Overrides \Drupal\views\Plugin\views\display\DisplayPluginBase::submitOptionsForm().
    */
   public function submitOptionsForm(&$form, FormStateInterface $form_state) {
     parent::submitOptionsForm($form, $form_state);
@@ -490,7 +442,7 @@ abstract class PathPluginBase extends DisplayPluginBase implements DisplayRouter
    *   A list of error strings.
    */
   protected function validatePath($path) {
-    $errors = [];
+    $errors = array();
     if (strpos($path, '%') === 0) {
       $errors[] = $this->t('"%" may not be used for the first segment of a path.');
     }
@@ -557,19 +509,7 @@ abstract class PathPluginBase extends DisplayPluginBase implements DisplayRouter
    * {@inheritdoc}
    */
   public function getAlteredRouteNames() {
-    return $this->state->get('views.view_route_names') ?: [];
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function remove() {
-    $menu_links = $this->getMenuLinks();
-    /** @var \Drupal\Core\Menu\MenuLinkManagerInterface $menu_link_manager */
-    $menu_link_manager = \Drupal::service('plugin.manager.menu.link');
-    foreach ($menu_links as $menu_link_id => $menu_link) {
-      $menu_link_manager->removeDefinition("views_view:$menu_link_id");
-    }
+    return $this->state->get('views.view_route_names') ?: array();
   }
 
 }

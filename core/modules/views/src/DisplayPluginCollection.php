@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\views\DisplayPluginCollection.
+ */
+
 namespace Drupal\views;
 
 use Drupal\Component\Plugin\Exception\PluginException;
@@ -26,7 +31,7 @@ class DisplayPluginCollection extends DefaultLazyPluginCollection {
   /**
    * Constructs a DisplayPluginCollection object.
    *
-   * @param \Drupal\views\ViewExecutable $view
+   * @param \Drupal\views\ViewExecutable
    *   The view which has this displays attached.
    * @param \Drupal\Component\Plugin\PluginManagerInterface $manager
    *   The manager to be used for instantiating plugins.
@@ -55,7 +60,7 @@ class DisplayPluginCollection extends DefaultLazyPluginCollection {
   }
 
   /**
-   * {@inheritdoc}
+   * Overrides \Drupal\Component\Plugin\LazyPluginCollection::clear().
    */
   public function clear() {
     foreach (array_filter($this->pluginInstances) as $display) {
@@ -80,7 +85,7 @@ class DisplayPluginCollection extends DefaultLazyPluginCollection {
     // display plugin isn't found.
     catch (PluginException $e) {
       $message = $e->getMessage();
-      \Drupal::messenger()->addWarning(t('@message', ['@message' => $message]));
+      drupal_set_message(t('@message', array('@message' => $message)), 'warning');
     }
 
     // If no plugin instance has been created, return NULL.
@@ -97,12 +102,13 @@ class DisplayPluginCollection extends DefaultLazyPluginCollection {
   }
 
   /**
-   * {@inheritdoc}
+   * Overrides \Drupal\Component\Plugin\LazyPluginCollection::remove().
    */
   public function remove($instance_id) {
     $this->get($instance_id)->remove();
 
     parent::remove($instance_id);
   }
+
 
 }

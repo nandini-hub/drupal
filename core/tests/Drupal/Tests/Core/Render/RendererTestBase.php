@@ -8,13 +8,11 @@
 namespace Drupal\Tests\Core\Render;
 
 use Drupal\Core\Cache\Cache;
-use Drupal\Core\Cache\CacheableMetadata;
-use Drupal\Core\Cache\Context\ContextCacheKeys;
 use Drupal\Core\Cache\MemoryBackend;
-use Drupal\Core\Security\TrustedCallbackInterface;
-use Drupal\Core\Render\PlaceholderGenerator;
-use Drupal\Core\Render\PlaceholderingRenderCache;
+use Drupal\Core\Language\LanguageInterface;
+use Drupal\Core\Render\Element;
 use Drupal\Core\Render\Renderer;
+use Drupal\Core\Render\RenderCache;
 use Drupal\Tests\UnitTestCase;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\HttpFoundation\Request;
@@ -23,7 +21,7 @@ use Symfony\Component\HttpFoundation\RequestStack;
 /**
  * Base class for the actual unit tests testing \Drupal\Core\Render\Renderer.
  */
-abstract class RendererTestBase extends UnitTestCase {
+class RendererTestBase extends UnitTestCase {
 
   /**
    * The tested renderer.
@@ -35,16 +33,9 @@ abstract class RendererTestBase extends UnitTestCase {
   /**
    * The tested render cache.
    *
-   * @var \Drupal\Core\Render\PlaceholderingRenderCache
+   * @var \Drupal\Core\Render\RenderCache
    */
   protected $renderCache;
-
-  /**
-   * The tested placeholder generator.
-   *
-   * @var \Drupal\Core\Render\PlaceholderGenerator
-   */
-  protected $placeholderGenerator;
 
   /**
    * @var \Symfony\Component\HttpFoundation\RequestStack
@@ -52,33 +43,33 @@ abstract class RendererTestBase extends UnitTestCase {
   protected $requestStack;
 
   /**
-   * @var \Drupal\Core\Cache\CacheFactoryInterface|\PHPUnit\Framework\MockObject\MockObject
+   * @var \Drupal\Core\Cache\CacheFactoryInterface|\PHPUnit_Framework_MockObject_MockObject
    */
   protected $cacheFactory;
 
   /**
-   * @var \Drupal\Core\Cache\Context\CacheContextsManager|\PHPUnit\Framework\MockObject\MockObject
+   * @var \Drupal\Core\Cache\CacheContextsManager|\PHPUnit_Framework_MockObject_MockObject
    */
   protected $cacheContexts;
 
   /**
    * The mocked controller resolver.
    *
-   * @var \Drupal\Core\Controller\ControllerResolverInterface|\PHPUnit\Framework\MockObject\MockObject
+   * @var \Drupal\Core\Controller\ControllerResolverInterface|\PHPUnit_Framework_MockObject_MockObject
    */
   protected $controllerResolver;
 
   /**
    * The mocked theme manager.
    *
-   * @var \Drupal\Core\Theme\ThemeManagerInterface|\PHPUnit\Framework\MockObject\MockObject
+   * @var \Drupal\Core\Theme\ThemeManagerInterface|\PHPUnit_Framework_MockObject_MockObject
    */
   protected $themeManager;
 
   /**
    * The mocked element info.
    *
-   * @var \Drupal\Core\Render\ElementInfoManagerInterface|\PHPUnit\Framework\MockObject\MockObject
+   * @var \Drupal\Core\Render\ElementInfoManagerInterface|\PHPUnit_Framework_MockObject_MockObject
    */
   protected $elementInfo;
 
@@ -86,13 +77,6 @@ abstract class RendererTestBase extends UnitTestCase {
    * @var \Drupal\Core\Cache\CacheBackendInterface
    */
   protected $memoryCache;
-
-  /**
-   * The simulated "current" user role, for use in tests with cache contexts.
-   *
-   * @var string
-   */
-  protected $currentUserRole;
 
   /**
    * The mocked renderer configuration.
@@ -104,11 +88,6 @@ abstract class RendererTestBase extends UnitTestCase {
       'languages:language_interface',
       'theme',
     ],
-    'auto_placeholder_conditions' => [
-      'max-age' => 0,
-      'contexts' => ['session', 'user'],
-      'tags' => ['current-temperature'],
-    ],
   ];
 
   /**
@@ -117,38 +96,18 @@ abstract class RendererTestBase extends UnitTestCase {
   protected function setUp() {
     parent::setUp();
 
-    $this->controllerResolver = $this->createMock('Drupal\Core\Controller\ControllerResolverInterface');
-    $this->themeManager = $this->createMock('Drupal\Core\Theme\ThemeManagerInterface');
-    $this->elementInfo = $this->createMock('Drupal\Core\Render\ElementInfoManagerInterface');
-    $this->elementInfo->expects($this->any())
-      ->method('getInfo')
-      ->willReturnCallback(function ($type) {
-        switch ($type) {
-          case 'details':
-            $info = ['#theme_wrappers' => ['details']];
-            break;
-          case 'link':
-            $info = ['#theme' => 'link'];
-            break;
-          default:
-            $info = [];
-        }
-        $info['#defaults_loaded'] = TRUE;
-        return $info;
-      });
+    $this->controllerResolver = $this->getMock('Drupal\Core\Controller\ControllerResolverInterface');
+    $this->themeManager = $this->getMock('Drupal\Core\Theme\ThemeManagerInterface');
+    $this->elementInfo = $this->getMock('Drupal\Core\Render\ElementInfoManagerInterface');
     $this->requestStack = new RequestStack();
-    $request = new Request();
-    $request->server->set('REQUEST_TIME', $_SERVER['REQUEST_TIME']);
-    $this->requestStack->push($request);
-    $this->cacheFactory = $this->createMock('Drupal\Core\Cache\CacheFactoryInterface');
-    $this->cacheContextsManager = $this->getMockBuilder('Drupal\Core\Cache\Context\CacheContextsManager')
+    $this->cacheFactory = $this->getMock('Drupal\Core\Cache\CacheFactoryInterface');
+    $this->cacheContextsManager = $this->getMockBuilder('Drupal\Core\Cache\CacheContextsManager')
       ->disableOriginalConstructor()
       ->getMock();
-    $this->cacheContextsManager->method('assertValidTokens')->willReturn(TRUE);
-    $current_user_role = &$this->currentUserRole;
     $this->cacheContextsManager->expects($this->any())
       ->method('convertTokensToKeys')
-      ->willReturnCallback(function ($context_tokens) use (&$current_user_role) {
+      ->willReturnCallback(function($context_tokens) {
+        global $current_user_role;
         $keys = [];
         foreach ($context_tokens as $context_id) {
           switch ($context_id) {
@@ -165,11 +124,10 @@ abstract class RendererTestBase extends UnitTestCase {
               $keys[] = $context_id;
           }
         }
-        return new ContextCacheKeys($keys, new CacheableMetadata());
+        return $keys;
       });
-    $this->placeholderGenerator = new PlaceholderGenerator($this->rendererConfig);
-    $this->renderCache = new PlaceholderingRenderCache($this->requestStack, $this->cacheFactory, $this->cacheContextsManager, $this->placeholderGenerator);
-    $this->renderer = new Renderer($this->controllerResolver, $this->themeManager, $this->elementInfo, $this->placeholderGenerator, $this->renderCache, $this->requestStack, $this->rendererConfig);
+    $this->renderCache = new RenderCache($this->requestStack, $this->cacheFactory, $this->cacheContextsManager);
+    $this->renderer = new Renderer($this->controllerResolver, $this->themeManager, $this->elementInfo, $this->renderCache, $this->rendererConfig);
 
     $container = new ContainerBuilder();
     $container->set('cache_contexts_manager', $this->cacheContextsManager);
@@ -179,18 +137,19 @@ abstract class RendererTestBase extends UnitTestCase {
   }
 
   /**
-   * Generates a random context value for the placeholder tests.
+   * Generates a random context value for the post-render cache tests.
    *
-   * The #context array used by the placeholder #lazy_builder callback will
-   * generally be used to provide metadata like entity IDs, field machine names,
-   * paths, etc. for JavaScript replacement of content or assets. In this test,
-   * the #lazy_builder callback PlaceholdersTest::callback() renders the context
-   * inside test HTML, so using any random string would sometimes cause random
-   * test failures because the test output would be unparseable. Instead, we
-   * provide random tokens for replacement.
+   * The #context array used by the post-render cache callback will generally
+   * be used to provide metadata like entity IDs, field machine names, paths,
+   * etc. for JavaScript replacement of content or assets. In this test, the
+   * callbacks PostRenderCache::callback() and PostRenderCache::placeholder()
+   * render the context inside test HTML, so using any random string would
+   * sometimes cause random test failures because the test output would be
+   * unparseable. Instead, we provide random tokens for replacement.
    *
-   * @see PlaceholdersTest::callback()
-   * @see https://www.drupal.org/node/2151609
+   * @see PostRenderCache::callback()
+   * @see PostRenderCache::placeholder()
+   * @see https://drupal.org/node/2151609
    */
   protected function randomContextValue() {
     $tokens = ['llama', 'alpaca', 'camel', 'moose', 'elk'];
@@ -209,11 +168,10 @@ abstract class RendererTestBase extends UnitTestCase {
    * Sets up a memory-based render cache back-end.
    */
   protected function setupMemoryCache() {
-    $this->memoryCache = $this->memoryCache ?: new MemoryBackend();
+    $this->memoryCache = $this->memoryCache ?: new MemoryBackend('render');
 
     $this->cacheFactory->expects($this->atLeastOnce())
       ->method('get')
-      ->with('render')
       ->willReturn($this->memoryCache);
   }
 
@@ -237,12 +195,9 @@ abstract class RendererTestBase extends UnitTestCase {
    *   The expected cache ID.
    * @param mixed $data
    *   The expected data for that cache ID.
-   * @param string $bin
-   *   The expected cache bin.
    */
-  protected function assertRenderCacheItem($cid, $data, $bin = 'render') {
-    $cache_backend = $this->cacheFactory->get($bin);
-    $cached = $cache_backend->get($cid);
+  protected function assertRenderCacheItem($cid, $data) {
+    $cached = $this->memoryCache->get($cid);
     $this->assertNotFalse($cached, sprintf('Expected cache item "%s" exists.', $cid));
     if ($cached !== FALSE) {
       $this->assertEquals($data, $cached->data, sprintf('Cache item "%s" has the expected data.', $cid));
@@ -253,67 +208,64 @@ abstract class RendererTestBase extends UnitTestCase {
 }
 
 
-class PlaceholdersTest implements TrustedCallbackInterface {
+class PostRenderCache {
 
   /**
-   * #lazy_builder callback; attaches setting, generates markup.
+   * #post_render_cache callback; modifies #markup, #attached and #context_test.
    *
-   * @param string $animal
-   *   An animal.
+   * @param array $element
+   *  A render array with the following keys:
+   *    - #markup
+   *    - #attached
+   * @param array $context
+   *  An array with the following keys:
+   *    - foo: contains a random string.
    *
-   * @return array
-   *   A renderable array.
+   * @return array $element
+   *   The updated $element.
    */
-  public static function callback($animal, $use_animal_as_array_key = FALSE) {
-    $value = $animal;
-    if ($use_animal_as_array_key) {
-      $value = [$animal => TRUE];
+  public static function callback(array $element, array $context) {
+    // Override #markup.
+    $element['#markup'] = '<p>overridden</p>';
+
+    // Extend #attached.
+    if (!isset($element['#attached']['drupalSettings']['common_test'])) {
+      $element['#attached']['drupalSettings']['common_test'] = [];
     }
-    return [
-      '#markup' => '<p>This is a rendered placeholder!</p>',
-      '#attached' => [
+    $element['#attached']['drupalSettings']['common_test'] += $context;
+
+    // Set new property.
+    $element['#context_test'] = $context;
+
+    return $element;
+  }
+
+  /**
+   * #post_render_cache callback; replaces placeholder, extends #attached.
+   *
+   * @param array $element
+   *   The renderable array that contains the to be replaced placeholder.
+   * @param array $context
+   *  An array with the following keys:
+   *    - bar: contains a random string.
+   *
+   * @return array
+   *   A render array.
+   */
+  public static function placeholder(array $element, array $context) {
+    $placeholder = \Drupal::service('renderer')->generateCachePlaceholder(__NAMESPACE__ . '\\PostRenderCache::placeholder', $context);
+    $replace_element = array(
+      '#markup' => '<bar>' . $context['bar'] . '</bar>',
+      '#attached' => array(
         'drupalSettings' => [
-          'dynamic_animal' => $value,
+          'common_test' => $context,
         ],
-      ],
-    ];
-  }
+      ),
+    );
+    $markup = \Drupal::service('renderer')->render($replace_element);
+    $element['#markup'] = str_replace($placeholder, $markup, $element['#markup']);
 
-  /**
-   * #lazy_builder callback; attaches setting, generates markup, user-specific.
-   *
-   * @param string $animal
-   *   An animal.
-   *
-   * @return array
-   *   A renderable array.
-   */
-  public static function callbackPerUser($animal) {
-    $build = static::callback($animal);
-    $build['#cache']['contexts'][] = 'user';
-    return $build;
-  }
-
-  /**
-   * #lazy_builder callback; attaches setting, generates markup, cache tag.
-   *
-   * @param string $animal
-   *   An animal.
-   *
-   * @return array
-   *   A renderable array.
-   */
-  public static function callbackTagCurrentTemperature($animal) {
-    $build = static::callback($animal);
-    $build['#cache']['tags'][] = 'current-temperature';
-    return $build;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public static function trustedCallbacks() {
-    return ['callbackTagCurrentTemperature', 'callbackPerUser', 'callback'];
+    return $element;
   }
 
 }

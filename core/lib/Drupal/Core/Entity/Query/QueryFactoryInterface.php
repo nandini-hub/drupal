@@ -1,7 +1,11 @@
 <?php
 
-namespace Drupal\Core\Entity\Query;
+/**
+ * @file
+ * Contains \Drupal\Core\Entity\Query\QueryFactoryInterface.
+ */
 
+namespace Drupal\Core\Entity\Query;
 use Drupal\Core\Entity\EntityTypeInterface;
 
 /**
@@ -23,7 +27,7 @@ interface QueryFactoryInterface {
   public function get(EntityTypeInterface $entity_type, $conjunction);
 
   /**
-   * Instantiates an aggregation query object for a given entity type.
+   * Returns a aggregation query object for a given entity type.
    *
    * @param \Drupal\Core\Entity\EntityTypeInterface $entity_type
    *   The entity type definition.
@@ -31,10 +35,9 @@ interface QueryFactoryInterface {
    *   - AND: all of the conditions on the query need to match.
    *   - OR: at least one of the conditions on the query need to match.
    *
+   * @throws \Drupal\Core\Entity\Query\QueryException
    * @return \Drupal\Core\Entity\Query\QueryAggregateInterface
    *   The query object that can query the given entity type.
-   *
-   * @throws \Drupal\Core\Entity\Query\QueryException
    */
   public function getAggregate(EntityTypeInterface $entity_type, $conjunction);
 

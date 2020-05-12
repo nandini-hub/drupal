@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\taxonomy\Plugin\views\argument_validator\Term.
+ */
+
 namespace Drupal\taxonomy\Plugin\views\argument_validator;
 
 use Drupal\views\ViewExecutable;
@@ -12,7 +17,7 @@ use Drupal\views\Plugin\views\argument_validator\Entity;
 class Term extends Entity {
 
   /**
-   * {@inheritdoc}
+   * Overrides \Drupal\views\Plugin\views\Plugin\views\PluginBase::init().
    */
   public function init(ViewExecutable $view, DisplayPluginBase $display, array &$options = NULL) {
     parent::init($view, $display, $options);
@@ -28,5 +33,4 @@ class Term extends Entity {
       }
     }
   }
-
 }

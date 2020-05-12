@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Entity\Annotation\EntityType.
+ */
+
 namespace Drupal\Core\Entity\Annotation;
 
 use Drupal\Component\Annotation\Plugin;
@@ -33,8 +38,6 @@ class EntityType extends Plugin {
 
   /**
    * The group machine name.
-   *
-   * @var string
    */
   public $group = 'default';
 

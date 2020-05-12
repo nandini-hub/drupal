@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Entity\EntityFormInterface.
+ */
+
 namespace Drupal\Core\Entity;
 
 use Drupal\Core\Extension\ModuleHandlerInterface;
@@ -24,7 +29,7 @@ interface EntityFormInterface extends BaseFormIdInterface {
   public function setOperation($operation);
 
   /**
-   * Gets the operation identifying the form.
+   * Returns the operation identifying the form.
    *
    * @return string
    *   The name of the operation.
@@ -32,7 +37,7 @@ interface EntityFormInterface extends BaseFormIdInterface {
   public function getOperation();
 
   /**
-   * Gets the form entity.
+   * Returns the form entity.
    *
    * The form entity which has been used for populating form element defaults.
    *
@@ -90,6 +95,19 @@ interface EntityFormInterface extends BaseFormIdInterface {
   public function buildEntity(array $form, FormStateInterface $form_state);
 
   /**
+   * Validates the submitted form values of the entity form.
+   *
+   * @param array $form
+   *   A nested array form elements comprising the form.
+   * @param \Drupal\Core\Form\FormStateInterface $form_state
+   *   The current state of the form.
+   *
+   * @return \Drupal\Core\Entity\ContentEntityTypeInterface
+   *   The built entity.
+   */
+  public function validate(array $form, FormStateInterface $form_state);
+
+  /**
    * Form submission handler for the 'save' action.
    *
    * Normally this method should be overridden to provide specific messages to
@@ -132,22 +150,7 @@ interface EntityFormInterface extends BaseFormIdInterface {
    *   The entity manager.
    *
    * @return $this
-   *
-   * @deprecated in drupal:8.0.0 and is removed from drupal:9.0.0. Use
-   * EntityFormInterface::setEntityTypeManager() instead.
-   *
-   * @see https://www.drupal.org/node/2549139
    */
   public function setEntityManager(EntityManagerInterface $entity_manager);
-
-  /**
-   * Sets the entity type manager for this form.
-   *
-   * @param \Drupal\Core\Entity\EntityTypeManagerInterface $entity_type_manager
-   *   The entity type manager.
-   *
-   * @return $this
-   */
-  public function setEntityTypeManager(EntityTypeManagerInterface $entity_type_manager);
 
 }

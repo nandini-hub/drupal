@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\taxonomy\Plugin\views\wizard\TaxonomyTerm.
+ */
+
 namespace Drupal\taxonomy\Plugin\views\wizard;
 
 use Drupal\views\Plugin\views\wizard\WizardPluginBase;
@@ -16,7 +21,7 @@ use Drupal\views\Plugin\views\wizard\WizardPluginBase;
 class TaxonomyTerm extends WizardPluginBase {
 
   /**
-   * {@inheritdoc}
+   * Overrides Drupal\views\Plugin\views\wizard\WizardPluginBase::defaultDisplayOptions().
    */
   protected function defaultDisplayOptions() {
     $display_options = parent::defaultDisplayOptions();

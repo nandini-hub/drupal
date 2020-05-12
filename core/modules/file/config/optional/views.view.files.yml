@@ -11,6 +11,7 @@ description: 'Find and manage files.'
 tag: default
 base_table: file_managed
 base_field: fid
+core: 8.x
 display:
   default:
     display_plugin: default
@@ -23,7 +24,7 @@ display:
         options:
           perm: 'access files overview'
       cache:
-        type: tag
+        type: none
         options: {  }
       query:
         type: views_query
@@ -51,8 +52,8 @@ display:
           id: 0
           total_pages: 0
           tags:
-            previous: '‹ Previous'
-            next: 'Next ›'
+            previous: '‹ previous'
+            next: 'next ›'
           expose:
             items_per_page: false
             items_per_page_label: 'Items per page'
@@ -235,7 +236,7 @@ display:
           delta_first_last: false
           multi_type: separator
           separator: ', '
-          field_api_classes: false
+          field_api_classes: 0
           plugin_id: field
           entity_type: file
           entity_field: filename
@@ -246,7 +247,7 @@ display:
           relationship: none
           group_type: group
           admin_label: ''
-          label: 'MIME type'
+          label: 'Mime type'
           exclude: false
           alter:
             alter_text: false
@@ -394,8 +395,8 @@ display:
           type: boolean
           settings:
             format: custom
-            format_custom_false: Temporary
-            format_custom_true: Permanent
+            format_custom_false: 'Temporary'
+            format_custom_true: 'Permanent'
           plugin_id: field
           entity_type: file
           entity_field: status
@@ -447,12 +448,10 @@ display:
           hide_empty: false
           empty_zero: false
           hide_alter_empty: true
-          type: timestamp
-          settings:
-            date_format: medium
-            custom_date_format: ''
-            timezone: ''
-          plugin_id: field
+          date_format: medium
+          custom_date_format: ''
+          timezone: ''
+          plugin_id: date
           entity_type: file
           entity_field: created
         changed:
@@ -503,12 +502,10 @@ display:
           hide_empty: false
           empty_zero: false
           hide_alter_empty: true
-          type: timestamp
-          settings:
-            date_format: medium
-            custom_date_format: ''
-            timezone: ''
-          plugin_id: field
+          date_format: medium
+          custom_date_format: ''
+          timezone: ''
+          plugin_id: date
           entity_type: file
           entity_field: changed
         count:
@@ -564,7 +561,7 @@ display:
           decimal: .
           separator: ','
           format_plural: true
-          format_plural_string: !!binary MSBwbGFjZQNAY291bnQgcGxhY2Vz
+          format_plural_string: "1 place\x03@count places"
           prefix: ''
           suffix: ''
           plugin_id: numeric
@@ -594,8 +591,6 @@ display:
               authenticated: authenticated
               anonymous: '0'
               administrator: '0'
-            operator_limit_selection: false
-            operator_list: {  }
           is_grouped: false
           group_info:
             label: ''
@@ -624,7 +619,7 @@ display:
           exposed: true
           expose:
             operator_id: filemime_op
-            label: 'MIME type'
+            label: 'Mime type'
             description: ''
             use_operator: false
             operator: filemime_op
@@ -636,8 +631,6 @@ display:
               authenticated: authenticated
               anonymous: '0'
               administrator: '0'
-            operator_limit_selection: false
-            operator_list: {  }
           is_grouped: false
           group_info:
             label: ''
@@ -679,8 +672,6 @@ display:
               anonymous: '0'
               administrator: '0'
             reduce: false
-            operator_limit_selection: false
-            operator_list: {  }
           is_grouped: false
           group_info:
             label: ''
@@ -723,13 +714,9 @@ display:
       display_extenders: {  }
     cache_metadata:
       contexts:
-        - 'languages:language_content'
-        - 'languages:language_interface'
+        - languages
         - url
-        - url.query_args
-        - user.permissions
-      max-age: -1
-      tags: {  }
+      cacheable: false
   page_1:
     display_plugin: page
     id: page_1
@@ -760,13 +747,9 @@ display:
       display_extenders: {  }
     cache_metadata:
       contexts:
-        - 'languages:language_content'
-        - 'languages:language_interface'
+        - languages
         - url
-        - url.query_args
-        - user.permissions
-      max-age: -1
-      tags: {  }
+      cacheable: false
   page_2:
     display_plugin: page
     id: page_2
@@ -796,8 +779,8 @@ display:
           id: 0
           total_pages: 0
           tags:
-            previous: '‹ Previous'
-            next: 'Next ›'
+            previous: '‹ previous'
+            next: 'next ›'
           expose:
             items_per_page: false
             items_per_page_label: 'Items per page'
@@ -1012,7 +995,7 @@ display:
           decimal: .
           separator: ','
           format_plural: false
-          format_plural_string: !!binary MQNAY291bnQ=
+          format_plural_string: "1\x03@count"
           prefix: ''
           suffix: ''
           plugin_id: numeric
@@ -1032,7 +1015,7 @@ display:
             title_enable: false
             title: All
           title_enable: true
-          title: 'File usage information for {{ arguments.fid }}'
+          title: 'File usage information for %1'
           default_argument_type: fixed
           default_argument_options:
             argument: ''
@@ -1118,9 +1101,6 @@ display:
       display_extenders: {  }
     cache_metadata:
       contexts:
-        - 'languages:language_interface'
+        - languages
         - url
-        - url.query_args
-        - user.permissions
-      max-age: -1
-      tags: {  }
+      cacheable: false

@@ -1,6 +1,15 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\Component\Gettext\PoMemoryWriter.
+ */
+
 namespace Drupal\Component\Gettext;
+
+use Drupal\Component\Gettext\PoWriterInterface;
+use Drupal\Component\Gettext\PoHeader;
+use Drupal\Component\Gettext\PoItem;
 
 /**
  * Defines a Gettext PO memory writer, to be used by the installer.
@@ -12,29 +21,29 @@ class PoMemoryWriter implements PoWriterInterface {
    *
    * @var array
    */
-  protected $items;
+  private $_items;
 
   /**
    * Constructor, initialize empty items.
    */
-  public function __construct() {
-    $this->items = [];
+  function __construct() {
+    $this->_items = array();
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Component\Gettext\PoWriterInterface::writeItem().
    */
   public function writeItem(PoItem $item) {
     if (is_array($item->getSource())) {
-      $item->setSource(implode(PoItem::DELIMITER, $item->getSource()));
-      $item->setTranslation(implode(PoItem::DELIMITER, $item->getTranslation()));
+      $item->setSource(implode(LOCALE_PLURAL_DELIMITER, $item->getSource()));
+      $item->setTranslation(implode(LOCALE_PLURAL_DELIMITER, $item->getTranslation()));
     }
     $context = $item->getContext();
-    $this->items[$context != NULL ? $context : ''][$item->getSource()] = $item->getTranslation();
+    $this->_items[$context != NULL ? $context : ''][$item->getSource()] = $item->getTranslation();
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Component\Gettext\PoWriterInterface::writeItems().
    */
   public function writeItems(PoReaderInterface $reader, $count = -1) {
     $forever = $count == -1;
@@ -49,7 +58,7 @@ class PoMemoryWriter implements PoWriterInterface {
    * @return array PoItem
    */
   public function getData() {
-    return $this->items;
+    return $this->_items;
   }
 
   /**
@@ -57,7 +66,7 @@ class PoMemoryWriter implements PoWriterInterface {
    *
    * Not implemented. Not relevant for the MemoryWriter.
    */
-  public function setLangcode($langcode) {
+  function setLangcode($langcode) {
   }
 
   /**
@@ -65,7 +74,7 @@ class PoMemoryWriter implements PoWriterInterface {
    *
    * Not implemented. Not relevant for the MemoryWriter.
    */
-  public function getLangcode() {
+  function getLangcode() {
   }
 
   /**
@@ -73,7 +82,7 @@ class PoMemoryWriter implements PoWriterInterface {
    *
    * Not implemented. Not relevant for the MemoryWriter.
    */
-  public function getHeader() {
+  function getHeader() {
   }
 
   /**
@@ -81,7 +90,7 @@ class PoMemoryWriter implements PoWriterInterface {
    *
    * Not implemented. Not relevant for the MemoryWriter.
    */
-  public function setHeader(PoHeader $header) {
+  function setHeader(PoHeader $header) {
   }
 
 }

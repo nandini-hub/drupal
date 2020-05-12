@@ -4,5 +4,4 @@ services:
     tags:
       - { name: event_subscriber }
       - { name: needs_destruction }
-    parent: container.trait
     arguments: ['@state']

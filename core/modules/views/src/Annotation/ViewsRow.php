@@ -1,6 +1,13 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\views\Annotation\ViewsRow.
+ */
+
 namespace Drupal\views\Annotation;
+
+use Drupal\views\Annotation\ViewsPluginAnnotationBase;
 
 /**
  * Defines a Plugin annotation object for views row plugins.
@@ -50,7 +57,7 @@ class ViewsRow extends ViewsPluginAnnotationBase {
   /**
    * The theme function used to render the row output.
    *
-   * @var string
+   * @return string
    */
   public $theme;
 

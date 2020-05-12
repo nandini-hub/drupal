@@ -1,13 +1,16 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\node\NodeGrantStorageInterface.
+ */
+
 namespace Drupal\node;
 
 use Drupal\Core\Session\AccountInterface;
 
 /**
  * Provides an interface for node access grant storage.
- *
- * @ingroup node_access
  */
 interface NodeGrantDatabaseStorageInterface {
 
@@ -18,7 +21,7 @@ interface NodeGrantDatabaseStorageInterface {
    *   A user object representing the user for whom the operation is to be
    *   performed.
    *
-   * @return int
+   * @return int.
    *   Status of the access check.
    */
   public function checkAll(AccountInterface $account);
@@ -31,11 +34,11 @@ interface NodeGrantDatabaseStorageInterface {
    * @param array $tables
    *   A list of tables that need to be part of the alter.
    * @param string $op
-   *   The operation to be performed on the node. Possible values are:
-   *   - "view"
-   *   - "update"
-   *   - "delete"
-   *   - "create"
+   *    The operation to be performed on the node. Possible values are:
+   *    - "view"
+   *    - "update"
+   *    - "delete"
+   *    - "create"
    * @param \Drupal\Core\Session\AccountInterface $account
    *   A user object representing the user for whom the operation is to be
    *   performed.
@@ -56,7 +59,7 @@ interface NodeGrantDatabaseStorageInterface {
    * permission changes.
    *
    * Note: Don't call this method directly from a contributed module. Call
-   * \Drupal\node\NodeAccessControlHandlerInterface::acquireGrants() instead.
+   * node_access_write_grants() instead.
    *
    * @param \Drupal\node\NodeInterface $node
    *   The node whose grants are being written.
@@ -73,6 +76,9 @@ interface NodeGrantDatabaseStorageInterface {
    *   (optional) If false, does not delete records. This is only for optimization
    *   purposes, and assumes the caller has already performed a mass delete of
    *   some form. Defaults to TRUE.
+   *
+   * @see node_access_write_grants()
+   * @see node_access_acquire_grants()
    */
   public function write(NodeInterface $node, array $grants, $realm = NULL, $delete = TRUE);
 
@@ -94,6 +100,8 @@ interface NodeGrantDatabaseStorageInterface {
    * @param string $operation
    *   The entity operation. Usually one of 'view', 'edit', 'create' or
    *   'delete'.
+   * @param string $langcode
+   *   The language code for which to check access.
    * @param \Drupal\Core\Session\AccountInterface $account
    *   The user for which to check access.
    *
@@ -105,7 +113,7 @@ interface NodeGrantDatabaseStorageInterface {
    * @see hook_node_access_records()
    * @see \Drupal\node\NodeGrantDatabaseStorageInterface::writeDefault()
    */
-  public function access(NodeInterface $node, $operation, AccountInterface $account);
+  public function access(NodeInterface $node, $operation, $langcode, AccountInterface $account);
 
   /**
    * Counts available node grants.

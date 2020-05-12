@@ -5,7 +5,7 @@
  * Theming for maintenance pages.
  */
 
-use Drupal\Core\Installer\InstallerKernel;
+use Drupal\Component\Utility\Unicode;
 use Drupal\Core\Site\Settings;
 
 /**
@@ -29,10 +29,11 @@ function _drupal_maintenance_theme() {
   require_once __DIR__ . '/file.inc';
   require_once __DIR__ . '/module.inc';
   require_once __DIR__ . '/database.inc';
+  Unicode::check();
 
   // Install and update pages are treated differently to prevent theming overrides.
   if (defined('MAINTENANCE_MODE') && (MAINTENANCE_MODE == 'install' || MAINTENANCE_MODE == 'update')) {
-    if (InstallerKernel::installationAttempted()) {
+    if (drupal_installation_attempted()) {
       $custom_theme = $GLOBALS['install_state']['theme'];
     }
     else {
@@ -69,7 +70,7 @@ function _drupal_maintenance_theme() {
   $theme_init = \Drupal::service('theme.initialization');
   $theme_handler = \Drupal::service('theme_handler');
   if (empty($themes) || !isset($themes[$custom_theme])) {
-    $themes = \Drupal::service('extension.list.theme')->getList();
+    $themes = $theme_handler->rebuildThemeData();
     $theme_handler->addTheme($themes[$custom_theme]);
   }
 
@@ -81,57 +82,82 @@ function _drupal_maintenance_theme() {
   $theme = $custom_theme;
 
   // Find all our ancestor themes and put them in an array.
-  // @todo This is just a workaround. Find a better way how to handle themes
-  //   on maintenance pages, see https://www.drupal.org/node/2322619.
-  // This code is basically a duplicate of
-  // \Drupal\Core\Theme\ThemeInitialization::getActiveThemeByName.
-  $base_themes = [];
+  $base_theme = array();
   $ancestor = $theme;
   while ($ancestor && isset($themes[$ancestor]->base_theme)) {
-    $base_themes[] = $themes[$themes[$ancestor]->base_theme];
+    $base_theme[] = $themes[$themes[$ancestor]->base_theme];
     $ancestor = $themes[$ancestor]->base_theme;
     if ($ancestor) {
-      // Ensure that the base theme is added and installed.
+      // Ensure that the base theme is added.
       $theme_handler->addTheme($themes[$ancestor]);
     }
   }
-  \Drupal::theme()->setActiveTheme($theme_init->getActiveTheme($themes[$custom_theme], $base_themes));
+  // @todo This is just a workaround. Find a better way how to handle themes
+  //   on maintenance pages, see https://www.drupal.org/node/2322619.
+  \Drupal::theme()->setActiveTheme($theme_init->getActiveTheme($themes[$custom_theme], array_reverse($base_theme)));
   // Prime the theme registry.
   Drupal::service('theme.registry');
 }
 
 /**
- * Prepares variables for authorize.php operation report templates.
+ * Returns HTML for a results report of an operation run by authorize.php.
  *
- * This report displays the results of an operation run via authorize.php.
- *
- * Default template: authorize-report.html.twig.
- *
- * @param array $variables
+ * @param $variables
  *   An associative array containing:
  *   - messages: An array of result messages.
+ *
+ * @ingroup themeable
  */
-function template_preprocess_authorize_report(&$variables) {
-  $messages = [];
-  if (!empty($variables['messages'])) {
-    foreach ($variables['messages'] as $heading => $logs) {
-      $items = [];
+function theme_authorize_report($variables) {
+  $messages = $variables['messages'];
+  $output = '';
+  if (!empty($messages)) {
+    $output .= '<div class="authorize-results">';
+    foreach ($messages as $heading => $logs) {
+      $items = array();
       foreach ($logs as $number => $log_message) {
         if ($number === '#abort') {
           continue;
         }
-        $class = 'authorize-results__' . ($log_message['success'] ? 'success' : 'failure');
-        $items[] = [
-          '#wrapper_attributes' => ['class' => [$class]],
-          '#markup' => $log_message['message'],
-        ];
+        $authorize_message = array(
+          '#theme' => 'authorize_message',
+          '#message' => $log_message['message'],
+          '#success' => $log_message['success'],
+        );
+        $items[] = drupal_render($authorize_message);
       }
-      $messages[] = [
+      $item_list = array(
         '#theme' => 'item_list',
         '#items' => $items,
         '#title' => $heading,
-      ];
+      );
+      $output .= drupal_render($item_list);
     }
+    $output .= '</div>';
   }
-  $variables['messages'] = $messages;
+  return $output;
+}
+
+/**
+ * Returns HTML for a single log message from the authorize.php batch operation.
+ *
+ * @param $variables
+ *   An associative array containing:
+ *   - message: The log message.
+ *     It's the caller's responsibility to ensure this string contains no
+ *     dangerous HTML such as SCRIPT tags.
+ *   - success: A boolean indicating failure or success.
+ *
+ * @ingroup themeable
+ */
+function theme_authorize_message($variables) {
+  $message = $variables['message'];
+  $success = $variables['success'];
+  if ($success) {
+    $item = array('data' => array('#markup' => $message), 'class' => array('authorize-results__success'));
+  }
+  else {
+    $item = array('data' => array('#markup' => $message), 'class' => array('authorize-results__failure'));
+  }
+  return $item;
 }

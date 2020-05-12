@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\State\State.
+ */
+
 namespace Drupal\Core\State;
 
 use Drupal\Core\KeyValueStore\KeyValueFactoryInterface;
@@ -21,7 +26,7 @@ class State implements StateInterface {
    *
    * @var array
    */
-  protected $cache = [];
+  protected $cache = array();
 
   /**
    * Constructs a State object.
@@ -29,7 +34,7 @@ class State implements StateInterface {
    * @param \Drupal\Core\KeyValueStore\KeyValueFactoryInterface $key_value_factory
    *   The key value store to use.
    */
-  public function __construct(KeyValueFactoryInterface $key_value_factory) {
+  function __construct(KeyValueFactoryInterface $key_value_factory) {
     $this->keyValueStore = $key_value_factory->get('state');
   }
 
@@ -37,7 +42,7 @@ class State implements StateInterface {
    * {@inheritdoc}
    */
   public function get($key, $default = NULL) {
-    $values = $this->getMultiple([$key]);
+    $values = $this->getMultiple(array($key));
     return isset($values[$key]) ? $values[$key] : $default;
   }
 
@@ -45,8 +50,8 @@ class State implements StateInterface {
    * {@inheritdoc}
    */
   public function getMultiple(array $keys) {
-    $values = [];
-    $load = [];
+    $values = array();
+    $load = array();
     foreach ($keys as $key) {
       // Check if we have a value in the cache.
       if (isset($this->cache[$key])) {
@@ -98,7 +103,7 @@ class State implements StateInterface {
    * {@inheritdoc}
    */
   public function delete($key) {
-    $this->deleteMultiple([$key]);
+    $this->deleteMultiple(array($key));
   }
 
   /**
@@ -115,7 +120,7 @@ class State implements StateInterface {
    * {@inheritdoc}
    */
   public function resetCache() {
-    $this->cache = [];
+    $this->cache = array();
   }
 
 }

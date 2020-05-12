@@ -1,10 +1,12 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\comment\Tests\CommentTestBase.
+ */
+
 namespace Drupal\comment\Tests;
 
-@trigger_error(__NAMESPACE__ . '\CommentTestBase is deprecated in Drupal 8.4.0 and will be removed before Drupal 9.0.0. Use \Drupal\Tests\comment\Functional\CommentTestBase instead. See http://www.drupal.org/node/2908490', E_USER_DEPRECATED);
-
-use Drupal\Component\Render\FormattableMarkup;
 use Drupal\comment\Entity\CommentType;
 use Drupal\comment\Entity\Comment;
 use Drupal\comment\CommentInterface;
@@ -15,11 +17,6 @@ use Drupal\simpletest\WebTestBase;
 
 /**
  * Provides setup and helper methods for comment tests.
- *
- * @deprecated in drupal:8.4.0 and is removed from drupal:9.0.0.
- *   Use \Drupal\Tests\comment\Functional\CommentTestBase instead.
- *
- * @see https://www.drupal.org/node/2908490
  */
 abstract class CommentTestBase extends WebTestBase {
 
@@ -30,14 +27,7 @@ abstract class CommentTestBase extends WebTestBase {
    *
    * @var array
    */
-  public static $modules = [
-    'block',
-    'comment',
-    'node',
-    'history',
-    'field_ui',
-    'datetime',
-  ];
+  public static $modules = array('comment', 'node', 'history', 'field_ui', 'datetime');
 
   /**
    * An administrative user with permission to configure comment settings.
@@ -67,11 +57,11 @@ abstract class CommentTestBase extends WebTestBase {
     // child classes may specify the standard profile.
     $types = NodeType::loadMultiple();
     if (empty($types['article'])) {
-      $this->drupalCreateContentType(['type' => 'article', 'name' => t('Article')]);
+      $this->drupalCreateContentType(array('type' => 'article', 'name' => t('Article')));
     }
 
     // Create two test users.
-    $this->adminUser = $this->drupalCreateUser([
+    $this->adminUser = $this->drupalCreateUser(array(
       'administer content types',
       'administer comments',
       'administer comment types',
@@ -80,26 +70,22 @@ abstract class CommentTestBase extends WebTestBase {
       'skip comment approval',
       'post comments',
       'access comments',
-      // Usernames aren't shown in comment edit form autocomplete unless this
-      // permission is granted.
-      'access user profiles',
       'access content',
-     ]);
-    $this->webUser = $this->drupalCreateUser([
+     ));
+    $this->webUser = $this->drupalCreateUser(array(
       'access comments',
       'post comments',
       'create article content',
       'edit own comments',
       'skip comment approval',
       'access content',
-    ]);
+    ));
 
     // Create comment field on article.
     $this->addDefaultCommentField('node', 'article');
 
     // Create a test node authored by the web user.
-    $this->node = $this->drupalCreateNode(['type' => 'article', 'promote' => 1, 'uid' => $this->webUser->id()]);
-    $this->drupalPlaceBlock('local_tasks_block');
+    $this->node = $this->drupalCreateNode(array('type' => 'article', 'promote' => 1, 'uid' => $this->webUser->id()));
   }
 
   /**
@@ -122,24 +108,24 @@ abstract class CommentTestBase extends WebTestBase {
    *   The posted comment or NULL when posted comment was not found.
    */
   public function postComment($entity, $comment, $subject = '', $contact = NULL, $field_name = 'comment') {
-    $edit = [];
+    $edit = array();
     $edit['comment_body[0][value]'] = $comment;
 
     if ($entity !== NULL) {
-      $field = FieldConfig::loadByName($entity->getEntityTypeId(), $entity->bundle(), $field_name);
+      $field = FieldConfig::loadByName('node', $entity->bundle(), $field_name);
     }
     else {
       $field = FieldConfig::loadByName('node', 'article', $field_name);
     }
-    $preview_mode = $field->getSetting('preview');
+    $preview_mode = $field->settings['preview'];
 
     // Must get the page before we test for fields.
     if ($entity !== NULL) {
-      $this->drupalGet('comment/reply/' . $entity->getEntityTypeId() . '/' . $entity->id() . '/' . $field_name);
+      $this->drupalGet('comment/reply/node/' . $entity->id() . '/' . $field_name);
     }
 
     // Determine the visibility of subject form field.
-    if (\Drupal::service('entity_display.repository')->getFormDisplay('comment', 'comment')->getComponent('subject')) {
+    if (entity_get_form_display('comment', 'comment', 'default')->getComponent('subject')) {
       // Subject input allowed.
       $edit['subject[0][value]'] = $subject;
     }
@@ -169,13 +155,12 @@ abstract class CommentTestBase extends WebTestBase {
         $this->drupalPostForm(NULL, $edit, t('Save'));
         break;
     }
-    $match = [];
+    $match = array();
     // Get comment ID
     preg_match('/#comment-([0-9]+)/', $this->getURL(), $match);
 
     // Get comment.
-    if ($contact !== TRUE) {
-      // If true then attempting to find error message.
+    if ($contact !== TRUE) { // If true then attempting to find error message.
       if ($subject) {
         $this->assertText($subject, 'Comment subject posted.');
       }
@@ -184,7 +169,7 @@ abstract class CommentTestBase extends WebTestBase {
     }
 
     if (isset($match[1])) {
-      \Drupal::entityTypeManager()->getStorage('comment')->resetCache([$match[1]]);
+      \Drupal::entityManager()->getStorage('comment')->resetCache(array($match[1]));
       return Comment::load($match[1]);
     }
   }
@@ -197,27 +182,19 @@ abstract class CommentTestBase extends WebTestBase {
    * @param bool $reply
    *   Boolean indicating whether the comment is a reply to another comment.
    *
-   * @return bool
+   * @return boolean
    *   Boolean indicating whether the comment was found.
    */
-  public function commentExists(CommentInterface $comment = NULL, $reply = FALSE) {
+  function commentExists(CommentInterface $comment = NULL, $reply = FALSE) {
     if ($comment) {
-      $comment_element = $this->cssSelect('.comment-wrapper ' . ($reply ? '.indented ' : '') . 'article#comment-' . $comment->id());
-      if (empty($comment_element)) {
-        return FALSE;
-      }
+      $regex = '!' . ($reply ? '<div class="indented">(.*?)' : '');
+      $regex .= '<a id="comment-' . $comment->id() . '"(.*?)';
+      $regex .= $comment->getSubject() . '(.*?)';
+      $regex .= $comment->comment_body->value . '(.*?)';
+      $regex .= ($reply ? '</article>\s</div>(.*?)' : '');
+      $regex .= '!s';
 
-      $comment_title = $comment_element[0]->xpath('div/h3/a');
-      if (empty($comment_title) || ((string) $comment_title[0]) !== $comment->getSubject()) {
-        return FALSE;
-      }
-
-      $comment_body = $comment_element[0]->xpath('div/div/p');
-      if (empty($comment_body) || ((string) $comment_body[0]) !== $comment->comment_body->value) {
-        return FALSE;
-      }
-
-      return TRUE;
+      return (boolean) preg_match($regex, $this->getRawContent());
     }
     else {
       return FALSE;
@@ -230,8 +207,8 @@ abstract class CommentTestBase extends WebTestBase {
    * @param \Drupal\comment\CommentInterface $comment
    *   Comment to delete.
    */
-  public function deleteComment(CommentInterface $comment) {
-    $this->drupalPostForm('comment/' . $comment->id() . '/delete', [], t('Delete'));
+  function deleteComment(CommentInterface $comment) {
+    $this->drupalPostForm('comment/' . $comment->id() . '/delete', array(), t('Delete'));
     $this->assertText(t('The comment and all its replies have been deleted.'), 'Comment deleted.');
   }
 
@@ -242,12 +219,11 @@ abstract class CommentTestBase extends WebTestBase {
    *   Boolean specifying whether the subject field should be enabled.
    */
   public function setCommentSubject($enabled) {
-    $form_display = \Drupal::service('entity_display.repository')
-      ->getFormDisplay('comment', 'comment');
+    $form_display = entity_get_form_display('comment', 'comment', 'default');
     if ($enabled) {
-      $form_display->setComponent('subject', [
+      $form_display->setComponent('subject', array(
         'type' => 'string_textfield',
-      ]);
+      ));
     }
     else {
       $form_display->removeComponent('subject');
@@ -280,7 +256,7 @@ abstract class CommentTestBase extends WebTestBase {
         $mode_text = 'required';
         break;
     }
-    $this->setCommentSettings('preview', $mode, new FormattableMarkup('Comment preview @mode_text.', ['@mode_text' => $mode_text]), $field_name);
+    $this->setCommentSettings('preview', $mode, format_string('Comment preview @mode_text.', array('@mode_text' => $mode_text)), $field_name);
   }
 
   /**
@@ -300,14 +276,14 @@ abstract class CommentTestBase extends WebTestBase {
   /**
    * Sets the value governing restrictions on anonymous comments.
    *
-   * @param int $level
+   * @param integer $level
    *   The level of the contact information allowed for anonymous comments:
    *   - 0: No contact information allowed.
    *   - 1: Contact information allowed but not required.
    *   - 2: Contact information required.
    */
-  public function setCommentAnonymous($level) {
-    $this->setCommentSettings('anonymous', $level, new FormattableMarkup('Anonymous commenting set to level @level.', ['@level' => $level]));
+  function setCommentAnonymous($level) {
+    $this->setCommentSettings('anonymous', $level, format_string('Anonymous commenting set to level @level.', array('@level' => $level)));
   }
 
   /**
@@ -320,7 +296,7 @@ abstract class CommentTestBase extends WebTestBase {
    *   Defaults to 'comment'.
    */
   public function setCommentsPerPage($number, $field_name = 'comment') {
-    $this->setCommentSettings('per_page', $number, new FormattableMarkup('Number of comments per page set to @number.', ['@number' => $number]), $field_name);
+    $this->setCommentSettings('per_page', $number, format_string('Number of comments per page set to @number.', array('@number' => $number)), $field_name);
   }
 
   /**
@@ -338,7 +314,7 @@ abstract class CommentTestBase extends WebTestBase {
    */
   public function setCommentSettings($name, $value, $message, $field_name = 'comment') {
     $field = FieldConfig::loadByName('node', 'article', $field_name);
-    $field->setSetting($name, $value);
+    $field->settings[$name] = $value;
     $field->save();
     // Display status message.
     $this->pass($message);
@@ -347,10 +323,10 @@ abstract class CommentTestBase extends WebTestBase {
   /**
    * Checks whether the commenter's contact information is displayed.
    *
-   * @return bool
+   * @return boolean
    *   Contact info is available.
    */
-  public function commentContactInfoAvailable() {
+  function commentContactInfoAvailable() {
     return preg_match('/(input).*?(name="name").*?(input).*?(name="mail").*?(input).*?(name="homepage")/s', $this->getRawContent());
   }
 
@@ -364,18 +340,18 @@ abstract class CommentTestBase extends WebTestBase {
    * @param bool $approval
    *   Operation is found on approval page.
    */
-  public function performCommentOperation(CommentInterface $comment, $operation, $approval = FALSE) {
-    $edit = [];
+  function performCommentOperation(CommentInterface $comment, $operation, $approval = FALSE) {
+    $edit = array();
     $edit['operation'] = $operation;
     $edit['comments[' . $comment->id() . ']'] = TRUE;
     $this->drupalPostForm('admin/content/comment' . ($approval ? '/approval' : ''), $edit, t('Update'));
 
     if ($operation == 'delete') {
-      $this->drupalPostForm(NULL, [], t('Delete'));
-      $this->assertRaw(\Drupal::translation()->formatPlural(1, 'Deleted 1 comment.', 'Deleted @count comments.'), new FormattableMarkup('Operation "@operation" was performed on comment.', ['@operation' => $operation]));
+      $this->drupalPostForm(NULL, array(), t('Delete comments'));
+      $this->assertRaw(\Drupal::translation()->formatPlural(1, 'Deleted 1 comment.', 'Deleted @count comments.'), format_string('Operation "@operation" was performed on comment.', array('@operation' => $operation)));
     }
     else {
-      $this->assertText(t('The update has been performed.'), new FormattableMarkup('Operation "@operation" was performed on comment.', ['@operation' => $operation]));
+      $this->assertText(t('The update has been performed.'), format_string('Operation "@operation" was performed on comment.', array('@operation' => $operation)));
     }
   }
 
@@ -385,10 +361,10 @@ abstract class CommentTestBase extends WebTestBase {
    * @param string $subject
    *   Comment subject to find.
    *
-   * @return int
+   * @return integer
    *   Comment id.
    */
-  public function getUnapprovedComment($subject) {
+  function getUnapprovedComment($subject) {
     $this->drupalGet('admin/content/comment/approval');
     preg_match('/href="(.*?)#comment-([^"]+)"(.*?)>(' . $subject . ')/', $this->getRawContent(), $match);
 
@@ -405,12 +381,12 @@ abstract class CommentTestBase extends WebTestBase {
    *   Created comment type.
    */
   protected function createCommentType($label) {
-    $bundle = CommentType::create([
+    $bundle = CommentType::create(array(
       'id' => $label,
       'label' => $label,
       'description' => '',
       'target_entity_type_id' => 'node',
-    ]);
+    ));
     $bundle->save();
     return $bundle;
   }

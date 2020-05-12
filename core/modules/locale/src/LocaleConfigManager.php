@@ -1,13 +1,18 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\locale\LocaleConfigManager.
+ */
+
 namespace Drupal\locale;
 
 use Drupal\Component\Utility\NestedArray;
 use Drupal\Core\Config\ConfigFactoryInterface;
-use Drupal\Core\Config\ConfigManagerInterface;
+use Drupal\Core\Config\InstallStorage;
 use Drupal\Core\Config\StorageInterface;
 use Drupal\Core\Config\TypedConfigManagerInterface;
-use Drupal\Core\StringTranslation\TranslatableMarkup;
+use Drupal\Core\StringTranslation\TranslationWrapper;
 use Drupal\Core\TypedData\TraversableTypedDataInterface;
 use Drupal\Core\TypedData\TypedDataInterface;
 use Drupal\language\ConfigurableLanguageManagerInterface;
@@ -43,7 +48,7 @@ class LocaleConfigManager {
   /**
    * The string storage for reading and writing translations.
    *
-   * @var \Drupal\locale\StringStorageInterface
+   * @var \Drupal\locale\StringStorageInterface;
    */
   protected $localeStorage;
 
@@ -92,13 +97,6 @@ class LocaleConfigManager {
   protected $defaultConfigStorage;
 
   /**
-   * The configuration manager.
-   *
-   * @var \Drupal\Core\Config\ConfigManagerInterface
-   */
-  protected $configManager;
-
-  /**
    * Creates a new typed configuration manager.
    *
    * @param \Drupal\Core\Config\StorageInterface $config_storage
@@ -113,39 +111,37 @@ class LocaleConfigManager {
    *   The language manager.
    * @param \Drupal\locale\LocaleDefaultConfigStorage $default_config_storage
    *   The locale default configuration storage.
-   * @param \Drupal\Core\Config\ConfigManagerInterface $config_manager
-   *   The configuration manager.
    */
-  public function __construct(StorageInterface $config_storage, StringStorageInterface $locale_storage, ConfigFactoryInterface $config_factory, TypedConfigManagerInterface $typed_config, ConfigurableLanguageManagerInterface $language_manager, LocaleDefaultConfigStorage $default_config_storage, ConfigManagerInterface $config_manager) {
+  public function __construct(StorageInterface $config_storage, StringStorageInterface $locale_storage, ConfigFactoryInterface $config_factory, TypedConfigManagerInterface $typed_config, ConfigurableLanguageManagerInterface $language_manager, LocaleDefaultConfigStorage $default_config_storage) {
     $this->configStorage = $config_storage;
     $this->localeStorage = $locale_storage;
     $this->configFactory = $config_factory;
     $this->typedConfigManager = $typed_config;
     $this->languageManager = $language_manager;
     $this->defaultConfigStorage = $default_config_storage;
-    $this->configManager = $config_manager;
   }
 
   /**
-   * Gets array of translated strings for Locale translatable configuration.
+   * Gets array of translation wrappers for translatable configuration.
    *
    * @param string $name
    *   Configuration object name.
    *
    * @return array
-   *   Array of Locale translatable elements of the default configuration in
-   *   $name.
+   *   Array of translatable elements of the default configuration in $name.
    */
   public function getTranslatableDefaultConfig($name) {
     if ($this->isSupported($name)) {
       // Create typed configuration wrapper based on install storage data.
       $data = $this->defaultConfigStorage->read($name);
-      $typed_config = $this->typedConfigManager->createFromNameAndData($name, $data);
+      $type_definition = $this->typedConfigManager->getDefinition($name);
+      $data_definition = $this->typedConfigManager->buildDataDefinition($type_definition, $data);
+      $typed_config = $this->typedConfigManager->create($data_definition, $data);
       if ($typed_config instanceof TraversableTypedDataInterface) {
         return $this->getTranslatableData($typed_config);
       }
     }
-    return [];
+    return array();
   }
 
   /**
@@ -154,14 +150,14 @@ class LocaleConfigManager {
    * @param \Drupal\Core\TypedData\TypedDataInterface $element
    *   Typed configuration element.
    *
-   * @return array|\Drupal\Core\StringTranslation\TranslatableMarkup
+   * @return array|\Drupal\Core\StringTranslation\TranslationWrapper
    *   A nested array matching the exact structure under $element with only the
-   *   elements that are translatable wrapped into a TranslatableMarkup. If the
+   *   elements that are translatable wrapped into a TranslationWrapper. If the
    *   provided $element is not traversable, the return value is a single
-   *   TranslatableMarkup.
+   *   TranslationWrapper.
    */
   protected function getTranslatableData(TypedDataInterface $element) {
-    $translatable = [];
+    $translatable = array();
     if ($element instanceof TraversableTypedDataInterface) {
       foreach ($element as $key => $property) {
         $value = $this->getTranslatableData($property);
@@ -171,16 +167,13 @@ class LocaleConfigManager {
       }
     }
     else {
-      // Something is only translatable by Locale if there is a string in the
-      // first place.
-      $value = $element->getValue();
       $definition = $element->getDataDefinition();
-      if (!empty($definition['translatable']) && $value !== '' && $value !== NULL) {
-        $options = [];
+      if (!empty($definition['translatable'])) {
+        $options = array();
         if (isset($definition['translation context'])) {
           $options['context'] = $definition['translation context'];
         }
-        return new TranslatableMarkup($value, [], $options);
+        return new TranslationWrapper($element->getValue(), array(), $options);
       }
     }
     return $translatable;
@@ -198,10 +191,11 @@ class LocaleConfigManager {
    *   The configuration name.
    * @param array $active
    *   The active configuration data.
-   * @param array|\Drupal\Core\StringTranslation\TranslatableMarkup[] $translatable
+   * @param array|\Drupal\Core\StringTranslation\TranslationWrapper[] $translatable
    *   The translatable array structure. A nested array matching the exact
    *   structure under of the default configuration for $name with only the
-   *   elements that are translatable wrapped into a TranslatableMarkup.
+   *   elements that are translatable wrapped into a TranslationWrapper.
+   *   @see self::getTranslatableData().
    * @param string $langcode
    *   The language code to process the array with.
    *
@@ -209,11 +203,9 @@ class LocaleConfigManager {
    *   Processed translatable data array. Will only contain translations
    *   different from source strings or in case of untranslatable English, the
    *   source strings themselves.
-   *
-   * @see self::getTranslatableData()
    */
   protected function processTranslatableData($name, array $active, array $translatable, $langcode) {
-    $translated = [];
+    $translated = array();
     foreach ($translatable as $key => $item) {
       if (!isset($active[$key])) {
         continue;
@@ -294,10 +286,10 @@ class LocaleConfigManager {
    * @return array
    *   Array of configuration object names.
    */
-  public function getComponentNames(array $components = []) {
+  public function getComponentNames(array $components = array()) {
     $components = array_filter($components);
     if ($components) {
-      $names = [];
+      $names = array();
       foreach ($components as $type => $list) {
         // InstallStorage::getComponentNames returns a list of folders keyed by
         // config name.
@@ -320,8 +312,8 @@ class LocaleConfigManager {
    *   Array of configuration object names.
    */
   public function getStringNames(array $lids) {
-    $names = [];
-    $locations = $this->localeStorage->getLocations(['sid' => $lids, 'type' => 'configuration']);
+    $names = array();
+    $locations = $this->localeStorage->getLocations(array('sid' => $lids, 'type' => 'configuration'));
     foreach ($locations as $location) {
       $names[$location->name] = $location->name;
     }
@@ -368,15 +360,15 @@ class LocaleConfigManager {
       // If translations for a language have not been loaded yet.
       if (!isset($this->translations[$name][$langcode])) {
         // Preload all translations for this configuration name and language.
-        $this->translations[$name][$langcode] = [];
-        foreach ($this->localeStorage->getTranslations(['language' => $langcode, 'type' => 'configuration', 'name' => $name]) as $string) {
+        $this->translations[$name][$langcode] = array();
+        foreach ($this->localeStorage->getTranslations(array('language' => $langcode, 'type' => 'configuration', 'name' => $name)) as $string) {
           $this->translations[$name][$langcode][$string->context][$string->source] = $string;
         }
       }
       if (!isset($this->translations[$name][$langcode][$context][$source])) {
         // There is no translation of the source string in this config location
         // to this language for this context.
-        if ($translation = $this->localeStorage->findTranslation(['source' => $source, 'context' => $context, 'language' => $langcode])) {
+        if ($translation = $this->localeStorage->findTranslation(array('source' => $source, 'context' => $context, 'language' => $langcode))) {
           // Look for a translation of the string. It might have one, but not
           // be saved in this configuration location yet.
           // If the string has a translation for this context to this language,
@@ -391,7 +383,7 @@ class LocaleConfigManager {
           // location so it can be translated, and the string is faster to look
           // for next time.
           $translation = $this->localeStorage
-            ->createString(['source' => $source, 'context' => $context])
+            ->createString(array('source' => $source, 'context' => $context))
             ->addLocation('configuration', $name)
             ->save();
         }
@@ -416,7 +408,7 @@ class LocaleConfigManager {
    * @return $this
    */
   public function reset() {
-    $this->translations = [];
+    $this->translations = array();
     return $this;
   }
 
@@ -432,7 +424,7 @@ class LocaleConfigManager {
    * @param string $context
    *   The string context.
    *
-   * @return \Drupal\locale\TranslationString|false
+   * @return \Drupal\locale\TranslationString|FALSE
    *   The translation object if the string was not empty or FALSE otherwise.
    */
   public function getStringTranslation($name, $langcode, $source, $context) {
@@ -440,7 +432,7 @@ class LocaleConfigManager {
       $this->translateString($name, $langcode, $source, $context);
       if ($string = $this->translations[$name][$langcode][$context][$source]) {
         if (!$string->isTranslation()) {
-          $conditions = ['lid' => $string->lid, 'language' => $langcode];
+          $conditions = array('lid' => $string->lid, 'language' => $langcode);
           $translation = $this->localeStorage->createTranslation($conditions);
           $this->translations[$name][$langcode][$context][$source] = $translation;
           return $translation;
@@ -482,21 +474,10 @@ class LocaleConfigManager {
    *   configuration exists.
    */
   public function getDefaultConfigLangcode($name) {
-    // Config entities that do not have the 'default_config_hash' cannot be
-    // shipped configuration regardless of whether there is a name match.
-    // configurable_language entities are a special case since they can be
-    // translated regardless of whether they are shipped if they in the standard
-    // language list.
-    $config_entity_type = $this->configManager->getEntityTypeIdByName($name);
-    if (!$config_entity_type || $config_entity_type === 'configurable_language'
-      || !empty($this->configFactory->get($name)->get('_core.default_config_hash'))
-    ) {
-      $shipped = $this->defaultConfigStorage->read($name);
-      if (!empty($shipped)) {
-        return !empty($shipped['langcode']) ? $shipped['langcode'] : 'en';
-      }
+    $shipped = $this->defaultConfigStorage->read($name);
+    if (!empty($shipped)) {
+      return !empty($shipped['langcode']) ? $shipped['langcode'] : 'en';
     }
-    return NULL;
   }
 
   /**
@@ -562,7 +543,7 @@ class LocaleConfigManager {
    *   Total number of configuration override and active configuration objects
    *   updated (saved or removed).
    */
-  public function updateConfigTranslations(array $names, array $langcodes = []) {
+  public function updateConfigTranslations(array $names, array $langcodes = array()) {
     $langcodes = $langcodes ? $langcodes : array_keys($this->languageManager->getLanguages());
     $count = 0;
     foreach ($names as $name) {
@@ -578,34 +559,40 @@ class LocaleConfigManager {
 
       foreach ($langcodes as $langcode) {
         $processed = $this->processTranslatableData($name, $active, $translatable, $langcode);
-        // If the language code is not the same as the active storage
-        // language, we should update the configuration override.
         if ($langcode != $active_langcode) {
-          $override = $this->languageManager->getLanguageConfigOverride($langcode, $name);
-          // Filter out locale managed configuration keys so that translations
-          // removed from Locale will be reflected in the config override.
-          $data = $this->filterOverride($override->get(), $translatable);
+          // If the language code is not the same as the active storage
+          // language, we should update a configuration override.
           if (!empty($processed)) {
-            // Merge in the Locale managed translations with existing data.
-            $data = NestedArray::mergeDeepArray([$data, $processed], TRUE);
-          }
-          if (empty($data) && !$override->isNew()) {
-            // The configuration override contains Locale overrides that no
-            // longer exist.
-            $this->deleteTranslationOverride($name, $langcode);
-            $count++;
-          }
-          elseif (!empty($data)) {
             // Update translation data in configuration override.
-            $this->saveTranslationOverride($name, $langcode, $data);
+            $this->saveTranslationOverride($name, $langcode, $processed);
             $count++;
+          }
+          else {
+            $override = $this->languageManager->getLanguageConfigOverride($langcode, $name);
+            if (!$override->isNew()) {
+              $data = $this->filterOverride($override->get(), $translatable);
+              if (empty($data)) {
+                // Delete language override if there is no data left at all.
+                // This means all prior translations in the override were locale
+                // managed.
+                $this->deleteTranslationOverride($name, $langcode);
+                $count++;
+              }
+              else {
+                // If there were translatable elements besides locale managed
+                // items, save with only those, and remove the ones managed
+                // by locale only.
+                $this->saveTranslationOverride($name, $langcode, $data);
+                $count++;
+              }
+            }
           }
         }
         elseif (locale_is_translatable($langcode)) {
           // If the language code is the active storage language, we should
           // update. If it is English, we should only update if English is also
           // translatable.
-          $active = NestedArray::mergeDeepArray([$active, $processed], TRUE);
+          $active = NestedArray::mergeDeepArray(array($active, $processed), TRUE);
           $this->saveTranslationActive($name, $active);
           $count++;
         }
@@ -627,7 +614,7 @@ class LocaleConfigManager {
    *   also in $translatable.
    */
   protected function filterOverride(array $override_data, array $translatable) {
-    $filtered_data = [];
+    $filtered_data = array();
     foreach ($override_data as $key => $value) {
       if (isset($translatable[$key])) {
         // If the translatable default configuration has this key, look further

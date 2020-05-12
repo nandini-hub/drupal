@@ -1,14 +1,14 @@
 <?php
 
+use Drupal\node\NodeInterface;
+use Drupal\Component\Utility\SafeMarkup;
+use Drupal\Component\Utility\Xss;
+use Drupal\Core\Access\AccessResult;
+
 /**
  * @file
  * Hooks specific to the Node module.
  */
-
-use Drupal\node\NodeInterface;
-use Drupal\Component\Utility\Html;
-use Drupal\Component\Utility\Xss;
-use Drupal\Core\Access\AccessResult;
 
 /**
  * @addtogroup hooks
@@ -51,7 +51,7 @@ use Drupal\Core\Access\AccessResult;
  *   'grant_update' => 0,
  *   'grant_delete' => 0,
  * );
- * \Drupal::database()->insert('node_access')->fields($record)->execute();
+ * db_insert('node_access')->fields($record)->execute();
  * @endcode
  * And then in its hook_node_grants() implementation, it would need to return:
  * @code
@@ -64,8 +64,6 @@ use Drupal\Core\Access\AccessResult;
  * sure to restore your {node_access} record after node_access_rebuild() is
  * called.
  *
- * For a detailed example, see node_access_example.module.
- *
  * @param \Drupal\Core\Session\AccountInterface $account
  *   The account object whose grants are requested.
  * @param string $op
@@ -75,16 +73,18 @@ use Drupal\Core\Access\AccessResult;
  *   An array whose keys are "realms" of grants, and whose values are arrays of
  *   the grant IDs within this realm that this user is being granted.
  *
+ * For a detailed example, see node_access_example.module.
+ *
  * @see node_access_view_all_nodes()
  * @see node_access_rebuild()
  * @ingroup node_access
  */
 function hook_node_grants(\Drupal\Core\Session\AccountInterface $account, $op) {
   if ($account->hasPermission('access private content')) {
-    $grants['example'] = [1];
+    $grants['example'] = array(1);
   }
   if ($account->id()) {
-    $grants['example_author'] = [$account->id()];
+    $grants['example_author'] = array($account->id());
   }
   return $grants;
 }
@@ -151,6 +151,7 @@ function hook_node_grants(\Drupal\Core\Session\AccountInterface $account, $op) {
  * @return
  *   An array of grants as defined above.
  *
+ * @see node_access_write_grants()
  * @see hook_node_access_records_alter()
  * @ingroup node_access
  */
@@ -158,33 +159,33 @@ function hook_node_access_records(\Drupal\node\NodeInterface $node) {
   // We only care about the node if it has been marked private. If not, it is
   // treated just like any other node and we completely ignore it.
   if ($node->private->value) {
-    $grants = [];
+    $grants = array();
     // Only published Catalan translations of private nodes should be viewable
     // to all users. If we fail to check $node->isPublished(), all users would be able
     // to view an unpublished node.
     if ($node->isPublished()) {
-      $grants[] = [
+      $grants[] = array(
         'realm' => 'example',
         'gid' => 1,
         'grant_view' => 1,
         'grant_update' => 0,
         'grant_delete' => 0,
-        'langcode' => 'ca',
-      ];
+        'langcode' => 'ca'
+      );
     }
     // For the example_author array, the GID is equivalent to a UID, which
     // means there are many groups of just 1 user.
-    // Note that an author can always view nodes they own, even if they have
-    // status unpublished.
+    // Note that an author can always view his or her nodes, even if they
+    // have status unpublished.
     if ($node->getOwnerId()) {
-      $grants[] = [
+      $grants[] = array(
         'realm' => 'example_author',
         'gid' => $node->getOwnerId(),
         'grant_view' => 1,
         'grant_update' => 1,
         'grant_delete' => 1,
-        'langcode' => 'ca',
-      ];
+        'langcode' => 'ca'
+      );
     }
 
     return $grants;
@@ -208,14 +209,14 @@ function hook_node_access_records(\Drupal\node\NodeInterface $node) {
  *
  * A module may deny all access to a node by setting $grants to an empty array.
  *
- * The preferred use of this hook is in a module that bridges multiple node
- * access modules with a configurable behavior, as shown in the example with the
- * 'is_preview' field.
- *
- * @param array $grants
+ * @param $grants
  *   The $grants array returned by hook_node_access_records().
  * @param \Drupal\node\NodeInterface $node
  *   The node for which the grants were acquired.
+ *
+ * The preferred use of this hook is in a module that bridges multiple node
+ * access modules with a configurable behavior, as shown in the example with the
+ * 'is_preview' field.
  *
  * @see hook_node_access_records()
  * @see hook_node_grants()
@@ -231,7 +232,7 @@ function hook_node_access_records_alter(&$grants, Drupal\node\NodeInterface $nod
     // Our module grants are set in $grants['example'].
     $temp = $grants['example'];
     // Now remove all module grants but our own.
-    $grants = ['example' => $temp];
+    $grants = array('example' => $temp);
   }
 }
 
@@ -280,7 +281,7 @@ function hook_node_grants_alter(&$grants, \Drupal\Core\Session\AccountInterface 
     // Now check the roles for this account against the restrictions.
     foreach ($account->getRoles() as $rid) {
       if (in_array($rid, $restricted)) {
-        $grants = [];
+        $grants = array();
       }
     }
   }
@@ -297,17 +298,11 @@ function hook_node_grants_alter(&$grants, \Drupal\Core\Session\AccountInterface 
  * permission may always view and edit content through the administrative
  * interface.
  *
- * The access to a node can be influenced in several ways:
- * - To explicitly allow access, return an AccessResultInterface object with
- * isAllowed() returning TRUE. Other modules can override this access by
- * returning TRUE for isForbidden().
- * - To explicitly forbid access, return an AccessResultInterface object with
- * isForbidden() returning TRUE. Access will be forbidden even if your module
- * (or another module) also returns TRUE for isNeutral() or isAllowed().
- * - To neither allow nor explicitly forbid access, return an
- * AccessResultInterface object with isNeutral() returning TRUE.
- * - If your module does not return an AccessResultInterface object, neutral
- * access will be assumed.
+ * Note that not all modules will want to influence access on all node types. If
+ * your module does not want to explicitly allow or forbid access, return an
+ * AccessResultInterface object with neither isAllowed() nor isForbidden()
+ * equaling TRUE. Blindly returning an object with isForbidden() equaling TRUE
+ * will break other node access modules.
  *
  * Also note that this function isn't called for node listings (e.g., RSS feeds,
  * the default home page at path 'node', a recent content block, etc.) See
@@ -324,13 +319,15 @@ function hook_node_grants_alter(&$grants, \Drupal\Core\Session\AccountInterface 
  *   - "view"
  * @param \Drupal\Core\Session\AccountInterface $account
  *   The user object to perform the access check operation on.
+ * @param object $langcode
+ *   The language code to perform the access check operation on.
  *
  * @return \Drupal\Core\Access\AccessResultInterface
- *   The access result.
+ *    The access result.
  *
  * @ingroup node_access
  */
-function hook_node_access(\Drupal\node\NodeInterface $node, $op, \Drupal\Core\Session\AccountInterface $account) {
+function hook_node_access(\Drupal\node\NodeInterface $node, $op, \Drupal\Core\Session\AccountInterface $account, $langcode) {
   $type = $node->bundle();
 
   switch ($op) {
@@ -338,19 +335,19 @@ function hook_node_access(\Drupal\node\NodeInterface $node, $op, \Drupal\Core\Se
       return AccessResult::allowedIfHasPermission($account, 'create ' . $type . ' content');
 
     case 'update':
-      if ($account->hasPermission('edit any ' . $type . ' content')) {
+      if ($account->hasPermission('edit any ' . $type . ' content', $account)) {
         return AccessResult::allowed()->cachePerPermissions();
       }
       else {
-        return AccessResult::allowedIf($account->hasPermission('edit own ' . $type . ' content') && ($account->id() == $node->getOwnerId()))->cachePerPermissions()->cachePerUser()->addCacheableDependency($node);
+        return AccessResult::allowedIf($account->hasPermission('edit own ' . $type . ' content', $account) && ($account->id() == $node->getOwnerId()))->cachePerPermissions()->cachePerUser()->cacheUntilEntityChanges($node);
       }
 
     case 'delete':
-      if ($account->hasPermission('delete any ' . $type . ' content')) {
+      if ($account->hasPermission('delete any ' . $type . ' content', $account)) {
         return AccessResult::allowed()->cachePerPermissions();
       }
       else {
-        return AccessResult::allowedIf($account->hasPermission('delete own ' . $type . ' content') && ($account->id() == $node->getOwnerId()))->cachePerPermissions()->cachePerUser()->addCacheableDependency($node);
+        return AccessResult::allowedIf($account->hasPermission('delete own ' . $type . ' content', $account) && ($account->id() == $node->getOwnerId()))->cachePerPermissions()->cachePerUser()->cacheUntilEntityChanges($node);
       }
 
     default:
@@ -367,6 +364,8 @@ function hook_node_access(\Drupal\node\NodeInterface $node, $op, \Drupal\Core\Se
  *
  * @param \Drupal\node\NodeInterface $node
  *   The node being displayed in a search result.
+ * @param $langcode
+ *   Language code of result being displayed.
  *
  * @return array
  *   Extra information to be displayed with search result. This information
@@ -379,9 +378,9 @@ function hook_node_access(\Drupal\node\NodeInterface $node, $op, \Drupal\Core\Se
  *
  * @ingroup entity_crud
  */
-function hook_node_search_result(\Drupal\node\NodeInterface $node) {
-  $rating = \Drupal::database()->query('SELECT SUM(points) FROM {my_rating} WHERE nid = :nid', ['nid' => $node->id()])->fetchField();
-  return ['rating' => \Drupal::translation()->formatPlural($rating, '1 point', '@count points')];
+function hook_node_search_result(\Drupal\node\NodeInterface $node, $langcode) {
+  $rating = db_query('SELECT SUM(points) FROM {my_rating} WHERE nid = :nid', array('nid' => $node->id()))->fetchField();
+  return array('rating' => \Drupal::translation()->formatPlural($rating, '1 point', '@count points'));
 }
 
 /**
@@ -392,17 +391,19 @@ function hook_node_search_result(\Drupal\node\NodeInterface $node) {
  *
  * @param \Drupal\node\NodeInterface $node
  *   The node being indexed.
+ * @param $langcode
+ *   Language code of the variant of the node being indexed.
  *
  * @return string
  *   Additional node information to be indexed.
  *
  * @ingroup entity_crud
  */
-function hook_node_update_index(\Drupal\node\NodeInterface $node) {
+function hook_node_update_index(\Drupal\node\NodeInterface $node, $langcode) {
   $text = '';
-  $ratings = \Drupal::database()->query('SELECT title, description FROM {my_ratings} WHERE nid = :nid', [':nid' => $node->id()]);
+  $ratings = db_query('SELECT title, description FROM {my_ratings} WHERE nid = :nid', array(':nid' => $node->id()));
   foreach ($ratings as $rating) {
-    $text .= '<h2>' . Html::escape($rating->title) . '</h2>' . Xss::filter($rating->description);
+    $text .= '<h2>' . SafeMarkup::checkPlain($rating->title) . '</h2>' . Xss::filter($rating->description);
   }
   return $text;
 }
@@ -428,7 +429,7 @@ function hook_node_update_index(\Drupal\node\NodeInterface $node) {
  * and then the weighted scores from all ranking mechanisms are added, which
  * brings about the same result as a weighted average.
  *
- * @return array
+ * @return
  *   An associative array of ranking data. The keys should be strings,
  *   corresponding to the internal name of the ranking mechanism, such as
  *   'recent', or 'comments'. The values should be arrays themselves, with the
@@ -453,24 +454,24 @@ function hook_node_update_index(\Drupal\node\NodeInterface $node) {
 function hook_ranking() {
   // If voting is disabled, we can avoid returning the array, no hard feelings.
   if (\Drupal::config('vote.settings')->get('node_enabled')) {
-    return [
-      'vote_average' => [
+    return array(
+      'vote_average' => array(
         'title' => t('Average vote'),
         // Note that we use i.sid, the search index's search item id, rather than
         // n.nid.
-        'join' => [
+        'join' => array(
           'type' => 'LEFT',
           'table' => 'vote_node_data',
           'alias' => 'vote_node_data',
           'on' => 'vote_node_data.nid = i.sid',
-        ],
+        ),
         // The highest possible score should be 1, and the lowest possible score,
         // always 0, should be 0.
         'score' => 'vote_node_data.average / CAST(%f AS DECIMAL)',
         // Pass in the highest possible voting score as a decimal argument.
-        'arguments' => [\Drupal::config('vote.settings')->get('score_max')],
-      ],
-    ];
+        'arguments' => array(\Drupal::config('vote.settings')->get('score_max')),
+      ),
+    );
   }
 }
 
@@ -484,24 +485,25 @@ function hook_ranking() {
  * @param array &$context
  *   Various aspects of the context in which the node links are going to be
  *   displayed, with the following keys:
- *   - 'view_mode': the view mode in which the node is being viewed
- *   - 'langcode': the language in which the node is being viewed
+ *   - 'view_mode': the view mode in which the comment is being viewed
+ *   - 'langcode': the language in which the comment is being viewed
  *
  * @see \Drupal\node\NodeViewBuilder::renderLinks()
  * @see \Drupal\node\NodeViewBuilder::buildLinks()
  * @see entity_crud
  */
 function hook_node_links_alter(array &$links, NodeInterface $entity, array &$context) {
-  $links['mymodule'] = [
+  $links['mymodule'] = array(
     '#theme' => 'links__node__mymodule',
-    '#attributes' => ['class' => ['links', 'inline']],
-    '#links' => [
-      'node-report' => [
+    '#attributes' => array('class' => array('links', 'inline')),
+    '#links' => array(
+      'node-report' => array(
         'title' => t('Report'),
-        'url' => Url::fromRoute('node_test.report', ['node' => $entity->id()], ['query' => ['token' => \Drupal::getContainer()->get('csrf_token')->get("node/{$entity->id()}/report")]]),
-      ],
-    ],
-  ];
+        'href' => "node/{$entity->id()}/report",
+        'query' => array('token' => \Drupal::getContainer()->get('csrf_token')->get("node/{$entity->id()}/report")),
+      ),
+    ),
+  );
 }
 
 /**

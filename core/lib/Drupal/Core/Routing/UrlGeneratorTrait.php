@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Routing\UrlGeneratorTrait.
+ */
+
 namespace Drupal\Core\Routing;
 
 use Symfony\Component\HttpFoundation\RedirectResponse;
@@ -11,9 +16,6 @@ use Symfony\Component\HttpFoundation\RedirectResponse;
  * classes that would implement ContainerInjectionInterface. Services registered
  * in the Container should not use this trait but inject the appropriate service
  * directly for easier testing.
- *
- * @deprecated in drupal:8.0.0 and is removed from drupal:9.0.0.
- *   Use \Drupal\Core\Url instead.
  */
 trait UrlGeneratorTrait {
 
@@ -27,19 +29,13 @@ trait UrlGeneratorTrait {
   /**
    * Generates a URL or path for a specific route based on the given parameters.
    *
-   * For details on the arguments, usage, and possible exceptions see
-   * \Drupal\Core\Routing\UrlGeneratorInterface::generateFromRoute().
+   * @see \Drupal\Core\Routing\UrlGeneratorInterface::generateFromRoute() for
+   *   details on the arguments, usage, and possible exceptions.
    *
    * @return string
    *   The generated URL for the given route.
-   *
-   * @deprecated in drupal:8.0.0 and is removed from drupal:9.0.0.
-   *   Use \Drupal\Core\Url::fromUri() instead.
-   *
-   * @see \Drupal\Core\Routing\UrlGeneratorInterface::generateFromRoute()
    */
-  protected function url($route_name, $route_parameters = [], $options = []) {
-    @trigger_error(__NAMESPACE__ . "\UrlGeneratorTrait::url() is deprecated in drupal:8.0.0 and is removed from drupal:9.0.0. Use \Drupal\Core\Url::fromUri() instead. See https://www.drupal.org/node/2614344", E_USER_DEPRECATED);
+  protected function url($route_name, $route_parameters = array(), $options = array()) {
     return $this->getUrlGenerator()->generateFromRoute($route_name, $route_parameters, $options);
   }
 
@@ -58,14 +54,10 @@ trait UrlGeneratorTrait {
    *
    * @return \Symfony\Component\HttpFoundation\RedirectResponse
    *   A redirect response object that may be returned by the controller.
-   *
-   * @deprecated in drupal:8.0.0 and is removed from drupal:9.0.0.
-   *   Use new RedirectResponse(Url::fromRoute()) instead.
    */
   protected function redirect($route_name, array $route_parameters = [], array $options = [], $status = 302) {
-    @trigger_error(__NAMESPACE__ . "\UrlGeneratorTrait::redirect() is deprecated in drupal:8.0.0 and is removed from drupal:9.0.0. Use new RedirectResponse(Url::fromRoute()) instead. See https://www.drupal.org/node/2614344", E_USER_DEPRECATED);
     $options['absolute'] = TRUE;
-    $url = $this->getUrlGenerator()->generateFromRoute($route_name, $route_parameters, $options);
+    $url = $this->url($route_name, $route_parameters, $options);
     return new RedirectResponse($url, $status);
   }
 
@@ -74,12 +66,8 @@ trait UrlGeneratorTrait {
    *
    * @return \Drupal\Core\Routing\UrlGeneratorInterface
    *   The URL generator service.
-   *
-   * @deprecated in drupal:8.0.0 and is removed from drupal:9.0.0.
-   *   Use the url_generator service instead.
    */
   protected function getUrlGenerator() {
-    @trigger_error(__NAMESPACE__ . "\UrlGeneratorTrait::getUrlGenerator() is deprecated in drupal:8.0.0 and is removed from drupal:9.0.0. Use the url_generator service instead. See https://www.drupal.org/node/2614344", E_USER_DEPRECATED);
     if (!$this->urlGenerator) {
       $this->urlGenerator = \Drupal::service('url_generator');
     }
@@ -93,14 +81,10 @@ trait UrlGeneratorTrait {
    *   The url generator service.
    *
    * @return $this
-   *
-   * @deprecated in drupal:8.0.0 and is removed from drupal:9.0.0.
    */
   public function setUrlGenerator(UrlGeneratorInterface $generator) {
-    @trigger_error(__NAMESPACE__ . "\UrlGeneratorTrait::setUrlGenerator() is deprecated in drupal:8.0.0 and is removed from drupal:9.0.0. See https://www.drupal.org/node/2614344", E_USER_DEPRECATED);
     $this->urlGenerator = $generator;
 
     return $this;
   }
-
 }

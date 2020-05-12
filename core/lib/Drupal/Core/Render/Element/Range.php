@@ -1,29 +1,17 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Render\Element\Range.
+ */
+
 namespace Drupal\Core\Render\Element;
 
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Render\Element;
 
 /**
- * Provides a slider for input of a number within a specific range.
- *
- * Provides an HTML5 input element with type of "range".
- *
- * Properties:
- * - #min: Minimum value (defaults to 0).
- * - #max: Maximum value (defaults to 100).
- * Refer to \Drupal\Core\Render\Element\Number for additional properties.
- *
- * Usage example:
- * @code
- * $form['quantity'] = array(
- *   '#type' => 'range',
- *   '#title' => $this->t('Quantity'),
- * );
- * @endcode
- *
- * @see \Drupal\Core\Render\Element\Number
+ * Provides a form element for input of a number within a specific range.
  *
  * @FormElement("range")
  */
@@ -35,14 +23,14 @@ class Range extends Number {
   public function getInfo() {
     $info = parent::getInfo();
     $class = get_class($this);
-    return [
+    return array(
       '#min' => 0,
       '#max' => 100,
-      '#pre_render' => [
-        [$class, 'preRenderRange'],
-      ],
+      '#pre_render' => array(
+        array($class, 'preRenderRange'),
+      ),
       '#theme' => 'input__range',
-    ] + $info;
+    ) + $info;
   }
 
   /**
@@ -58,8 +46,8 @@ class Range extends Number {
    */
   public static function preRenderRange($element) {
     $element['#attributes']['type'] = 'range';
-    Element::setAttributes($element, ['id', 'name', 'value', 'step', 'min', 'max']);
-    static::setAttributes($element, ['form-range']);
+    Element::setAttributes($element, array('id', 'name', 'value', 'step', 'min', 'max'));
+    static::setAttributes($element, array('form-range'));
 
     return $element;
   }

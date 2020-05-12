@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Entity\Plugin\Field\FieldType\BooleanItem.
+ */
+
 namespace Drupal\Core\Field\Plugin\Field\FieldType;
 
 use Drupal\Core\Field\FieldDefinitionInterface;
@@ -7,7 +12,6 @@ use Drupal\Core\Field\FieldItemBase;
 use Drupal\Core\Field\FieldStorageDefinitionInterface;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Session\AccountInterface;
-use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\Core\TypedData\OptionsProviderInterface;
 use Drupal\Core\TypedData\DataDefinition;
 
@@ -28,10 +32,10 @@ class BooleanItem extends FieldItemBase implements OptionsProviderInterface {
    * {@inheritdoc}
    */
   public static function defaultFieldSettings() {
-    return [
-      'on_label' => new TranslatableMarkup('On'),
-      'off_label' => new TranslatableMarkup('Off'),
-    ] + parent::defaultFieldSettings();
+    return array(
+      'on_label' => t('On'),
+      'off_label' => t('Off'),
+    ) + parent::defaultFieldSettings();
   }
 
   /**
@@ -49,34 +53,34 @@ class BooleanItem extends FieldItemBase implements OptionsProviderInterface {
    * {@inheritdoc}
    */
   public static function schema(FieldStorageDefinitionInterface $field_definition) {
-    return [
-      'columns' => [
-        'value' => [
+    return array(
+      'columns' => array(
+        'value' => array(
           'type' => 'int',
           'size' => 'tiny',
-        ],
-      ],
-    ];
+        ),
+      ),
+    );
   }
 
   /**
    * {@inheritdoc}
    */
   public function fieldSettingsForm(array $form, FormStateInterface $form_state) {
-    $element = [];
+    $element = array();
 
-    $element['on_label'] = [
+    $element['on_label'] = array(
       '#type' => 'textfield',
       '#title' => $this->t('"On" label'),
       '#default_value' => $this->getSetting('on_label'),
       '#required' => TRUE,
-    ];
-    $element['off_label'] = [
+    );
+    $element['off_label'] = array(
       '#type' => 'textfield',
       '#title' => $this->t('"Off" label'),
       '#default_value' => $this->getSetting('off_label'),
       '#required' => TRUE,
-    ];
+    );
 
     return $element;
   }
@@ -85,24 +89,24 @@ class BooleanItem extends FieldItemBase implements OptionsProviderInterface {
    * {@inheritdoc}
    */
   public function getPossibleValues(AccountInterface $account = NULL) {
-    return [0, 1];
+    return array(0, 1);
   }
 
   /**
    * {@inheritdoc}
    */
   public function getPossibleOptions(AccountInterface $account = NULL) {
-    return [
+    return array(
       0 => $this->getSetting('off_label'),
       1 => $this->getSetting('on_label'),
-    ];
+    );
   }
 
   /**
    * {@inheritdoc}
    */
   public function getSettableValues(AccountInterface $account = NULL) {
-    return [0, 1];
+    return array(0, 1);
   }
 
   /**
@@ -119,5 +123,5 @@ class BooleanItem extends FieldItemBase implements OptionsProviderInterface {
     $values['value'] = mt_rand(0, 1);
     return $values;
   }
-
 }
+

@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\quickedit\Plugin\InPlaceEditorInterface.
+ */
+
 namespace Drupal\quickedit\Plugin;
 
 use Drupal\Component\Plugin\PluginInspectionInterface;
@@ -47,7 +52,7 @@ interface InPlaceEditorInterface extends PluginInspectionInterface {
    * @return array
    *   An array of attachments, for use with #attached.
    *
-   * @see \Drupal\Core\Render\AttachmentsResponseProcessorInterface::processAttachments()
+   * @see drupal_process_attached()
    */
   public function getAttachments();
 

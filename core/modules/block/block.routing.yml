@@ -25,24 +25,6 @@ entity.block.edit_form:
   requirements:
     _entity_access: 'block.update'
 
-entity.block.enable:
-  path: '/admin/structure/block/manage/{block}/enable'
-  defaults:
-    _controller: '\Drupal\block\Controller\BlockController::performOperation'
-    op: enable
-  requirements:
-    _entity_access: 'block.enable'
-    _csrf_token: 'TRUE'
-
-entity.block.disable:
-  path: '/admin/structure/block/manage/{block}/disable'
-  defaults:
-    _controller: '\Drupal\block\Controller\BlockController::performOperation'
-    op: disable
-  requirements:
-    _entity_access: 'block.disable'
-    _csrf_token: 'TRUE'
-
 block.admin_display:
   path: '/admin/structure/block'
   defaults:
@@ -52,19 +34,10 @@ block.admin_display:
     _permission: 'administer blocks'
 
 block.admin_display_theme:
-  path: '/admin/structure/block/list/{theme}'
+  path: 'admin/structure/block/list/{theme}'
   defaults:
     _controller: '\Drupal\block\Controller\BlockListController::listing'
     _title: 'Block layout'
-  requirements:
-    _access_theme: 'TRUE'
-    _permission: 'administer blocks'
-
-block.admin_library:
-  path: '/admin/structure/block/library/{theme}'
-  defaults:
-    _controller: '\Drupal\block\Controller\BlockLibraryController::listBlocks'
-    _title: 'Place block'
   requirements:
     _access_theme: 'TRUE'
     _permission: 'administer blocks'

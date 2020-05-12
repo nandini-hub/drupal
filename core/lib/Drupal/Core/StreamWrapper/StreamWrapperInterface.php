@@ -1,13 +1,11 @@
 <?php
 
-namespace Drupal\Core\StreamWrapper;
-
 /**
- * Defines a Drupal stream wrapper extension.
+ * @file
+ * Definition of Drupal\Core\StreamWrapper\StreamWrapperInterface.
  *
  * Provides a Drupal interface and classes to implement PHP stream wrappers for
- * public, private, and temporary files. Extends the PhpStreamWrapperInterface
- * with methods expected by Drupal stream wrapper classes.
+ * public, private, and temporary files.
  *
  * A stream wrapper is an abstraction of a file system that allows Drupal to
  * use the same set of methods to access both local files and remote resources.
@@ -19,6 +17,15 @@ namespace Drupal\Core\StreamWrapper;
  *
  * @see http://www.faqs.org/rfcs/rfc3986.html
  * @see http://bugs.php.net/bug.php?id=47070
+ */
+
+namespace Drupal\Core\StreamWrapper;
+
+/**
+ * Defines a Drupal stream wrapper extension.
+ *
+ * Extends the StreamWrapperInterface with methods expected by Drupal stream
+ * wrapper classes.
  */
 interface StreamWrapperInterface extends PhpStreamWrapperInterface {
 
@@ -59,10 +66,8 @@ interface StreamWrapperInterface extends PhpStreamWrapperInterface {
    */
 
   /**
-   * Defines the stream wrapper bit flag for a hidden file.
-   *
-   * This is not visible in the UI or accessible via web, but readable and
-   * writable; for instance, the temporary directory for file uploads.
+   * Not visible in the UI or accessible via web, but readable and writable.
+   * E.g. the temporary directory for uploads.
    */
   const HIDDEN = 0x000C;
 
@@ -82,7 +87,7 @@ interface StreamWrapperInterface extends PhpStreamWrapperInterface {
   const READ_VISIBLE = 0x0014;
 
   /**
-   * This is the default 'type' flag. This does not include
+   * This is the default 'type' falg. This does not include
    * StreamWrapperInterface::LOCAL, because PHP grants a greater trust level to
    * local files (for example, they can be used in an "include" statement,
    * regardless of the "allow_url_include" setting), so stream wrappers need to
@@ -167,9 +172,9 @@ interface StreamWrapperInterface extends PhpStreamWrapperInterface {
   /**
    * Gets the name of the directory from a given path.
    *
-   * This method is usually accessed through
-   * \Drupal\Core\File\FileSystemInterface::dirname(), which wraps around the
-   * normal PHP dirname() function, which does not support stream wrappers.
+   * This method is usually accessed through drupal_dirname(), which wraps
+   * around the normal PHP dirname() function, which does not support stream
+   * wrappers.
    *
    * @param string $uri
    *   An optional URI.
@@ -177,7 +182,7 @@ interface StreamWrapperInterface extends PhpStreamWrapperInterface {
    * @return string
    *   A string containing the directory name, or FALSE if not applicable.
    *
-   * @see \Drupal\Core\File\FileSystemInterface::dirname()
+   * @see drupal_dirname()
    */
   public function dirname($uri = NULL);
 

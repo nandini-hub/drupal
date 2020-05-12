@@ -1,14 +1,17 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Controller\ControllerResolver.
+ */
+
 namespace Drupal\Core\Controller;
 
-use Drupal\Core\DependencyInjection\ClassResolverInterface;
 use Drupal\Core\Routing\RouteMatch;
-use Drupal\Core\Routing\RouteMatchInterface;
-use Psr\Http\Message\ServerRequestInterface;
-use Symfony\Bridge\PsrHttpMessage\HttpMessageFactoryInterface;
+use Psr\Log\LoggerInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Controller\ControllerResolver as BaseControllerResolver;
+use Drupal\Core\DependencyInjection\ClassResolverInterface;
 
 /**
  * ControllerResolver to enhance controllers beyond Symfony's basic handling.
@@ -35,22 +38,12 @@ class ControllerResolver extends BaseControllerResolver implements ControllerRes
   protected $classResolver;
 
   /**
-   * The PSR-7 converter.
-   *
-   * @var \Symfony\Bridge\PsrHttpMessage\HttpMessageFactoryInterface
-   */
-  protected $httpMessageFactory;
-
-  /**
    * Constructs a new ControllerResolver.
    *
-   * @param \Symfony\Bridge\PsrHttpMessage\HttpMessageFactoryInterface $http_message_factory
-   *   The PSR-7 converter.
    * @param \Drupal\Core\DependencyInjection\ClassResolverInterface $class_resolver
    *   The class resolver.
    */
-  public function __construct(HttpMessageFactoryInterface $http_message_factory, ClassResolverInterface $class_resolver) {
-    $this->httpMessageFactory = $http_message_factory;
+  public function __construct(ClassResolverInterface $class_resolver) {
     $this->classResolver = $class_resolver;
   }
 
@@ -66,7 +59,9 @@ class ControllerResolver extends BaseControllerResolver implements ControllerRes
       if (function_exists($controller)) {
         return $controller;
       }
-      return $this->classResolver->getInstanceFromDefinition($controller);
+      elseif (method_exists($controller, '__invoke')) {
+        return new $controller;
+      }
     }
 
     $callable = $this->createController($controller);
@@ -77,6 +72,7 @@ class ControllerResolver extends BaseControllerResolver implements ControllerRes
 
     return $callable;
   }
+
 
   /**
    * {@inheritdoc}
@@ -98,10 +94,10 @@ class ControllerResolver extends BaseControllerResolver implements ControllerRes
    *   A PHP callable.
    *
    * @throws \LogicException
-   *   If the controller cannot be parsed.
+   *   If the controller cannot be parsed
    *
    * @throws \InvalidArgumentException
-   *   If the controller class does not exist.
+   *   If the controller class does not exist
    */
   protected function createController($controller) {
     // Controller in the service:method notation.
@@ -119,30 +115,27 @@ class ControllerResolver extends BaseControllerResolver implements ControllerRes
 
     $controller = $this->classResolver->getInstanceFromDefinition($class_or_service);
 
-    return [$controller, $method];
+    return array($controller, $method);
   }
 
   /**
    * {@inheritdoc}
    */
   protected function doGetArguments(Request $request, $controller, array $parameters) {
-    // Note this duplicates the deprecation message of
-    // Symfony\Component\HttpKernel\Controller\ControllerResolver::getArguments()
-    // to ensure it is removed in Drupal 9.
-    @trigger_error(sprintf('%s is deprecated as of 8.6.0 and will be removed in 9.0. Inject the "http_kernel.controller.argument_resolver" service instead.', __METHOD__, ArgumentResolverInterface::class), E_USER_DEPRECATED);
     $attributes = $request->attributes->all();
-    $arguments = [];
+    $raw_parameters = $request->attributes->has('_raw_variables') ? $request->attributes->get('_raw_variables') : [];
+    $arguments = array();
     foreach ($parameters as $param) {
       if (array_key_exists($param->name, $attributes)) {
+        $arguments[] = $attributes[$param->name];
+      }
+      elseif (array_key_exists($param->name, $raw_parameters)) {
         $arguments[] = $attributes[$param->name];
       }
       elseif ($param->getClass() && $param->getClass()->isInstance($request)) {
         $arguments[] = $request;
       }
-      elseif ($param->getClass() && $param->getClass()->name === ServerRequestInterface::class) {
-        $arguments[] = $this->httpMessageFactory->createRequest($request);
-      }
-      elseif ($param->getClass() && ($param->getClass()->name == RouteMatchInterface::class || is_subclass_of($param->getClass()->name, RouteMatchInterface::class))) {
+      elseif ($param->getClass() && ($param->getClass()->name == 'Drupal\Core\Routing\RouteMatchInterface' || is_subclass_of($param->getClass()->name, 'Drupal\Core\Routing\RouteMatchInterface'))) {
         $arguments[] = RouteMatch::createFromRequest($request);
       }
       elseif ($param->isDefaultValueAvailable()) {

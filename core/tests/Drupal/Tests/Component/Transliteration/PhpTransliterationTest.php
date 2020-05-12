@@ -1,20 +1,24 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Tests\Component\Transliteration\PhpTransliterationTest.
+ */
+
 namespace Drupal\Tests\Component\Transliteration;
 
 use Drupal\Component\Transliteration\PhpTransliteration;
 use Drupal\Component\Utility\Random;
-use org\bovigo\vfs\vfsStream;
-use PHPUnit\Framework\TestCase;
+use Drupal\Tests\UnitTestCase;
 
 /**
  * Tests Transliteration component functionality.
  *
  * @group Transliteration
  *
- * @coversDefaultClass \Drupal\Component\Transliteration\PhpTransliteration
+ * @coversClass \Drupal\Component\Transliteration\PhpTransliteration
  */
-class PhpTransliterationTest extends TestCase {
+class PhpTransliterationTest extends UnitTestCase {
 
   /**
    * Tests the PhpTransliteration::removeDiacritics() function.
@@ -40,32 +44,32 @@ class PhpTransliterationTest extends TestCase {
    *   self::testRemoveDiacritics().
    */
   public function providerTestPhpTransliterationRemoveDiacritics() {
-    return [
+    return array(
       // Test all characters in the Unicode range 0x00bf to 0x017f.
-      ['ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏ', 'AAAAAAÆCEEEEIIII'],
-      ['ÐÑÒÓÔÕÖ×ØÙÚÛÜÝÞß', 'ÐNOOOOO×OUUUUYÞß'],
-      ['àáâãäåæçèéêëìíîï', 'aaaaaaæceeeeiiii'],
-      ['ðñòóôõö÷øùúûüýþÿ', 'ðnooooo÷ouuuuyþy'],
-      ['ĀāĂăĄąĆćĈĉĊċČčĎď', 'AaAaAaCcCcCcCcDd'],
-      ['ĐđĒēĔĕĖėĘęĚěĜĝĞğ', 'DdEeEeEeEeEeGgGg'],
-      ['ĠġĢģĤĥĦħĨĩĪīĬĭĮį', 'GgGgHhHhIiIiIiIi'],
-      ['İıĲĳĴĵĶķĸĹĺĻļĽľĿ', 'IiĲĳJjKkĸLlLlLlL'],
-      ['ŀŁłŃńŅņŇňŉŊŋŌōŎŏ', 'lLlNnNnNnŉŊŋOoOo'],
-      ['ŐőŒœŔŕŖŗŘřŚśŜŝŞş', 'OoŒœRrRrRrSsSsSs'],
-      ['ŠšŢţŤťŦŧŨũŪūŬŭŮů', 'SsTtTtTtUuUuUuUu'],
-      ['ŰűŲųŴŵŶŷŸŹźŻżŽž', 'UuUuWwYyYZzZzZz'],
+      array('ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏ', 'AAAAAAÆCEEEEIIII'),
+      array('ÐÑÒÓÔÕÖ×ØÙÚÛÜÝÞß', 'ÐNOOOOO×OUUUUYÞß'),
+      array('àáâãäåæçèéêëìíîï', 'aaaaaaæceeeeiiii'),
+      array('ðñòóôõö÷øùúûüýþÿ', 'ðnooooo÷ouuuuyþy'),
+      array('ĀāĂăĄąĆćĈĉĊċČčĎď', 'AaAaAaCcCcCcCcDd'),
+      array('ĐđĒēĔĕĖėĘęĚěĜĝĞğ', 'DdEeEeEeEeEeGgGg'),
+      array('ĠġĢģĤĥĦħĨĩĪīĬĭĮį', 'GgGgHhHhIiIiIiIi'),
+      array('İıĲĳĴĵĶķĸĹĺĻļĽľĿ', 'IiĲĳJjKkĸLlLlLlL'),
+      array('ŀŁłŃńŅņŇňŉŊŋŌōŎŏ', 'lLlNnNnNnŉŊŋOoOo'),
+      array('ŐőŒœŔŕŖŗŘřŚśŜŝŞş', 'OoŒœRrRrRrSsSsSs'),
+      array('ŠšŢţŤťŦŧŨũŪūŬŭŮů', 'SsTtTtTtUuUuUuUu'),
+      array('ŰűŲųŴŵŶŷŸŹźŻżŽž', 'UuUuWwYyYZzZzZz'),
 
       // Test all characters in the Unicode range 0x01CD to 0x024F.
-      ['ǍǎǏ', 'AaI'],
-      ['ǐǑǒǓǔǕǖǗǘǙǚǛǜǝǞǟ', 'iOoUuUuUuUuUuǝAa'],
-      ['ǠǡǢǣǤǥǦǧǨǩǪǫǬǭǮǯ', 'AaǢǣGgGgKkOoOoǮǯ'],
-      ['ǰǱǲǳǴǵǶǷǸǹǺǻǼǽǾǿ', 'jǱǲǳGgǶǷNnAaǼǽOo'],
-      ['ȀȁȂȃȄȅȆȇȈȉȊȋȌȍȎȏ', 'AaAaEeEeIiIiOoOo'],
-      ['ȐȑȒȓȔȕȖȗȘșȚțȜȝȞȟ', 'RrRrUuUuSsTtȜȝHh'],
-      ['ȠȡȢȣȤȥȦȧȨȩȪȫȬȭȮȯ', 'ȠȡȢȣZzAaEeOoOoOo'],
-      ['ȰȱȲȳȴȵȶȷȸȹȺȻȼȽȾȿ', 'OoYylntjȸȹACcLTs'],
-      ['ɀɁɂɃɄɅɆɇɈɉɊɋɌɍɎɏ', 'zɁɂBUɅEeJjQqRrYy'],
-    ];
+      array('ǍǎǏ', 'AaI'),
+      array('ǐǑǒǓǔǕǖǗǘǙǚǛǜǝǞǟ', 'iOoUuUuUuUuUuǝAa'),
+      array('ǠǡǢǣǤǥǦǧǨǩǪǫǬǭǮǯ', 'AaǢǣGgGgKkOoOoǮǯ'),
+      array('ǰǱǲǳǴǵǶǷǸǹǺǻǼǽǾǿ', 'jǱǲǳGgǶǷNnAaǼǽOo'),
+      array('ȀȁȂȃȄȅȆȇȈȉȊȋȌȍȎȏ', 'AaAaEeEeIiIiOoOo'),
+      array('ȐȑȒȓȔȕȖȗȘșȚțȜȝȞȟ', 'RrRrUuUuSsTtȜȝHh'),
+      array('ȠȡȢȣȤȥȦȧȨȩȪȫȬȭȮȯ', 'ȠȡȢȣZzAaEeOoOoOo'),
+      array('ȰȱȲȳȴȵȶȷȸȹȺȻȼȽȾȿ', 'OoYylntjȸȹACcLTs'),
+      array('ɀɁɂɃɄɅɆɇɈɉɊɋɌɍɎɏ', 'zɁɂBUɅEeJjQqRrYy'),
+    );
   }
 
   /**
@@ -106,92 +110,62 @@ class PhpTransliterationTest extends TestCase {
     // Make some strings with two, three, and four-byte characters for testing.
     // Note that the 3-byte character is overridden by the 'kg' language.
     $two_byte = 'Ä Ö Ü Å Ø äöüåøhello';
-    // This is a Cyrillic character that looks something like a "u". See
+    // This is a Cyrrillic character that looks something like a u. See
     // http://www.unicode.org/charts/PDF/U0400.pdf
     $three_byte = html_entity_decode('&#x446;', ENT_NOQUOTES, 'UTF-8');
     // This is a Canadian Aboriginal character like a triangle. See
     // http://www.unicode.org/charts/PDF/U1400.pdf
     $four_byte = html_entity_decode('&#x1411;', ENT_NOQUOTES, 'UTF-8');
     // These are two Gothic alphabet letters. See
-    // http://wikipedia.org/wiki/Gothic_alphabet
+    // http://en.wikipedia.org/wiki/Gothic_alphabet
     // They are not in our tables, but should at least give us '?' (unknown).
     $five_byte = html_entity_decode('&#x10330;&#x10338;', ENT_NOQUOTES, 'UTF-8');
 
-    return [
-      // Each test case is language code, input, output, unknown character, max
-      // length.
+    return array(
+      // Each test case is (language code, input, output).
       // Test ASCII in English.
-      ['en', $random, $random],
+      array('en', $random, $random),
       // Test ASCII in some other language with no overrides.
-      ['fr', $random, $random],
+      array('fr', $random, $random),
       // Test 3 and 4-byte characters in a language without overrides.
       // Note: if the data tables change, these will need to change too! They
       // are set up to test that data table loading works, so values come
       // directly from the data files.
-      ['fr', $three_byte, 'c'],
-      ['fr', $four_byte, 'wii'],
+      array('fr', $three_byte, 'c'),
+      array('fr', $four_byte, 'wii'),
       // Test 5-byte characters.
-      ['en', $five_byte, '??'],
+      array('en', $five_byte, '??'),
       // Test a language with no overrides.
-      ['en', $two_byte, 'A O U A O aouaohello'],
+      array('en', $two_byte, 'A O U A O aouaohello'),
       // Test language overrides provided by core.
-      ['de', $two_byte, 'Ae Oe Ue A O aeoeueaohello'],
-      ['de', $random, $random],
-      ['da', $two_byte, 'A O U Aa Oe aouaaoehello'],
-      ['da', $random, $random],
-      ['kg', $three_byte, 'ts'],
+      array('de', $two_byte, 'Ae Oe Ue A O aeoeueaohello'),
+      array('de', $random, $random),
+      array('dk', $two_byte, 'A O U Aa Oe aouaaoehello'),
+      array('dk', $random, $random),
+      array('kg', $three_byte, 'ts'),
       // Test strings in some other languages.
       // Turkish, provided by drupal.org user Kartagis.
-      ['tr', 'Abayı serdiler bize. Söyleyeceğim yüzlerine. Sanırım hepimiz aynı şeyi düşünüyoruz.', 'Abayi serdiler bize. Soyleyecegim yuzlerine. Sanirim hepimiz ayni seyi dusunuyoruz.'],
-      // Max length.
-      ['de', $two_byte, 'Ae Oe Ue A O aeoe', '?', 17],
-      // Do not split up the transliteration of a single character.
-      ['de', $two_byte, 'Ae Oe Ue A O aeoe', '?', 18],
+      array('tr', 'Abayı serdiler bize. Söyleyeceğim yüzlerine. Sanırım hepimiz aynı şeyi düşünüyoruz.', 'Abayi serdiler bize. Soyleyecegim yuzlerine. Sanirim hepimiz ayni seyi dusunuyoruz.'),
       // Illegal/unknown unicode.
-      ['en', chr(0xF8) . chr(0x80) . chr(0x80) . chr(0x80) . chr(0x80), '?????'],
-      ['en', chr(0xF8) . chr(0x80) . chr(0x80) . chr(0x80) . chr(0x80), '-----', '-'],
-      ['en', 'Hel' . chr(0x80) . 'o World', 'Hel?o World'],
-      ['en', 'Hell' . chr(0x80) . ' World', 'Hell? World'],
-      // Non default replacement.
-      ['en', chr(0x80) . 'ello World', '_ello World', '_'],
-      // Keep the original question marks.
-      ['en', chr(0xF8) . '?' . chr(0x80), '???'],
-      ['en', chr(0x80) . 'ello ? World?', '_ello ? World?', '_'],
-      ['pl', 'aąeę' . chr(0x80) . 'oółżźz ?', 'aaee?oolzzz ?'],
-      // Non-US-ASCII replacement.
-      ['en', chr(0x80) . 'ello World?', 'Oello World?', 'Ö'],
-      ['pl', chr(0x80) . 'óóść', 'ooosc', 'ó'],
-      // Ensure question marks are replaced when max length used.
-      ['en', chr(0x80) . 'ello ? World?', '_ello ?', '_', 7],
-      // Empty replacement.
-      ['en', chr(0x80) . 'ello World' . chr(0xF8), 'ello World', ''],
-      // Not affecting spacing from the beginning and end of a string.
-      ['en', ' Hello Abventor! ', ' Hello Abventor! '],
-      ['pl', ' Drupal Kraków Community', ' Drupal Krakow ', '?', 15],
-      // Keep many spaces between words.
-      ['en', 'Too    many    spaces between words !', 'Too    many    spaces between words !'],
-    ];
+      array('en', chr(0xF8) . chr(0x80) . chr(0x80) . chr(0x80) . chr(0x80), '?'),
+      // Max length.
+      array('de', $two_byte, 'Ae Oe', '?', 5),
+    );
   }
 
   /**
-   * Tests inclusion is safe.
-   *
-   * @covers ::readLanguageOverrides
+   * Tests the transliteration with max length.
    */
-  public function testSafeInclude() {
-    // The overrides in the transliteration data directory transliterates 0x82
-    // into "safe" but the overrides one directory higher transliterates the
-    // same character into "security hole". So by using "../index" as the
-    // language code we can test the ../ is stripped from the langcode.
-    vfsStream::setup('transliteration', NULL, [
-      'index.php' => '<?php $overrides = ["../index" => [0x82 => "security hole"]];',
-      'dir' => [
-        'index.php' => '<?php $overrides = ["../index" => [0x82 => "safe"]];',
-      ],
-    ]);
-    $transliteration = new PhpTransliteration(vfsStream::url('transliteration/dir'));
-    $transliterated = $transliteration->transliterate(chr(0xC2) . chr(0x82), '../index');
-    $this->assertSame('safe', $transliterated);
+  public function testTransliterationWithMaxLength() {
+    $transliteration = new PhpTransliteration();
+
+    // Test with max length, using German. It should never split up the
+    // transliteration of a single character.
+    $input = 'Ä Ö Ü Å Ø äöüåøhello';
+    $trunc_output = 'Ae Oe Ue A O aeoe';
+
+    $this->assertSame($trunc_output, $transliteration->transliterate($input, 'de', '?', 17), 'Truncating to 17 characters works');
+    $this->assertSame($trunc_output, $transliteration->transliterate($input, 'de', '?', 18), 'Truncating to 18 characters works');
   }
 
 }

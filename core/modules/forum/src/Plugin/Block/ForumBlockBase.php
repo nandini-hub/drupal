@@ -1,12 +1,17 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\forum\Plugin\Block\ForumBlockBase.
+ */
+
 namespace Drupal\forum\Plugin\Block;
 
 use Drupal\Core\Access\AccessResult;
 use Drupal\Core\Block\BlockBase;
-use Drupal\Core\Cache\Cache;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Session\AccountInterface;
+use Drupal\Core\Cache\Cache;
 use Drupal\Core\Url;
 
 /**
@@ -19,14 +24,14 @@ abstract class ForumBlockBase extends BlockBase {
    */
   public function build() {
     $result = $this->buildForumQuery()->execute();
-    $elements = [];
+    $elements = array();
     if ($node_title_list = node_title_list($result)) {
       $elements['forum_list'] = $node_title_list;
-      $elements['forum_more'] = [
+      $elements['forum_more'] = array(
         '#type' => 'more_link',
         '#url' => Url::fromRoute('forum.index'),
-        '#attributes' => ['title' => $this->t('Read the latest forum topics.')],
-      ];
+        '#attributes' => array('title' => $this->t('Read the latest forum topics.')),
+      );
     }
     return $elements;
   }
@@ -43,12 +48,12 @@ abstract class ForumBlockBase extends BlockBase {
    * {@inheritdoc}
    */
   public function defaultConfiguration() {
-    return [
-      'properties' => [
+    return array(
+      'properties' => array(
         'administrative' => TRUE,
-      ],
+      ),
       'block_count' => 5,
-    ];
+    );
   }
 
   /**
@@ -63,12 +68,12 @@ abstract class ForumBlockBase extends BlockBase {
    */
   public function blockForm($form, FormStateInterface $form_state) {
     $range = range(2, 20);
-    $form['block_count'] = [
+    $form['block_count'] = array(
       '#type' => 'select',
       '#title' => $this->t('Number of topics'),
       '#default_value' => $this->configuration['block_count'],
       '#options' => array_combine($range, $range),
-    ];
+    );
     return $form;
   }
 
@@ -83,14 +88,14 @@ abstract class ForumBlockBase extends BlockBase {
    * {@inheritdoc}
    */
   public function getCacheContexts() {
-    return Cache::mergeContexts(parent::getCacheContexts(), ['user.node_grants:view']);
+    return ['user.node_grants:view'];
   }
 
   /**
    * {@inheritdoc}
    */
   public function getCacheTags() {
-    return Cache::mergeTags(parent::getCacheTags(), ['node_list']);
+    return ['node_list'];
   }
 
 }

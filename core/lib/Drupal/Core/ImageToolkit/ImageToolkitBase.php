@@ -1,10 +1,16 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\ImageToolkit\ImageToolkitBase.
+ */
+
 namespace Drupal\Core\ImageToolkit;
 
 use Drupal\Component\Plugin\Exception\PluginNotFoundException;
 use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Image\ImageInterface;
 use Drupal\Core\Plugin\PluginBase;
 use Psr\Log\LoggerInterface;
 
@@ -26,11 +32,11 @@ abstract class ImageToolkitBase extends PluginBase implements ImageToolkitInterf
   protected $configFactory;
 
   /**
-   * Path of the image file.
+   * Image object this toolkit instance is tied to.
    *
-   * @var string
+   * @var \Drupal\Core\Image\ImageInterface
    */
-  protected $source = '';
+  protected $image;
 
   /**
    * The image toolkit operation manager.
@@ -45,6 +51,7 @@ abstract class ImageToolkitBase extends PluginBase implements ImageToolkitInterf
    * @var \Psr\Log\LoggerInterface
    */
   protected $logger;
+
 
   /**
    * Constructs an ImageToolkitBase object.
@@ -72,34 +79,30 @@ abstract class ImageToolkitBase extends PluginBase implements ImageToolkitInterf
   /**
    * {@inheritdoc}
    */
-  public function validateConfigurationForm(array &$form, FormStateInterface $form_state) {}
+  public function validateConfigurationForm(array &$form, FormStateInterface $form_state) {  }
 
   /**
    * {@inheritdoc}
    */
-  public function setSource($source) {
-    // If a previous image has been loaded, there is no way to know if the
-    // toolkit implementation needs to perform any additional actions like
-    // freeing memory. Therefore, the source image cannot be changed once set.
-    if ($this->source) {
+  public function setImage(ImageInterface $image) {
+    if ($this->image) {
       throw new \BadMethodCallException(__METHOD__ . '() may only be called once');
     }
-    $this->source = $source;
-    return $this;
+    $this->image = $image;
   }
 
   /**
    * {@inheritdoc}
    */
-  public function getSource() {
-    return $this->source;
+  public function getImage() {
+    return $this->image;
   }
 
   /**
    * {@inheritdoc}
    */
   public function getRequirements() {
-    return [];
+    return array();
   }
 
   /**
@@ -118,17 +121,17 @@ abstract class ImageToolkitBase extends PluginBase implements ImageToolkitInterf
   /**
    * {@inheritdoc}
    */
-  public function apply($operation, array $arguments = []) {
+  public function apply($operation, array $arguments = array()) {
     try {
       // Get the plugin to use for the operation and apply the operation.
       return $this->getToolkitOperation($operation)->apply($arguments);
     }
     catch (PluginNotFoundException $e) {
-      $this->logger->error("The selected image handling toolkit '@toolkit' can not process operation '@operation'.", ['@toolkit' => $this->getPluginId(), '@operation' => $operation]);
+      $this->logger->error("The selected image handling toolkit '@toolkit' can not process operation '@operation'.", array('@toolkit' => $this->getPluginId(), '@operation' => $operation));
       return FALSE;
     }
     catch (\InvalidArgumentException $e) {
-      $this->logger->warning($e->getMessage(), []);
+      $this->logger->warning($e->getMessage(), array());
       return FALSE;
     }
   }

@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Component\ProxyBuilder\ProxyBuilder.
+ */
+
 namespace Drupal\Component\ProxyBuilder;
 
 /**
@@ -17,30 +22,7 @@ class ProxyBuilder {
    *   The class name of the proxy.
    */
   public static function buildProxyClassName($class_name) {
-    $match = [];
-    preg_match('/([a-zA-Z0-9_]+\\\\[a-zA-Z0-9_]+)\\\\(.+)/', $class_name, $match);
-    $root_namespace = $match[1];
-    $rest_fqcn = $match[2];
-    $proxy_class_name = $root_namespace . '\\ProxyClass\\' . $rest_fqcn;
-
-    return $proxy_class_name;
-  }
-
-  /**
-   * Generates the used proxy namespace from a given class name.
-   *
-   * @param string $class_name
-   *   The class name of the actual service.
-   *
-   * @return string
-   *   The namespace name of the proxy.
-   */
-  public static function buildProxyNamespace($class_name) {
-    $proxy_classname = static::buildProxyClassName($class_name);
-
-    preg_match('/(.+)\\\\[a-zA-Z0-9]+/', $proxy_classname, $match);
-    $proxy_namespace = $match[1];
-    return $proxy_namespace;
+    return str_replace('\\', '_', $class_name) . '_Proxy';
   }
 
   /**
@@ -48,38 +30,23 @@ class ProxyBuilder {
    *
    * @param string $class_name
    *   The class name of the actual service.
-   * @param string $proxy_class_name
-   *   (optional) The class name of the proxy service.
    *
    * @return string
    *   The full string with namespace class and methods.
    */
-  public function build($class_name, $proxy_class_name = '') {
+  public function build($class_name) {
     $reflection = new \ReflectionClass($class_name);
-
-    if ($proxy_class_name) {
-      $proxy_class_reflection = new \ReflectionClass($proxy_class_name);
-      $proxy_namespace = $proxy_class_reflection->getNamespaceName();
-    }
-    else {
-      $proxy_class_name = $this->buildProxyClassName($class_name);
-      $proxy_namespace = $this->buildProxyNamespace($class_name);
-      $proxy_class_shortname = str_replace($proxy_namespace . '\\', '', $proxy_class_name);
-    }
 
     $output = '';
     $class_documentation = <<<'EOS'
-
-namespace {{ namespace }}{
-
-    /**
-     * Provides a proxy class for \{{ class_name }}.
-     *
-     * @see \Drupal\Component\ProxyBuilder
-     */
+/**
+ * Provides a proxy class for \{{ class_name }}.
+ *
+ * @see \Drupal\Component\ProxyBuilder
+ */
 
 EOS;
-    $class_start = '    class {{ proxy_class_shortname }}';
+    $class_start = 'class {{ proxy_class_name }}';
 
     // For cases in which the implemented interface is a child of another
     // interface, getInterfaceNames() also returns the parent. This causes a
@@ -92,6 +59,7 @@ EOS;
         // class.
         if ($parent_interfaces = $interface->getInterfaceNames()) {
           foreach ($parent_interfaces as $parent_interface) {
+            if (isset($interfaces[$parent_interface])) {}
             unset($interfaces[$parent_interface]);
           }
         }
@@ -109,15 +77,11 @@ EOS;
     // The actual class;
     $properties = <<<'EOS'
 /**
- * The id of the original proxied service.
- *
  * @var string
  */
-protected $drupalProxyOriginalServiceId;
+protected $serviceId;
 
 /**
- * The real proxied service, after it was lazy loaded.
- *
  * @var \{{ class_name }}
  */
 protected $service;
@@ -159,14 +123,13 @@ EOS;
       if ($value === '') {
         return $value;
       }
-      return "        $value";
+      return "    $value";
     }, explode("\n", $output)));
 
-    $final_output = $class_documentation . $class_start . "\n    {\n\n" . $output . "\n    }\n\n}\n";
+    $final_output = $class_documentation . $class_start . "\n{\n\n" . $output . "\n}\n";
 
     $final_output = str_replace('{{ class_name }}', $class_name, $final_output);
-    $final_output = str_replace('{{ namespace }}', $proxy_namespace ? $proxy_namespace . ' ' : '', $final_output);
-    $final_output = str_replace('{{ proxy_class_shortname }}', $proxy_class_shortname, $final_output);
+    $final_output = str_replace('{{ proxy_class_name }}', $this->buildProxyClassName($class_name), $final_output);
 
     return $final_output;
   }
@@ -178,16 +141,11 @@ EOS;
    */
   protected function buildLazyLoadItselfMethod() {
     $output = <<<'EOS'
-/**
- * Lazy loads the real service from the container.
- *
- * @return object
- *   Returns the constructed real service.
- */
 protected function lazyLoadItself()
 {
     if (!isset($this->service)) {
-        $this->service = $this->container->get($this->drupalProxyOriginalServiceId);
+        $method_name = 'get' . Container::camelize($this->serviceId) . 'Service';
+        $this->service = $this->container->$method_name(false);
     }
 
     return $this->service;
@@ -219,19 +177,11 @@ EOS;
     if ($reflection_method->returnsReference()) {
       $reference = '&';
     }
-
-    $signature_line = <<<'EOS'
-/**
- * {@inheritdoc}
- */
-
-EOS;
-
     if ($reflection_method->isStatic()) {
-      $signature_line .= 'public static function ' . $reference . $function_name . '(';
+      $signature_line = 'public static function ' . $reference . $function_name . '(';
     }
     else {
-      $signature_line .= 'public function ' . $reference . $function_name . '(';
+      $signature_line = 'public function ' . $reference . $function_name . '(';
     }
 
     $signature_line .= implode(', ', $parameters);
@@ -319,18 +269,10 @@ EOS;
    */
   protected function buildConstructorMethod() {
     $output = <<<'EOS'
-/**
- * Constructs a ProxyClass Drupal proxy object.
- *
- * @param \Symfony\Component\DependencyInjection\ContainerInterface $container
- *   The container.
- * @param string $drupal_proxy_original_service_id
- *   The service ID of the original service.
- */
-public function __construct(\Symfony\Component\DependencyInjection\ContainerInterface $container, $drupal_proxy_original_service_id)
+public function __construct(\Symfony\Component\DependencyInjection\ContainerInterface $container, $serviceId)
 {
     $this->container = $container;
-    $this->drupalProxyOriginalServiceId = $drupal_proxy_original_service_id;
+    $this->serviceId = $serviceId;
 }
 
 EOS;

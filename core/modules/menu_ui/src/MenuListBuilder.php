@@ -1,7 +1,13 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\menu_ui\MenuListBuilder.
+ */
+
 namespace Drupal\menu_ui;
 
+use Drupal\Component\Utility\Xss;
 use Drupal\Core\Config\Entity\ConfigEntityListBuilder;
 use Drupal\Core\Entity\EntityInterface;
 
@@ -18,10 +24,10 @@ class MenuListBuilder extends ConfigEntityListBuilder {
    */
   public function buildHeader() {
     $header['title'] = t('Title');
-    $header['description'] = [
+    $header['description'] = array(
       'data' => t('Description'),
-      'class' => [RESPONSIVE_PRIORITY_MEDIUM],
-    ];
+      'class' => array(RESPONSIVE_PRIORITY_MEDIUM),
+    );
     return $header + parent::buildHeader();
   }
 
@@ -29,11 +35,11 @@ class MenuListBuilder extends ConfigEntityListBuilder {
    * {@inheritdoc}
    */
   public function buildRow(EntityInterface $entity) {
-    $row['title'] = [
-      'data' => $entity->label(),
-      'class' => ['menu-label'],
-    ];
-    $row['description']['data'] = ['#markup' => $entity->getDescription()];
+    $row['title'] = array(
+      'data' => $this->getLabel($entity),
+      'class' => array('menu-label'),
+    );
+    $row['description'] = Xss::filterAdmin($entity->getDescription());
     return $row + parent::buildRow($entity);
   }
 
@@ -45,11 +51,11 @@ class MenuListBuilder extends ConfigEntityListBuilder {
 
     if (isset($operations['edit'])) {
       $operations['edit']['title'] = t('Edit menu');
-      $operations['add'] = [
+      $operations['add'] = array(
         'title' => t('Add link'),
         'weight' => 20,
-        'url' => $entity->toUrl('add-link-form'),
-      ];
+        'url' => $entity->urlInfo('add-link-form'),
+      );
     }
     if (isset($operations['delete'])) {
       $operations['delete']['title'] = t('Delete menu');

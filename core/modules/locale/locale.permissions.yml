@@ -1,4 +1,3 @@
 translate interface:
-  title: 'Translate interface text'
-  description: 'Translate any interface text including configuration shipped with modules and themes.'
+  title: 'Translate interface texts'
   restrict access: true

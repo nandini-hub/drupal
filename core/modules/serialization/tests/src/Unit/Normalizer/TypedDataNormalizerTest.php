@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Tests\serialization\Unit\Normalizer\TypedDataNormalizerTest
+ */
+
 namespace Drupal\Tests\serialization\Unit\Normalizer;
 
 use Drupal\Tests\UnitTestCase;
@@ -21,13 +26,13 @@ class TypedDataNormalizerTest extends UnitTestCase {
   /**
    * The mock typed data instance.
    *
-   * @var \Drupal\Core\TypedData\TypedDataInterface|\PHPUnit\Framework\MockObject\MockObject
+   * @var \Drupal\Core\TypedData\TypedDataInterface|\PHPUnit_Framework_MockObject_MockObject
    */
   protected $typedData;
 
   protected function setUp() {
     $this->normalizer = new TypedDataNormalizer();
-    $this->typedData = $this->createMock('Drupal\Core\TypedData\TypedDataInterface');
+    $this->typedData = $this->getMock('Drupal\Core\TypedData\TypedDataInterface');
   }
 
   /**

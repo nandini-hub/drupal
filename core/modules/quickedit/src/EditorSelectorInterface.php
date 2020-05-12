@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\quickedit\EditorSelectorInterface.
+ */
+
 namespace Drupal\quickedit;
 
 use Drupal\Core\Field\FieldItemListInterface;
@@ -31,7 +36,7 @@ interface EditorSelectorInterface {
    * @return array
    *   An array of attachments, for use with #attached.
    *
-   * @see \Drupal\Core\Render\AttachmentsResponseProcessorInterface::processAttachments()
+   * @see drupal_process_attached()
    */
   public function getEditorAttachments(array $editor_ids);
 

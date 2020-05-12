@@ -1,8 +1,12 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\entity_test\Entity\EntityTestConstraints.
+ */
+
 namespace Drupal\entity_test\Entity;
 
-use Drupal\Core\Entity\EntityChangedTrait;
 use Drupal\Core\Entity\EntityTypeInterface;
 use Drupal\Core\Entity\EntityChangedInterface;
 use Drupal\Core\Field\BaseFieldDefinition;
@@ -28,8 +32,6 @@ use Drupal\Core\Field\BaseFieldDefinition;
  */
 class EntityTestConstraints extends EntityTest implements EntityChangedInterface {
 
-  use EntityChangedTrait;
-
   /**
    * {@inheritdoc}
    */
@@ -40,6 +42,13 @@ class EntityTestConstraints extends EntityTest implements EntityChangedInterface
       ->setLabel(t('Changed'));
 
     return $fields;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getChangedTime() {
+    return $this->get('changed')->value;
   }
 
 }

@@ -1,11 +1,16 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\node\Form\NodePreviewForm.
+ */
+
 namespace Drupal\node\Form;
 
 use Drupal\Core\Config\ConfigFactoryInterface;
-use Drupal\Core\DependencyInjection\DeprecatedServicePropertyTrait;
+use Drupal\Core\DependencyInjection\ContainerInjectionInterface;
 use Drupal\Core\Entity\EntityInterface;
-use Drupal\Core\Entity\EntityDisplayRepositoryInterface;
+use Drupal\Core\Entity\EntityManagerInterface;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Url;
@@ -13,25 +18,15 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
  * Contains a form for switching the view mode of a node during preview.
- *
- * @internal
  */
-class NodePreviewForm extends FormBase {
-  use DeprecatedServicePropertyTrait;
+class NodePreviewForm extends FormBase implements ContainerInjectionInterface {
 
   /**
-   * {@inheritdoc}
-   */
-  protected $deprecatedProperties = [
-    'entityManager' => 'entity.manager',
-  ];
-
-  /**
-   * The entity display repository.
+   * The entity manager service.
    *
-   * @var \Drupal\Core\Entity\EntityDisplayRepositoryInterface
+   * @var \Drupal\Core\Entity\EntityManagerInterface
    */
-  protected $entityDisplayRepository;
+  protected $entityManager;
 
   /**
    * The config factory.
@@ -44,22 +39,19 @@ class NodePreviewForm extends FormBase {
    * {@inheritdoc}
    */
   public static function create(ContainerInterface $container) {
-    return new static(
-      $container->get('entity_display.repository'),
-      $container->get('config.factory')
-    );
+    return new static($container->get('entity.manager'), $container->get('config.factory'));
   }
 
   /**
    * Constructs a new NodePreviewForm.
    *
-   * @param \Drupal\Core\Entity\EntityDisplayRepositoryInterface $entity_display_repository
-   *   The entity display repository.
+   * @param \Drupal\Core\Entity\EntityManagerInterface $entity_manager
+   *   The entity manager service.
    * @param \Drupal\Core\Config\ConfigFactoryInterface $config_factory
    *   The configuration factory.
    */
-  public function __construct(EntityDisplayRepositoryInterface $entity_display_repository, ConfigFactoryInterface $config_factory) {
-    $this->entityDisplayRepository = $entity_display_repository;
+  public function __construct(EntityManagerInterface $entity_manager, ConfigFactoryInterface $config_factory) {
+    $this->entityManager = $entity_manager;
     $this->configFactory = $config_factory;
   }
 
@@ -86,49 +78,38 @@ class NodePreviewForm extends FormBase {
   public function buildForm(array $form, FormStateInterface $form_state, EntityInterface $node = NULL) {
     $view_mode = $node->preview_view_mode;
 
-    $query_options = ['query' => ['uuid' => $node->uuid()]];
-    $query = $this->getRequest()->query;
-    if ($query->has('destination')) {
-      $query_options['query']['destination'] = $query->get('destination');
-    }
-
-    $form['backlink'] = [
+    $query_options = $node->isNew() ? array('query' => array('uuid' => $node->uuid())) : array();
+    $form['backlink'] = array(
       '#type' => 'link',
       '#title' => $this->t('Back to content editing'),
-      '#url' => $node->isNew() ? Url::fromRoute('node.add', ['node_type' => $node->bundle()]) : $node->toUrl('edit-form'),
-      '#options' => ['attributes' => ['class' => ['node-preview-backlink']]] + $query_options,
-    ];
+      '#url' => $node->isNew() ? Url::fromRoute('node.add', ['node_type' => $node->bundle()]) : $node->urlInfo('edit-form'),
+      '#options' => array('attributes' => array('class' => array('node-preview-backlink'))) + $query_options,
+    );
 
-    // Always show full as an option, even if the display is not enabled.
-    $view_mode_options = ['full' => $this->t('Full')] + $this->entityDisplayRepository->getViewModeOptionsByBundle('node', $node->bundle());
+    $view_mode_options = $this->getViewModeOptions($node);
 
-    // Unset view modes that are not used in the front end.
-    unset($view_mode_options['default']);
-    unset($view_mode_options['rss']);
-    unset($view_mode_options['search_index']);
-
-    $form['uuid'] = [
+    $form['uuid'] = array(
       '#type' => 'value',
       '#value' => $node->uuid(),
-    ];
+    );
 
-    $form['view_mode'] = [
+    $form['view_mode'] = array(
       '#type' => 'select',
       '#title' => $this->t('View mode'),
       '#options' => $view_mode_options,
       '#default_value' => $view_mode,
-      '#attributes' => [
+      '#attributes' => array(
         'data-drupal-autosubmit' => TRUE,
-      ],
-    ];
+      )
+    );
 
-    $form['submit'] = [
+    $form['submit'] = array(
       '#type' => 'submit',
       '#value' => $this->t('Switch'),
-      '#attributes' => [
-        'class' => ['js-hide'],
-      ],
-    ];
+      '#attributes' => array(
+        'class' => array('js-hide'),
+      ),
+    );
 
     return $form;
   }
@@ -137,18 +118,52 @@ class NodePreviewForm extends FormBase {
    * {@inheritdoc}
    */
   public function submitForm(array &$form, FormStateInterface $form_state) {
-    $route_parameters = [
+    $form_state->setRedirect('entity.node.preview', array(
       'node_preview' => $form_state->getValue('uuid'),
       'view_mode_id' => $form_state->getValue('view_mode'),
-    ];
+    ));
+  }
 
-    $options = [];
-    $query = $this->getRequest()->query;
-    if ($query->has('destination')) {
-      $options['query']['destination'] = $query->get('destination');
-      $query->remove('destination');
+  /**
+   * Retrieves the list of available view modes for the current node.
+   *
+   * @param EntityInterface $node
+   *   The node being previewed.
+   *
+   * @return array
+   *   List of available view modes for the current node.
+   */
+  protected function getViewModeOptions(EntityInterface $node) {
+    $load_ids = array();
+    $view_mode_options = array();
+
+    // Load all the node's view modes.
+    $view_modes = $this->entityManager->getViewModes('node');
+
+    // Get the list of available view modes for the current node's bundle.
+    $ids = $this->configFactory->listAll('core.entity_view_display.node.' . $node->bundle());
+    foreach ($ids as $id) {
+      $config_id = str_replace('core.entity_view_display' . '.', '', $id);
+      $load_ids[] = $config_id;
     }
-    $form_state->setRedirect('entity.node.preview', $route_parameters, $options);
+    $displays = entity_load_multiple('entity_view_display', $load_ids);
+
+    // Generate the display options array.
+    foreach ($displays as $display) {
+
+      $view_mode_name = $display->get('mode');
+
+      // Skip view modes that are not used in the front end.
+      if (in_array($view_mode_name, array('rss', 'search_index'))) {
+        continue;
+      }
+
+      if ($display->status()) {
+        $view_mode_options[$view_mode_name] = ($view_mode_name == 'default') ? t('Default') : $view_modes[$view_mode_name]['label'];
+      }
+    }
+
+    return $view_mode_options;
   }
 
 }

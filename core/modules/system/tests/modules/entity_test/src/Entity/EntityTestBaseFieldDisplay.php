@@ -1,10 +1,14 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\entity_test\Entity\EntityTestBaseFieldDisplay.
+ */
+
 namespace Drupal\entity_test\Entity;
 
 use Drupal\Core\Entity\EntityTypeInterface;
 use Drupal\Core\Field\BaseFieldDefinition;
-use Drupal\entity_test\FieldStorageDefinition;
 
 /**
  * Defines a test entity class for base fields display.
@@ -17,24 +21,16 @@ use Drupal\entity_test\FieldStorageDefinition;
  *     "form" = {
  *       "default" = "Drupal\entity_test\EntityTestForm"
  *     },
- *     "route_provider" = {
- *       "html" = "Drupal\Core\Entity\Routing\DefaultHtmlRouteProvider",
- *     },
+ *     "translation" = "Drupal\content_translation\ContentTranslationHandler"
  *   },
- *   base_table = "entity_test_base_field_display",
- *   admin_permission = "administer entity_test content",
+ *   base_table = "entity_test",
  *   entity_keys = {
  *     "id" = "id",
- *     "label" = "name",
  *     "uuid" = "uuid",
- *     "bundle" = "type",
- *     "langcode" = "langcode",
+ *     "bundle" = "type"
  *   },
  *   links = {
- *     "canonical" = "/entity_test_base_field_display/{entity_test_base_field_display}/edit",
- *     "add-form" = "/entity_test_base_field_display/add",
  *     "edit-form" = "/entity_test_base_field_display/manage/{entity_test_base_field_display}",
- *     "delete-form" = "/entity_test/delete/entity_test_base_field_display/{entity_test_base_field_display}/edit",
  *   },
  *   field_ui_base_route = "entity.entity_test_base_field_display.admin_form",
  * )
@@ -52,39 +48,27 @@ class EntityTestBaseFieldDisplay extends EntityTest {
 
     $fields['test_display_configurable'] = BaseFieldDefinition::create('text')
       ->setLabel(t('Field with configurable display'))
-      ->setDisplayOptions('view', [
+      ->setDisplayOptions('view', array(
         'type' => 'text_default',
         'weight' => 10,
-      ])
+      ))
       ->setDisplayConfigurable('view', TRUE)
-      ->setDisplayOptions('form', [
+      ->setDisplayOptions('form', array(
         'type' => 'text_textfield',
         'weight' => 10,
-      ])
+      ))
       ->setDisplayConfigurable('form', TRUE);
 
     $fields['test_display_non_configurable'] = BaseFieldDefinition::create('text')
       ->setLabel(t('Field with non-configurable display'))
-      ->setDisplayOptions('view', [
+      ->setDisplayOptions('view', array(
         'type' => 'text_default',
         'weight' => 11,
-      ])
-      ->setDisplayOptions('form', [
+      ))
+      ->setDisplayOptions('form', array(
         'type' => 'text_textfield',
         'weight' => 11,
-      ]);
-
-    $fields['test_display_multiple'] = BaseFieldDefinition::create('text')
-      ->setLabel(t('A field with multiple values'))
-      ->setCardinality(FieldStorageDefinition::CARDINALITY_UNLIMITED)
-      ->setDisplayOptions('view', [
-        'type' => 'text_default',
-        'weight' => 12,
-      ])
-      ->setDisplayOptions('form', [
-        'type' => 'text_textfield',
-        'weight' => 12,
-      ]);
+      ));
 
     return $fields;
   }

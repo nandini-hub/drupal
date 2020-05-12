@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Theme\ActiveTheme.
+ */
+
 namespace Drupal\Core\Theme;
 
 /**
@@ -18,13 +23,6 @@ class ActiveTheme {
    * @var string
    */
   protected $name;
-
-  /**
-   * The path to the logo.
-   *
-   * @var string
-   */
-  protected $logo;
 
   /**
    * The path to the theme.
@@ -51,20 +49,8 @@ class ActiveTheme {
    * An array of base theme active theme objects keyed by name.
    *
    * @var static[]
-   *
-   * @deprecated in drupal:8.7.0 and is removed from drupal:9.0.0. Use
-   *   $this->baseThemeExtensions instead.
-   *
-   * @see https://www.drupal.org/node/3019948
    */
   protected $baseThemes;
-
-  /**
-   * An array of base theme extension objects keyed by name.
-   *
-   * @var \Drupal\Core\Extension\Extension[]
-   */
-  protected $baseThemeExtensions = [];
 
   /**
    * The extension object.
@@ -88,27 +74,6 @@ class ActiveTheme {
   protected $libraries;
 
   /**
-   * The regions provided by the theme.
-   *
-   * @var array
-   */
-  protected $regions;
-
-  /**
-   * The libraries or library assets overridden by the theme.
-   *
-   * @var array
-   */
-  protected $librariesOverride;
-
-  /**
-   * The list of libraries-extend definitions.
-   *
-   * @var array
-   */
-  protected $librariesExtend;
-
-  /**
    * Constructs an ActiveTheme object.
    *
    * @param array $values
@@ -119,35 +84,20 @@ class ActiveTheme {
       'path' => '',
       'engine' => 'twig',
       'owner' => 'twig',
-      'logo' => '',
       'stylesheets_remove' => [],
       'libraries' => [],
       'extension' => 'html.twig',
-      'base_theme_extensions' => [],
-      'regions' => [],
-      'libraries_override' => [],
-      'libraries_extend' => [],
+      'base_themes' => [],
     ];
 
     $this->name = $values['name'];
-    $this->logo = $values['logo'];
     $this->path = $values['path'];
     $this->engine = $values['engine'];
     $this->owner = $values['owner'];
     $this->styleSheetsRemove = $values['stylesheets_remove'];
     $this->libraries = $values['libraries'];
     $this->extension = $values['extension'];
-    $this->baseThemeExtensions = $values['base_theme_extensions'];
-    if (!empty($values['base_themes']) && empty($this->baseThemeExtensions)) {
-      @trigger_error("The 'base_themes' key is deprecated in Drupal 8.7.0  and support for it will be removed in Drupal 9.0.0. Use 'base_theme_extensions' instead. See https://www.drupal.org/node/3019948", E_USER_DEPRECATED);
-      foreach ($values['base_themes'] as $base_theme) {
-        $this->baseThemeExtensions[$base_theme->getName()] = $base_theme->getExtension();
-      }
-    }
-
-    $this->regions = $values['regions'];
-    $this->librariesOverride = $values['libraries_override'];
-    $this->librariesExtend = $values['libraries_extend'];
+    $this->baseThemes = $values['base_themes'];
   }
 
   /**
@@ -180,7 +130,7 @@ class ActiveTheme {
   /**
    * Returns the path to the theme engine for root themes.
    *
-   * @see \Drupal\Core\Extension\ThemeExtensionList::doList()
+   * @see \Drupal\Core\Extension\ThemeHandler::rebuildThemeData
    *
    * @return mixed
    */
@@ -210,10 +160,6 @@ class ActiveTheme {
    * Returns the removed stylesheets by the theme.
    *
    * @return mixed
-   *
-   * @deprecated in drupal:8.0.0 and is removed from drupal:9.0.0.
-   *
-   * @see https://www.drupal.org/node/2497313
    */
   public function getStyleSheetsRemove() {
     return $this->styleSheetsRemove;
@@ -226,72 +172,9 @@ class ActiveTheme {
    * the dependency chain.
    *
    * @return static[]
-   *
-   * @deprecated in drupal:8.7.0 and is removed from drupal:9.0.0. Use
-   *   \Drupal\Core\Theme\ActiveTheme::getBaseThemeExtensions() instead.
-   *
-   * @see https://www.drupal.org/node/3019948
    */
   public function getBaseThemes() {
-    @trigger_error('\Drupal\Core\Theme\ActiveTheme::getBaseThemes() is deprecated in Drupal 8.7.0 and will be removed before Drupal 9.0.0. Use \Drupal\Core\Theme\ActiveTheme::getBaseThemeExtensions() instead. See https://www.drupal.org/node/3019948', E_USER_DEPRECATED);
-    /** @var \Drupal\Core\Theme\ThemeInitialization $theme_initialisation */
-    $theme_initialisation = \Drupal::service('theme.initialization');
-    $base_themes = array_combine(array_keys($this->baseThemeExtensions), array_keys($this->baseThemeExtensions));
-    return array_map([$theme_initialisation, 'getActiveThemeByName'], $base_themes);
-  }
-
-  /**
-   * Returns an array of base theme extension objects keyed by name.
-   *
-   * The order starts with the base theme of $this and ends with the root of
-   * the dependency chain.
-   *
-   * @return \Drupal\Core\Extension\Extension[]
-   */
-  public function getBaseThemeExtensions() {
-    return $this->baseThemeExtensions;
-  }
-
-  /**
-   * Returns the logo provided by the theme.
-   *
-   * @return string
-   *   The logo path.
-   */
-  public function getLogo() {
-    return $this->logo;
-  }
-
-  /**
-   * The regions used by the theme.
-   *
-   * @return string[]
-   *   The list of region machine names supported by the theme.
-   *
-   * @see system_region_list()
-   */
-  public function getRegions() {
-    return array_keys($this->regions);
-  }
-
-  /**
-   * Returns the libraries or library assets overridden by the active theme.
-   *
-   * @return array
-   *   The list of libraries overrides.
-   */
-  public function getLibrariesOverride() {
-    return $this->librariesOverride;
-  }
-
-  /**
-   * Returns the libraries extended by the active theme.
-   *
-   * @return array
-   *   The list of libraries-extend definitions.
-   */
-  public function getLibrariesExtend() {
-    return $this->librariesExtend;
+    return $this->baseThemes;
   }
 
 }

@@ -1,15 +1,28 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\user\RegisterForm.
+ */
+
 namespace Drupal\user;
 
+use Drupal\Core\Entity\EntityManagerInterface;
+use Drupal\Core\Entity\Query\QueryFactory;
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Language\LanguageManagerInterface;
 
 /**
- * Form handler for the user register forms.
- *
- * @internal
+ * Form controller for the user register forms.
  */
 class RegisterForm extends AccountForm {
+
+  /**
+   * {@inheritdoc}
+   */
+  public function __construct(EntityManagerInterface $entity_manager, LanguageManagerInterface $language_manager, QueryFactory $entity_query) {
+    parent::__construct($entity_manager, $language_manager, $entity_query);
+  }
 
   /**
    * {@inheritdoc}
@@ -18,21 +31,14 @@ class RegisterForm extends AccountForm {
     $user = $this->currentUser();
     /** @var \Drupal\user\UserInterface $account */
     $account = $this->entity;
-
-    // This form is used for two cases:
-    // - Self-register (route = 'user.register').
-    // - Admin-create (route = 'user.admin_create').
-    // If the current user has permission to create users then it must be the
-    // second case.
-    $admin = $account->access('create');
-
+    $admin = $user->hasPermission('administer users');
     // Pass access information to the submit handler. Running an access check
     // inside the submit function interferes with form processing and breaks
     // hook_form_alter().
-    $form['administer_users'] = [
+    $form['administer_users'] = array(
       '#type' => 'value',
       '#value' => $admin,
-    ];
+    );
 
     $form['#attached']['library'][] = 'core/drupal.form';
 
@@ -57,7 +63,7 @@ class RegisterForm extends AccountForm {
   }
 
   /**
-   * {@inheritdoc}
+   * Overrides Drupal\Core\Entity\EntityForm::actions().
    */
   protected function actions(array $form, FormStateInterface $form_state) {
     $element = parent::actions($form, $form_state);
@@ -103,35 +109,35 @@ class RegisterForm extends AccountForm {
     $form_state->set('user', $account);
     $form_state->setValue('uid', $account->id());
 
-    $this->logger('user')->notice('New user: %name %email.', ['%name' => $form_state->getValue('name'), '%email' => '<' . $form_state->getValue('mail') . '>', 'type' => $account->toLink($this->t('Edit'), 'edit-form')->toString()]);
+    $this->logger('user')->notice('New user: %name %email.', array('%name' => $form_state->getValue('name'), '%email' => '<' . $form_state->getValue('mail') . '>', 'type' => $account->link($this->t('Edit'), 'edit-form')));
 
     // Add plain text password into user account to generate mail tokens.
     $account->password = $pass;
 
     // New administrative account without notification.
     if ($admin && !$notify) {
-      $this->messenger()->addStatus($this->t('Created a new user account for <a href=":url">%name</a>. No email has been sent.', [':url' => $account->toUrl()->toString(), '%name' => $account->getAccountName()]));
+      drupal_set_message($this->t('Created a new user account for <a href="@url">%name</a>. No email has been sent.', array('@url' => $account->url(), '%name' => $account->getUsername())));
     }
     // No email verification required; log in user immediately.
     elseif (!$admin && !\Drupal::config('user.settings')->get('verify_mail') && $account->isActive()) {
       _user_mail_notify('register_no_approval_required', $account);
       user_login_finalize($account);
-      $this->messenger()->addStatus($this->t('Registration successful. You are now logged in.'));
+      drupal_set_message($this->t('Registration successful. You are now logged in.'));
       $form_state->setRedirect('<front>');
     }
     // No administrator approval required.
     elseif ($account->isActive() || $notify) {
       if (!$account->getEmail() && $notify) {
-        $this->messenger()->addStatus($this->t('The new user <a href=":url">%name</a> was created without an email address, so no welcome message was sent.', [':url' => $account->toUrl()->toString(), '%name' => $account->getAccountName()]));
+        drupal_set_message($this->t('The new user <a href="@url">%name</a> was created without an email address, so no welcome message was sent.', array('@url' => $account->url(), '%name' => $account->getUsername())));
       }
       else {
         $op = $notify ? 'register_admin_created' : 'register_no_approval_required';
         if (_user_mail_notify($op, $account)) {
           if ($notify) {
-            $this->messenger()->addStatus($this->t('A welcome message with further instructions has been emailed to the new user <a href=":url">%name</a>.', [':url' => $account->toUrl()->toString(), '%name' => $account->getAccountName()]));
+            drupal_set_message($this->t('A welcome message with further instructions has been emailed to the new user <a href="@url">%name</a>.', array('@url' => $account->url(), '%name' => $account->getUsername())));
           }
           else {
-            $this->messenger()->addStatus($this->t('A welcome message with further instructions has been sent to your email address.'));
+            drupal_set_message($this->t('A welcome message with further instructions has been sent to your email address.'));
             $form_state->setRedirect('<front>');
           }
         }
@@ -140,9 +146,8 @@ class RegisterForm extends AccountForm {
     // Administrator approval required.
     else {
       _user_mail_notify('register_pending_approval', $account);
-      $this->messenger()->addStatus($this->t('Thank you for applying for an account. Your account is currently pending approval by the site administrator.<br />In the meantime, a welcome message with further instructions has been sent to your email address.'));
+      drupal_set_message($this->t('Thank you for applying for an account. Your account is currently pending approval by the site administrator.<br />In the meantime, a welcome message with further instructions has been sent to your email address.'));
       $form_state->setRedirect('<front>');
     }
   }
-
 }

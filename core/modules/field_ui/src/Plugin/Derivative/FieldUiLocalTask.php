@@ -1,10 +1,13 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\field_ui\Plugin\Derivative\FieldUiLocalTask.
+ */
+
 namespace Drupal\field_ui\Plugin\Derivative;
 
-use Drupal\Core\DependencyInjection\DeprecatedServicePropertyTrait;
-use Drupal\Core\Entity\EntityDisplayRepositoryInterface;
-use Drupal\Core\Entity\EntityTypeManagerInterface;
+use Drupal\Core\Entity\EntityManagerInterface;
 use Drupal\Component\Plugin\Derivative\DeriverBase;
 use Drupal\Core\Plugin\Discovery\ContainerDeriverInterface;
 use Drupal\Core\Routing\RouteProviderInterface;
@@ -17,12 +20,6 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
  */
 class FieldUiLocalTask extends DeriverBase implements ContainerDeriverInterface {
   use StringTranslationTrait;
-  use DeprecatedServicePropertyTrait;
-
-  /**
-   * {@inheritdoc}
-   */
-  protected $deprecatedProperties = ['entityManager' => 'entity.manager'];
 
   /**
    * The route provider.
@@ -32,40 +29,26 @@ class FieldUiLocalTask extends DeriverBase implements ContainerDeriverInterface 
   protected $routeProvider;
 
   /**
-   * The entity type manager.
+   * The entity manager
    *
-   * @var \Drupal\Core\Entity\EntityTypeManagerInterface
+   * @var \Drupal\Core\Entity\EntityManagerInterface
    */
-  protected $entityTypeManager;
-
-  /**
-   * The entity display repository.
-   *
-   * @var \Drupal\Core\Entity\EntityDisplayRepositoryInterface
-   */
-  protected $entityDisplayRepository;
+  protected $entityManager;
 
   /**
    * Creates an FieldUiLocalTask object.
    *
    * @param \Drupal\Core\Routing\RouteProviderInterface $route_provider
    *   The route provider.
-   * @param \Drupal\Core\Entity\EntityTypeManagerInterface $entity_type_manager
-   *   The entity type manager.
+   * @param \Drupal\Core\Entity\EntityManagerInterface $entity_manager
+   *   The entity manager.
    * @param \Drupal\Core\StringTranslation\TranslationInterface $string_translation
    *   The translation manager.
-   * @param \Drupal\Core\Entity\EntityDisplayRepositoryInterface $entity_display_repository
-   *   The entity display repository.
    */
-  public function __construct(RouteProviderInterface $route_provider, EntityTypeManagerInterface $entity_type_manager, TranslationInterface $string_translation, EntityDisplayRepositoryInterface $entity_display_repository = NULL) {
+  public function __construct(RouteProviderInterface $route_provider, EntityManagerInterface $entity_manager, TranslationInterface $string_translation) {
     $this->routeProvider = $route_provider;
-    $this->entityTypeManager = $entity_type_manager;
+    $this->entityManager = $entity_manager;
     $this->stringTranslation = $string_translation;
-    if (!$entity_display_repository) {
-      @trigger_error('Calling FieldUiLocalTask::__construct() with the $entity_repository argument is supported in drupal:8.7.0 and will be required before drupal:9.0.0. See https://www.drupal.org/node/2549139.', E_USER_DEPRECATED);
-      $entity_display_repository = \Drupal::service('entity_display.repository');
-    }
-    $this->entityDisplayRepository = $entity_display_repository;
   }
 
   /**
@@ -74,9 +57,8 @@ class FieldUiLocalTask extends DeriverBase implements ContainerDeriverInterface 
   public static function create(ContainerInterface $container, $base_plugin_id) {
     return new static(
       $container->get('router.route_provider'),
-      $container->get('entity_type.manager'),
-      $container->get('string_translation'),
-      $container->get('entity_display.repository')
+      $container->get('entity.manager'),
+      $container->get('string_translation')
     );
   }
 
@@ -84,46 +66,46 @@ class FieldUiLocalTask extends DeriverBase implements ContainerDeriverInterface 
    * {@inheritdoc}
    */
   public function getDerivativeDefinitions($base_plugin_definition) {
-    $this->derivatives = [];
+    $this->derivatives = array();
 
-    foreach ($this->entityTypeManager->getDefinitions() as $entity_type_id => $entity_type) {
+    foreach ($this->entityManager->getDefinitions() as $entity_type_id => $entity_type) {
       if ($entity_type->get('field_ui_base_route')) {
-        $this->derivatives["overview_$entity_type_id"] = [
+        $this->derivatives["overview_$entity_type_id"] = array(
           'route_name' => "entity.$entity_type_id.field_ui_fields",
           'weight' => 1,
           'title' => $this->t('Manage fields'),
           'base_route' => "entity.$entity_type_id.field_ui_fields",
-        ];
+        );
 
         // 'Manage form display' tab.
-        $this->derivatives["form_display_overview_$entity_type_id"] = [
+        $this->derivatives["form_display_overview_$entity_type_id"] = array(
           'route_name' => "entity.entity_form_display.$entity_type_id.default",
           'weight' => 2,
           'title' => $this->t('Manage form display'),
           'base_route' => "entity.$entity_type_id.field_ui_fields",
-        ];
+        );
 
         // 'Manage display' tab.
-        $this->derivatives["display_overview_$entity_type_id"] = [
+        $this->derivatives["display_overview_$entity_type_id"] = array(
           'route_name' => "entity.entity_view_display.$entity_type_id.default",
           'weight' => 3,
           'title' => $this->t('Manage display'),
           'base_route' => "entity.$entity_type_id.field_ui_fields",
-        ];
+        );
 
         // Field edit tab.
-        $this->derivatives["field_edit_$entity_type_id"] = [
+        $this->derivatives["field_edit_$entity_type_id"] = array(
           'route_name' => "entity.field_config.{$entity_type_id}_field_edit_form",
           'title' => $this->t('Edit'),
           'base_route' => "entity.field_config.{$entity_type_id}_field_edit_form",
-        ];
+        );
 
         // Field settings tab.
-        $this->derivatives["field_storage_$entity_type_id"] = [
+        $this->derivatives["field_storage_$entity_type_id"] = array(
           'route_name' => "entity.field_config.{$entity_type_id}_storage_edit_form",
           'title' => $this->t('Field settings'),
           'base_route' => "entity.field_config.{$entity_type_id}_field_edit_form",
-        ];
+        );
 
         // View and form modes secondary tabs.
         // The same base $path for the menu item (with a placeholder) can be
@@ -132,47 +114,45 @@ class FieldUiLocalTask extends DeriverBase implements ContainerDeriverInterface 
         // modes available for customisation. So we define menu items for all
         // view modes, and use a route requirement to determine which ones are
         // actually visible for a given bundle.
-        $this->derivatives['field_form_display_default_' . $entity_type_id] = [
+        $this->derivatives['field_form_display_default_' . $entity_type_id] = array(
           'title' => 'Default',
           'route_name' => "entity.entity_form_display.$entity_type_id.default",
           'parent_id' => "field_ui.fields:form_display_overview_$entity_type_id",
           'weight' => -1,
-        ];
-        $this->derivatives['field_display_default_' . $entity_type_id] = [
+        );
+        $this->derivatives['field_display_default_' . $entity_type_id] = array(
           'title' => 'Default',
           'route_name' => "entity.entity_view_display.$entity_type_id.default",
           'parent_id' => "field_ui.fields:display_overview_$entity_type_id",
           'weight' => -1,
-        ];
+        );
 
         // One local task for each form mode.
         $weight = 0;
-        foreach ($this->entityDisplayRepository->getFormModes($entity_type_id) as $form_mode => $form_mode_info) {
-          $this->derivatives['field_form_display_' . $form_mode . '_' . $entity_type_id] = [
+        foreach ($this->entityManager->getFormModes($entity_type_id) as $form_mode => $form_mode_info) {
+          $this->derivatives['field_form_display_' . $form_mode . '_' . $entity_type_id] = array(
             'title' => $form_mode_info['label'],
             'route_name' => "entity.entity_form_display.$entity_type_id.form_mode",
-            'route_parameters' => [
+            'route_parameters' => array(
               'form_mode_name' => $form_mode,
-            ],
+            ),
             'parent_id' => "field_ui.fields:form_display_overview_$entity_type_id",
             'weight' => $weight++,
-            'cache_tags' => $this->entityTypeManager->getDefinition('entity_form_display')->getListCacheTags(),
-          ];
+          );
         }
 
         // One local task for each view mode.
         $weight = 0;
-        foreach ($this->entityDisplayRepository->getViewModes($entity_type_id) as $view_mode => $form_mode_info) {
-          $this->derivatives['field_display_' . $view_mode . '_' . $entity_type_id] = [
+        foreach ($this->entityManager->getViewModes($entity_type_id) as $view_mode => $form_mode_info) {
+          $this->derivatives['field_display_' . $view_mode . '_' . $entity_type_id] = array(
             'title' => $form_mode_info['label'],
             'route_name' => "entity.entity_view_display.$entity_type_id.view_mode",
-            'route_parameters' => [
+            'route_parameters' => array(
               'view_mode_name' => $view_mode,
-            ],
+            ),
             'parent_id' => "field_ui.fields:display_overview_$entity_type_id",
             'weight' => $weight++,
-            'cache_tags' => $this->entityTypeManager->getDefinition('entity_view_display')->getListCacheTags(),
-          ];
+          );
         }
       }
     }
@@ -191,7 +171,7 @@ class FieldUiLocalTask extends DeriverBase implements ContainerDeriverInterface 
    *   An array of local tasks plugin definitions, keyed by plugin ID.
    */
   public function alterLocalTasks(&$local_tasks) {
-    foreach ($this->entityTypeManager->getDefinitions() as $entity_type_id => $entity_type) {
+    foreach ($this->entityManager->getDefinitions() as $entity_type_id => $entity_type) {
       if ($route_name = $entity_type->get('field_ui_base_route')) {
         $local_tasks["field_ui.fields:overview_$entity_type_id"]['base_route'] = $route_name;
         $local_tasks["field_ui.fields:form_display_overview_$entity_type_id"]['base_route'] = $route_name;
@@ -199,11 +179,11 @@ class FieldUiLocalTask extends DeriverBase implements ContainerDeriverInterface 
         $local_tasks["field_ui.fields:field_form_display_default_$entity_type_id"]['base_route'] = $route_name;
         $local_tasks["field_ui.fields:field_display_default_$entity_type_id"]['base_route'] = $route_name;
 
-        foreach ($this->entityDisplayRepository->getFormModes($entity_type_id) as $form_mode => $form_mode_info) {
+        foreach ($this->entityManager->getFormModes($entity_type_id) as $form_mode => $form_mode_info) {
           $local_tasks['field_ui.fields:field_form_display_' . $form_mode . '_' . $entity_type_id]['base_route'] = $route_name;
         }
 
-        foreach ($this->entityDisplayRepository->getViewModes($entity_type_id) as $view_mode => $form_mode_info) {
+        foreach ($this->entityManager->getViewModes($entity_type_id) as $view_mode => $form_mode_info) {
           $local_tasks['field_ui.fields:field_display_' . $view_mode . '_' . $entity_type_id]['base_route'] = $route_name;
         }
       }

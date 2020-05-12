@@ -1,11 +1,16 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Block\MainContentBlockPluginInterface.
+ */
+
 namespace Drupal\Core\Block;
 
 /**
  * The interface for "main page content" blocks.
  *
- * A main page content block represents the content returned by the controller.
+ * A main page content block represents the content returns by the controller.
  *
  * @ingroup block_api
  */

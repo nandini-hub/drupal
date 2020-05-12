@@ -1,8 +1,3 @@
-langcode: en
-status: true
-dependencies:
-  module:
-    - user
 id: user.user
 targetEntityType: user
 bundle: user
@@ -12,3 +7,6 @@ fieldMappings:
   name:
     properties:
       - 'schema:name'
+dependencies:
+  module:
+    - user

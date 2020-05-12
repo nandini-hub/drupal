@@ -1,16 +1,22 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Tests\Component\Utility\UrlHelperTest.
+ */
+
 namespace Drupal\Tests\Component\Utility;
 
 use Drupal\Component\Utility\UrlHelper;
-use PHPUnit\Framework\TestCase;
+use Drupal\Component\Utility\SafeMarkup;
+use Drupal\Tests\UnitTestCase;
 
 /**
  * @group Utility
  *
  * @coversDefaultClass \Drupal\Component\Utility\UrlHelper
  */
-class UrlHelperTest extends TestCase {
+class UrlHelperTest extends UnitTestCase {
 
   /**
    * Provides test data for testBuildQuery().
@@ -18,13 +24,13 @@ class UrlHelperTest extends TestCase {
    * @return array
    */
   public function providerTestBuildQuery() {
-    return [
-      [['a' => ' &#//+%20@۞'], 'a=%20%26%23//%2B%2520%40%DB%9E', 'Value was properly encoded.'],
-      [[' &#//+%20@۞' => 'a'], '%20%26%23%2F%2F%2B%2520%40%DB%9E=a', 'Key was properly encoded.'],
-      [['a' => '1', 'b' => '2', 'c' => '3'], 'a=1&b=2&c=3', 'Multiple values were properly concatenated.'],
-      [['a' => ['b' => '2', 'c' => '3'], 'd' => 'foo'], 'a%5Bb%5D=2&a%5Bc%5D=3&d=foo', 'Nested array was properly encoded.'],
-      [['foo' => NULL], 'foo', 'Simple parameters are properly added.'],
-    ];
+    return array(
+      array(array('a' => ' &#//+%20@۞'), 'a=%20%26%23//%2B%2520%40%DB%9E', 'Value was properly encoded.'),
+      array(array(' &#//+%20@۞' => 'a'), '%20%26%23%2F%2F%2B%2520%40%DB%9E=a', 'Key was properly encoded.'),
+      array(array('a' => '1', 'b' => '2', 'c' => '3'), 'a=1&b=2&c=3', 'Multiple values were properly concatenated.'),
+      array(array('a' => array('b' => '2', 'c' => '3'), 'd' => 'foo'), 'a[b]=2&a[c]=3&d=foo', 'Nested array was properly encoded.'),
+      array(array('foo' => NULL), 'foo', 'Simple parameters are properly added.'),
+    );
   }
 
   /**
@@ -50,7 +56,7 @@ class UrlHelperTest extends TestCase {
    * @return array
    */
   public function providerTestValidAbsoluteData() {
-    $urls = [
+    $urls = array(
       'example.com',
       'www.example.com',
       'ex-ample.com',
@@ -69,7 +75,7 @@ class UrlHelperTest extends TestCase {
       'example.org/~,$\'*;',
       'caf%C3%A9.example.org',
       '[FEDC:BA98:7654:3210:FEDC:BA98:7654:3210]:80/index.html',
-    ];
+    );
 
     return $this->dataEnhanceWithScheme($urls);
   }
@@ -88,7 +94,7 @@ class UrlHelperTest extends TestCase {
   public function testValidAbsolute($url, $scheme) {
     $test_url = $scheme . '://' . $url;
     $valid_url = UrlHelper::isValid($test_url, TRUE);
-    $this->assertTrue($valid_url, $test_url . ' is a valid URL.');
+    $this->assertTrue($valid_url, SafeMarkup::format('@url is a valid URL.', array('@url' => $test_url)));
   }
 
   /**
@@ -97,11 +103,11 @@ class UrlHelperTest extends TestCase {
    * @return array
    */
   public function providerTestInvalidAbsolute() {
-    $data = [
+    $data = array(
       '',
       'ex!ample.com',
       'ex%ample.com',
-    ];
+    );
     return $this->dataEnhanceWithScheme($data);
   }
 
@@ -119,7 +125,7 @@ class UrlHelperTest extends TestCase {
   public function testInvalidAbsolute($url, $scheme) {
     $test_url = $scheme . '://' . $url;
     $valid_url = UrlHelper::isValid($test_url, TRUE);
-    $this->assertFalse($valid_url, $test_url . ' is NOT a valid URL.');
+    $this->assertFalse($valid_url, SafeMarkup::format('@url is NOT a valid URL.', array('@url' => $test_url)));
   }
 
   /**
@@ -128,13 +134,13 @@ class UrlHelperTest extends TestCase {
    * @return array
    */
   public function providerTestValidRelativeData() {
-    $data = [
+    $data = array(
       'paren(the)sis',
       'index.html#pagetop',
       'index.php/node',
       'index.php/node?param=false',
       'login.php?do=login&style=%23#pagetop',
-    ];
+    );
 
     return $this->dataEnhanceWithPrefix($data);
   }
@@ -153,7 +159,7 @@ class UrlHelperTest extends TestCase {
   public function testValidRelative($url, $prefix) {
     $test_url = $prefix . $url;
     $valid_url = UrlHelper::isValid($test_url);
-    $this->assertTrue($valid_url, $test_url . ' is a valid URL.');
+    $this->assertTrue($valid_url, SafeMarkup::format('@url is a valid URL.', array('@url' => $test_url)));
   }
 
   /**
@@ -162,11 +168,11 @@ class UrlHelperTest extends TestCase {
    * @return array
    */
   public function providerTestInvalidRelativeData() {
-    $data = [
+    $data = array(
       'ex^mple',
       'example<>',
       'ex%ample',
-    ];
+    );
     return $this->dataEnhanceWithPrefix($data);
   }
 
@@ -184,7 +190,7 @@ class UrlHelperTest extends TestCase {
   public function testInvalidRelative($url, $prefix) {
     $test_url = $prefix . $url;
     $valid_url = UrlHelper::isValid($test_url);
-    $this->assertFalse($valid_url, $test_url . ' is NOT a valid URL.');
+    $this->assertFalse($valid_url, SafeMarkup::format('@url is NOT a valid URL.', array('@url' => $test_url)));
   }
 
   /**
@@ -212,20 +218,20 @@ class UrlHelperTest extends TestCase {
    * @return array
    */
   public static function providerTestFilterQueryParameters() {
-    return [
+    return array(
       // Test without an exclude filter.
-      [
-        'query' => ['a' => ['b' => 'c']],
-        'exclude' => [],
-        'expected' => ['a' => ['b' => 'c']],
-      ],
+      array(
+        'query' => array('a' => array('b' => 'c')),
+        'exclude' => array(),
+        'expected' => array('a' => array('b' => 'c')),
+      ),
       // Exclude the 'b' element.
-      [
-        'query' => ['a' => ['b' => 'c', 'd' => 'e']],
-        'exclude' => ['a[b]'],
-        'expected' => ['a' => ['d' => 'e']],
-      ],
-    ];
+      array(
+        'query' => array('a' => array('b' => 'c', 'd' => 'e')),
+        'exclude' => array('a[b]'),
+        'expected' => array('a' => array('d' => 'e')),
+      ),
+    );
   }
 
   /**
@@ -241,7 +247,7 @@ class UrlHelperTest extends TestCase {
    */
   public function testParse($url, $expected) {
     $parsed = UrlHelper::parse($url);
-    $this->assertEquals($expected, $parsed, 'The URL was not properly parsed.');
+    $this->assertEquals($expected, $parsed, 'The url was not properly parsed.');
   }
 
   /**
@@ -250,104 +256,52 @@ class UrlHelperTest extends TestCase {
    * @return array
    */
   public static function providerTestParse() {
-    return [
-      [
+    return array(
+      array(
         'http://www.example.com/my/path',
-        [
+        array(
           'path' => 'http://www.example.com/my/path',
-          'query' => [],
+          'query' => array(),
           'fragment' => '',
-        ],
-      ],
-      [
+        ),
+      ),
+      array(
         'http://www.example.com/my/path?destination=home#footer',
-        [
+        array(
           'path' => 'http://www.example.com/my/path',
-          'query' => [
+          'query' => array(
             'destination' => 'home',
-          ],
+          ),
           'fragment' => 'footer',
-        ],
-      ],
-      'absolute fragment, no query' => [
-        'http://www.example.com/my/path#footer',
-        [
-          'path' => 'http://www.example.com/my/path',
-          'query' => [],
-          'fragment' => 'footer',
-        ],
-      ],
-      [
+        ),
+      ),
+      array(
         'http://',
-        [
+        array(
           'path' => '',
-          'query' => [],
+          'query' => array(),
           'fragment' => '',
-        ],
-      ],
-      [
+        ),
+      ),
+      array(
         'https://',
-        [
+        array(
           'path' => '',
-          'query' => [],
+          'query' => array(),
           'fragment' => '',
-        ],
-      ],
-      [
+        ),
+      ),
+      array(
         '/my/path?destination=home#footer',
-        [
+        array(
           'path' => '/my/path',
-          'query' => [
+          'query' => array(
             'destination' => 'home',
-          ],
+          ),
           'fragment' => 'footer',
-        ],
-      ],
-      'relative fragment, no query' => [
-        '/my/path#footer',
-        [
-          'path' => '/my/path',
-          'query' => [],
-          'fragment' => 'footer',
-        ],
-      ],
-      'URL with two question marks, not encoded' => [
-        'http://www.example.com/my/path?destination=home&search=http://www.example.com/search?limit=10#footer',
-        [
-          'path' => 'http://www.example.com/my/path',
-          'query' => [
-            'destination' => 'home',
-            'search' => 'http://www.example.com/search?limit=10',
-          ],
-          'fragment' => 'footer',
-        ],
-      ],
-      'URL with three question marks, not encoded' => [
-        'http://www.example.com/my/path?destination=home&search=http://www.example.com/search?limit=10&referer=http://www.example.com/my/path?destination=home&other#footer',
-        [
-          'path' => 'http://www.example.com/my/path',
-          'query' => [
-            'destination' => 'home',
-            'search' => 'http://www.example.com/search?limit=10',
-            'referer' => 'http://www.example.com/my/path?destination=home',
-            'other' => '',
-          ],
-          'fragment' => 'footer',
-        ],
-      ],
-      'URL with three question marks, encoded' => [
-        'http://www.example.com/my/path?destination=home&search=http://www.example.com/search?limit=10&referer=http%3A%2F%2Fwww.example.com%2Fmy%2Fpath%3Fdestination%3Dhome%26other#footer',
-        [
-          'path' => 'http://www.example.com/my/path',
-          'query' => [
-            'destination' => 'home',
-            'search' => 'http://www.example.com/search?limit=10',
-            'referer' => 'http://www.example.com/my/path?destination=home&other',
-          ],
-          'fragment' => 'footer',
-        ],
-      ],
-    ];
+        ),
+      ),
+    );
   }
 
   /**
@@ -372,10 +326,10 @@ class UrlHelperTest extends TestCase {
    * @return array
    */
   public static function providerTestEncodePath() {
-    return [
-      ['unencoded path with spaces', 'unencoded%20path%20with%20spaces'],
-      ['slashes/should/be/preserved', 'slashes/should/be/preserved'],
-    ];
+    return array(
+      array('unencoded path with spaces', 'unencoded%20path%20with%20spaces'),
+      array('slashes/should/be/preserved', 'slashes/should/be/preserved'),
+    );
   }
 
   /**
@@ -400,39 +354,15 @@ class UrlHelperTest extends TestCase {
    * @return array
    */
   public static function providerTestIsExternal() {
-    return [
-      ['/internal/path', FALSE],
-      ['https://example.com/external/path', TRUE],
-      ['javascript://fake-external-path', FALSE],
+    return array(
+      array('/internal/path', FALSE),
+      array('https://example.com/external/path', TRUE),
+      array('javascript://fake-external-path', FALSE),
       // External URL without an explicit protocol.
-      ['//www.drupal.org/foo/bar?foo=bar&bar=baz&baz#foo', TRUE],
+      array('//drupal.org/foo/bar?foo=bar&bar=baz&baz#foo', TRUE),
       // Internal URL starting with a slash.
-      ['/www.drupal.org', FALSE],
-      // Simple external URLs.
-      ['http://example.com', TRUE],
-      ['https://example.com', TRUE],
-      ['http://drupal.org/foo/bar?foo=bar&bar=baz&baz#foo', TRUE],
-      ['//drupal.org', TRUE],
-      // Some browsers ignore or strip leading control characters.
-      ["\x00//www.example.com", TRUE],
-      ["\x08//www.example.com", TRUE],
-      ["\x1F//www.example.com", TRUE],
-      ["\n//www.example.com", TRUE],
-      // JSON supports decoding directly from UTF-8 code points.
-      [json_decode('"\u00AD"') . "//www.example.com", TRUE],
-      [json_decode('"\u200E"') . "//www.example.com", TRUE],
-      [json_decode('"\uE0020"') . "//www.example.com", TRUE],
-      [json_decode('"\uE000"') . "//www.example.com", TRUE],
-      // Backslashes should be normalized to forward.
-      ['\\\\example.com', TRUE],
-      // Local URLs.
-      ['node', FALSE],
-      ['/system/ajax', FALSE],
-      ['?q=foo:bar', FALSE],
-      ['node/edit:me', FALSE],
-      ['/drupal.org', FALSE],
-      ['<front>', FALSE],
-    ];
+      array('/drupal.org', FALSE),
+    );
   }
 
   /**
@@ -443,18 +373,16 @@ class UrlHelperTest extends TestCase {
    * @covers ::filterBadProtocol
    *
    * @param string $uri
-   *   Protocol URI.
+   *    Protocol URI.
    * @param string $expected
-   *   Expected escaped value.
+   *    Expected escaped value.
    * @param array $protocols
-   *   Protocols to allow.
+   *    Protocols to allow.
    */
   public function testFilterBadProtocol($uri, $expected, $protocols) {
     UrlHelper::setAllowedProtocols($protocols);
-    $this->assertEquals($expected, UrlHelper::filterBadProtocol($uri));
-    // Multiple calls to UrlHelper::filterBadProtocol() do not cause double
-    // escaping.
-    $this->assertEquals($expected, UrlHelper::filterBadProtocol(UrlHelper::filterBadProtocol($uri)));
+    $filtered = UrlHelper::filterBadProtocol($uri);
+    $this->assertEquals($expected, $filtered);
   }
 
   /**
@@ -463,15 +391,15 @@ class UrlHelperTest extends TestCase {
    * @return array
    */
   public static function providerTestFilterBadProtocol() {
-    return [
-      ['javascript://example.com?foo&bar', '//example.com?foo&amp;bar', ['http', 'https']],
+    return array(
+      array('javascript://example.com?foo&bar', '//example.com?foo&amp;bar', array('http', 'https')),
       // Test custom protocols.
-      ['http://example.com?foo&bar', '//example.com?foo&amp;bar', ['https']],
+      array('http://example.com?foo&bar', '//example.com?foo&amp;bar', array('https')),
       // Valid protocol.
-      ['http://example.com?foo&bar', 'http://example.com?foo&amp;bar', ['https', 'http']],
+      array('http://example.com?foo&bar', 'http://example.com?foo&amp;bar', array('https', 'http')),
       // Colon not part of the URL scheme.
-      ['/test:8888?foo&bar', '/test:8888?foo&amp;bar', ['http']],
-    ];
+      array('/test:8888?foo&bar', '/test:8888?foo&amp;bar', array('http')),
+    );
   }
 
   /**
@@ -482,11 +410,11 @@ class UrlHelperTest extends TestCase {
    * @covers ::stripDangerousProtocols
    *
    * @param string $uri
-   *   Protocol URI.
+   *    Protocol URI.
    * @param string $expected
-   *   Expected escaped value.
+   *    Expected escaped value.
    * @param array $protocols
-   *   Protocols to allow.
+   *    Protocols to allow.
    */
   public function testStripDangerousProtocols($uri, $expected, $protocols) {
     UrlHelper::setAllowedProtocols($protocols);
@@ -500,15 +428,15 @@ class UrlHelperTest extends TestCase {
    * @return array
    */
   public static function providerTestStripDangerousProtocols() {
-    return [
-      ['javascript://example.com', '//example.com', ['http', 'https']],
+    return array(
+      array('javascript://example.com', '//example.com', array('http', 'https')),
       // Test custom protocols.
-      ['http://example.com', '//example.com', ['https']],
+      array('http://example.com', '//example.com', array('https')),
       // Valid protocol.
-      ['http://example.com', 'http://example.com', ['https', 'http']],
+      array('http://example.com', 'http://example.com', array('https', 'http')),
       // Colon not part of the URL scheme.
-      ['/test:8888', '/test:8888', ['http']],
-    ];
+      array('/test:8888', '/test:8888', array('http')),
+    );
   }
 
   /**
@@ -521,11 +449,11 @@ class UrlHelperTest extends TestCase {
    *   A list of provider data with schemes.
    */
   protected function dataEnhanceWithScheme(array $urls) {
-    $url_schemes = ['http', 'https', 'ftp'];
-    $data = [];
+    $url_schemes = array('http', 'https', 'ftp');
+    $data = array();
     foreach ($url_schemes as $scheme) {
       foreach ($urls as $url) {
-        $data[] = [$url, $scheme];
+        $data[] = array($url, $scheme);
       }
     }
     return $data;
@@ -541,11 +469,11 @@ class UrlHelperTest extends TestCase {
    *   A list of provider data with prefixes.
    */
   protected function dataEnhanceWithPrefix(array $urls) {
-    $prefixes = ['', '/'];
-    $data = [];
+    $prefixes = array('', '/');
+    $data = array();
     foreach ($prefixes as $prefix) {
       foreach ($urls as $url) {
-        $data[] = [$url, $prefix];
+        $data[] = array($url, $prefix);
       }
     }
     return $data;
@@ -575,35 +503,31 @@ class UrlHelperTest extends TestCase {
    * @see \Drupal\Tests\Component\Utility\UrlHelperTest::testExternalIsLocal()
    */
   public function providerTestExternalIsLocal() {
-    return [
+    return array(
       // Different mixes of trailing slash.
-      ['http://example.com', 'http://example.com', TRUE],
-      ['http://example.com/', 'http://example.com', TRUE],
-      ['http://example.com', 'http://example.com/', TRUE],
-      ['http://example.com/', 'http://example.com/', TRUE],
+      array('http://example.com', 'http://example.com', TRUE),
+      array('http://example.com/', 'http://example.com', TRUE),
+      array('http://example.com', 'http://example.com/', TRUE),
+      array('http://example.com/', 'http://example.com/', TRUE),
       // Sub directory of site.
-      ['http://example.com/foo', 'http://example.com/', TRUE],
-      ['http://example.com/foo/bar', 'http://example.com/foo', TRUE],
-      ['http://example.com/foo/bar', 'http://example.com/foo/', TRUE],
+      array('http://example.com/foo', 'http://example.com/', TRUE),
+      array('http://example.com/foo/bar', 'http://example.com/foo', TRUE),
+      array('http://example.com/foo/bar', 'http://example.com/foo/', TRUE),
       // Different sub-domain.
-      ['http://example.com', 'http://www.example.com/', FALSE],
-      ['http://example.com/', 'http://www.example.com/', FALSE],
-      ['http://example.com/foo', 'http://www.example.com/', FALSE],
+      array('http://example.com', 'http://www.example.com/', FALSE),
+      array('http://example.com/', 'http://www.example.com/', FALSE),
+      array('http://example.com/foo', 'http://www.example.com/', FALSE),
       // Different TLD.
-      ['http://example.com', 'http://example.ca', FALSE],
-      ['http://example.com', 'http://example.ca/', FALSE],
-      ['http://example.com/', 'http://example.ca/', FALSE],
-      ['http://example.com/foo', 'http://example.ca', FALSE],
-      ['http://example.com/foo', 'http://example.ca/', FALSE],
+      array('http://example.com', 'http://example.ca', FALSE),
+      array('http://example.com', 'http://example.ca/', FALSE),
+      array('http://example.com/', 'http://example.ca/', FALSE),
+      array('http://example.com/foo', 'http://example.ca', FALSE),
+      array('http://example.com/foo', 'http://example.ca/', FALSE),
       // Different site path.
-      ['http://example.com/foo', 'http://example.com/bar', FALSE],
-      ['http://example.com', 'http://example.com/bar', FALSE],
-      ['http://example.com/bar', 'http://example.com/bar/', FALSE],
-      // Ensure \ is normalised to / since some browsers do that.
-      ['http://www.example.ca\@example.com', 'http://example.com', FALSE],
-      // Some browsers ignore or strip leading control characters.
-      ["\x00//www.example.ca", 'http://example.com', FALSE],
-    ];
+      array('http://example.com/foo', 'http://example.com/bar', FALSE),
+      array('http://example.com', 'http://example.com/bar', FALSE),
+      array('http://example.com/bar', 'http://example.com/bar/', FALSE),
+    );
   }
 
   /**
@@ -616,9 +540,9 @@ class UrlHelperTest extends TestCase {
    *
    * @covers ::externalIsLocal
    * @dataProvider providerTestExternalIsLocalInvalid
+   * @expectedException \InvalidArgumentException
    */
   public function testExternalIsLocalInvalid($url, $base_url) {
-    $this->expectException(\InvalidArgumentException::class);
     UrlHelper::externalIsLocal($url, $base_url);
   }
 
@@ -628,17 +552,16 @@ class UrlHelperTest extends TestCase {
    * @see \Drupal\Tests\Component\Utility\UrlHelperTest::testExternalIsLocalInvalid()
    */
   public function providerTestExternalIsLocalInvalid() {
-    return [
-      ['http://example.com/foo', ''],
-      ['http://example.com/foo', 'bar'],
-      ['http://example.com/foo', 'http://'],
+    return array(
+      array('http://example.com/foo', ''),
+      array('http://example.com/foo', 'bar'),
+      array('http://example.com/foo', 'http://'),
       // Invalid destination urls.
-      ['', 'http://example.com/foo'],
-      ['bar', 'http://example.com/foo'],
-      ['/bar', 'http://example.com/foo'],
-      ['bar/', 'http://example.com/foo'],
-      ['http://', 'http://example.com/foo'],
-    ];
+      array('', 'http://example.com/foo'),
+      array('bar', 'http://example.com/foo'),
+      array('/bar', 'http://example.com/foo'),
+      array('bar/', 'http://example.com/foo'),
+      array('http://', 'http://example.com/foo'),
+    );
   }
-
 }

@@ -1,9 +1,13 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Component\Plugin\ContextAwarePluginBase
+ */
+
 namespace Drupal\Component\Plugin;
 
 use Drupal\Component\Plugin\Context\ContextInterface;
-use Drupal\Component\Plugin\Definition\ContextAwarePluginDefinitionInterface;
 use Drupal\Component\Plugin\Exception\ContextException;
 use Drupal\Component\Plugin\Context\Context;
 use Symfony\Component\Validator\ConstraintViolationList;
@@ -18,20 +22,7 @@ abstract class ContextAwarePluginBase extends PluginBase implements ContextAware
    *
    * @var \Drupal\Component\Plugin\Context\ContextInterface[]
    */
-  protected $context = [];
-
-  /**
-   * Data objects representing the contexts passed in the plugin configuration.
-   *
-   * @var \Drupal\Component\Plugin\Context\ContextInterface[]
-   *
-   * @deprecated
-   *   in drupal:8.8.0 and is removed from drupal:9.0.0. Use
-   *   \Drupal\Component\Plugin\ContextAwarePluginInterface instead.
-   *
-   * @see https://www.drupal.org/project/drupal/issues/3080631
-   */
-  private $contexts = [];
+  protected $context;
 
   /**
    * Overrides \Drupal\Component\Plugin\PluginBase::__construct().
@@ -50,43 +41,17 @@ abstract class ContextAwarePluginBase extends PluginBase implements ContextAware
    *   The plugin implementation definition.
    */
   public function __construct(array $configuration, $plugin_id, $plugin_definition) {
-    $context_configuration = isset($configuration['context']) ? $configuration['context'] : [];
-    unset($configuration['context']);
-
+    $context = array();
+    if (isset($configuration['context'])) {
+      $context = $configuration['context'];
+      unset($configuration['context']);
+    }
     parent::__construct($configuration, $plugin_id, $plugin_definition);
-
-    $this->context = $this->createContextFromConfiguration($context_configuration);
-    // @todo Remove $this->contexts in Drupal 9; see
-    // https://www.drupal.org/project/drupal/issues/3081145
-    $this->contexts = $this->context;
-  }
-
-  /**
-   * Implements magic __get() method.
-   */
-  public function __get($name) {
-    if ($name === 'contexts') {
-      @trigger_error('The $contexts property is deprecated in Drupal 8.8.0 and will be removed before Drupal 9.0.0. Use methods of \Drupal\Component\Plugin\ContextAwarePluginInterface instead. See https://www.drupal.org/project/drupal/issues/3080631 for more information.', E_USER_DEPRECATED);
-      return $this->contexts;
-    }
-  }
-
-  /**
-   * Creates context objects from any context mappings in configuration.
-   *
-   * @param array $context_configuration
-   *   An associative array of context names and values.
-   *
-   * @return \Drupal\Component\Plugin\Context\ContextInterface[]
-   *   An array of context objects.
-   */
-  protected function createContextFromConfiguration(array $context_configuration) {
-    $contexts = [];
-    foreach ($context_configuration as $key => $value) {
+    foreach ($context as $key => $value) {
       $context_definition = $this->getContextDefinition($key);
-      $contexts[$key] = new Context($context_definition, $value);
+      $this->context[$key] = new Context($context_definition);
+      $this->context[$key]->setContextValue($value);
     }
-    return $contexts;
   }
 
   /**
@@ -94,12 +59,7 @@ abstract class ContextAwarePluginBase extends PluginBase implements ContextAware
    */
   public function getContextDefinitions() {
     $definition = $this->getPluginDefinition();
-    if ($definition instanceof ContextAwarePluginDefinitionInterface) {
-      return $definition->getContextDefinitions();
-    }
-    else {
-      return !empty($definition['context_definitions']) ? $definition['context_definitions'] : [];
-    }
+    return !empty($definition['context']) ? $definition['context'] : array();
   }
 
   /**
@@ -107,15 +67,10 @@ abstract class ContextAwarePluginBase extends PluginBase implements ContextAware
    */
   public function getContextDefinition($name) {
     $definition = $this->getPluginDefinition();
-    if ($definition instanceof ContextAwarePluginDefinitionInterface) {
-      if ($definition->hasContextDefinition($name)) {
-        return $definition->getContextDefinition($name);
-      }
+    if (empty($definition['context'][$name])) {
+      throw new ContextException(sprintf("The %s context is not a valid context.", $name));
     }
-    elseif (!empty($definition['context_definitions'][$name])) {
-      return $definition['context_definitions'][$name];
-    }
-    throw new ContextException(sprintf("The %s context is not a valid context.", $name));
+    return $definition['context'][$name];
   }
 
   /**
@@ -151,7 +106,7 @@ abstract class ContextAwarePluginBase extends PluginBase implements ContextAware
    * {@inheritdoc}
    */
   public function getContextValues() {
-    $values = [];
+    $values = array();
     foreach ($this->getContextDefinitions() as $name => $definition) {
       $values[$name] = isset($this->context[$name]) ? $this->context[$name]->getContextValue() : NULL;
     }
@@ -169,7 +124,7 @@ abstract class ContextAwarePluginBase extends PluginBase implements ContextAware
    * {@inheritdoc}
    */
   public function setContextValue($name, $value) {
-    $this->context[$name] = new Context($this->getContextDefinition($name), $value);
+    $this->getContext($name)->setContextValue($value);
     return $this;
   }
 

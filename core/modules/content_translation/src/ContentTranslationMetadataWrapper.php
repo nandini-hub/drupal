@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\content_translation\ContentTranslationMetadata.
+ */
+
 namespace Drupal\content_translation;
 
 use Drupal\Core\Entity\EntityInterface;
@@ -13,7 +18,7 @@ class ContentTranslationMetadataWrapper implements ContentTranslationMetadataWra
   /**
    * The wrapped entity translation.
    *
-   * @var \Drupal\Core\Entity\FieldableEntityInterface|\Drupal\Core\TypedData\TranslatableInterface
+   * @var \Drupal\Core\Entity\EntityInterface|\Drupal\Core\Entity\FieldableEntityInterface|\Drupal\Core\TypedData\TranslatableInterface
    */
   protected $translation;
 
@@ -27,7 +32,7 @@ class ContentTranslationMetadataWrapper implements ContentTranslationMetadataWra
   /**
    * Initializes an instance of the content translation metadata handler.
    *
-   * @param \Drupal\Core\Entity\EntityInterface $translation
+   * @param EntityInterface $translation
    *   The entity translation to be wrapped.
    * @param ContentTranslationHandlerInterface $handler
    *   The content translation handler.
@@ -78,8 +83,12 @@ class ContentTranslationMetadataWrapper implements ContentTranslationMetadataWra
    * {@inheritdoc}
    */
   public function setAuthor(UserInterface $account) {
-    $field_name = $this->translation->hasField('content_translation_uid') ? 'content_translation_uid' : 'uid';
-    $this->setFieldOnlyIfTranslatable($field_name, $account->id());
+    if ($this->translation->hasField('content_translation_uid')) {
+      $this->translation->set('content_translation_uid', $account->id());
+    }
+    else {
+      $this->translation->setOwner($account);
+    }
     return $this;
   }
 
@@ -96,7 +105,7 @@ class ContentTranslationMetadataWrapper implements ContentTranslationMetadataWra
    */
   public function setPublished($published) {
     $field_name = $this->translation->hasField('content_translation_status') ? 'content_translation_status' : 'status';
-    $this->setFieldOnlyIfTranslatable($field_name, $published);
+    $this->translation->set($field_name, $published);
     return $this;
   }
 
@@ -113,7 +122,7 @@ class ContentTranslationMetadataWrapper implements ContentTranslationMetadataWra
    */
   public function setCreatedTime($timestamp) {
     $field_name = $this->translation->hasField('content_translation_created') ? 'content_translation_created' : 'created';
-    $this->setFieldOnlyIfTranslatable($field_name, $timestamp);
+    $this->translation->set($field_name, $timestamp);
     return $this;
   }
 
@@ -129,22 +138,8 @@ class ContentTranslationMetadataWrapper implements ContentTranslationMetadataWra
    */
   public function setChangedTime($timestamp) {
     $field_name = $this->translation->hasField('content_translation_changed') ? 'content_translation_changed' : 'changed';
-    $this->setFieldOnlyIfTranslatable($field_name, $timestamp);
+    $this->translation->set($field_name, $timestamp);
     return $this;
-  }
-
-  /**
-   * Updates a field value, only if the field is translatable.
-   *
-   * @param string $field_name
-   *   The name of the field.
-   * @param mixed $value
-   *   The field value to be set.
-   */
-  protected function setFieldOnlyIfTranslatable($field_name, $value) {
-    if ($this->translation->getFieldDefinition($field_name)->isTranslatable()) {
-      $this->translation->set($field_name, $value);
-    }
   }
 
 }

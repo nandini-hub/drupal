@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\views_test_data\Plugin\views\style\StyleTest.
+ */
+
 namespace Drupal\views_test_data\Plugin\views\style;
 
 use Drupal\Core\Form\FormStateInterface;
@@ -29,32 +34,34 @@ class StyleTest extends StylePluginBase {
   public $output;
 
   /**
-   * {@inheritdoc}
+   * Can the style plugin use row plugins.
+   *
+   * @var bool
    */
   protected $usesRowPlugin = TRUE;
 
   /**
-   * {@inheritdoc}
+   * Overrides Drupal\views\Plugin\views\style\StylePluginBase::defineOptions().
    */
   protected function defineOptions() {
     $options = parent::defineOptions();
-    $options['test_option'] = ['default' => ''];
+    $options['test_option'] = array('default' => '');
 
     return $options;
   }
 
   /**
-   * {@inheritdoc}
+   * Overrides Drupal\views\Plugin\views\style\StylePluginBase::buildOptionsForm().
    */
   public function buildOptionsForm(&$form, FormStateInterface $form_state) {
     parent::buildOptionsForm($form, $form_state);
 
-    $form['test_option'] = [
+    $form['test_option'] = array(
       '#title' => $this->t('Test option'),
       '#type' => 'textfield',
       '#description' => $this->t('This is a textfield for test_option.'),
       '#default_value' => $this->options['test_option'],
-    ];
+    );
   }
 
   /**
@@ -87,7 +94,7 @@ class StyleTest extends StylePluginBase {
   }
 
   /**
-   * {@inheritdoc}
+   * Overrides Drupal\views\Plugin\views\style\StylePluginBase::render()
    */
   public function render() {
     $output = '';

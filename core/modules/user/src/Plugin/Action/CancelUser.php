@@ -1,11 +1,16 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\user\Plugin\Action\CancelUser.
+ */
+
 namespace Drupal\user\Plugin\Action;
 
 use Drupal\Core\Action\ActionBase;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Drupal\Core\Session\AccountInterface;
-use Drupal\Core\TempStore\PrivateTempStoreFactory;
+use Drupal\user\PrivateTempStoreFactory;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
@@ -23,7 +28,7 @@ class CancelUser extends ActionBase implements ContainerFactoryPluginInterface {
   /**
    * The tempstore factory.
    *
-   * @var \Drupal\Core\TempStore\PrivateTempStoreFactory
+   * @var \Drupal\user\PrivateTempStoreFactory
    */
   protected $tempStoreFactory;
 
@@ -35,7 +40,7 @@ class CancelUser extends ActionBase implements ContainerFactoryPluginInterface {
   protected $currentUser;
 
   /**
-   * Constructs a CancelUser object.
+   * Constructs a DeleteNode object.
    *
    * @param array $configuration
    *   A configuration array containing information about the plugin instance.
@@ -43,9 +48,9 @@ class CancelUser extends ActionBase implements ContainerFactoryPluginInterface {
    *   The plugin ID for the plugin instance.
    * @param mixed $plugin_definition
    *   The plugin implementation definition.
-   * @param \Drupal\Core\TempStore\PrivateTempStoreFactory $temp_store_factory
+   * @param \Drupal\user\PrivateTempStoreFactory $temp_store_factory
    *   The tempstore factory.
-   * @param \Drupal\Core\Session\AccountInterface $current_user
+   * @param AccountInterface $current_user
    *   Current user.
    */
   public function __construct(array $configuration, $plugin_id, $plugin_definition, PrivateTempStoreFactory $temp_store_factory, AccountInterface $current_user) {
@@ -63,7 +68,7 @@ class CancelUser extends ActionBase implements ContainerFactoryPluginInterface {
       $configuration,
       $plugin_id,
       $plugin_definition,
-      $container->get('tempstore.private'),
+      $container->get('user.private_tempstore'),
       $container->get('current_user')
     );
   }
@@ -79,7 +84,7 @@ class CancelUser extends ActionBase implements ContainerFactoryPluginInterface {
    * {@inheritdoc}
    */
   public function execute($object = NULL) {
-    $this->executeMultiple([$object]);
+    $this->executeMultiple(array($object));
   }
 
   /**

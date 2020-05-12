@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\search\ViewsSearchQuery.
+ */
+
 namespace Drupal\search;
 
 use Drupal\Core\Database\Query\Condition;
@@ -64,18 +69,16 @@ class ViewsSearchQuery extends SearchQuery {
    *   The searched value.
    * @param string $replace
    *   The value which replaces the search value.
-   * @param array $condition
-   *   The query conditions array in which the string is replaced. This is an
-   *   item from a \Drupal\Core\Database\Query\Condition::conditions array,
-   *   which must have a 'field' element.
+   * @param \Drupal\Core\Database\Query\Condition $condition
+   *   The query condition in which the string is replaced.
    */
-  public function conditionReplaceString($search, $replace, &$condition) {
+  function conditionReplaceString($search, $replace, &$condition) {
     if ($condition['field'] instanceof Condition) {
       $conditions =& $condition['field']->conditions();
       foreach ($conditions as $key => &$subcondition) {
         if (is_numeric($key)) {
-          // As conditions can be nested, the function has to be called
-          // recursively.
+          // As conditions can have subconditions, for example db_or(), the
+          // function has to be called recursively.
           $this->conditionReplaceString($search, $replace, $subcondition);
         }
       }

@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Config\Schema\Mapping.
+ */
+
 namespace Drupal\Core\Config\Schema;
 
 /**
@@ -12,7 +17,7 @@ namespace Drupal\Core\Config\Schema;
  * Properties in the configuration value that are not defined in the mapping
  * will get the 'undefined' data type.
  *
- * Read https://www.drupal.org/node/1905070 for more details about configuration
+ * Read https://drupal.org/node/1905070 for more details about configuration
  * schema, types and type resolution.
  */
 class Mapping extends ArrayElement {
@@ -22,7 +27,7 @@ class Mapping extends ArrayElement {
    */
   protected function getElementDefinition($key) {
     $value = isset($this->value[$key]) ? $this->value[$key] : NULL;
-    $definition = isset($this->definition['mapping'][$key]) ? $this->definition['mapping'][$key] : [];
+    $definition = isset($this->definition['mapping'][$key]) ? $this->definition['mapping'][$key] : array();
     return $this->buildDataDefinition($definition, $value, $key);
   }
 

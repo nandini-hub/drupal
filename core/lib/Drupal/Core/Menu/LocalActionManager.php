@@ -1,11 +1,14 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Menu\LocalActionManager.
+ */
+
 namespace Drupal\Core\Menu;
 
 use Drupal\Core\Access\AccessManagerInterface;
-use Drupal\Core\Cache\CacheableMetadata;
 use Drupal\Core\Cache\CacheBackendInterface;
-use Drupal\Core\Controller\ControllerResolverInterface;
 use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\Core\Language\LanguageManagerInterface;
 use Drupal\Core\Plugin\DefaultPluginManager;
@@ -16,7 +19,7 @@ use Drupal\Core\Routing\RouteMatchInterface;
 use Drupal\Core\Routing\RouteProviderInterface;
 use Drupal\Core\Url;
 use Symfony\Component\HttpFoundation\RequestStack;
-use Symfony\Component\HttpKernel\Controller\ArgumentResolverInterface;
+use Symfony\Component\HttpKernel\Controller\ControllerResolverInterface;
 use Drupal\Core\Session\AccountInterface;
 
 /**
@@ -29,7 +32,7 @@ class LocalActionManager extends DefaultPluginManager implements LocalActionMana
    *
    * @var array
    */
-  protected $defaults = [
+  protected $defaults = array(
     // The plugin id. Set by the plugin system based on the top-level YAML key.
     'id' => NULL,
     // The static title for the local action.
@@ -39,34 +42,19 @@ class LocalActionManager extends DefaultPluginManager implements LocalActionMana
     // (Required) the route name used to generate a link.
     'route_name' => NULL,
     // Default route parameters for generating links.
-    'route_parameters' => [],
+    'route_parameters' => array(),
     // Associative array of link options.
-    'options' => [],
+    'options' => array(),
     // The route names where this local action appears.
-    'appears_on' => [],
+    'appears_on' => array(),
     // Default class for local action implementations.
     'class' => 'Drupal\Core\Menu\LocalActionDefault',
-  ];
-
-  /**
-   * An argument resolver object.
-   *
-   * @var \Symfony\Component\HttpKernel\Controller\ArgumentResolverInterface
-   */
-  protected $argumentResolver;
+  );
 
   /**
    * A controller resolver object.
    *
    * @var \Symfony\Component\HttpKernel\Controller\ControllerResolverInterface
-   *
-   * @deprecated
-   *   Using the 'controller_resolver' service as the first argument is
-   *   deprecated, use the 'http_kernel.controller.argument_resolver' instead.
-   *   If your subclass requires the 'controller_resolver' service add it as an
-   *   additional argument.
-   *
-   * @see https://www.drupal.org/node/2959408
    */
   protected $controllerResolver;
 
@@ -110,13 +98,13 @@ class LocalActionManager extends DefaultPluginManager implements LocalActionMana
    *
    * @var \Drupal\Core\Menu\LocalActionInterface[]
    */
-  protected $instances = [];
+  protected $instances = array();
 
   /**
    * Constructs a LocalActionManager object.
    *
-   * @param \Symfony\Component\HttpKernel\Controller\ArgumentResolverInterface $argument_resolver
-   *   An object to use in resolving route arguments.
+   * @param \Symfony\Component\HttpKernel\Controller\ControllerResolverInterface $controller_resolver
+   *   An object to use in introspecting route methods.
    * @param \Symfony\Component\HttpFoundation\RequestStack $request_stack
    *   The request stack.
    * @param \Drupal\Core\Routing\RouteMatchInterface $route_match
@@ -134,15 +122,13 @@ class LocalActionManager extends DefaultPluginManager implements LocalActionMana
    * @param \Drupal\Core\Session\AccountInterface $account
    *   The current user.
    */
-  public function __construct(ArgumentResolverInterface $argument_resolver, RequestStack $request_stack, RouteMatchInterface $route_match, RouteProviderInterface $route_provider, ModuleHandlerInterface $module_handler, CacheBackendInterface $cache_backend, LanguageManagerInterface $language_manager, AccessManagerInterface $access_manager, AccountInterface $account) {
+  public function __construct(ControllerResolverInterface $controller_resolver, RequestStack $request_stack, RouteMatchInterface $route_match, RouteProviderInterface $route_provider, ModuleHandlerInterface $module_handler, CacheBackendInterface $cache_backend, LanguageManagerInterface $language_manager, AccessManagerInterface $access_manager, AccountInterface $account) {
     // Skip calling the parent constructor, since that assumes annotation-based
     // discovery.
+    $this->discovery = new YamlDiscovery('links.action', $module_handler->getModuleDirectories());
+    $this->discovery = new ContainerDerivativeDiscoveryDecorator($this->discovery);
     $this->factory = new ContainerFactory($this, 'Drupal\Core\Menu\LocalActionInterface');
-    $this->argumentResolver = $argument_resolver;
-    if ($argument_resolver instanceof ControllerResolverInterface) {
-      @trigger_error("Using the 'controller_resolver' service as the first argument is deprecated, use the 'http_kernel.controller.argument_resolver' instead. If your subclass requires the 'controller_resolver' service add it as an additional argument. See https://www.drupal.org/node/2959408.", E_USER_DEPRECATED);
-      $this->controllerResolver = $argument_resolver;
-    }
+    $this->controllerResolver = $controller_resolver;
     $this->requestStack = $request_stack;
     $this->routeMatch = $route_match;
     $this->routeProvider = $route_provider;
@@ -150,27 +136,15 @@ class LocalActionManager extends DefaultPluginManager implements LocalActionMana
     $this->moduleHandler = $module_handler;
     $this->account = $account;
     $this->alterInfo('menu_local_actions');
-    $this->setCacheBackend($cache_backend, 'local_action_plugins:' . $language_manager->getCurrentLanguage()->getId(), ['local_action']);
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  protected function getDiscovery() {
-    if (!isset($this->discovery)) {
-      $yaml_discovery = new YamlDiscovery('links.action', $this->moduleHandler->getModuleDirectories());
-      $yaml_discovery->addTranslatableProperty('title', 'title_context');
-      $this->discovery = new ContainerDerivativeDiscoveryDecorator($yaml_discovery);
-    }
-    return $this->discovery;
+    $this->setCacheBackend($cache_backend, 'local_action_plugins:' . $language_manager->getCurrentLanguage()->getId(), array('local_action'));
   }
 
   /**
    * {@inheritdoc}
    */
   public function getTitle(LocalActionInterface $local_action) {
-    $controller = [$local_action, 'getTitle'];
-    $arguments = $this->argumentResolver->getArguments($this->requestStack->getCurrentRequest(), $controller);
+    $controller = array($local_action, 'getTitle');
+    $arguments = $this->controllerResolver->getArguments($this->requestStack->getCurrentRequest(), $controller);
     return call_user_func_array($controller, $arguments);
   }
 
@@ -179,8 +153,8 @@ class LocalActionManager extends DefaultPluginManager implements LocalActionMana
    */
   public function getActionsForRoute($route_appears) {
     if (!isset($this->instances[$route_appears])) {
-      $route_names = [];
-      $this->instances[$route_appears] = [];
+      $route_names = array();
+      $this->instances[$route_appears] = array();
       // @todo - optimize this lookup by compiling or caching.
       foreach ($this->getDefinitions() as $plugin_id => $action_info) {
         if (in_array($route_appears, $action_info['appears_on'])) {
@@ -195,28 +169,22 @@ class LocalActionManager extends DefaultPluginManager implements LocalActionMana
         $this->routeProvider->getRoutesByNames($route_names);
       }
     }
-    $links = [];
-    $cacheability = new CacheableMetadata();
-    $cacheability->addCacheContexts(['route']);
+    $links = array();
     /** @var $plugin \Drupal\Core\Menu\LocalActionInterface */
     foreach ($this->instances[$route_appears] as $plugin_id => $plugin) {
       $route_name = $plugin->getRouteName();
       $route_parameters = $plugin->getRouteParameters($this->routeMatch);
-      $access = $this->accessManager->checkNamedRoute($route_name, $route_parameters, $this->account, TRUE);
-      $links[$plugin_id] = [
+      $links[$plugin_id] = array(
         '#theme' => 'menu_local_action',
-        '#link' => [
+        '#link' => array(
           'title' => $this->getTitle($plugin),
           'url' => Url::fromRoute($route_name, $route_parameters),
           'localized_options' => $plugin->getOptions($this->routeMatch),
-        ],
-        '#access' => $access,
+        ),
+        '#access' => $this->accessManager->checkNamedRoute($route_name, $route_parameters, $this->account),
         '#weight' => $plugin->getWeight(),
-      ];
-      $cacheability->addCacheableDependency($access)->addCacheableDependency($plugin);
+      );
     }
-    $cacheability->applyTo($links);
-
     return $links;
   }
 

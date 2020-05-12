@@ -1,8 +1,11 @@
 <?php
+/**
+ * @file
+ * Definition of Drupal\Component\Plugin\Factory\DefaultFactory.
+ */
 
 namespace Drupal\Component\Plugin\Factory;
 
-use Drupal\Component\Plugin\Definition\PluginDefinitionInterface;
 use Drupal\Component\Plugin\Discovery\DiscoveryInterface;
 use Drupal\Component\Plugin\Exception\PluginException;
 
@@ -47,9 +50,9 @@ class DefaultFactory implements FactoryInterface {
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Component\Plugin\Factory\FactoryInterface::createInstance().
    */
-  public function createInstance($plugin_id, array $configuration = []) {
+  public function createInstance($plugin_id, array $configuration = array()) {
     $plugin_definition = $this->discovery->getDefinition($plugin_id);
     $plugin_class = static::getPluginClass($plugin_id, $plugin_definition, $this->interface);
     return new $plugin_class($configuration, $plugin_id, $plugin_definition);
@@ -60,10 +63,10 @@ class DefaultFactory implements FactoryInterface {
    *
    * @param string $plugin_id
    *   The id of a plugin.
-   * @param \Drupal\Component\Plugin\Definition\PluginDefinitionInterface|mixed[] $plugin_definition
+   * @param mixed $plugin_definition
    *   The plugin definition associated with the plugin ID.
    * @param string $required_interface
-   *   (optional) The required plugin interface.
+   *   (optional) THe required plugin interface.
    *
    * @return string
    *   The appropriate class name.
@@ -71,37 +74,23 @@ class DefaultFactory implements FactoryInterface {
    * @throws \Drupal\Component\Plugin\Exception\PluginException
    *   Thrown when there is no class specified, the class doesn't exist, or
    *   the class does not implement the specified required interface.
+   *
    */
   public static function getPluginClass($plugin_id, $plugin_definition = NULL, $required_interface = NULL) {
-    $missing_class_message = sprintf('The plugin (%s) did not specify an instance class.', $plugin_id);
-    if (is_array($plugin_definition)) {
-      if (empty($plugin_definition['class'])) {
-        throw new PluginException($missing_class_message);
-      }
+    if (empty($plugin_definition['class'])) {
+      throw new PluginException(sprintf('The plugin (%s) did not specify an instance class.', $plugin_id));
+    }
 
-      $class = $plugin_definition['class'];
-    }
-    elseif ($plugin_definition instanceof PluginDefinitionInterface) {
-      if (!$plugin_definition->getClass()) {
-        throw new PluginException($missing_class_message);
-      }
-
-      $class = $plugin_definition->getClass();
-    }
-    else {
-      $plugin_definition_type = is_object($plugin_definition) ? get_class($plugin_definition) : gettype($plugin_definition);
-      throw new PluginException(sprintf('%s can only handle plugin definitions that are arrays or that implement %s, but %s given.', __CLASS__, PluginDefinitionInterface::class, $plugin_definition_type));
-    }
+    $class = $plugin_definition['class'];
 
     if (!class_exists($class)) {
       throw new PluginException(sprintf('Plugin (%s) instance class "%s" does not exist.', $plugin_id, $class));
     }
 
-    if ($required_interface && !is_subclass_of($class, $required_interface)) {
-      throw new PluginException(sprintf('Plugin "%s" (%s) must implement interface %s.', $plugin_id, $class, $required_interface));
+    if ($required_interface && !is_subclass_of($plugin_definition['class'], $required_interface)) {
+      throw new PluginException(sprintf('Plugin "%s" (%s) in %s should implement interface %s.', $plugin_id, $plugin_definition['class'], $plugin_definition['provider'], $required_interface));
     }
 
     return $class;
   }
-
 }

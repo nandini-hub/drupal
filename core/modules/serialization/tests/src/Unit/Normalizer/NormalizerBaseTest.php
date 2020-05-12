@@ -26,7 +26,7 @@ class NormalizerBaseTest extends UnitTestCase {
    * @param mixed $data
    *   The data passed to supportsNormalization.
    * @param string $supported_interface_or_class
-   *   (optional) The supported interface or class to set on the normalizer.
+   *   (optional) the supported interface or class to set on the normalizer.
    */
   public function testSupportsNormalization($expected_return, $data, $supported_interface_or_class = NULL) {
     $normalizer_base = $this->getMockForAbstractClass('Drupal\Tests\serialization\Unit\Normalizer\TestNormalizerBase');
@@ -45,20 +45,20 @@ class NormalizerBaseTest extends UnitTestCase {
    *   An array of provider data for testSupportsNormalization.
    */
   public function providerTestSupportsNormalization() {
-    return [
+    return array(
       // Something that is not an object should return FALSE immediately.
-      [FALSE, []],
+      array(FALSE, array()),
       // An object with no class set should return FALSE.
-      [FALSE, new \stdClass()],
+      array(FALSE, new \stdClass()),
       // Set a supported Class.
-      [TRUE, new \stdClass(), 'stdClass'],
+      array(TRUE, new \stdClass(), 'stdClass'),
       // Set a supported interface.
-      [TRUE, new \RecursiveArrayIterator(), 'RecursiveIterator'],
+      array(TRUE, new \RecursiveArrayIterator(), 'RecursiveIterator'),
       // Set a different class.
-      [FALSE, new \stdClass(), 'ArrayIterator'],
+      array(FALSE, new \stdClass(), 'ArrayIterator'),
       // Set a different interface.
-      [FALSE, new \stdClass(), 'RecursiveIterator'],
-    ];
+      array(FALSE, new \stdClass(), 'RecursiveIterator'),
+    );
   }
 
 }

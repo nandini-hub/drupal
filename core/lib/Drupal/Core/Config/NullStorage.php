@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\Core\Config\NullStorage.
+ */
+
 namespace Drupal\Core\Config;
 
 /**
@@ -19,88 +24,70 @@ namespace Drupal\Core\Config;
 class NullStorage implements StorageInterface {
 
   /**
-   * The storage collection.
-   *
-   * @var string
-   */
-  protected $collection;
-
-  /**
-   * Constructs a new NullStorage.
-   *
-   * @param string $collection
-   *   (optional) The collection to store configuration in. Defaults to the
-   *   default collection.
-   */
-  public function __construct($collection = StorageInterface::DEFAULT_COLLECTION) {
-    $this->collection = $collection;
-  }
-
-  /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\Config\StorageInterface::exists().
    */
   public function exists($name) {
     return FALSE;
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\Config\StorageInterface::read().
    */
   public function read($name) {
-    return [];
+    return array();
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\Config\StorageInterface::readMultiple().
    */
   public function readMultiple(array $names) {
-    return [];
+    return array();
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\Config\StorageInterface::write().
    */
   public function write($name, array $data) {
     return FALSE;
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\Config\StorageInterface::delete().
    */
   public function delete($name) {
     return FALSE;
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\Config\StorageInterface::rename().
    */
   public function rename($name, $new_name) {
     return FALSE;
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\Config\StorageInterface::encode().
    */
   public function encode($data) {
     return $data;
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\Config\StorageInterface::decode().
    */
   public function decode($raw) {
     return $raw;
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\Config\StorageInterface::listAll().
    */
   public function listAll($prefix = '') {
-    return [];
+    return array();
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\Config\StorageInterface::deleteAll().
    */
   public function deleteAll($prefix = '') {
     return FALSE;
@@ -110,22 +97,21 @@ class NullStorage implements StorageInterface {
    * {@inheritdoc}
    */
   public function createCollection($collection) {
-    return new static($collection);
+    // No op.
   }
 
   /**
    * {@inheritdoc}
    */
   public function getAllCollectionNames() {
-    // Returns only non empty collections.
-    return [];
+    return array();
   }
 
   /**
    * {@inheritdoc}
    */
   public function getCollectionName() {
-    return $this->collection;
+    return '';
   }
 
 }

@@ -15,6 +15,10 @@
  */
 #}
 {% spaceless %}
-  {{ title }}
-  {{ link }}
+  <div>
+    {% if title %}
+      <div>{{ title }}</div>
+    {% endif %}
+    <div>{{ link }}</div>
+  </div>
 {% endspaceless %}

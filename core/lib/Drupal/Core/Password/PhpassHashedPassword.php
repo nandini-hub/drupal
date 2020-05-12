@@ -1,6 +1,14 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\Core\Password\PhpassHashedPassword
+ */
+
 namespace Drupal\Core\Password;
+
+use Drupal\Component\Utility\Crypt;
+use Drupal\user\UserInterface;
 
 /**
  * Secure password hashing functions based on the Portable PHP password
@@ -26,22 +34,18 @@ class PhpassHashedPassword implements PasswordInterface {
 
   /**
    * Returns a string for mapping an int to the corresponding base 64 character.
-   *
-   * @var string
    */
-  public static $ITOA64 = './0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+  static $ITOA64 = './0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
 
   /**
    * Specifies the number of times the hashing function will be applied when
    * generating new password hashes. The number of times is calculated by
    * raising 2 to the power of the given value.
-   *
-   * @var int
    */
   protected $countLog2;
 
   /**
-   * Constructs a new password hashing instance.
+   * Constructs a new phpass password hashing instance.
    *
    * @param int $countLog2
    *   Password stretching iteration count. Specifies the number of times the
@@ -49,7 +53,7 @@ class PhpassHashedPassword implements PasswordInterface {
    *   The number of times is calculated by raising 2 to the power of the given
    *   value.
    */
-  public function __construct($countLog2) {
+  function __construct($countLog2) {
     // Ensure that $countLog2 is within set bounds.
     $this->countLog2 = $this->enforceLog2Boundaries($countLog2);
   }
@@ -57,13 +61,13 @@ class PhpassHashedPassword implements PasswordInterface {
   /**
    * Encodes bytes into printable base 64 using the *nix standard from crypt().
    *
-   * @param string $input
+   * @param String $input
    *   The string containing bytes to encode.
-   * @param int $count
+   * @param Integer $count
    *   The number of characters (bytes) to encode.
    *
-   * @return string
-   *   Encoded string.
+   * @return String
+   *   Encoded string
    */
   protected function base64Encode($input, $count) {
     $output = '';
@@ -92,7 +96,7 @@ class PhpassHashedPassword implements PasswordInterface {
   }
 
   /**
-   * Generates a random base 64-encoded salt prefixed with hash settings.
+   * Generates a random base 64-encoded salt prefixed with settings for the hash.
    *
    * Proper use of salts may defeat a number of attacks, including:
    *  - The ability to try candidate passwords against multiple hashes at once.
@@ -100,7 +104,7 @@ class PhpassHashedPassword implements PasswordInterface {
    *  - The ability to determine whether two users have the same (or different)
    *    password without actually having to guess one of the passwords.
    *
-   * @return string
+   * @return String
    *   A 12 character string containing the iteration count and a random salt.
    */
   protected function generateSalt() {
@@ -108,18 +112,18 @@ class PhpassHashedPassword implements PasswordInterface {
     // We encode the final log2 iteration count in base 64.
     $output .= static::$ITOA64[$this->countLog2];
     // 6 bytes is the standard salt for a portable phpass hash.
-    $output .= $this->base64Encode(random_bytes(6), 6);
+    $output .= $this->base64Encode(Crypt::randomBytes(6), 6);
     return $output;
   }
 
   /**
    * Ensures that $count_log2 is within set bounds.
    *
-   * @param int $count_log2
+   * @param Integer $count_log2
    *   Integer that determines the number of iterations used in the hashing
    *   process. A larger value is more secure, but takes more time to complete.
    *
-   * @return int
+   * @return Integer
    *   Integer within set bounds that is closest to $count_log2.
    */
   protected function enforceLog2Boundaries($count_log2) {
@@ -141,22 +145,22 @@ class PhpassHashedPassword implements PasswordInterface {
    * for an attacker to try to break the hash by brute-force computation of the
    * hashes of a large number of plain-text words or strings to find a match.
    *
-   * @param string $algo
+   * @param String $algo
    *   The string name of a hashing algorithm usable by hash(), like 'sha256'.
-   * @param string $password
+   * @param String $password
    *   Plain-text password up to 512 bytes (128 to 512 UTF-8 characters) to
    *   hash.
-   * @param string $setting
-   *   An existing hash or the output of $this->generateSalt(). Must be at least
-   *   12 characters (the settings and salt).
+   * @param String $setting
+   *   An existing hash or the output of $this->generateSalt().  Must be
+   *   at least 12 characters (the settings and salt).
    *
-   * @return string
+   * @return String
    *   A string containing the hashed password (and salt) or FALSE on failure.
    *   The return string will be truncated at HASH_LENGTH characters max.
    */
   protected function crypt($algo, $password, $setting) {
     // Prevent DoS attacks by refusing to hash large passwords.
-    if (strlen($password) > PasswordInterface::PASSWORD_MAX_LENGTH) {
+    if (strlen($password) > 512) {
       return FALSE;
     }
 
@@ -182,13 +186,14 @@ class PhpassHashedPassword implements PasswordInterface {
     // Convert the base 2 logarithm into an integer.
     $count = 1 << $count_log2;
 
+    // We rely on the hash() function being available in PHP 5.2+.
     $hash = hash($algo, $salt . $password, TRUE);
     do {
       $hash = hash($algo, $hash . $password, TRUE);
     } while (--$count);
 
     $len = strlen($hash);
-    $output = $setting . $this->base64Encode($hash, $len);
+    $output =  $setting . $this->base64Encode($hash, $len);
     // $this->base64Encode() of a 16 byte MD5 will always be 22 characters.
     // $this->base64Encode() of a 64 byte sha512 will always be 86 characters.
     $expected = 12 + ceil((8 * $len) / 6);
@@ -196,74 +201,68 @@ class PhpassHashedPassword implements PasswordInterface {
   }
 
   /**
-   * Parses the log2 iteration count from a stored hash or setting string.
+   * Parse the log2 iteration count from a stored hash or setting string.
    *
-   * @param string $setting
-   *   An existing hash or the output of $this->generateSalt(). Must be at least
-   *   12 characters (the settings and salt).
-   *
-   * @return int
-   *   The log2 iteration count.
+   * @param String $setting
+   *   An existing hash or the output of $this->generateSalt().  Must be
+   *   at least 12 characters (the settings and salt).
    */
   public function getCountLog2($setting) {
     return strpos(static::$ITOA64, $setting[3]);
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\Password\PasswordInterface::hash().
    */
   public function hash($password) {
     return $this->crypt('sha512', $password, $this->generateSalt());
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\Password\PasswordInterface::checkPassword().
    */
-  public function check($password, $hash) {
-    if (substr($hash, 0, 2) == 'U$') {
+  public function check($password, UserInterface $account) {
+    if (substr($account->getPassword(), 0, 2) == 'U$') {
       // This may be an updated password from user_update_7000(). Such hashes
       // have 'U' added as the first character and need an extra md5() (see the
       // Drupal 7 documentation).
-      $stored_hash = substr($hash, 1);
+      $stored_hash = substr($account->getPassword(), 1);
       $password = md5($password);
     }
     else {
-      $stored_hash = $hash;
+      $stored_hash = $account->getPassword();
     }
 
     $type = substr($stored_hash, 0, 3);
     switch ($type) {
       case '$S$':
         // A normal Drupal 7 password using sha512.
-        $computed_hash = $this->crypt('sha512', $password, $stored_hash);
+        $hash = $this->crypt('sha512', $password, $stored_hash);
         break;
       case '$H$':
         // phpBB3 uses "$H$" for the same thing as "$P$".
       case '$P$':
         // A phpass password generated using md5.  This is an
         // imported password or from an earlier Drupal version.
-        $computed_hash = $this->crypt('md5', $password, $stored_hash);
+        $hash = $this->crypt('md5', $password, $stored_hash);
         break;
       default:
         return FALSE;
     }
-
-    // Compare using hash_equals() instead of === to mitigate timing attacks.
-    return $computed_hash && hash_equals($stored_hash, $computed_hash);
+    return ($hash && $stored_hash == $hash);
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\Password\PasswordInterface::userNeedsNewHash().
    */
-  public function needsRehash($hash) {
+  public function userNeedsNewHash(UserInterface $account) {
     // Check whether this was an updated password.
-    if ((substr($hash, 0, 3) != '$S$') || (strlen($hash) != static::HASH_LENGTH)) {
+    if ((substr($account->getPassword(), 0, 3) != '$S$') || (strlen($account->getPassword()) != static::HASH_LENGTH)) {
       return TRUE;
     }
     // Ensure that $count_log2 is within set bounds.
     $count_log2 = $this->enforceLog2Boundaries($this->countLog2);
     // Check whether the iteration count used differs from the standard number.
-    return ($this->getCountLog2($hash) !== $count_log2);
+    return ($this->getCountLog2($account->getPassword()) !== $count_log2);
   }
-
 }

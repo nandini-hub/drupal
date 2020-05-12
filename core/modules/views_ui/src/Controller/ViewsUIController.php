@@ -1,9 +1,14 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\views_ui\Controller\ViewsUIController.
+ */
+
 namespace Drupal\views_ui\Controller;
 
+use Drupal\Component\Utility\SafeMarkup;
 use Drupal\Core\Controller\ControllerBase;
-use Drupal\Core\Link;
 use Drupal\Core\Url;
 use Drupal\views\ViewExecutable;
 use Drupal\views\ViewEntityInterface;
@@ -15,7 +20,6 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Drupal\Core\Ajax\AjaxResponse;
 use Drupal\Core\Ajax\ReplaceCommand;
-use Drupal\Component\Utility\Html;
 
 /**
  * Returns responses for Views UI routes.
@@ -32,7 +36,7 @@ class ViewsUIController extends ControllerBase {
   /**
    * Constructs a new \Drupal\views_ui\Controller\ViewsUIController object.
    *
-   * @param \Drupal\views\ViewsData $views_data
+   * @param \Drupal\views\ViewsData views_data
    *   The Views data cache object.
    */
   public function __construct(ViewsData $views_data) {
@@ -55,11 +59,11 @@ class ViewsUIController extends ControllerBase {
    *   The Views fields report page.
    */
   public function reportFields() {
-    $views = $this->entityTypeManager()->getStorage('view')->loadMultiple();
+    $views = $this->entityManager()->getStorage('view')->loadMultiple();
 
     // Fetch all fieldapi fields which are used in views
     // Therefore search in all views, displays and handler-types.
-    $fields = [];
+    $fields = array();
     $handler_types = ViewExecutable::getHandlerTypes();
     foreach ($views as $view) {
       $executable = $view->getExecutable();
@@ -82,29 +86,24 @@ class ViewsUIController extends ControllerBase {
       }
     }
 
-    $header = [t('Field name'), t('Used in')];
-    $rows = [];
+    $header = array(t('Field name'), t('Used in'));
+    $rows = array();
     foreach ($fields as $field_name => $views) {
-      $rows[$field_name]['data'][0]['data']['#plain_text'] = $field_name;
+      $rows[$field_name]['data'][0] = SafeMarkup::checkPlain($field_name);
       foreach ($views as $view) {
-        $rows[$field_name]['data'][1][] = Link::fromTextAndUrl($view, new Url('entity.view.edit_form', ['view' => $view]))->toString();
+        $rows[$field_name]['data'][1][] = $this->l($view, new Url('entity.view.edit_form', array('view' => $view)));
       }
-      $item_list = [
-        '#theme' => 'item_list',
-        '#items' => $rows[$field_name]['data'][1],
-        '#context' => ['list_style' => 'comma-list'],
-      ];
-      $rows[$field_name]['data'][1] = ['data' => $item_list];
+      $rows[$field_name]['data'][1] = SafeMarkup::set(implode(', ', $rows[$field_name]['data'][1]));
     }
 
     // Sort rows by field name.
     ksort($rows);
-    $output = [
+    $output = array(
       '#type' => 'table',
       '#header' => $header,
       '#rows' => $rows,
       '#empty' => t('No fields have been used in views yet.'),
-    ];
+    );
 
     return $output;
   }
@@ -118,27 +117,21 @@ class ViewsUIController extends ControllerBase {
   public function reportPlugins() {
     $rows = Views::pluginList();
     foreach ($rows as &$row) {
-      $views = [];
       // Link each view name to the view itself.
       foreach ($row['views'] as $row_name => $view) {
-        $views[] = Link::fromTextAndUrl($view, new Url('entity.view.edit_form', ['view' => $view]))->toString();
+        $row['views'][$row_name] = $this->l($view, new Url('entity.view.edit_form', array('view' => $view)));
       }
-      unset($row['views']);
-      $row['views']['data'] = [
-        '#theme' => 'item_list',
-        '#items' => $views,
-        '#context' => ['list_style' => 'comma-list'],
-      ];
+      $row['views'] = SafeMarkup::set(implode(', ', $row['views']));
     }
 
     // Sort rows by field name.
     ksort($rows);
-    return [
+    return array(
       '#type' => 'table',
-      '#header' => [t('Type'), t('Name'), t('Provided by'), t('Used in')],
+      '#header' => array(t('Type'), t('Name'), t('Provided by'), t('Used in')),
       '#rows' => $rows,
       '#empty' => t('There are no enabled views.'),
-    ];
+    );
   }
 
   /**
@@ -154,6 +147,7 @@ class ViewsUIController extends ControllerBase {
    * @return \Drupal\Core\Ajax\AjaxResponse|\Symfony\Component\HttpFoundation\RedirectResponse
    *   Either returns a rebuilt listing page as an AJAX response, or redirects
    *   back to the listing page.
+   *
    */
   public function ajaxOperation(ViewEntityInterface $view, $op, Request $request) {
     // Perform the operation.
@@ -161,9 +155,9 @@ class ViewsUIController extends ControllerBase {
 
     // If the request is via AJAX, return the rendered list as JSON.
     if ($request->request->get('js')) {
-      $list = $this->entityTypeManager()->getListBuilder('view')->render();
+      $list = $this->entityManager()->getListBuilder('view')->render();
       $response = new AjaxResponse();
-      $response->addCommand(new ReplaceCommand('#views-entity-list', $list));
+      $response->addCommand(new ReplaceCommand('#views-entity-list', drupal_render($list)));
       return $response;
     }
 
@@ -181,21 +175,16 @@ class ViewsUIController extends ControllerBase {
    *   A JSON response containing the autocomplete suggestions for Views tags.
    */
   public function autocompleteTag(Request $request) {
-    $matches = [];
+    $matches = array();
     $string = $request->query->get('q');
     // Get matches from default views.
-    $views = $this->entityTypeManager()->getStorage('view')->loadMultiple();
-    // Keep track of previously processed tags so they can be skipped.
-    $tags = [];
+    $views = $this->entityManager()->getStorage('view')->loadMultiple();
     foreach ($views as $view) {
       $tag = $view->get('tag');
-      if ($tag && !in_array($tag, $tags)) {
-        $tags[] = $tag;
-        if (strpos($tag, $string) === 0) {
-          $matches[] = ['value' => $tag, 'label' => Html::escape($tag)];
-          if (count($matches) >= 10) {
-            break;
-          }
+      if ($tag && strpos($tag, $string) === 0) {
+        $matches[$tag] = $tag;
+        if (count($matches) >= 10) {
+          break;
         }
       }
     }
@@ -207,7 +196,7 @@ class ViewsUIController extends ControllerBase {
    * Returns the form to edit a view.
    *
    * @param \Drupal\views_ui\ViewUI $view
-   *   The view to be edited.
+   *   The view being deleted.
    * @param string|null $display_id
    *   (optional) The display ID being edited. Defaults to NULL, which will load
    *   the first available display.
@@ -224,8 +213,8 @@ class ViewsUIController extends ControllerBase {
     }
     $build['#title'] = $name;
 
-    $build['edit'] = $this->entityFormBuilder()->getForm($view, 'edit', ['display_id' => $display_id]);
-    $build['preview'] = $this->entityFormBuilder()->getForm($view, 'preview', ['display_id' => $display_id]);
+    $build['edit'] = $this->entityFormBuilder()->getForm($view, 'edit', array('display_id' => $display_id));
+    $build['preview'] = $this->entityFormBuilder()->getForm($view, 'preview', array('display_id' => $display_id));
     return $build;
   }
 

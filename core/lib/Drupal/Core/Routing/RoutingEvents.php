@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Definition of \Drupal\Core\Routing\RoutingEvents.
+ */
+
 namespace Drupal\Core\Routing;
 
 /**

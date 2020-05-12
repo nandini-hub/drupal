@@ -1,4 +1,8 @@
 <?php
+/**
+ * @file
+ * Contains \Drupal\batch_test\Controller\BatchTestController.
+ */
 
 namespace Drupal\batch_test\Controller;
 
@@ -16,11 +20,11 @@ class BatchTestController {
    *   Render array containing success message.
    */
   public function testRedirect() {
-    return [
-      'success' => [
+    return array(
+      'success' => array(
         '#markup' => 'Redirection successful.',
-      ],
-    ];
+      )
+    );
   }
 
   /**
@@ -47,9 +51,9 @@ class BatchTestController {
    */
   public function testNestedDrupalFormSubmit($value = 1) {
     // Set the batch and process it.
-    $batch['operations'] = [
-      ['_batch_test_nested_drupal_form_submit_callback', [$value]],
-    ];
+    $batch['operations'] = array(
+      array('_batch_test_nested_drupal_form_submit_callback', array($value)),
+    );
     batch_set($batch);
     return batch_process('batch-test/redirect');
   }
@@ -69,21 +73,6 @@ class BatchTestController {
   }
 
   /**
-   * Fires a batch process without a form submission and a finish redirect.
-   *
-   * @return \Symfony\Component\HttpFoundation\RedirectResponse|null
-   *   A redirect response if the batch is progressive. No return value otherwise.
-   */
-  public function testFinishRedirect() {
-    batch_test_stack(NULL, TRUE);
-
-    $batch = _batch_test_batch_1();
-    $batch['finished'] = '_batch_test_finished_1_finished';
-    batch_set($batch);
-    return batch_process('batch-test/redirect');
-  }
-
-  /**
    * Submits the 'Chained' form programmatically.
    *
    * Programmatic form: the page submits the 'Chained' form through
@@ -95,16 +84,16 @@ class BatchTestController {
    * @return array
    *   Render array containing markup.
    */
-  public function testProgrammatic($value = 1) {
+  function testProgrammatic($value = 1) {
     $form_state = (new FormState())->setValues([
       'value' => $value,
     ]);
     \Drupal::formBuilder()->submitForm('Drupal\batch_test\Form\BatchTestChainedForm', $form_state);
-    return [
-      'success' => [
+    return array(
+      'success' => array(
         '#markup' => 'Got out of a programmatic batched form.',
-      ],
-    ];
+      )
+    );
   }
 
   /**
@@ -115,11 +104,11 @@ class BatchTestController {
    */
   public function testThemeBatch() {
     batch_test_stack(NULL, TRUE);
-    $batch = [
-      'operations' => [
-        ['_batch_test_theme_callback', []],
-      ],
-    ];
+    $batch = array(
+      'operations' => array(
+        array('_batch_test_theme_callback', array()),
+      ),
+    );
     batch_set($batch);
     return batch_process('batch-test/redirect');
   }

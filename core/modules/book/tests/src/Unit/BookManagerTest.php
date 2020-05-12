@@ -1,9 +1,13 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Tests\book\Unit\BookManagerTest.
+ */
+
 namespace Drupal\Tests\book\Unit;
 
 use Drupal\book\BookManager;
-use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Tests\UnitTestCase;
 
 /**
@@ -13,30 +17,30 @@ use Drupal\Tests\UnitTestCase;
 class BookManagerTest extends UnitTestCase {
 
   /**
-   * The mocked entity type manager.
+   * The mocked entity manager.
    *
-   * @var \Drupal\Core\Entity\EntityTypeManager|\PHPUnit\Framework\MockObject\MockObject
+   * @var \Drupal\Core\Entity\EntityManager|\PHPUnit_Framework_MockObject_MockObject
    */
-  protected $entityTypeManager;
+  protected $entityManager;
 
   /**
    * The mocked config factory.
    *
-   * @var \Drupal\Core\Config\ConfigFactory|\PHPUnit\Framework\MockObject\MockObject
+   * @var \Drupal\Core\Config\ConfigFactory|\PHPUnit_Framework_MockObject_MockObject
    */
   protected $configFactory;
 
   /**
    * The mocked translation manager.
    *
-   * @var \Drupal\Core\StringTranslation\TranslationInterface|\PHPUnit\Framework\MockObject\MockObject
+   * @var \Drupal\Core\StringTranslation\TranslationInterface|\PHPUnit_Framework_MockObject_MockObject
    */
   protected $translation;
 
   /**
    * The mocked renderer.
    *
-   * @var \Drupal\Core\Render\RendererInterface|\PHPUnit\Framework\MockObject\MockObject
+   * @var \Drupal\Core\Render\RendererInterface|\PHPUnit_Framework_MockObject_MockObject
    */
   protected $renderer;
 
@@ -58,12 +62,12 @@ class BookManagerTest extends UnitTestCase {
    * {@inheritdoc}
    */
   protected function setUp() {
-    $this->entityTypeManager = $this->createMock(EntityTypeManagerInterface::class);
+    $this->entityManager = $this->getMock('Drupal\Core\Entity\EntityManagerInterface');
     $this->translation = $this->getStringTranslationStub();
-    $this->configFactory = $this->getConfigFactoryStub([]);
-    $this->bookOutlineStorage = $this->createMock('Drupal\book\BookOutlineStorageInterface');
-    $this->renderer = $this->createMock('\Drupal\Core\Render\RendererInterface');
-    $this->bookManager = new BookManager($this->entityTypeManager, $this->translation, $this->configFactory, $this->bookOutlineStorage, $this->renderer);
+    $this->configFactory = $this->getConfigFactoryStub(array());
+    $this->bookOutlineStorage = $this->getMock('Drupal\book\BookOutlineStorageInterface');
+    $this->renderer = $this->getMock('\Drupal\Core\Render\RendererInterface');
+    $this->bookManager = new BookManager($this->entityManager, $this->translation, $this->configFactory, $this->bookOutlineStorage, $this->renderer);
   }
 
   /**
@@ -82,7 +86,7 @@ class BookManagerTest extends UnitTestCase {
    *   The test data.
    */
   public function providerTestGetBookParents() {
-    $empty = [
+    $empty = array(
       'p1' => 0,
       'p2' => 0,
       'p3' => 0,
@@ -92,27 +96,27 @@ class BookManagerTest extends UnitTestCase {
       'p7' => 0,
       'p8' => 0,
       'p9' => 0,
-    ];
-    return [
+    );
+    return array(
       // Provides a book without an existing parent.
-      [
-        ['pid' => 0, 'nid' => 12],
-        [],
-        ['depth' => 1, 'p1' => 12] + $empty,
-      ],
+      array(
+        array('pid' => 0, 'nid' => 12),
+        array(),
+        array('depth' => 1, 'p1' => 12) + $empty,
+      ),
       // Provides a book with an existing parent.
-      [
-        ['pid' => 11, 'nid' => 12],
-        ['nid' => 11, 'depth' => 1, 'p1' => 11],
-        ['depth' => 2, 'p1' => 11, 'p2' => 12] + $empty,
-      ],
+      array(
+        array('pid' => 11, 'nid' => 12),
+        array('nid' => 11, 'depth' => 1, 'p1' => 11,),
+        array('depth' => 2, 'p1' => 11, 'p2' => 12) + $empty,
+      ),
       // Provides a book with two existing parents.
-      [
-        ['pid' => 11, 'nid' => 12],
-        ['nid' => 11, 'depth' => 2, 'p1' => 10, 'p2' => 11],
-        ['depth' => 3, 'p1' => 10, 'p2' => 11, 'p3' => 12] + $empty,
-      ],
-    ];
+      array(
+        array('pid' => 11, 'nid' => 12),
+        array('nid' => 11, 'depth' => 2, 'p1' => 10, 'p2' => 11),
+        array('depth' => 3, 'p1' => 10, 'p2' => 11, 'p3' => 12) + $empty,
+      ),
+    );
   }
 
 }

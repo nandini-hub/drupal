@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\action\ActionListBuilder.
+ */
+
 namespace Drupal\action;
 
 use Drupal\Core\Action\ActionManager;
@@ -13,7 +18,7 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
  * Defines a class to build a listing of action entities.
  *
  * @see \Drupal\system\Entity\Action
- * @see action_entity_type_build()
+ * @see action_entity_info()
  */
 class ActionListBuilder extends ConfigEntityListBuilder {
 
@@ -51,7 +56,7 @@ class ActionListBuilder extends ConfigEntityListBuilder {
   public static function createInstance(ContainerInterface $container, EntityTypeInterface $entity_type) {
     return new static(
       $entity_type,
-      $container->get('entity_type.manager')->getStorage($entity_type->id()),
+      $container->get('entity.manager')->getStorage($entity_type->id()),
       $container->get('plugin.manager.action')
     );
   }
@@ -75,7 +80,7 @@ class ActionListBuilder extends ConfigEntityListBuilder {
    */
   public function buildRow(EntityInterface $entity) {
     $row['type'] = $entity->getType();
-    $row['label'] = $entity->label();
+    $row['label'] = $this->getLabel($entity);
     if ($this->hasConfigurableActions) {
       $row += parent::buildRow($entity);
     }
@@ -86,10 +91,10 @@ class ActionListBuilder extends ConfigEntityListBuilder {
    * {@inheritdoc}
    */
   public function buildHeader() {
-    $header = [
+    $header = array(
       'type' => t('Action type'),
       'label' => t('Label'),
-    ] + parent::buildHeader();
+    ) + parent::buildHeader();
     return $header;
   }
 
@@ -97,7 +102,7 @@ class ActionListBuilder extends ConfigEntityListBuilder {
    * {@inheritdoc}
    */
   public function getDefaultOperations(EntityInterface $entity) {
-    $operations = $entity->isConfigurable() ? parent::getDefaultOperations($entity) : [];
+    $operations = $entity->isConfigurable() ? parent::getDefaultOperations($entity) : array();
     if (isset($operations['edit'])) {
       $operations['edit']['title'] = t('Configure');
     }
@@ -108,12 +113,12 @@ class ActionListBuilder extends ConfigEntityListBuilder {
    * {@inheritdoc}
    */
   public function render() {
-    $build['action_admin_manage_form'] = \Drupal::formBuilder()->getForm('Drupal\action\Form\ActionAdminManageForm');
-    $build['action_header']['#markup'] = '<h3>' . $this->t('Available actions:') . '</h3>';
+    $build['action_header']['#markup'] = '<h3>' . t('Available actions:') . '</h3>';
     $build['action_table'] = parent::render();
     if (!$this->hasConfigurableActions) {
-      unset($build['action_table']['table']['#header']['operations']);
+      unset($build['action_table']['#header']['operations']);
     }
+    $build['action_admin_manage_form'] = \Drupal::formBuilder()->getForm('Drupal\action\Form\ActionAdminManageForm');
     return $build;
   }
 

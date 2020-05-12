@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\views\Plugin\views\display\DisplayRouterInterface.
+ */
+
 namespace Drupal\views\Plugin\views\display;
 
 use Symfony\Component\Routing\RouteCollection;
@@ -34,7 +39,7 @@ interface DisplayRouterInterface extends DisplayPluginInterface {
   public function alterRoutes(RouteCollection $collection);
 
   /**
-   * Generates a URL to this display.
+   * Generates an URL to this display.
    *
    * @return \Drupal\Core\Url
    *   A URL object for the display.
@@ -66,5 +71,4 @@ interface DisplayRouterInterface extends DisplayPluginInterface {
    * @see \Drupal\views\Plugin\views\display\DisplayRouterInterface::alterRoutes()
    */
   public function getAlteredRouteNames();
-
 }

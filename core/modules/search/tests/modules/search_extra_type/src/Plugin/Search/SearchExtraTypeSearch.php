@@ -1,9 +1,15 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\search_extra_type\Plugin\Search\SearchExtraTypeSearch.
+ */
+
 namespace Drupal\search_extra_type\Plugin\Search;
 
-use Drupal\Component\Render\FormattableMarkup;
+use Drupal\Component\Utility\SafeMarkup;
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Routing\UrlGeneratorTrait;
 use Drupal\Core\Url;
 use Drupal\search\Plugin\ConfigurableSearchPluginBase;
 
@@ -16,6 +22,8 @@ use Drupal\search\Plugin\ConfigurableSearchPluginBase;
  * )
  */
 class SearchExtraTypeSearch extends ConfigurableSearchPluginBase {
+
+  use UrlGeneratorTrait;
 
   /**
    * {@inheritdoc}
@@ -47,18 +55,18 @@ class SearchExtraTypeSearch extends ConfigurableSearchPluginBase {
    *   A structured list of search results
    */
   public function execute() {
-    $results = [];
+    $results = array();
     if (!$this->isSearchExecutable()) {
       return $results;
     }
-    return [
-      [
+    return array(
+      array(
         'link' => Url::fromRoute('test_page_test.test_page')->toString(),
         'type' => 'Dummy result type',
         'title' => 'Dummy title',
-        'snippet' => new FormattableMarkup("Dummy search snippet to display. Keywords: @keywords\n\nConditions: @search_parameters", ['@keywords' => $this->keywords, '@search_parameters' => print_r($this->searchParameters, TRUE)]),
-      ],
-    ];
+        'snippet' => SafeMarkup::set("Dummy search snippet to display. Keywords: {$this->keywords}\n\nConditions: " . print_r($this->searchParameters, TRUE)),
+      ),
+    );
   }
 
   /**
@@ -69,16 +77,16 @@ class SearchExtraTypeSearch extends ConfigurableSearchPluginBase {
     $output['prefix']['#markup'] = '<h2>Test page text is here</h2> <ol class="search-results">';
 
     foreach ($results as $entry) {
-      $output[] = [
+      $output[] = array(
         '#theme' => 'search_result',
         '#result' => $entry,
         '#plugin_id' => 'search_extra_type_search',
-      ];
+      );
     }
-    $pager = [
+    $pager = array(
       '#type' => 'pager',
-    ];
-    $output['suffix']['#markup'] = '</ol>' . \Drupal::service('renderer')->render($pager);
+    );
+    $output['suffix']['#markup'] = '</ol>' . drupal_render($pager);
 
     return $output;
   }
@@ -88,21 +96,21 @@ class SearchExtraTypeSearch extends ConfigurableSearchPluginBase {
    */
   public function buildConfigurationForm(array $form, FormStateInterface $form_state) {
     // Output form for defining rank factor weights.
-    $form['extra_type_settings'] = [
+    $form['extra_type_settings'] = array(
       '#type' => 'fieldset',
       '#title' => t('Extra type settings'),
       '#tree' => TRUE,
-    ];
+    );
 
-    $form['extra_type_settings']['boost'] = [
+    $form['extra_type_settings']['boost'] = array(
       '#type' => 'select',
       '#title' => t('Boost method'),
-      '#options' => [
+      '#options' => array(
         'bi' => t('Bistromathic'),
         'ii' => t('Infinite Improbability'),
-      ],
+      ),
       '#default_value' => $this->configuration['boost'],
-    ];
+    );
     return $form;
   }
 
@@ -110,16 +118,16 @@ class SearchExtraTypeSearch extends ConfigurableSearchPluginBase {
    * {@inheritdoc}
    */
   public function submitConfigurationForm(array &$form, FormStateInterface $form_state) {
-    $this->configuration['boost'] = $form_state->getValue(['extra_type_settings', 'boost']);
+    $this->configuration['boost'] = $form_state->getValue(array('extra_type_settings', 'boost'));
   }
 
   /**
    * {@inheritdoc}
    */
   public function defaultConfiguration() {
-    return [
+    return array(
       'boost' => 'bi',
-    ];
+    );
   }
 
 }

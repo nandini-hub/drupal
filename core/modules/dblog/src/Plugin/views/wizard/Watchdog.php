@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\dblog\Plugin\views\wizard\Watchdog.
+ */
+
 namespace Drupal\dblog\Plugin\views\wizard;
 
 use Drupal\views\Plugin\views\wizard\WizardPluginBase;
@@ -18,8 +23,6 @@ class Watchdog extends WizardPluginBase {
 
   /**
    * Set the created column.
-   *
-   * @var string
    */
   protected $createdColumn = 'timestamp';
 

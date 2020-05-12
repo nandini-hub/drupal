@@ -1,9 +1,15 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Tests\Component\Utility\RandomTest.
+ */
+
 namespace Drupal\Tests\Component\Utility;
 
 use Drupal\Component\Utility\Random;
-use PHPUnit\Framework\TestCase;
+use Drupal\Component\Utility\SafeMarkup;
+use Drupal\Tests\UnitTestCase;
 
 /**
  * Tests random data generation.
@@ -12,7 +18,7 @@ use PHPUnit\Framework\TestCase;
  *
  * @coversDefaultClass \Drupal\Component\Utility\Random
  */
-class RandomTest extends TestCase {
+class RandomTest extends UnitTestCase {
 
   /**
    * The first random string passed to the test callback.
@@ -29,11 +35,11 @@ class RandomTest extends TestCase {
    * @covers ::string
    */
   public function testRandomStringUniqueness() {
-    $strings = [];
+    $strings = array();
     $random = new Random();
     for ($i = 0; $i <= 50; $i++) {
       $str = $random->string(1, TRUE);
-      $this->assertFalse(isset($strings[$str]), 'Generated duplicate random string ' . $str);
+      $this->assertFalse(isset($strings[$str]), SafeMarkup::format('Generated duplicate random string !string', array('!string' => $str)));
       $strings[$str] = TRUE;
     }
   }
@@ -44,11 +50,11 @@ class RandomTest extends TestCase {
    * @covers ::name
    */
   public function testRandomNamesUniqueness() {
-    $names = [];
+    $names = array();
     $random = new Random();
     for ($i = 0; $i <= 10; $i++) {
       $str = $random->name(1, TRUE);
-      $this->assertFalse(isset($names[$str]), 'Generated duplicate random name ' . $str);
+      $this->assertFalse(isset($names[$str]), SafeMarkup::format('Generated duplicate random name !name', array('!name' => $str)));
       $names[$str] = TRUE;
     }
   }
@@ -57,12 +63,12 @@ class RandomTest extends TestCase {
    * Tests infinite loop prevention whilst generating random names.
    *
    * @covers ::name
+   * @expectedException \RuntimeException
    */
   public function testRandomNameException() {
     // There are fewer than 100 possibilities so an exception should occur to
     // prevent infinite loops.
     $random = new Random();
-    $this->expectException(\RuntimeException::class);
     for ($i = 0; $i <= 100; $i++) {
       $str = $random->name(1, TRUE);
       $names[$str] = TRUE;
@@ -73,12 +79,12 @@ class RandomTest extends TestCase {
    * Tests infinite loop prevention whilst generating random strings.
    *
    * @covers ::string
+   * @expectedException \RuntimeException
    */
   public function testRandomStringException() {
     // There are fewer than 100 possibilities so an exception should occur to
     // prevent infinite loops.
     $random = new Random();
-    $this->expectException(\RuntimeException::class);
     for ($i = 0; $i <= 100; $i++) {
       $str = $random->string(1, TRUE);
       $names[$str] = TRUE;
@@ -138,7 +144,7 @@ class RandomTest extends TestCase {
   public function testRandomStringValidator() {
     $random = new Random();
     $this->firstStringGenerated = '';
-    $str = $random->string(1, TRUE, [$this, '_RandomStringValidate']);
+    $str = $random->string(1, TRUE, array($this, '_RandomStringValidate'));
     $this->assertNotEquals($this->firstStringGenerated, $str);
   }
 
@@ -163,5 +169,4 @@ class RandomTest extends TestCase {
     }
     return TRUE;
   }
-
 }

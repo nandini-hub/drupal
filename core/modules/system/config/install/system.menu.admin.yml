@@ -1,7 +1,5 @@
-langcode: en
-status: true
-dependencies: {  }
 id: admin
 label: Administration
-description: 'Administrative task links'
+description: 'Contains links to administrative tasks.'
+langcode: en
 locked: true

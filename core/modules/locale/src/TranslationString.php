@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\locale\TranslationString.
+ */
+
 namespace Drupal\locale;
 
 /**
@@ -40,9 +45,9 @@ class TranslationString extends StringBase {
   protected $isNew;
 
   /**
-   * {@inheritdoc}
+   * Overrides Drupal\locale\StringBase::__construct().
    */
-  public function __construct($values = []) {
+  public function __construct($values = array()) {
     parent::__construct($values);
     if (!isset($this->isNew)) {
       // We mark the string as not new if it is a complete translation.
@@ -58,7 +63,7 @@ class TranslationString extends StringBase {
    * @param bool $customized
    *   (optional) Whether the string is customized or not. Defaults to TRUE.
    *
-   * @return $this
+   * @return \Drupal\locale\TranslationString
    *   The called object.
    */
   public function setCustomized($customized = TRUE) {
@@ -67,28 +72,28 @@ class TranslationString extends StringBase {
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\locale\StringInterface::isSource().
    */
   public function isSource() {
     return FALSE;
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\locale\StringInterface::isTranslation().
    */
   public function isTranslation() {
     return !empty($this->lid) && !empty($this->language) && isset($this->translation);
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\locale\StringInterface::getString().
    */
   public function getString() {
     return isset($this->translation) ? $this->translation : '';
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\locale\StringInterface::setString().
    */
   public function setString($string) {
     $this->translation = $string;
@@ -96,14 +101,14 @@ class TranslationString extends StringBase {
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\locale\StringInterface::isNew().
    */
   public function isNew() {
     return $this->isNew;
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\locale\StringInterface::save().
    */
   public function save() {
     parent::save();
@@ -112,7 +117,7 @@ class TranslationString extends StringBase {
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\locale\StringInterface::delete().
    */
   public function delete() {
     parent::delete();

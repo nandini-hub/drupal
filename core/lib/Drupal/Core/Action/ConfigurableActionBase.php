@@ -1,17 +1,21 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Action\ConfigurableActionBase.
+ */
+
 namespace Drupal\Core\Action;
 
-use Drupal\Component\Plugin\ConfigurableInterface;
 use Drupal\Component\Plugin\ConfigurablePluginInterface;
-use Drupal\Component\Plugin\DependentPluginInterface;
+use Drupal\Core\Action\ActionBase;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Plugin\PluginFormInterface;
 
 /**
  * Provides a base implementation for a configurable Action plugin.
  */
-abstract class ConfigurableActionBase extends ActionBase implements ConfigurableInterface, DependentPluginInterface, ConfigurablePluginInterface, PluginFormInterface {
+abstract class ConfigurableActionBase extends ActionBase implements ConfigurablePluginInterface, PluginFormInterface {
 
   /**
    * {@inheritdoc}
@@ -19,14 +23,14 @@ abstract class ConfigurableActionBase extends ActionBase implements Configurable
   public function __construct(array $configuration, $plugin_id, $plugin_definition) {
     parent::__construct($configuration, $plugin_id, $plugin_definition);
 
-    $this->setConfiguration($configuration);
+    $this->configuration += $this->defaultConfiguration();
   }
 
   /**
    * {@inheritdoc}
    */
   public function defaultConfiguration() {
-    return [];
+    return array();
   }
 
   /**
@@ -40,7 +44,7 @@ abstract class ConfigurableActionBase extends ActionBase implements Configurable
    * {@inheritdoc}
    */
   public function setConfiguration(array $configuration) {
-    $this->configuration = $configuration + $this->defaultConfiguration();
+    $this->configuration = $configuration;
   }
 
   /**
@@ -53,7 +57,7 @@ abstract class ConfigurableActionBase extends ActionBase implements Configurable
    * {@inheritdoc}
    */
   public function calculateDependencies() {
-    return [];
+    return array();
   }
 
 }

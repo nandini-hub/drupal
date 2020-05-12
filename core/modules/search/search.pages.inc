@@ -5,8 +5,15 @@
  * User page callbacks for the Search module.
  */
 
-use Drupal\Component\Utility\UrlHelper;
+use Drupal\Component\Utility\SafeMarkup;
 use Drupal\Core\Language\LanguageInterface;
+
+/**
+ * Implements hook_theme_suggestions_HOOK().
+ */
+function search_theme_suggestions_search_result(array $variables) {
+  return array('search_result__' . $variables['plugin_id']);
+}
 
 /**
  * Prepares variables for individual search result templates.
@@ -28,22 +35,22 @@ function template_preprocess_search_result(&$variables) {
   $language_interface = \Drupal::languageManager()->getCurrentLanguage();
 
   $result = $variables['result'];
-  $variables['url'] = UrlHelper::stripDangerousProtocols($result['link']);
-  $variables['title'] = $result['title'];
+  $variables['url'] = check_url($result['link']);
+  $variables['title'] = SafeMarkup::checkPlain($result['title']);
   if (isset($result['language']) && $result['language'] != $language_interface->getId() && $result['language'] != LanguageInterface::LANGCODE_NOT_SPECIFIED) {
     $variables['title_attributes']['lang'] = $result['language'];
     $variables['content_attributes']['lang'] = $result['language'];
   }
 
-  $info = [];
+  $info = array();
   if (!empty($result['plugin_id'])) {
-    $info['plugin_id'] = $result['plugin_id'];
+    $info['plugin_id'] = SafeMarkup::checkPlain($result['plugin_id']);
   }
   if (!empty($result['user'])) {
     $info['user'] = $result['user'];
   }
   if (!empty($result['date'])) {
-    $info['date'] = \Drupal::service('date.formatter')->format($result['date'], 'short');
+    $info['date'] = format_date($result['date'], 'short');
   }
   if (isset($result['extra']) && is_array($result['extra'])) {
     $info = array_merge($info, $result['extra']);
@@ -52,9 +59,10 @@ function template_preprocess_search_result(&$variables) {
   $variables['snippet'] = isset($result['snippet']) ? $result['snippet'] : '';
   // Provide separated and grouped meta information..
   $variables['info_split'] = $info;
-  $variables['info'] = [
+  $variables['info'] = array(
     '#type' => 'inline_template',
     '#template' => '{{ info|safe_join(" - ") }}',
-    '#context' => ['info' => $info],
-  ];
+    '#context' => array('info' => $info),
+  );
 }
+

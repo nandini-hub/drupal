@@ -27,10 +27,13 @@ views.argument.user__roles_rid:
   type: views.argument.many_to_one
   label: 'Role ID'
 
-views.argument_validator.entity:user:
-  type: views.argument_validator_entity
+views.argument_validator.user:
+  type: mapping
   label: 'User'
   mapping:
+    type:
+      type: string
+      label: 'Type of user filter value to allow'
     restrict_roles:
       type: boolean
       label: 'Restrict user based on role'
@@ -49,12 +52,36 @@ views.argument_default.user:
       type: boolean
       label: 'Also look for a node and use the node author'
 
+views.argument_default.current_user:
+  type: boolean
+  label: 'User ID from logged in user'
+
+views.argument_default.node:
+  type: boolean
+  label: 'Content ID from URL'
+
 views_field_user:
   type: views_field
   mapping:
     link_to_user:
       type: boolean
       label: 'Link this field to its user'
+
+views.field.user_link:
+  type: views_field
+  label: 'User link'
+  mapping:
+    text:
+      type: text
+      label: 'Text to display'
+
+views.field.user_link_cancel:
+  type: views.field.user_link
+  label: 'User cancel link'
+
+views.field.user_link_edit:
+  type: views.field.user_link
+  label: 'User edit link'
 
 views.field.user_permissions:
   type: views.field.prerender_list
@@ -98,7 +125,3 @@ views.filter.user_permissions:
 views.filter.user_roles:
   type: views.filter.many_to_one
   label: 'Role'
-
-views.filter_value.user_current:
-  type: views.filter_value.boolean
-  label: 'Current user'

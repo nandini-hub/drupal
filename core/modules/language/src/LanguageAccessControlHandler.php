@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\language\LanguageAccessControlHandler.
+ */
+
 namespace Drupal\language;
 
 use Drupal\Core\Access\AccessResult;
@@ -10,28 +15,25 @@ use Drupal\Core\Session\AccountInterface;
 /**
  * Defines the access control handler for the language entity type.
  *
- * @see \Drupal\language\Entity\ConfigurableLanguage
+ * @see \Drupal\language\Entity\Language
  */
 class LanguageAccessControlHandler extends EntityAccessControlHandler {
 
   /**
    * {@inheritdoc}
    */
-  protected function checkAccess(EntityInterface $entity, $operation, AccountInterface $account) {
+  public function checkAccess(EntityInterface $entity, $operation, $langcode, AccountInterface $account) {
     switch ($operation) {
-      case 'view':
-        return parent::checkAccess($entity, $operation, $account);
-
       case 'update':
         /* @var \Drupal\Core\Language\LanguageInterface $entity */
-        return AccessResult::allowedIf(!$entity->isLocked())->addCacheableDependency($entity)
-          ->andIf(parent::checkAccess($entity, $operation, $account));
+        return AccessResult::allowedIf(!$entity->isLocked())->cacheUntilEntityChanges($entity)
+          ->andIf(parent::checkAccess($entity, $operation, $langcode, $account));
 
       case 'delete':
         /* @var \Drupal\Core\Language\LanguageInterface $entity */
-        return AccessResult::allowedIf(!$entity->isLocked())->addCacheableDependency($entity)
-          ->andIf(AccessResult::allowedIf(!$entity->isDefault())->addCacheableDependency($entity))
-          ->andIf(parent::checkAccess($entity, $operation, $account));
+        return AccessResult::allowedIf(!$entity->isLocked())->cacheUntilEntityChanges($entity)
+          ->andIf(AccessResult::allowedIf(!$entity->isDefault())->cacheUntilEntityChanges($entity))
+          ->andIf(parent::checkAccess($entity, $operation, $langcode, $account));
 
       default:
         // No opinion.

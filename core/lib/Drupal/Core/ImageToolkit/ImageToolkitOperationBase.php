@@ -1,8 +1,14 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\ImageToolkit\ImageToolkitOperationBase.
+ */
+
 namespace Drupal\Core\ImageToolkit;
 
 use Drupal\Component\Plugin\Exception\InvalidPluginDefinitionException;
+use Drupal\Component\Utility\SafeMarkup;
 use Drupal\Core\Plugin\PluginBase;
 use Psr\Log\LoggerInterface;
 
@@ -103,12 +109,12 @@ abstract class ImageToolkitOperationBase extends PluginBase implements ImageTool
    */
   protected function prepareArguments(array $arguments) {
     foreach ($this->arguments() as $id => $argument) {
-      $argument += ['required' => TRUE];
+      $argument += array('required' => TRUE);
       // Check if the argument is required and, if so, has been provided.
       if ($argument['required']) {
         if (!array_key_exists($id, $arguments)) {
           // If the argument is required throw an exception.
-          throw new \InvalidArgumentException("Argument '$id' expected by plugin '{$this->getPluginId()}' but not passed");
+          throw new \InvalidArgumentException(SafeMarkup::format("Argument '@argument' expected by plugin '@plugin' but not passed", array('@argument' => $id, '@plugin' => $this->getPluginId())));
         }
       }
       else {
@@ -118,12 +124,12 @@ abstract class ImageToolkitOperationBase extends PluginBase implements ImageTool
         if (!array_key_exists('default', $argument)) {
           // The plugin did not define a default, so throw a plugin exception,
           // not an invalid argument exception.
-          throw new InvalidPluginDefinitionException("Default for argument '$id' expected by plugin '{$this->getPluginId()}' but not defined");
+          throw new InvalidPluginDefinitionException(SafeMarkup::format("Default for argument '@argument' expected by plugin '@plugin' but not defined", array('@argument' => $id, '@plugin' => $this->getPluginId())));
         }
 
         // Use the default value if the argument is not passed in.
         if (!array_key_exists($id, $arguments)) {
-          $arguments[$id] = $argument['default'];
+         $arguments[$id] = $argument['default'];
         }
       }
     }
@@ -166,7 +172,7 @@ abstract class ImageToolkitOperationBase extends PluginBase implements ImageTool
   /**
    * {@inheritdoc}
    */
-  final public function apply(array $arguments) {
+  public final function apply(array $arguments) {
     $arguments = $this->prepareArguments($arguments);
     $arguments = $this->validateArguments($arguments);
     return $this->execute($arguments);

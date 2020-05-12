@@ -1,19 +1,16 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\file\Element\ManagedFile.
+ */
+
 namespace Drupal\file\Element;
 
-use Drupal\Component\Utility\Crypt;
-use Drupal\Component\Utility\Html;
-use Drupal\Component\Utility\NestedArray;
-use Drupal\Core\Ajax\AjaxResponse;
-use Drupal\Core\Ajax\ReplaceCommand;
 use Drupal\Core\Form\FormStateInterface;
-use Drupal\Core\Render\Element;
 use Drupal\Core\Render\Element\FormElement;
-use Drupal\Core\Site\Settings;
 use Drupal\Core\Url;
 use Drupal\file\Entity\File;
-use Symfony\Component\HttpFoundation\Request;
 
 /**
  * Provides an AJAX/progress aware widget for uploading and saving a file.
@@ -50,7 +47,6 @@ class ManagedFile extends FormElement {
       '#attached' => [
         'library' => ['file/drupal.file'],
       ],
-      '#accept' => NULL,
     ];
   }
 
@@ -63,7 +59,6 @@ class ManagedFile extends FormElement {
     foreach ($fids as $key => $fid) {
       $fids[$key] = (int) $fid;
     }
-    $force_default = FALSE;
 
     // Process any input and save new uploads.
     if ($input !== FALSE) {
@@ -96,39 +91,14 @@ class ManagedFile extends FormElement {
           foreach ($input['fids'] as $fid) {
             if ($file = File::load($fid)) {
               $fids[] = $file->id();
-              // Temporary files that belong to other users should never be
-              // allowed.
-              if ($file->isTemporary()) {
-                if ($file->getOwnerId() != \Drupal::currentUser()->id()) {
-                  $force_default = TRUE;
-                  break;
-                }
-                // Since file ownership can't be determined for anonymous users,
-                // they are not allowed to reuse temporary files at all. But
-                // they do need to be able to reuse their own files from earlier
-                // submissions of the same form, so to allow that, check for the
-                // token added by $this->processManagedFile().
-                elseif (\Drupal::currentUser()->isAnonymous()) {
-                  $token = NestedArray::getValue($form_state->getUserInput(), array_merge($element['#parents'], ['file_' . $file->id(), 'fid_token']));
-                  $file_hmac = Crypt::hmacBase64('file-' . $file->id(), \Drupal::service('private_key')->get() . Settings::getHashSalt());
-                  if ($token === NULL || !hash_equals($file_hmac, $token)) {
-                    $force_default = TRUE;
-                    break;
-                  }
-                }
-              }
             }
-          }
-          if ($force_default) {
-            $fids = [];
           }
         }
       }
     }
 
-    // If there is no input or if the default value was requested above, use the
-    // default value.
-    if ($input === FALSE || $force_default) {
+    // If there is no input, set the default value.
+    else {
       if ($element['#extended']) {
         $default_fids = isset($element['#default_value']['fids']) ? $element['#default_value']['fids'] : [];
         $return = isset($element['#default_value']) ? $element['#default_value'] : ['fids' => []];
@@ -154,62 +124,15 @@ class ManagedFile extends FormElement {
   }
 
   /**
-   * #ajax callback for managed_file upload forms.
-   *
-   * This ajax callback takes care of the following things:
-   *   - Ensures that broken requests due to too big files are caught.
-   *   - Adds a class to the response to be able to highlight in the UI, that a
-   *     new file got uploaded.
-   *
-   * @param array $form
-   *   The build form.
-   * @param \Drupal\Core\Form\FormStateInterface $form_state
-   *   The form state.
-   * @param \Symfony\Component\HttpFoundation\Request $request
-   *   The current request.
-   *
-   * @return \Drupal\Core\Ajax\AjaxResponse
-   *   The ajax response of the ajax upload.
-   */
-  public static function uploadAjaxCallback(&$form, FormStateInterface &$form_state, Request $request) {
-    /** @var \Drupal\Core\Render\RendererInterface $renderer */
-    $renderer = \Drupal::service('renderer');
-
-    $form_parents = explode('/', $request->query->get('element_parents'));
-
-    // Sanitize form parents before using them.
-    $form_parents = array_filter($form_parents, [Element::class, 'child']);
-
-    // Retrieve the element to be rendered.
-    $form = NestedArray::getValue($form, $form_parents);
-
-    // Add the special AJAX class if a new file was added.
-    $current_file_count = $form_state->get('file_upload_delta_initial');
-    if (isset($form['#file_upload_delta']) && $current_file_count < $form['#file_upload_delta']) {
-      $form[$current_file_count]['#attributes']['class'][] = 'ajax-new-content';
-    }
-    // Otherwise just add the new content class on a placeholder.
-    else {
-      $form['#suffix'] .= '<span class="ajax-new-content"></span>';
-    }
-
-    $status_messages = ['#type' => 'status_messages'];
-    $form['#prefix'] .= $renderer->renderRoot($status_messages);
-    $output = $renderer->renderRoot($form);
-
-    $response = new AjaxResponse();
-    $response->setAttachments($form['#attached']);
-
-    return $response->addCommand(new ReplaceCommand(NULL, $output));
-  }
-
-  /**
    * Render API callback: Expands the managed_file element type.
    *
    * Expands the file type to include Upload and Remove buttons, as well as
    * support for a default value.
    */
   public static function processManagedFile(&$element, FormStateInterface $form_state, &$complete_form) {
+    // Append the '-upload' to the #id so the field label's 'for' attribute
+    // corresponds with the file element.
+    $element['#id'] .= '-upload';
 
     // This is used sometimes so let's implode it just once.
     $parents_prefix = implode('_', $element['#parents']);
@@ -218,20 +141,18 @@ class ManagedFile extends FormElement {
 
     // Set some default element properties.
     $element['#progress_indicator'] = empty($element['#progress_indicator']) ? 'none' : $element['#progress_indicator'];
-    $element['#files'] = !empty($fids) ? File::loadMultiple($fids) : [];
+    $element['#files'] = !empty($fids) ? File::loadMultiple($fids) : FALSE;
     $element['#tree'] = TRUE;
 
-    // Generate a unique wrapper HTML ID.
-    $ajax_wrapper_id = Html::getUniqueId('ajax-wrapper');
-
     $ajax_settings = [
-      'callback' => [get_called_class(), 'uploadAjaxCallback'],
+      'url' => Url::fromRoute('file.ajax_upload'),
       'options' => [
         'query' => [
           'element_parents' => implode('/', $element['#array_parents']),
+          'form_build_id' => $complete_form['form_build_id']['#value'],
         ],
       ],
-      'wrapper' => $ajax_wrapper_id,
+      'wrapper' => $element['#id'] . '-ajax-wrapper',
       'effect' => 'fade',
       'progress' => [
         'type' => $element['#progress_indicator'],
@@ -287,46 +208,32 @@ class ManagedFile extends FormElement {
           '#weight' => -20,
         ];
       }
+      elseif ($implementation == 'apc') {
+        $element['APC_UPLOAD_PROGRESS'] = [
+          '#type' => 'hidden',
+          '#value' => $upload_progress_key,
+          '#attributes' => ['class' => ['file-progress']],
+          // Uploadprogress extension requires this field to be at the top of
+          // the form.
+          '#weight' => -20,
+        ];
+      }
 
       // Add the upload progress callback.
-      $element['upload_button']['#ajax']['progress']['url'] = Url::fromRoute('file.ajax_progress', ['key' => $upload_progress_key]);
-
-      // Set a custom submit event so we can modify the upload progress
-      // identifier element before the form gets submitted.
-      $element['upload_button']['#ajax']['event'] = 'fileUpload';
+      $element['upload_button']['#ajax']['progress']['url'] = Url::fromRoute('file.ajax_progress');
     }
-
-    // Use a manually generated ID for the file upload field so the desired
-    // field label can be associated with it below. Use the same method for
-    // setting the ID that the form API autogenerator does.
-    // @see \Drupal\Core\Form\FormBuilder::doBuildForm()
-    $id = Html::getUniqueId('edit-' . implode('-', array_merge($element['#parents'], ['upload'])));
 
     // The file upload field itself.
     $element['upload'] = [
       '#name' => 'files[' . $parents_prefix . ']',
       '#type' => 'file',
-      // This #title will not actually be used as the upload field's HTML label,
-      // since the theme function for upload fields never passes the element
-      // through theme('form_element'). Instead the parent element's #title is
-      // used as the label (see below). That is usually a more meaningful label
-      // anyway.
       '#title' => t('Choose a file'),
       '#title_display' => 'invisible',
-      '#id' => $id,
       '#size' => $element['#size'],
       '#multiple' => $element['#multiple'],
       '#theme_wrappers' => [],
       '#weight' => -10,
-      '#error_no_message' => TRUE,
     ];
-    if (!empty($element['#accept'])) {
-      $element['upload']['#attributes'] = ['accept' => $element['#accept']];
-    }
-
-    // Indicate that $element['#title'] should be used as the HTML label for the
-    // file upload field.
-    $element['#label_for'] = $element['upload']['#id'];
 
     if (!empty($fids) && $element['#files']) {
       foreach ($element['#files'] as $delta => $file) {
@@ -337,22 +244,11 @@ class ManagedFile extends FormElement {
         if ($element['#multiple']) {
           $element['file_' . $delta]['selected'] = [
             '#type' => 'checkbox',
-            '#title' => \Drupal::service('renderer')->renderPlain($file_link),
+            '#title' => drupal_render($file_link),
           ];
         }
         else {
           $element['file_' . $delta]['filename'] = $file_link + ['#weight' => -10];
-        }
-        // Anonymous users who have uploaded a temporary file need a
-        // non-session-based token added so $this->valueCallback() can check
-        // that they have permission to use this file on subsequent submissions
-        // of the same form (for example, after an Ajax upload or form
-        // validation error).
-        if ($file->isTemporary() && \Drupal::currentUser()->isAnonymous()) {
-          $element['file_' . $delta]['fid_token'] = [
-            '#type' => 'hidden',
-            '#value' => Crypt::hmacBase64('file-' . $delta, \Drupal::service('private_key')->get() . Settings::getHashSalt()),
-          ];
         }
       }
     }
@@ -360,11 +256,11 @@ class ManagedFile extends FormElement {
     // Add the extension list to the page as JavaScript settings.
     if (isset($element['#upload_validators']['file_validate_extensions'][0])) {
       $extension_list = implode(',', array_filter(explode(' ', $element['#upload_validators']['file_validate_extensions'][0])));
-      $element['upload']['#attached']['drupalSettings']['file']['elements']['#' . $id] = $extension_list;
+      $element['upload']['#attached']['drupalSettings']['file']['elements']['#' . $element['#id']] = $extension_list;
     }
 
     // Prefix and suffix used for Ajax replacement.
-    $element['#prefix'] = '<div id="' . $ajax_wrapper_id . '">';
+    $element['#prefix'] = '<div id="' . $element['#id'] . '-ajax-wrapper">';
     $element['#suffix'] = '</div>';
 
     return $element;
@@ -409,44 +305,30 @@ class ManagedFile extends FormElement {
    * Render API callback: Validates the managed_file element.
    */
   public static function validateManagedFile(&$element, FormStateInterface $form_state, &$complete_form) {
+    // If referencing an existing file, only allow if there are existing
+    // references. This prevents unmanaged files from being deleted if this
+    // item were to be deleted.
     $clicked_button = end($form_state->getTriggeringElement()['#parents']);
     if ($clicked_button != 'remove_button' && !empty($element['fids']['#value'])) {
       $fids = $element['fids']['#value'];
       foreach ($fids as $fid) {
         if ($file = File::load($fid)) {
-          // If referencing an existing file, only allow if there are existing
-          // references. This prevents unmanaged files from being deleted if
-          // this item were to be deleted. When files that are no longer in use
-          // are automatically marked as temporary (now disabled by default),
-          // it is not safe to reference a permanent file without usage. Adding
-          // a usage and then later on removing it again would delete the file,
-          // but it is unknown if and where it is currently referenced. However,
-          // when files are not marked temporary (and then removed)
-          // automatically, it is safe to add and remove usages, as it would
-          // simply return to the current state.
-          // @see https://www.drupal.org/node/2891902
-          if ($file->isPermanent() && \Drupal::config('file.settings')->get('make_unused_managed_files_temporary')) {
+          if ($file->isPermanent()) {
             $references = static::fileUsage()->listUsage($file);
             if (empty($references)) {
-              // We expect the field name placeholder value to be wrapped in t()
-              // here, so it won't be escaped again as it's already marked safe.
-              $form_state->setError($element, t('The file used in the @name field may not be referenced.', ['@name' => $element['#title']]));
+              $form_state->setError($element, t('The file used in the !name field may not be referenced.', ['!name' => $element['#title']]));
             }
           }
         }
         else {
-          // We expect the field name placeholder value to be wrapped in t()
-          // here, so it won't be escaped again as it's already marked safe.
-          $form_state->setError($element, t('The file referenced by the @name field does not exist.', ['@name' => $element['#title']]));
+          $form_state->setError($element, t('The file referenced by the !name field does not exist.', ['!name' => $element['#title']]));
         }
       }
     }
 
     // Check required property based on the FID.
     if ($element['#required'] && empty($element['fids']['#value']) && !in_array($clicked_button, ['upload_button', 'remove_button'])) {
-      // We expect the field name placeholder value to be wrapped in t()
-      // here, so it won't be escaped again as it's already marked safe.
-      $form_state->setError($element, t('@name field is required.', ['@name' => $element['#title']]));
+      $form_state->setError($element['upload'], t('!name field is required.', ['!name' => $element['#title']]));
     }
 
     // Consolidate the array value of this field to array of FIDs.

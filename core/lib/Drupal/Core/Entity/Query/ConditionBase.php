@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Entity\Query\ConditionBase.
+ */
+
 namespace Drupal\Core\Entity\Query;
 
 /**
@@ -8,17 +13,16 @@ namespace Drupal\Core\Entity\Query;
 abstract class ConditionBase extends ConditionFundamentals implements ConditionInterface {
 
   /**
-   * {@inheritdoc}
+   * Implements \Drupal\Core\Entity\Query\ConditionInterface::compile().
    */
   public function condition($field, $value = NULL, $operator = NULL, $langcode = NULL) {
-    $this->conditions[] = [
+    $this->conditions[] = array(
       'field' => $field,
       'value' => $value,
       'operator' => $operator,
       'langcode' => $langcode,
-    ];
+    );
 
     return $this;
   }
-
 }

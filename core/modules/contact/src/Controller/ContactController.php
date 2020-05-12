@@ -1,12 +1,17 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\contact\Controller\ContactController.
+ */
+
 namespace Drupal\contact\Controller;
 
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\contact\ContactFormInterface;
 use Drupal\Core\Render\RendererInterface;
-use Drupal\Core\Url;
 use Drupal\user\UserInterface;
+use Drupal\Component\Utility\SafeMarkup;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
@@ -48,8 +53,7 @@ class ContactController extends ControllerBase {
    *   The contact form to use.
    *
    * @return array
-   *   The form as render array as expected by
-   *   \Drupal\Core\Render\RendererInterface::render().
+   *   The form as render array as expected by drupal_render().
    *
    * @throws \Symfony\Component\HttpKernel\Exception\NotFoundHttpException
    *   Exception is thrown when user tries to access non existing default
@@ -60,16 +64,15 @@ class ContactController extends ControllerBase {
 
     // Use the default form if no form has been passed.
     if (empty($contact_form)) {
-      $contact_form = $this->entityTypeManager()
+      $contact_form = $this->entityManager()
         ->getStorage('contact_form')
         ->load($config->get('default_form'));
       // If there are no forms, do not display the form.
       if (empty($contact_form)) {
         if ($this->currentUser()->hasPermission('administer contact forms')) {
-          $this->messenger()->addError($this->t('The contact form has not been configured. <a href=":add">Add one or more forms</a> .', [
-            ':add' => Url::fromRoute('contact.form_add')->toString(),
-          ]));
-          return [];
+          drupal_set_message($this->t('The contact form has not been configured. <a href="@add">Add one or more forms</a> .', array(
+            '@add' => $this->url('contact.form_add'))), 'error');
+          return array();
         }
         else {
           throw new NotFoundHttpException();
@@ -77,14 +80,14 @@ class ContactController extends ControllerBase {
       }
     }
 
-    $message = $this->entityTypeManager()
+    $message = $this->entityManager()
       ->getStorage('contact_message')
-      ->create([
+      ->create(array(
         'contact_form' => $contact_form->id(),
-      ]);
+      ));
 
     $form = $this->entityFormBuilder()->getForm($message);
-    $form['#title'] = $contact_form->label();
+    $form['#title'] = SafeMarkup::checkPlain($contact_form->label());
     $form['#cache']['contexts'][] = 'user.permissions';
     $this->renderer->addCacheableDependency($form, $config);
     return $form;
@@ -97,26 +100,25 @@ class ContactController extends ControllerBase {
    *   The account for which a personal contact form should be generated.
    *
    * @return array
-   *   The personal contact form as render array as expected by
-   *   \Drupal\Core\Render\RendererInterface::render().
+   *   The personal contact form as render array as expected by drupal_render().
    *
    * @throws \Symfony\Component\HttpKernel\Exception\NotFoundHttpException
    *   Exception is thrown when user tries to access a contact form for a
-   *   user who does not have an email address configured.
+   *   user who does not have an e-mail address configured.
    */
   public function contactPersonalPage(UserInterface $user) {
-    // Do not continue if the user does not have an email address configured.
+    // Do not continue if the user does not have an e-mail address configured.
     if (!$user->getEmail()) {
       throw new NotFoundHttpException();
     }
 
-    $message = $this->entityTypeManager()->getStorage('contact_message')->create([
+    $message = $this->entityManager()->getStorage('contact_message')->create(array(
       'contact_form' => 'personal',
       'recipient' => $user->id(),
-    ]);
+    ));
 
     $form = $this->entityFormBuilder()->getForm($message);
-    $form['#title'] = $this->t('Contact @username', ['@username' => $user->getDisplayName()]);
+    $form['#title'] = $this->t('Contact @username', array('@username' => $user->getUsername()));
     $form['#cache']['contexts'][] = 'user.permissions';
     return $form;
   }

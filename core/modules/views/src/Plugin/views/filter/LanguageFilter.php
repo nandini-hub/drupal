@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains Drupal\views\Plugin\views\filter\LanguageFilter.
+ */
+
 namespace Drupal\views\Plugin\views\filter;
 
 use Drupal\Core\Language\LanguageInterface;
@@ -60,11 +65,8 @@ class LanguageFilter extends InOperator implements ContainerFactoryPluginInterfa
   public function getValueOptions() {
     if (!isset($this->valueOptions)) {
       $this->valueTitle = $this->t('Language');
-      // Pass the current values so options that are already selected do not get
-      // lost when there are changes in the language configuration.
-      $this->valueOptions = $this->listLanguages(LanguageInterface::STATE_ALL | LanguageInterface::STATE_SITE_DEFAULT | PluginBase::INCLUDE_NEGOTIATED, array_keys($this->value));
+      $this->valueOptions = $this->listLanguages(LanguageInterface::STATE_ALL |LanguageInterface::STATE_SITE_DEFAULT | PluginBase::INCLUDE_NEGOTIATED);
     }
-    return $this->valueOptions;
   }
 
   /**
@@ -79,5 +81,4 @@ class LanguageFilter extends InOperator implements ContainerFactoryPluginInterfa
 
     parent::query();
   }
-
 }

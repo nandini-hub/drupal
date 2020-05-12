@@ -1,7 +1,14 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\StackMiddleware\NegotationMiddleware.
+ */
+
 namespace Drupal\Core\StackMiddleware;
 
+use Drupal\Core\ContentNegotiation;
+use Drupal\Core\ContentNegotiationInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\HttpKernelInterface;
 
@@ -20,35 +27,41 @@ class NegotiationMiddleware implements HttpKernelInterface {
   protected $app;
 
   /**
+   * The content negotiator.
+   *
+   * @var \Drupal\Core\ContentNegotiation
+   */
+  protected $negotiator;
+
+  /**
    * Contains a hashmap of format as key and mimetype as value.
    *
    * @var array
    */
-  protected $formats = [];
+  protected $formats;
 
   /**
    * Constructs a new NegotiationMiddleware.
    *
    * @param \Symfony\Component\HttpKernel\HttpKernelInterface $app
    *   The wrapper HTTP kernel
+   * @param \Drupal\Core\ContentNegotiation $negotiator
+   *   The content negotiator.
    */
-  public function __construct(HttpKernelInterface $app) {
+  public function __construct(HttpKernelInterface $app, ContentNegotiation $negotiator) {
     $this->app = $app;
+    $this->negotiator = $negotiator;
   }
 
   /**
    * {@inheritdoc}
    */
-  public function handle(Request $request, $type = self::MASTER_REQUEST, $catch = TRUE) {
-    // Register available mime types.
+  public function handle(Request $request, $type = self::MASTER_REQUEST, $catch = true) {
     foreach ($this->formats as $format => $mime_type) {
       $request->setFormat($format, $mime_type);
     }
 
-    // Determine the request format using the negotiator.
-    if ($requested_format = $this->getContentType($request)) {
-      $request->setRequestFormat($requested_format);
-    }
+    $request->setRequestFormat($this->negotiator->getContentType($request));
     return $this->app->handle($request, $type, $catch);
   }
 
@@ -65,33 +78,6 @@ class NegotiationMiddleware implements HttpKernelInterface {
   public function registerFormat($format, $mime_type) {
     $this->formats[$format] = $mime_type;
     return $this;
-  }
-
-  /**
-   * Gets the normalized type of a request.
-   *
-   * The normalized type is a short, lowercase version of the format, such as
-   * 'html', 'json' or 'atom'.
-   *
-   * @param \Symfony\Component\HttpFoundation\Request $request
-   *   The request object from which to extract the content type.
-   *
-   * @return string
-   *   The normalized type of a given request.
-   */
-  protected function getContentType(Request $request) {
-    // AJAX iframe uploads need special handling, because they contain a JSON
-    // response wrapped in <textarea>.
-    if ($request->request->get('ajax_iframe_upload', FALSE)) {
-      return 'iframeupload';
-    }
-
-    if ($request->query->has('_format')) {
-      return $request->query->get('_format');
-    }
-
-    // No format was specified in the request.
-    return NULL;
   }
 
 }

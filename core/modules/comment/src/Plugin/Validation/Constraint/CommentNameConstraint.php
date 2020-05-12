@@ -1,19 +1,23 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\comment\Plugin\Validation\Constraint\CommentNameConstraint.
+ */
+
 namespace Drupal\comment\Plugin\Validation\Constraint;
 
-use Drupal\Core\Entity\Plugin\Validation\Constraint\CompositeConstraintBase;
+use Symfony\Component\Validator\Constraint;
 
 /**
  * Supports validating comment author names.
  *
- * @Constraint(
+ * @Plugin(
  *   id = "CommentName",
- *   label = @Translation("Comment author name", context = "Validation"),
- *   type = "entity:comment"
+ *   label = @Translation("Comment author name", context = "Validation")
  * )
  */
-class CommentNameConstraint extends CompositeConstraintBase {
+class CommentNameConstraint extends Constraint {
 
   /**
    * Message shown when an anonymous user comments using a registered name.
@@ -35,12 +39,5 @@ class CommentNameConstraint extends CompositeConstraintBase {
    * @var string
    */
   public $messageMatch = 'The specified author name does not match the comment author.';
-
-  /**
-   * {@inheritdoc}
-   */
-  public function coversFields() {
-    return ['name', 'uid'];
-  }
 
 }

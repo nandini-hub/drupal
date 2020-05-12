@@ -1,6 +1,13 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\Core\Ajax\CssCommand.
+ */
+
 namespace Drupal\Core\Ajax;
+
+use Drupal\Core\Ajax\CommandInterface;
 
 /**
  * An AJAX command for calling the jQuery css() method.
@@ -32,7 +39,7 @@ class CssCommand implements CommandInterface {
    *
    * @var array
    */
-  protected $css = [];
+  protected $css = array();
 
   /**
    * Constructs a CssCommand object.
@@ -42,7 +49,7 @@ class CssCommand implements CommandInterface {
    * @param array $css
    *   An array of CSS property/value pairs to set.
    */
-  public function __construct($selector, array $css = []) {
+  public function __construct($selector, array $css = array()) {
     $this->selector = $selector;
     $this->css = $css;
   }
@@ -67,11 +74,11 @@ class CssCommand implements CommandInterface {
    */
   public function render() {
 
-    return [
+    return array(
       'command' => 'css',
       'selector' => $this->selector,
       'argument' => $this->css,
-    ];
+    );
   }
 
 }

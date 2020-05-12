@@ -1,10 +1,30 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\quickedit\Access\EditEntityFieldAccessCheckInterface.
+ */
+
 namespace Drupal\quickedit\Access;
 
+use Drupal\Core\Entity\EntityInterface;
+
 /**
- * @deprecated in drupal:8.4.0 and is removed from drupal:9.0.0.
+ * Access check for editing entity fields.
  */
-interface EditEntityFieldAccessCheckInterface extends QuickEditEntityFieldAccessCheckInterface {
+interface EditEntityFieldAccessCheckInterface {
+
+  /**
+   * Checks access to edit the requested field of the requested entity.
+   *
+   * @param \Drupal\Core\Entity\EntityInterface $entity
+   *   The entity.
+   * @param string $field_name
+   *   The field name.
+   *
+   * @return \Drupal\Core\Access\AccessResultInterface
+   *   The access result.
+   */
+  public function accessEditEntityField(EntityInterface $entity, $field_name);
 
 }

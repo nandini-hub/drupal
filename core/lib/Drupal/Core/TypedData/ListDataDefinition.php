@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\TypedData\ListDataDefinition.
+ */
+
 namespace Drupal\Core\TypedData;
 
 /**
@@ -20,7 +25,7 @@ class ListDataDefinition extends DataDefinition implements ListDataDefinitionInt
    * @param string $item_type
    *   The data type of the list items; e.g., 'string', 'integer' or 'any'.
    *
-   * @return static
+   * @return \Drupal\Core\TypedData\ListDataDefinition
    *   A new List Data Definition object.
    */
   public static function create($item_type) {
@@ -41,13 +46,13 @@ class ListDataDefinition extends DataDefinition implements ListDataDefinitionInt
    * {@inheritdoc}
    */
   public static function createFromItemType($item_type) {
-    return new static([], \Drupal::typedDataManager()->createDataDefinition($item_type));
+    return new static(array(), \Drupal::typedDataManager()->createDataDefinition($item_type));
   }
 
   /**
    * {@inheritdoc}
    */
-  public function __construct(array $values = [], DataDefinitionInterface $item_definition = NULL) {
+  public function __construct(array $values = array(), DataDefinitionInterface $item_definition = NULL) {
     $this->definition = $values;
     $this->itemDefinition = $item_definition;
   }
@@ -72,18 +77,20 @@ class ListDataDefinition extends DataDefinition implements ListDataDefinitionInt
    * {@inheritdoc}
    */
   public function getClass() {
-    if (!empty($this->definition['class'])) {
-      return $this->definition['class'];
+    $class = isset($this->definition['class']) ? $this->definition['class'] : NULL;
+    if (!empty($class)) {
+      return $class;
     }
-
-    // If a list definition is used but no class has been specified, derive the
-    // default list class from the item type.
-    $item_type_definition = \Drupal::typedDataManager()
-      ->getDefinition($this->getItemDefinition()->getDataType());
-    if (!$item_type_definition) {
-      throw new \LogicException("An invalid data type '{$this->getItemDefinition()->getDataType()}' has been specified for list items");
+    else {
+      // If a list definition is used but no class has been specified, derive
+      // the default list class from the item type.
+      $item_type_definition = \Drupal::typedDataManager()
+        ->getDefinition($this->getItemDefinition()->getDataType());
+      if (!$item_type_definition) {
+        throw new \LogicException(format_string('An invalid data type @plugin_id has been specified for list items.', array('@plugin_id' => $this->getItemDefinition()->getDataType())));
+      }
+      return $item_type_definition['list_class'];
     }
-    return $item_type_definition['list_class'];
   }
 
   /**
@@ -105,14 +112,4 @@ class ListDataDefinition extends DataDefinition implements ListDataDefinitionInt
     $this->itemDefinition = $definition;
     return $this;
   }
-
-  /**
-   * Magic method: Implements a deep clone.
-   */
-  public function __clone() {
-    // Ensure the itemDefinition property is actually cloned by overwriting the
-    // original reference.
-    $this->itemDefinition = clone $this->itemDefinition;
-  }
-
 }

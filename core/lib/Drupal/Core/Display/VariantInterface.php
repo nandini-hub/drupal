@@ -1,12 +1,14 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Display\VariantInterface.
+ */
+
 namespace Drupal\Core\Display;
 
-use Drupal\Component\Plugin\ConfigurableInterface;
 use Drupal\Component\Plugin\ConfigurablePluginInterface;
-use Drupal\Component\Plugin\DependentPluginInterface;
 use Drupal\Component\Plugin\PluginInspectionInterface;
-use Drupal\Core\Cache\RefinableCacheableDependencyInterface;
 use Drupal\Core\Plugin\PluginFormInterface;
 use Drupal\Core\Session\AccountInterface;
 
@@ -18,7 +20,7 @@ use Drupal\Core\Session\AccountInterface;
  * @see \Drupal\Core\Display\VariantManager
  * @see plugin_api
  */
-interface VariantInterface extends PluginInspectionInterface, ConfigurableInterface, DependentPluginInterface, ConfigurablePluginInterface, PluginFormInterface, RefinableCacheableDependencyInterface {
+interface VariantInterface extends PluginInspectionInterface, ConfigurablePluginInterface, PluginFormInterface {
 
   /**
    * Returns the user-facing display variant label.
@@ -76,10 +78,6 @@ interface VariantInterface extends PluginInspectionInterface, ConfigurableInterf
 
   /**
    * Builds and returns the renderable array for the display variant.
-   *
-   * The variant can contain cacheability metadata for the configuration that
-   * was passed in setConfiguration(). In the build() method, this should be
-   * added to the render array that is returned.
    *
    * @return array
    *   A render array for the display variant.

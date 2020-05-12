@@ -1,7 +1,13 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Field\Entity\BaseFieldOverride.
+ */
+
 namespace Drupal\Core\Field\Entity;
 
+use Drupal\Component\Utility\SafeMarkup;
 use Drupal\Core\Entity\EntityStorageInterface;
 use Drupal\Core\Field\BaseFieldDefinition;
 use Drupal\Core\Field\FieldConfigBase;
@@ -15,28 +21,13 @@ use Drupal\Core\Field\FieldException;
  * @ConfigEntityType(
  *   id = "base_field_override",
  *   label = @Translation("Base field override"),
- *   handlers = {
- *     "storage" = "Drupal\Core\Field\BaseFieldOverrideStorage",
- *     "access" = "Drupal\Core\Field\BaseFieldOverrideAccessControlHandler",
+ *   controllers = {
+ *     "storage" = "Drupal\Core\Field\BaseFieldOverrideStorage"
  *   },
  *   config_prefix = "base_field_override",
  *   entity_keys = {
  *     "id" = "id",
  *     "label" = "label"
- *   },
- *   config_export = {
- *     "id",
- *     "field_name",
- *     "entity_type",
- *     "bundle",
- *     "label",
- *     "description",
- *     "required",
- *     "translatable",
- *     "default_value",
- *     "default_value_callback",
- *     "settings",
- *     "field_type",
  *   }
  * )
  */
@@ -64,7 +55,7 @@ class BaseFieldOverride extends FieldConfigBase {
     $values = $base_field_definition->toArray();
     $values['bundle'] = $bundle;
     $values['baseFieldDefinition'] = $base_field_definition;
-    return \Drupal::entityTypeManager()->getStorage('base_field_override')->create($values);
+    return \Drupal::entityManager()->getStorage('base_field_override')->create($values);
   }
 
   /**
@@ -87,6 +78,8 @@ class BaseFieldOverride extends FieldConfigBase {
    *   (optional) The type of the entity to create. Defaults to
    *   'base_field_override'.
    *
+   * @see entity_create()
+   *
    * @throws \Drupal\Core\Field\FieldException
    *   Exception thrown if $values does not contain a field_name, entity_type or
    *   bundle value.
@@ -96,10 +89,10 @@ class BaseFieldOverride extends FieldConfigBase {
       throw new FieldException('Attempt to create a base field bundle override of a field without a field_name');
     }
     if (empty($values['entity_type'])) {
-      throw new FieldException("Attempt to create a base field bundle override of field {$values['field_name']} without an entity_type");
+      throw new FieldException(SafeMarkup::format('Attempt to create a base field bundle override of field @field_name without an entity_type', array('@field_name' => $values['field_name'])));
     }
     if (empty($values['bundle'])) {
-      throw new FieldException("Attempt to create a base field bundle override of field {$values['field_name']} without a bundle");
+      throw new FieldException(SafeMarkup::format('Attempt to create a base field bundle override of field @field_name without a bundle', array('@field_name' => $values['field_name'])));
     }
 
     parent::__construct($values, $entity_type);
@@ -141,27 +134,13 @@ class BaseFieldOverride extends FieldConfigBase {
   }
 
   /**
-   * {@inheritdoc}
-   */
-  public function getClass() {
-    return $this->getBaseFieldDefinition()->getClass();
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function getUniqueIdentifier() {
-    return $this->getBaseFieldDefinition()->getUniqueIdentifier();
-  }
-
-  /**
    * Gets the base field definition.
    *
    * @return \Drupal\Core\Field\BaseFieldDefinition
    */
   protected function getBaseFieldDefinition() {
     if (!isset($this->baseFieldDefinition)) {
-      $fields = \Drupal::service('entity_field.manager')->getBaseFieldDefinitions($this->entity_type);
+      $fields = $this->entityManager()->getBaseFieldDefinitions($this->entity_type);
       $this->baseFieldDefinition = $fields[$this->getName()];
     }
     return $this->baseFieldDefinition;
@@ -171,7 +150,8 @@ class BaseFieldOverride extends FieldConfigBase {
    * {@inheritdoc}
    *
    * @throws \Drupal\Core\Field\FieldException
-   *   If the bundle is being changed.
+   *   If the bundle is being changed and
+   *   BaseFieldOverride::allowBundleRename() has not been called.
    */
   public function preSave(EntityStorageInterface $storage) {
     // Filter out unknown settings and make sure all settings are present, so
@@ -194,24 +174,24 @@ class BaseFieldOverride extends FieldConfigBase {
     else {
       // Some updates are always disallowed.
       if ($this->entity_type != $this->original->entity_type) {
-        throw new FieldException("Cannot change the entity_type of an existing base field bundle override (entity type:{$this->entity_type}, bundle:{$this->original->bundle}, field name: {$this->field_name})");
+        throw new FieldException(SafeMarkup::format('Cannot change the entity_type of an existing base field bundle override (entity type:@entity_type, bundle:@bundle, field name: @field_name)', array('@field_name' => $this->field_name, '@entity_type' => $this->entity_type, '@bundle' => $this->original->bundle)));
       }
-      if ($this->bundle != $this->original->bundle) {
-        throw new FieldException("Cannot change the bundle of an existing base field bundle override (entity type:{$this->entity_type}, bundle:{$this->original->bundle}, field name: {$this->field_name})");
+      if ($this->bundle != $this->original->bundle && empty($this->bundleRenameAllowed)) {
+        throw new FieldException(SafeMarkup::format('Cannot change the bundle of an existing base field bundle override (entity type:@entity_type, bundle:@bundle, field name: @field_name)', array('@field_name' => $this->field_name, '@entity_type' => $this->entity_type, '@bundle' => $this->original->bundle)));
       }
       $previous_definition = $this->original;
     }
     // Notify the entity storage.
-    $this->entityTypeManager()->getStorage($this->getTargetEntityTypeId())->onFieldDefinitionUpdate($this, $previous_definition);
+    $this->entityManager()->getStorage($this->getTargetEntityTypeId())->onFieldDefinitionUpdate($this, $previous_definition);
   }
 
   /**
    * {@inheritdoc}
    */
   public static function postDelete(EntityStorageInterface $storage, array $field_overrides) {
-    $entity_type_manager = \Drupal::entityTypeManager();
+    $entity_manager = \Drupal::entityManager();
     // Clear the cache upfront, to refresh the results of getBundles().
-    \Drupal::service('entity_field.manager')->clearCachedFieldDefinitions();
+    $entity_manager->clearCachedFieldDefinitions();
     /** @var \Drupal\Core\Field\Entity\BaseFieldOverride $field_override */
     foreach ($field_overrides as $field_override) {
       // Inform the system that the field definition is being updated back to
@@ -219,7 +199,7 @@ class BaseFieldOverride extends FieldConfigBase {
       // @todo This assumes that there isn't a non-config-based override that
       //   we're returning to, but that might not be the case:
       //   https://www.drupal.org/node/2321071.
-      $entity_type_manager->getStorage($field_override->getTargetEntityTypeId())->onFieldDefinitionUpdate($field_override->getBaseFieldDefinition(), $field_override);
+      $entity_manager->getStorage($field_override->getTargetEntityTypeId())->onFieldDefinitionUpdate($field_override->getBaseFieldDefinition(), $field_override);
     }
   }
 
@@ -238,7 +218,7 @@ class BaseFieldOverride extends FieldConfigBase {
    *   provided field name, otherwise NULL.
    */
   public static function loadByName($entity_type_id, $bundle, $field_name) {
-    return \Drupal::entityTypeManager()->getStorage('base_field_override')->load($entity_type_id . '.' . $bundle . '.' . $field_name);
+    return \Drupal::entityManager()->getStorage('base_field_override')->load($entity_type_id . '.' . $bundle . '.' . $field_name);
   }
 
   /**

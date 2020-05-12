@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Tests\config_translation\Unit\ConfigMapperManagerTest.
+ */
+
 namespace Drupal\Tests\config_translation\Unit;
 
 use Drupal\config_translation\ConfigMapperManager;
@@ -8,6 +13,7 @@ use Drupal\Core\Language\LanguageInterface;
 use Drupal\Core\TypedData\TypedDataInterface;
 use Drupal\Tests\UnitTestCase;
 use Drupal\Core\TypedData\DataDefinition;
+use Drupal\Core\TypedData\DataDefinitionInterface;
 
 /**
  * Tests the functionality provided by configuration translation mapper manager.
@@ -26,13 +32,13 @@ class ConfigMapperManagerTest extends UnitTestCase {
   /**
    * The typed configuration manager used for testing.
    *
-   * @var \Drupal\Core\Config\TypedConfigManagerInterface|\PHPUnit\Framework\MockObject\MockObject
+   * @var \Drupal\Core\Config\TypedConfigManagerInterface|\PHPUnit_Framework_MockObject_MockObject
    */
   protected $typedConfigManager;
 
   protected function setUp() {
-    $language = new Language(['id' => 'en']);
-    $language_manager = $this->createMock('Drupal\Core\Language\LanguageManagerInterface');
+    $language = new Language(array('id' => 'en'));
+    $language_manager = $this->getMock('Drupal\Core\Language\LanguageManagerInterface');
     $language_manager->expects($this->once())
       ->method('getCurrentLanguage')
       ->with(LanguageInterface::TYPE_INTERFACE)
@@ -41,11 +47,18 @@ class ConfigMapperManagerTest extends UnitTestCase {
     $this->typedConfigManager = $this->getMockBuilder('Drupal\Core\Config\TypedConfigManagerInterface')
       ->getMock();
 
-    $module_handler = $this->createMock('Drupal\Core\Extension\ModuleHandlerInterface');
-    $theme_handler = $this->createMock('Drupal\Core\Extension\ThemeHandlerInterface');
+    $module_handler = $this->getMock('Drupal\Core\Extension\ModuleHandlerInterface');
+    $module_handler->expects($this->once())
+      ->method('getModuleList')
+      ->with()
+      ->will($this->returnValue(array()));
+    $theme_handler = $this->getMock('Drupal\Core\Extension\ThemeHandlerInterface');
+    $theme_handler->expects($this->any())
+      ->method('listInfo')
+      ->will($this->returnValue(array()));
 
     $this->configMapperManager = new ConfigMapperManager(
-      $this->createMock('Drupal\Core\Cache\CacheBackendInterface'),
+      $this->getMock('Drupal\Core\Cache\CacheBackendInterface'),
       $language_manager,
       $module_handler,
       $this->typedConfigManager,
@@ -83,58 +96,50 @@ class ConfigMapperManagerTest extends UnitTestCase {
    *   ConfigMapperManager::hasTranslatable() as the second key.
    */
   public function providerTestHasTranslatable() {
-    return [
-      [$this->getElement([]), FALSE],
-      [$this->getElement(['aaa' => 'bbb']), FALSE],
-      [$this->getElement(['translatable' => FALSE]), FALSE],
-      [$this->getElement(['translatable' => TRUE]), TRUE],
-      [$this->getNestedElement([$this->getElement([])]), FALSE],
-      [$this->getNestedElement([$this->getElement(['translatable' => TRUE])]), TRUE],
-      [
-        $this->getNestedElement([
-          $this->getElement(['aaa' => 'bbb']),
-          $this->getElement(['ccc' => 'ddd']),
-          $this->getElement(['eee' => 'fff']),
-        ]),
-        FALSE,
-      ],
-      [
-        $this->getNestedElement([
-          $this->getElement(['aaa' => 'bbb']),
-          $this->getElement(['ccc' => 'ddd']),
-          $this->getElement(['translatable' => TRUE]),
-        ]),
-        TRUE,
-      ],
-      [
-        $this->getNestedElement([
-          $this->getElement(['aaa' => 'bbb']),
-          $this->getNestedElement([
-            $this->getElement(['ccc' => 'ddd']),
-            $this->getElement(['eee' => 'fff']),
-          ]),
-          $this->getNestedElement([
-            $this->getElement(['ggg' => 'hhh']),
-            $this->getElement(['iii' => 'jjj']),
-          ]),
-        ]),
-        FALSE,
-      ],
-      [
-        $this->getNestedElement([
-          $this->getElement(['aaa' => 'bbb']),
-          $this->getNestedElement([
-            $this->getElement(['ccc' => 'ddd']),
-            $this->getElement(['eee' => 'fff']),
-          ]),
-          $this->getNestedElement([
-            $this->getElement(['ggg' => 'hhh']),
-            $this->getElement(['translatable' => TRUE]),
-          ]),
-        ]),
-        TRUE,
-      ],
-    ];
+    return array(
+      array($this->getElement(array()), FALSE),
+      array($this->getElement(array('aaa' => 'bbb')), FALSE),
+      array($this->getElement(array('translatable' => FALSE)), FALSE),
+      array($this->getElement(array('translatable' => TRUE)), TRUE),
+      array($this->getNestedElement(array(
+        $this->getElement(array()),
+      )), FALSE),
+      array($this->getNestedElement(array(
+        $this->getElement(array('translatable' => TRUE)),
+      )), TRUE),
+      array($this->getNestedElement(array(
+        $this->getElement(array('aaa' => 'bbb')),
+        $this->getElement(array('ccc' => 'ddd')),
+        $this->getElement(array('eee' => 'fff')),
+      )), FALSE),
+      array($this->getNestedElement(array(
+        $this->getElement(array('aaa' => 'bbb')),
+        $this->getElement(array('ccc' => 'ddd')),
+        $this->getElement(array('translatable' => TRUE)),
+      )), TRUE),
+      array($this->getNestedElement(array(
+        $this->getElement(array('aaa' => 'bbb')),
+        $this->getNestedElement(array(
+          $this->getElement(array('ccc' => 'ddd')),
+          $this->getElement(array('eee' => 'fff')),
+        )),
+        $this->getNestedElement(array(
+          $this->getElement(array('ggg' => 'hhh')),
+          $this->getElement(array('iii' => 'jjj')),
+        )),
+      )), FALSE),
+      array($this->getNestedElement(array(
+        $this->getElement(array('aaa' => 'bbb')),
+        $this->getNestedElement(array(
+          $this->getElement(array('ccc' => 'ddd')),
+          $this->getElement(array('eee' => 'fff')),
+        )),
+        $this->getNestedElement(array(
+          $this->getElement(array('ggg' => 'hhh')),
+          $this->getElement(array('translatable' => TRUE)),
+        )),
+      )), TRUE),
+    );
   }
 
   /**
@@ -148,7 +153,7 @@ class ConfigMapperManagerTest extends UnitTestCase {
    */
   protected function getElement(array $definition) {
     $data_definition = new DataDefinition($definition);
-    $element = $this->createMock('Drupal\Core\TypedData\TypedDataInterface');
+    $element = $this->getMock('Drupal\Core\TypedData\TypedDataInterface');
     $element->expects($this->any())
       ->method('getDataDefinition')
       ->will($this->returnValue($data_definition));

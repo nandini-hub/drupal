@@ -12,13 +12,14 @@ description: ''
 tag: default
 base_table: taxonomy_term_field_data
 base_field: tid
+core: 8.0-dev
 display:
   default:
     display_options:
       access:
         type: perm
       cache:
-        type: tag
+        type: none
       exposed_form:
         type: basic
       fields:

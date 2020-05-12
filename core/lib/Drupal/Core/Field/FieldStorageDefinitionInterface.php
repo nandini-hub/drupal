@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Field\FieldStorageDefinitionInterface.
+ */
+
 namespace Drupal\Core\Field;
 
 use Drupal\Core\Cache\CacheableDependencyInterface;
@@ -52,15 +57,11 @@ interface FieldStorageDefinitionInterface extends CacheableDependencyInterface {
   public function getType();
 
   /**
-   * Returns the storage settings.
+   * Returns the field settings.
    *
    * Each field type defines the settings that are meaningful for that type.
    * For example, a text field can define a 'max_length' setting, and an image
    * field can define a 'alt_field_required' setting.
-   *
-   * The method always returns an array of all available settings for this field
-   * type, possibly with the default values merged in if values have not been
-   * provided for all available settings.
    *
    * @return mixed[]
    *   An array of key/value pairs.
@@ -68,7 +69,7 @@ interface FieldStorageDefinitionInterface extends CacheableDependencyInterface {
   public function getSettings();
 
   /**
-   * Returns the value of a given storage setting.
+   * Returns the value of a given field setting.
    *
    * @param string $setting_name
    *   The setting name.
@@ -97,11 +98,7 @@ interface FieldStorageDefinitionInterface extends CacheableDependencyInterface {
   public function setTranslatable($translatable);
 
   /**
-   * Returns whether the field storage is revisionable.
-   *
-   * Note that if the entity type is revisionable and the field storage has a
-   * cardinality higher than 1, the field storage is considered revisionable
-   * by default.
+   * Returns whether the field is revisionable.
    *
    * @return bool
    *   TRUE if the field is revisionable.
@@ -113,12 +110,6 @@ interface FieldStorageDefinitionInterface extends CacheableDependencyInterface {
    *
    * @return bool
    *   TRUE if the field is queryable.
-   *
-   * @deprecated in drupal:8.4.0 and is removed from drupal:9.0.0. Use
-   *   \Drupal\Core\Field\FieldStorageDefinitionInterface::hasCustomStorage()
-   *   instead.
-   *
-   * @see https://www.drupal.org/node/2856563
    */
   public function isQueryable();
 
@@ -246,15 +237,13 @@ interface FieldStorageDefinitionInterface extends CacheableDependencyInterface {
    *
    * @return array[]
    *   The field schema, as an array of key/value pairs in the format returned
-   *   by \Drupal\Core\Field\FieldItemInterface::schema():
+   *   by hook_field_schema():
    *   - columns: An array of Schema API column specifications, keyed by column
    *     name. This specifies what comprises a single value for a given field.
    *     No assumptions should be made on how storage backends internally use
    *     the original column name to structure their storage.
    *   - indexes: An array of Schema API index definitions. Some storage
    *     backends might not support indexes.
-   *   - unique keys: An array of Schema API unique key definitions.  Some
-   *     storage backends might not support unique keys.
    *   - foreign keys: An array of Schema API foreign key definitions. Note,
    *     however, that depending on the storage backend specified for the field,
    *     the field data is not necessarily stored in SQL.
@@ -337,18 +326,10 @@ interface FieldStorageDefinitionInterface extends CacheableDependencyInterface {
   public function isBaseField();
 
   /**
-   * Returns a unique identifier for the field storage.
+   * Returns a unique identifier for the field.
    *
    * @return string
    */
   public function getUniqueStorageIdentifier();
-
-  /**
-   * Returns whether the field is deleted or not.
-   *
-   * @return bool
-   *   TRUE if the field is deleted, FALSE otherwise.
-   */
-  public function isDeleted();
 
 }

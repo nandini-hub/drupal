@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Extension\Discovery\RecursiveExtensionFilterIterator.
+ */
+
 namespace Drupal\Core\Extension\Discovery;
 
 /**
@@ -27,7 +32,6 @@ namespace Drupal\Core\Extension\Discovery;
  *
  * @todo Use RecursiveCallbackFilterIterator instead of the $acceptTests
  *   parameter forwarding once PHP 5.4 is available.
- *   https://www.drupal.org/node/2532228
  */
 class RecursiveExtensionFilterIterator extends \RecursiveFilterIterator {
 
@@ -39,11 +43,11 @@ class RecursiveExtensionFilterIterator extends \RecursiveFilterIterator {
    *
    * @var array
    */
-  protected $whitelist = [
+  protected $whitelist = array(
     'profiles',
     'modules',
     'themes',
-  ];
+  );
 
   /**
    * List of directory names to skip when recursing.
@@ -54,7 +58,7 @@ class RecursiveExtensionFilterIterator extends \RecursiveFilterIterator {
    *
    * @var array
    */
-  protected $blacklist = [
+  protected $blacklist = array(
     // Object-oriented code subdirectories.
     'src',
     'lib',
@@ -73,7 +77,7 @@ class RecursiveExtensionFilterIterator extends \RecursiveFilterIterator {
     'fixtures',
     // @todo ./tests/Drupal should be ./tests/src/Drupal
     'Drupal',
-  ];
+  );
 
   /**
    * Whether to include test directories when recursing.
@@ -81,20 +85,6 @@ class RecursiveExtensionFilterIterator extends \RecursiveFilterIterator {
    * @var bool
    */
   protected $acceptTests = FALSE;
-
-  /**
-   * Construct a RecursiveExtensionFilterIterator.
-   *
-   * @param \RecursiveIterator $iterator
-   *   The iterator to filter.
-   * @param array $blacklist
-   *   (optional) Add to the blacklist of directories that should be filtered
-   *   out during the iteration.
-   */
-  public function __construct(\RecursiveIterator $iterator, array $blacklist = []) {
-    parent::__construct($iterator);
-    $this->blacklist = array_merge($this->blacklist, $blacklist);
-  }
 
   /**
    * Controls whether test directories will be scanned.
@@ -113,19 +103,17 @@ class RecursiveExtensionFilterIterator extends \RecursiveFilterIterator {
   }
 
   /**
-   * {@inheritdoc}
+   * Overrides \RecursiveFilterIterator::getChildren().
    */
   public function getChildren() {
     $filter = parent::getChildren();
-    // Pass on the blacklist.
-    $filter->blacklist = $this->blacklist;
     // Pass the $acceptTests flag forward to child iterators.
     $filter->acceptTests($this->acceptTests);
     return $filter;
   }
 
   /**
-   * {@inheritdoc}
+   * Implements \FilterIterator::accept().
    */
   public function accept() {
     $name = $this->current()->getFilename();

@@ -1,12 +1,17 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\views\Plugin\views\argument\Formula.
+ */
+
 namespace Drupal\views\Plugin\views\argument;
 
 use Drupal\views\Plugin\views\display\DisplayPluginBase;
 use Drupal\views\ViewExecutable;
 
 /**
- * Argument handler for simple formulae.
+ * Abstract argument handler for simple formulae.
  *
  * Child classes of this object should implement summaryArgument, at least.
  *
@@ -19,10 +24,10 @@ use Drupal\views\ViewExecutable;
  */
 class Formula extends ArgumentPluginBase {
 
-  public $formula = NULL;
+  var $formula = NULL;
 
   /**
-   * {@inheritdoc}
+   * Overrides Drupal\views\Plugin\views\argument\ArgumentPluginBase::init().
    */
   public function init(ViewExecutable $view, DisplayPluginBase $display, array &$options = NULL) {
     parent::init($view, $display, $options);
@@ -58,10 +63,10 @@ class Formula extends ArgumentPluginBase {
     $this->ensureMyTable();
     // Now that our table is secure, get our formula.
     $placeholder = $this->placeholder();
-    $formula = $this->getFormula() . ' = ' . $placeholder;
-    $placeholders = [
+    $formula = $this->getFormula() .' = ' . $placeholder;
+    $placeholders = array(
       $placeholder => $this->argument,
-    ];
+    );
     $this->query->addWhere(0, $formula, $placeholders, 'formula');
   }
 

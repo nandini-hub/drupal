@@ -1,13 +1,16 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\text\TextProcessed.
+ */
+
 namespace Drupal\text;
 
-use Drupal\Core\Cache\CacheableDependencyInterface;
+use Drupal\Component\Utility\SafeMarkup;
 use Drupal\Core\TypedData\DataDefinitionInterface;
 use Drupal\Core\TypedData\TypedDataInterface;
 use Drupal\Core\TypedData\TypedData;
-use Drupal\filter\FilterProcessResult;
-use Drupal\filter\Render\FilteredMarkup;
 
 /**
  * A computed property for processing text with a format.
@@ -15,17 +18,17 @@ use Drupal\filter\Render\FilteredMarkup;
  * Required settings (below the definition's 'settings' key) are:
  *  - text source: The text property containing the to be processed text.
  */
-class TextProcessed extends TypedData implements CacheableDependencyInterface {
+class TextProcessed extends TypedData {
 
   /**
    * Cached processed text.
    *
-   * @var \Drupal\filter\FilterProcessResult|null
+   * @var string|null
    */
   protected $processed = NULL;
 
   /**
-   * {@inheritdoc}
+   * Overrides TypedData::__construct().
    */
   public function __construct(DataDefinitionInterface $definition, $name = NULL, TypedDataInterface $parent = NULL) {
     parent::__construct($definition, $name, $parent);
@@ -36,37 +39,29 @@ class TextProcessed extends TypedData implements CacheableDependencyInterface {
   }
 
   /**
-   * {@inheritdoc}
+   * Implements \Drupal\Core\TypedData\TypedDataInterface::getValue().
    */
-  public function getValue() {
+  public function getValue($langcode = NULL) {
     if ($this->processed !== NULL) {
-      return FilteredMarkup::create($this->processed->getProcessedText());
+      return $this->processed;
     }
 
     $item = $this->getParent();
     $text = $item->{($this->definition->getSetting('text source'))};
 
-    // Avoid doing unnecessary work on empty strings.
+    // Avoid running check_markup() or
+    // \Drupal\Component\Utility\SafeMarkup::checkPlain() on empty strings.
     if (!isset($text) || $text === '') {
-      $this->processed = new FilterProcessResult('');
+      $this->processed = '';
     }
     else {
-      $build = [
-        '#type' => 'processed_text',
-        '#text' => $text,
-        '#format' => $item->format,
-        '#filter_types_to_skip' => [],
-        '#langcode' => $item->getLangcode(),
-      ];
-      // Capture the cacheability metadata associated with the processed text.
-      $processed_text = $this->getRenderer()->renderPlain($build);
-      $this->processed = FilterProcessResult::createFromRenderArray($build)->setProcessedText((string) $processed_text);
+      $this->processed = check_markup($text, $item->format, $item->getLangcode());
     }
-    return FilteredMarkup::create($this->processed->getProcessedText());
+    return $this->processed;
   }
 
   /**
-   * {@inheritdoc}
+   * Implements \Drupal\Core\TypedData\TypedDataInterface::setValue().
    */
   public function setValue($value, $notify = TRUE) {
     $this->processed = $value;
@@ -74,39 +69,6 @@ class TextProcessed extends TypedData implements CacheableDependencyInterface {
     if ($notify && isset($this->parent)) {
       $this->parent->onChange($this->name);
     }
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function getCacheTags() {
-    $this->getValue();
-    return $this->processed->getCacheTags();
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function getCacheContexts() {
-    $this->getValue();
-    return $this->processed->getCacheContexts();
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function getCacheMaxAge() {
-    $this->getValue();
-    return $this->processed->getCacheMaxAge();
-  }
-
-  /**
-   * Returns the renderer service.
-   *
-   * @return \Drupal\Core\Render\RendererInterface
-   */
-  protected function getRenderer() {
-    return \Drupal::service('renderer');
   }
 
 }

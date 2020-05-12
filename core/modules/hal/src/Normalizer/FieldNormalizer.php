@@ -1,35 +1,42 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\hal\Normalizer\FieldNormalizer.
+ */
+
 namespace Drupal\hal\Normalizer;
 
 use Drupal\Component\Utility\NestedArray;
-use Drupal\serialization\Normalizer\FieldNormalizer as SerializationFieldNormalizer;
+use Symfony\Component\Serializer\Exception\InvalidArgumentException;
 
 /**
  * Converts the Drupal field structure to HAL array structure.
  */
-class FieldNormalizer extends SerializationFieldNormalizer {
+class FieldNormalizer extends NormalizerBase {
 
   /**
-   * {@inheritdoc}
+   * The interface or class that this Normalizer supports.
+   *
+   * @var string
    */
-  protected $format = ['hal_json'];
+  protected $supportedInterfaceOrClass = 'Drupal\Core\Field\FieldItemListInterface';
 
   /**
-   * {@inheritdoc}
+   * Implements \Symfony\Component\Serializer\Normalizer\NormalizerInterface::normalize()
    */
-  public function normalize($field_items, $format = NULL, array $context = []) {
-    $normalized_field_items = [];
+  public function normalize($field, $format = NULL, array $context = array()) {
+    $normalized_field_items = array();
 
     // Get the field definition.
-    $entity = $field_items->getEntity();
-    $field_name = $field_items->getName();
-    $field_definition = $field_items->getFieldDefinition();
+    $entity = $field->getEntity();
+    $field_name = $field->getName();
+    $field_definition = $field->getFieldDefinition();
 
     // If this field is not translatable, it can simply be normalized without
     // separating it into different translations.
     if (!$field_definition->isTranslatable()) {
-      $normalized_field_items = $this->normalizeFieldItems($field_items, $format, $context);
+      $normalized_field_items = $this->normalizeFieldItems($field, $format, $context);
     }
     // Otherwise, the languages have to be extracted from the entity and passed
     // in to the field item normalizer in the context. The langcode is appended
@@ -38,21 +45,49 @@ class FieldNormalizer extends SerializationFieldNormalizer {
       foreach ($entity->getTranslationLanguages() as $language) {
         $context['langcode'] = $language->getId();
         $translation = $entity->getTranslation($language->getId());
-        $translated_field_items = $translation->get($field_name);
-        $normalized_field_items = array_merge($normalized_field_items, $this->normalizeFieldItems($translated_field_items, $format, $context));
+        $translated_field = $translation->get($field_name);
+        $normalized_field_items = array_merge($normalized_field_items, $this->normalizeFieldItems($translated_field, $format, $context));
       }
     }
 
     // Merge deep so that links set in entity reference normalizers are merged
     // into the links property.
-    return NestedArray::mergeDeepArray($normalized_field_items);
+    $normalized = NestedArray::mergeDeepArray($normalized_field_items);
+    return $normalized;
+  }
+
+
+  /**
+   * Implements \Symfony\Component\Serializer\Normalizer\DenormalizerInterface::denormalize()
+   */
+  public function denormalize($data, $class, $format = NULL, array $context = array()) {
+    if (!isset($context['target_instance'])) {
+      throw new InvalidArgumentException('$context[\'target_instance\'] must be set to denormalize with the FieldNormalizer');
+    }
+    if ($context['target_instance']->getParent() == NULL) {
+      throw new InvalidArgumentException('The field passed in via $context[\'target_instance\'] must have a parent set.');
+    }
+
+    $items = $context['target_instance'];
+    $item_class = $items->getItemDefinition()->getClass();
+    foreach ($data as $item_data) {
+      // Create a new item and pass it as the target for the unserialization of
+      // $item_data. Note: if $item_data is about a different language than the
+      // default, FieldItemNormalizer::denormalize() will dismiss this item and
+      // create a new one for the right language.
+      $context['target_instance'] = $items->appendItem();
+      $this->serializer->denormalize($item_data, $item_class, $format, $context);
+    }
+
+    return $items;
+
   }
 
   /**
    * Helper function to normalize field items.
    *
-   * @param \Drupal\Core\Field\FieldItemListInterface $field_items
-   *   The field item list object.
+   * @param \Drupal\Core\Field\FieldItemListInterface $field
+   *   The field object.
    * @param string $format
    *   The format.
    * @param array $context
@@ -61,10 +96,10 @@ class FieldNormalizer extends SerializationFieldNormalizer {
    * @return array
    *   The array of normalized field items.
    */
-  protected function normalizeFieldItems($field_items, $format, $context) {
-    $normalized_field_items = [];
-    if (!$field_items->isEmpty()) {
-      foreach ($field_items as $field_item) {
+  protected function normalizeFieldItems($field, $format, $context) {
+    $normalized_field_items = array();
+    if (!$field->isEmpty()) {
+      foreach ($field as $field_item) {
         $normalized_field_items[] = $this->serializer->normalize($field_item, $format, $context);
       }
     }

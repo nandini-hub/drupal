@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\Core\Config\StorageInterface.
+ */
+
 namespace Drupal\Core\Config;
 
 /**
@@ -93,28 +98,28 @@ interface StorageInterface {
   /**
    * Encodes configuration data into the storage-specific format.
    *
-   * This is a publicly accessible static method to allow for alternative
-   * usages in data conversion scripts and also tests.
-   *
    * @param array $data
    *   The configuration data to encode.
    *
    * @return string
    *   The encoded configuration data.
+   *
+   * This is a publicly accessible static method to allow for alternative
+   * usages in data conversion scripts and also tests.
    */
   public function encode($data);
 
   /**
    * Decodes configuration data from the storage-specific format.
    *
-   * This is a publicly accessible static method to allow for alternative
-   * usages in data conversion scripts and also tests.
-   *
    * @param string $raw
    *   The raw configuration data string to decode.
    *
    * @return array
    *   The decoded configuration data as an associative array.
+   *
+   * This is a publicly accessible static method to allow for alternative
+   * usages in data conversion scripts and also tests.
    */
   public function decode($raw);
 
@@ -151,7 +156,7 @@ interface StorageInterface {
    *   (optional) The prefix to search for. If omitted, all configuration
    *   objects that exist will be deleted.
    *
-   * @return bool
+   * @return boolean
    *   TRUE on success, FALSE otherwise.
    */
   public function deleteAll($prefix = '');
@@ -173,7 +178,7 @@ interface StorageInterface {
    *   configuration in a way that allows retrieval of configuration for a
    *   particular collection.
    *
-   * @return $this
+   * @return \Drupal\Core\Config\StorageInterface
    *   A new instance of the storage backend with the collection set.
    */
   public function createCollection($collection);

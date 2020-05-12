@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Field\FieldItemInterface.
+ */
+
 namespace Drupal\Core\Field;
 
 use Drupal\Core\Form\FormStateInterface;
@@ -38,8 +43,8 @@ interface FieldItemInterface extends ComplexDataInterface {
    * Returns the name of the main property, if any.
    *
    * Some field items consist mainly of one main property, e.g. the value of a
-   * text field or the target_id of an entity reference. If the field item has
-   * no main property, the method returns NULL.
+   * text field or the @code target_id @endcode of an entity reference. If the
+   * field item has no main property, the method returns NULL.
    *
    * @return string|null
    *   The name of the value property, or NULL if there is none.
@@ -98,7 +103,7 @@ interface FieldItemInterface extends ComplexDataInterface {
   /**
    * Gets the langcode of the field values held in the object.
    *
-   * @return string
+   * @return $langcode
    *   The langcode.
    */
   public function getLangcode();
@@ -114,23 +119,23 @@ interface FieldItemInterface extends ComplexDataInterface {
   /**
    * Magic method: Gets a property value.
    *
-   * @param string $property_name
+   * @param $property_name
    *   The name of the property to get; e.g., 'title' or 'name'.
-   *
-   * @return mixed
-   *   The property value.
    *
    * @throws \InvalidArgumentException
    *   If a not existing property is accessed.
+   *
+   * @return \Drupal\Core\TypedData\TypedDataInterface
+   *   The property object.
    */
   public function __get($property_name);
 
   /**
    * Magic method: Sets a property value.
    *
-   * @param string $property_name
+   * @param $property_name
    *   The name of the property to set; e.g., 'title' or 'name'.
-   * @param mixed $value
+   * @param $value
    *   The value to set, or NULL to unset the property. Optionally, a typed
    *   data object implementing Drupal\Core\TypedData\TypedDataInterface may be
    *   passed instead of a plain value.
@@ -143,10 +148,10 @@ interface FieldItemInterface extends ComplexDataInterface {
   /**
    * Magic method: Determines whether a property is set.
    *
-   * @param string $property_name
+   * @param $property_name
    *   The name of the property to get; e.g., 'title' or 'name'.
    *
-   * @return bool
+   * @return boolean
    *   Returns TRUE if the property exists and is set, FALSE otherwise.
    */
   public function __isset($property_name);
@@ -154,7 +159,7 @@ interface FieldItemInterface extends ComplexDataInterface {
   /**
    * Magic method: Unsets a property.
    *
-   * @param string $property_name
+   * @param $property_name
    *   The name of the property to get; e.g., 'title' or 'name'.
    */
   public function __unset($property_name);
@@ -173,44 +178,31 @@ interface FieldItemInterface extends ComplexDataInterface {
    * @see \Drupal\Core\Entity\EntityViewBuilderInterface::viewFieldItem()
    * @see \Drupal\Core\Field\FieldItemListInterface::view()
    */
-  public function view($display_options = []);
+  public function view($display_options = array());
 
   /**
    * Defines custom presave behavior for field values.
    *
-   * This method is called during the process of saving an entity, just before
-   * values are written into storage. When storing a new entity, its identifier
-   * will not be available yet. This should be used to massage item property
-   * values or perform any other operation that needs to happen before values
-   * are stored. For instance this is the proper phase to auto-create a new
-   * entity for an entity reference field item, because this way it will be
-   * possible to store the referenced entity identifier.
+   * This method is called before insert() and update() methods, and before
+   * values are written into storage.
    */
   public function preSave();
 
   /**
-   * Defines custom post-save behavior for field values.
+   * Defines custom insert behavior for field values.
    *
-   * This method is called during the process of saving an entity, just after
-   * values are written into storage. This is useful mostly when the business
-   * logic to be implemented always requires the entity identifier, even when
-   * storing a new entity. For instance, when implementing circular entity
-   * references, the referenced entity will be created on pre-save with a dummy
-   * value for the referring entity identifier, which will be updated with the
-   * actual one on post-save.
-   *
-   * In the rare cases where item properties depend on the entity identifier,
-   * massaging logic will have to be implemented on post-save and returning TRUE
-   * will allow them to be rewritten to the storage with the updated values.
-   *
-   * @param bool $update
-   *   Specifies whether the entity is being updated or created.
-   *
-   * @return bool
-   *   Whether field items should be rewritten to the storage as a consequence
-   *   of the logic implemented by the custom behavior.
+   * This method is called during the process of inserting an entity, just
+   * before values are written into storage.
    */
-  public function postSave($update);
+  public function insert();
+
+  /**
+   * Defines custom update behavior for field values.
+   *
+   * This method is called during the process of updating an entity, just before
+   * values are written into storage.
+   */
+  public function update();
 
   /**
    * Defines custom delete behavior for field values.
@@ -364,7 +356,7 @@ interface FieldItemInterface extends ComplexDataInterface {
    * @param bool $has_data
    *   TRUE if the field already has data, FALSE if not.
    *
-   * @return array
+   * @return
    *   The form definition for the field settings.
    */
   public function storageSettingsForm(array &$form, FormStateInterface $form_state, $has_data);
@@ -412,39 +404,6 @@ interface FieldItemInterface extends ComplexDataInterface {
    * @see \Drupal\Core\Config\Entity\ConfigEntityInterface::getConfigDependencyName()
    */
   public static function calculateDependencies(FieldDefinitionInterface $field_definition);
-
-  /**
-   * Calculates dependencies for field items on the storage level.
-   *
-   * Dependencies are saved in the field storage configuration entity and are
-   * used to determine configuration synchronization order. For example, if the
-   * field type storage depends on a particular entity type, this method should
-   * return an array of dependencies listing the module that provides the entity
-   * type.
-   *
-   * Dependencies returned from this method are stored in field storage
-   * configuration and are always considered hard dependencies. If the
-   * dependency is removed the field storage configuration must be deleted.
-   *
-   * @param \Drupal\Core\Field\FieldStorageDefinitionInterface $field_storage_definition
-   *   The field storage definition.
-   *
-   * @return array
-   *   An array of dependencies grouped by type (config, content, module,
-   *   theme). For example:
-   *   @code
-   *   [
-   *     'config' => ['user.role.anonymous', 'user.role.authenticated'],
-   *     'content' => ['node:article:f0a189e6-55fb-47fb-8005-5bef81c44d6d'],
-   *     'module' => ['node', 'user'],
-   *     'theme' => ['seven'],
-   *   ];
-   *   @endcode
-   *
-   * @see \Drupal\Core\Config\Entity\ConfigDependencyManager
-   * @see \Drupal\Core\Config\Entity\ConfigEntityInterface::getConfigDependencyName()
-   */
-  public static function calculateStorageDependencies(FieldStorageDefinitionInterface $field_storage_definition);
 
   /**
    * Informs the plugin that a dependency of the field will be deleted.

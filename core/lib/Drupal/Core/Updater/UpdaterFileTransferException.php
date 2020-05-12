@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\Core\Updater\UpdaterFileTransferException.
+ */
+
 namespace Drupal\Core\Updater;
 
 /**

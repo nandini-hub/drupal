@@ -1,8 +1,12 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\options\Type\ListIntegerItem.
+ */
+
 namespace Drupal\options\Plugin\Field\FieldType;
 
-use Drupal\Core\Field\FieldFilteredMarkup;
 use Drupal\Core\Field\FieldStorageDefinitionInterface;
 use Drupal\Core\TypedData\DataDefinition;
 
@@ -35,16 +39,16 @@ class ListIntegerItem extends ListItemBase {
    * {@inheritdoc}
    */
   public static function schema(FieldStorageDefinitionInterface $field_definition) {
-    return [
-      'columns' => [
-        'value' => [
+    return array(
+      'columns' => array(
+        'value' => array(
           'type' => 'int',
-        ],
-      ],
-      'indexes' => [
-        'value' => ['value'],
-      ],
-    ];
+        ),
+      ),
+      'indexes' => array(
+        'value' => array('value'),
+      ),
+    );
   }
 
   /**
@@ -56,7 +60,7 @@ class ListIntegerItem extends ListItemBase {
     $description .= '<br/>' . t('The label is optional: if a line contains a single number, it will be used as key and label.');
     $description .= '<br/>' . t('Lists of labels are also accepted (one label per line), only if the field does not hold any values yet. Numeric keys will be automatically generated from the positions in the list.');
     $description .= '</p>';
-    $description .= '<p>' . t('Allowed HTML tags in labels: @tags', ['@tags' => FieldFilteredMarkup::displayAllowedTags()]) . '</p>';
+    $description .= '<p>' . t('Allowed HTML tags in labels: @tags', array('@tags' => $this->displayAllowedTags())) . '</p>';
     return $description;
   }
 
@@ -67,13 +71,6 @@ class ListIntegerItem extends ListItemBase {
     if (!preg_match('/^-?\d+$/', $option)) {
       return t('Allowed values list: keys must be integers.');
     }
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  protected static function castAllowedValue($value) {
-    return (int) $value;
   }
 
 }

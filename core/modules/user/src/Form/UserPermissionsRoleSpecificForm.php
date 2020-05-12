@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\user\Form\UserPermissionsRoleSpecificForm.
+ */
+
 namespace Drupal\user\Form;
 
 use Drupal\Core\Form\FormStateInterface;
@@ -7,8 +12,6 @@ use Drupal\user\RoleInterface;
 
 /**
  * Provides the user permissions administration form for a specific role.
- *
- * @internal
  */
 class UserPermissionsRoleSpecificForm extends UserPermissionsForm {
 
@@ -23,18 +26,14 @@ class UserPermissionsRoleSpecificForm extends UserPermissionsForm {
    * {@inheritdoc}
    */
   protected function getRoles() {
-    return [$this->userRole->id() => $this->userRole];
+    return array($this->userRole->id() => $this->userRole);
   }
 
   /**
-   * Builds the user permissions administration form for a specific role.
+   * {@inheritdoc}
    *
-   * @param array $form
-   *   An associative array containing the structure of the form.
-   * @param \Drupal\Core\Form\FormStateInterface $form_state
-   *   The current state of the form.
-   * @param \Drupal\user\RoleInterface|null $user_role
-   *   (optional) The user role used for this form. Defaults to NULL.
+   * @param string $role_id
+   *   The user role ID used for this form.
    */
   public function buildForm(array $form, FormStateInterface $form_state, RoleInterface $user_role = NULL) {
     $this->userRole = $user_role;

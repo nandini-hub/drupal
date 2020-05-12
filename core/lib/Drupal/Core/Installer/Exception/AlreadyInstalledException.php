@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Installer\Exception\AlreadyInstalledException.
+ */
+
 namespace Drupal\Core\Installer\Exception;
 
 use Drupal\Core\StringTranslation\TranslationInterface;
@@ -21,12 +26,12 @@ class AlreadyInstalledException extends InstallerException {
     $title = $this->t('Drupal already installed');
     $message = $this->t('<ul>
 <li>To start over, you must empty your existing database and copy <em>default.settings.php</em> over <em>settings.php</em>.</li>
-<li>To upgrade an existing installation, proceed to the <a href=":update-url">update script</a>.</li>
-<li>View your <a href=":base-url">existing site</a>.</li>
-</ul>', [
-      ':base-url' => $GLOBALS['base_url'],
-      ':update-url' => $GLOBALS['base_path'] . 'update.php',
-    ]);
+<li>To upgrade an existing installation, proceed to the <a href="!update-url">update script</a>.</li>
+<li>View your <a href="!base-url">existing site</a>.</li>
+</ul>', array(
+      '!base-url' => $GLOBALS['base_url'],
+      '!update-url' => $GLOBALS['base_path'] . 'update.php',
+    ));
     parent::__construct($message, $title);
   }
 

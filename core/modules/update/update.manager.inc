@@ -36,9 +36,6 @@
  * root.
  */
 
-use Drupal\Core\Url;
-use Drupal\Core\File\Exception\FileException;
-use Drupal\Core\File\FileSystemInterface;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 
 /**
@@ -51,22 +48,22 @@ use Symfony\Component\HttpFoundation\RedirectResponse;
  */
 function update_manager_download_batch_finished($success, $results) {
   if (!empty($results['errors'])) {
-    $item_list = [
+    $item_list = array(
       '#theme' => 'item_list',
       '#title' => t('Downloading updates failed:'),
       '#items' => $results['errors'],
-    ];
-    \Drupal::messenger()->addError(\Drupal::service('renderer')->render($item_list));
+    );
+    drupal_set_message(drupal_render($item_list), 'error');
   }
   elseif ($success) {
-    \Drupal::messenger()->addStatus(t('Updates downloaded successfully.'));
+    drupal_set_message(t('Updates downloaded successfully.'));
     $_SESSION['update_manager_update_projects'] = $results['projects'];
-    return new RedirectResponse(Url::fromRoute('update.confirmation_page', [], ['absolute' => TRUE])->toString());
+    return new RedirectResponse(\Drupal::url('update.confirmation_page', [], ['absolute' => TRUE]));
   }
   else {
     // Ideally we're catching all Exceptions, so they should never see this,
     // but just in case, we have to tell them something.
-    \Drupal::messenger()->addError(t('Fatal error trying to download.'));
+    drupal_set_message(t('Fatal error trying to download.'), 'error');
   }
 }
 
@@ -94,45 +91,45 @@ function _update_manager_check_backends(&$form, $operation) {
   }
 
   // Otherwise, show the available backends.
-  $form['available_backends'] = [
+  $form['available_backends'] = array(
     '#prefix' => '<p>',
     '#suffix' => '</p>',
-  ];
+  );
 
   $available_backends = drupal_get_filetransfer_info();
   if (empty($available_backends)) {
     if ($operation == 'update') {
-      $form['available_backends']['#markup'] = t('Your server does not support updating modules and themes from this interface. Instead, update modules and themes by uploading the new versions directly to the server, as documented in <a href=":doc_url">Extending Drupal 8</a>.', [':doc_url' => 'https://www.drupal.org/docs/8/extending-drupal-8/overview']);
+      $form['available_backends']['#markup'] = t('Your server does not support updating modules and themes from this interface. Instead, update modules and themes by uploading the new versions directly to the server, as described in the <a href="@handbook_url">handbook</a>.', array('@handbook_url' => 'http://drupal.org/getting-started/install-contrib'));
     }
     else {
-      $form['available_backends']['#markup'] = t('Your server does not support installing modules and themes from this interface. Instead, install modules and themes by uploading them directly to the server, as documented in <a href=":doc_url">Extending Drupal 8</a>.', [':doc_url' => 'https://www.drupal.org/docs/8/extending-drupal-8/overview']);
+      $form['available_backends']['#markup'] = t('Your server does not support installing modules and themes from this interface. Instead, install modules and themes by uploading them directly to the server, as described in the <a href="@handbook_url">handbook</a>.', array('@handbook_url' => 'http://drupal.org/getting-started/install-contrib'));
     }
     return FALSE;
   }
 
-  $backend_names = [];
+  $backend_names = array();
   foreach ($available_backends as $backend) {
     $backend_names[] = $backend['title'];
   }
   if ($operation == 'update') {
     $form['available_backends']['#markup'] = \Drupal::translation()->formatPlural(
       count($available_backends),
-      'Updating modules and themes requires <strong>@backends access</strong> to your server. See <a href=":doc_url">Extending Drupal 8</a> for other update methods.',
-      'Updating modules and themes requires access to your server via one of the following methods: <strong>@backends</strong>. See <a href=":doc_url">Extending Drupal 8</a> for other update methods.',
-      [
+      'Updating modules and themes requires <strong>@backends access</strong> to your server. See the <a href="@handbook_url">handbook</a> for other update methods.',
+      'Updating modules and themes requires access to your server via one of the following methods: <strong>@backends</strong>. See the <a href="@handbook_url">handbook</a> for other update methods.',
+      array(
         '@backends' => implode(', ', $backend_names),
-        ':doc_url' => 'https://www.drupal.org/docs/8/extending-drupal-8/overview',
-      ]);
+        '@handbook_url' => 'http://drupal.org/getting-started/install-contrib',
+      ));
   }
   else {
     $form['available_backends']['#markup'] = \Drupal::translation()->formatPlural(
       count($available_backends),
-      'Installing modules and themes requires <strong>@backends access</strong> to your server. See <a href=":doc_url">Extending Drupal 8</a> for other installation methods.',
-      'Installing modules and themes requires access to your server via one of the following methods: <strong>@backends</strong>. See <a href=":doc_url">Extending Drupal 8</a> for other installation methods.',
-      [
+      'Installing modules and themes requires <strong>@backends access</strong> to your server. See the <a href="@handbook_url">handbook</a> for other installation methods.',
+      'Installing modules and themes requires access to your server via one of the following methods: <strong>@backends</strong>. See the <a href="@handbook_url">handbook</a> for other installation methods.',
+      array(
         '@backends' => implode(', ', $backend_names),
-        ':doc_url' => 'https://www.drupal.org/docs/8/extending-drupal-8/overview',
-      ]);
+        '@handbook_url' => 'http://drupal.org/getting-started/install-contrib',
+      ));
   }
   return TRUE;
 }
@@ -145,18 +142,15 @@ function _update_manager_check_backends(&$form, $operation) {
  * @param string $directory
  *   The directory you wish to extract the archive into.
  *
- * @return \Drupal\Core\Archiver\ArchiverInterface
+ * @return Archiver
  *   The Archiver object used to extract the archive.
  *
  * @throws Exception
  */
 function update_manager_archive_extract($file, $directory) {
-  /** @var \Drupal\Core\Archiver\ArchiverInterface $archiver */
-  $archiver = \Drupal::service('plugin.manager.archiver')->getInstance([
-    'filepath' => $file,
-  ]);
+  $archiver = archiver_get_archiver($file);
   if (!$archiver) {
-    throw new Exception(t('Cannot extract %file, not a valid archive.', ['%file' => $file]));
+    throw new Exception(t('Cannot extract %file, not a valid archive.', array ('%file' => $file)));
   }
 
   // Remove the directory if it exists, otherwise it might contain a mixture of
@@ -171,12 +165,7 @@ function update_manager_archive_extract($file, $directory) {
 
   $extract_location = $directory . '/' . $project;
   if (file_exists($extract_location)) {
-    try {
-      \Drupal::service('file_system')->deleteRecursive($extract_location);
-    }
-    catch (FileException $e) {
-      // Ignore failed deletes.
-    }
+    file_unmanaged_delete_recursive($extract_location);
   }
 
   $archiver->extract($directory);
@@ -200,7 +189,7 @@ function update_manager_archive_extract($file, $directory) {
  *   are no errors, it will be an empty array.
  */
 function update_manager_archive_verify($project, $archive_file, $directory) {
-  return \Drupal::moduleHandler()->invokeAll('verify_update_archive', [$project, $archive_file, $directory]);
+  return \Drupal::moduleHandler()->invokeAll('verify_update_archive', array($project, $archive_file, $directory));
 }
 
 /**
@@ -216,18 +205,18 @@ function update_manager_archive_verify($project, $archive_file, $directory) {
  */
 function update_manager_file_get($url) {
   $parsed_url = parse_url($url);
-  $remote_schemes = ['http', 'https', 'ftp', 'ftps', 'smb', 'nfs'];
-  if (!isset($parsed_url['scheme']) || !in_array($parsed_url['scheme'], $remote_schemes)) {
+  $remote_schemes = array('http', 'https', 'ftp', 'ftps', 'smb', 'nfs');
+  if (!in_array($parsed_url['scheme'], $remote_schemes)) {
     // This is a local file, just return the path.
-    return \Drupal::service('file_system')->realpath($url);
+    return drupal_realpath($url);
   }
 
   // Check the cache and download the file if needed.
   $cache_directory = _update_manager_cache_directory();
-  $local = $cache_directory . '/' . \Drupal::service('file_system')->basename($parsed_url['path']);
+  $local = $cache_directory . '/' . drupal_basename($parsed_url['path']);
 
   if (!file_exists($local) || update_delete_file_if_stale($local)) {
-    return system_retrieve_file($url, $local, FALSE, FileSystemInterface::EXISTS_REPLACE);
+    return system_retrieve_file($url, $local, FALSE, FILE_EXISTS_REPLACE);
   }
   else {
     return $local;
@@ -256,14 +245,14 @@ function update_manager_batch_project_get($project, $url, &$context) {
   // This is here to show the user that we are in the process of downloading.
   if (!isset($context['sandbox']['started'])) {
     $context['sandbox']['started'] = TRUE;
-    $context['message'] = t('Downloading %project', ['%project' => $project]);
+    $context['message'] = t('Downloading %project', array('%project' => $project));
     $context['finished'] = 0;
     return;
   }
 
   // Actually try to download the file.
   if (!($local_cache = update_manager_file_get($url))) {
-    $context['results']['errors'][$project] = t('Failed to download %project from %url', ['%project' => $project, '%url' => $url]);
+    $context['results']['errors'][$project] = t('Failed to download %project from %url', array('%project' => $project, '%url' => $url));
     return;
   }
 
@@ -313,17 +302,15 @@ function update_manager_batch_project_get($project, $url, &$context) {
  * @see install_check_requirements()
  */
 function update_manager_local_transfers_allowed() {
-  $file_system = \Drupal::service('file_system');
   // Compare the owner of a webserver-created temporary file to the owner of
   // the configuration directory to determine if local transfers will be
   // allowed.
-  $temporary_file = \Drupal::service('file_system')->tempnam('temporary://', 'update_');
-  $site_path = \Drupal::service('site.path');
-  $local_transfers_allowed = fileowner($temporary_file) === fileowner($site_path);
+  $temporary_file = drupal_tempnam('temporary://', 'update_');
+  $local_transfers_allowed = fileowner($temporary_file) === fileowner(conf_path());
 
   // Clean up. If this fails, we can ignore it (since this is just a temporary
   // file anyway).
-  @$file_system->unlink($temporary_file);
+  @drupal_unlink($temporary_file);
 
   return $local_transfers_allowed;
 }

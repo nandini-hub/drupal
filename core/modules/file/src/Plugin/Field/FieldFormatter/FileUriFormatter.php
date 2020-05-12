@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\file\Plugin\Field\FieldFormatter\FileUriFormatter.
+ */
+
 namespace Drupal\file\Plugin\Field\FieldFormatter;
 
 use Drupal\Core\Field\FieldDefinitionInterface;
@@ -13,8 +18,7 @@ use Drupal\Core\Form\FormStateInterface;
  *   id = "file_uri",
  *   label = @Translation("File URI"),
  *   field_types = {
- *     "uri",
- *     "file_uri",
+ *     "uri"
  *   }
  * )
  */
@@ -51,9 +55,6 @@ class FileUriFormatter extends BaseFieldFileFormatterBase {
   protected function viewValue(FieldItemInterface $item) {
     $value = $item->value;
     if ($this->getSetting('file_download_path')) {
-      // @todo Wrap in file_url_transform_relative(). This is currently
-      // impossible. See BaseFieldFileFormatterBase::viewElements(). Fix in
-      // https://www.drupal.org/node/2646744.
       $value = file_create_url($value);
     }
     return $value;

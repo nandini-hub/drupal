@@ -1,9 +1,15 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\block\BlockPluginCollection.
+ */
+
 namespace Drupal\block;
 
 use Drupal\Component\Plugin\Exception\PluginException;
 use Drupal\Component\Plugin\PluginManagerInterface;
+use Drupal\Component\Utility\SafeMarkup;
 use Drupal\Core\Plugin\DefaultSingleLazyPluginCollection;
 
 /**
@@ -50,7 +56,7 @@ class BlockPluginCollection extends DefaultSingleLazyPluginCollection {
    */
   protected function initializePlugin($instance_id) {
     if (!$instance_id) {
-      throw new PluginException("The block '{$this->blockId}' did not specify a plugin.");
+      throw new PluginException(SafeMarkup::format("The block '@block' did not specify a plugin.", array('@block' => $this->blockId)));
     }
 
     try {

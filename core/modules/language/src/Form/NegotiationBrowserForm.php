@@ -1,18 +1,20 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\language\Form\NegotiationBrowserForm.
+ */
+
 namespace Drupal\language\Form;
 
 use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Form\ConfigFormBase;
 use Drupal\Core\Form\FormStateInterface;
-use Drupal\Core\Url;
 use Drupal\language\ConfigurableLanguageManagerInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
  * Configure the browser language negotiation method for this site.
- *
- * @internal
  */
 class NegotiationBrowserForm extends ConfigFormBase {
 
@@ -25,8 +27,11 @@ class NegotiationBrowserForm extends ConfigFormBase {
 
   /**
    * {@inheritdoc}
+   *
+   * @param \Drupal\Core\Extension\ModuleHandlerInterface $module_handler
+   *   The module handler
    */
-  public function __construct(ConfigFactoryInterface $config_factory, ConfigurableLanguageManagerInterface $language_manager) {
+  public function __construct(ConfigFactoryInterface $config_factory, ConfigurableLanguageManagerInterface $language_manager ) {
     parent::__construct($config_factory);
     $this->languageManager = $language_manager;
   }
@@ -59,12 +64,12 @@ class NegotiationBrowserForm extends ConfigFormBase {
    * {@inheritdoc}
    */
   public function buildForm(array $form, FormStateInterface $form_state) {
-    $form = [];
+    $form = array();
 
     // Initialize a language list to the ones available, including English.
     $languages = $this->languageManager->getLanguages();
 
-    $existing_languages = [];
+    $existing_languages = array();
     foreach ($languages as $langcode => $language) {
       $existing_languages[$langcode] = $language->getName();
     }
@@ -76,71 +81,56 @@ class NegotiationBrowserForm extends ConfigFormBase {
       $language_options = $this->languageManager->getStandardLanguageListWithoutConfigured();
     }
     else {
-      $language_options = [
-        (string) $this->t('Existing languages') => $existing_languages,
-        (string) $this->t('Languages not yet added') => $this->languageManager->getStandardLanguageListWithoutConfigured(),
-      ];
+      $language_options = array(
+        $this->t('Existing languages') => $existing_languages,
+        $this->t('Languages not yet added') => $this->languageManager->getStandardLanguageListWithoutConfigured(),
+      );
     }
 
-    $form['mappings'] = [
-      '#type' => 'table',
-      '#header' => [
-        $this->t('Browser language code'),
-        $this->t('Site language'),
-        $this->t('Operations'),
-      ],
-      '#attributes' => ['id' => 'language-negotiation-browser'],
-      '#empty' => $this->t('No browser language mappings available.'),
-    ];
+    $form['mappings'] = array(
+      '#tree' => TRUE,
+      '#theme' => 'language_negotiation_configure_browser_form_table',
+    );
 
     $mappings = $this->language_get_browser_drupal_langcode_mappings();
     foreach ($mappings as $browser_langcode => $drupal_langcode) {
-      $form['mappings'][$browser_langcode] = [
-        'browser_langcode' => [
+      $form['mappings'][$browser_langcode] = array(
+        'browser_langcode' => array(
           '#title' => $this->t('Browser language code'),
           '#title_display' => 'invisible',
           '#type' => 'textfield',
           '#default_value' => $browser_langcode,
           '#size' => 20,
           '#required' => TRUE,
-        ],
-        'drupal_langcode' => [
+        ),
+        'drupal_langcode' => array(
           '#title' => $this->t('Site language'),
           '#title_display' => 'invisible',
           '#type' => 'select',
           '#options' => $language_options,
           '#default_value' => $drupal_langcode,
           '#required' => TRUE,
-        ],
-      ];
-      // Operations column.
-      $form['mappings'][$browser_langcode]['operations'] = [
-        '#type' => 'operations',
-        '#links' => [],
-      ];
-      $form['mappings'][$browser_langcode]['operations']['#links']['delete'] = [
-        'title' => $this->t('Delete'),
-        'url' => Url::fromRoute('language.negotiation_browser_delete', ['browser_langcode' => $browser_langcode]),
-      ];
+        ),
+      );
     }
 
     // Add empty row.
-    $form['new_mapping'] = [
+    $form['new_mapping'] = array(
       '#type' => 'details',
       '#title' => $this->t('Add a new mapping'),
       '#tree' => TRUE,
-    ];
-    $form['new_mapping']['browser_langcode'] = [
+    );
+    $form['new_mapping']['browser_langcode'] = array(
       '#type' => 'textfield',
       '#title' => $this->t('Browser language code'),
-      '#description' => $this->t('Use language codes as <a href=":w3ctags">defined by the W3C</a> for interoperability. <em>Examples: "en", "en-gb" and "zh-hant".</em>', [':w3ctags' => 'http://www.w3.org/International/articles/language-tags/']),
+      '#description' => $this->t('Use language codes as <a href="@w3ctags">defined by the W3C</a> for interoperability. <em>Examples: "en", "en-gb" and "zh-hant".</em>', array('@w3ctags' => 'http://www.w3.org/International/articles/language-tags/')),
       '#size' => 20,
-    ];
-    $form['new_mapping']['drupal_langcode'] = [
+    );
+    $form['new_mapping']['drupal_langcode'] = array(
       '#type' => 'select',
       '#title' => $this->t('Site language'),
       '#options' => $language_options,
-    ];
+    );
 
     return parent::buildForm($form, $form_state);
   }
@@ -150,7 +140,7 @@ class NegotiationBrowserForm extends ConfigFormBase {
    */
   public function validateForm(array &$form, FormStateInterface $form_state) {
     // Array to check if all browser language codes are unique.
-    $unique_values = [];
+    $unique_values = array();
 
     // Check all mappings.
     if ($form_state->hasValue('mappings')) {
@@ -206,9 +196,9 @@ class NegotiationBrowserForm extends ConfigFormBase {
   protected function language_get_browser_drupal_langcode_mappings() {
     $config = $this->config('language.mappings');
     if ($config->isNew()) {
-      return [];
+      return array();
     }
     return $config->get('map');
   }
-
 }
+

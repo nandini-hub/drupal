@@ -1,10 +1,16 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\taxonomy\Plugin\views\argument\Taxonomy.
+ */
+
 namespace Drupal\taxonomy\Plugin\views\argument;
 
 use Drupal\Core\Entity\EntityStorageInterface;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Drupal\views\Plugin\views\argument\NumericArgument;
+use Drupal\Component\Utility\SafeMarkup;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
@@ -17,7 +23,7 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
 class Taxonomy extends NumericArgument implements ContainerFactoryPluginInterface {
 
   /**
-   * @var \Drupal\Core\Entity\EntityStorageInterface
+   * @var EntityStorageInterface
    */
   protected $termStorage;
 
@@ -38,19 +44,19 @@ class Taxonomy extends NumericArgument implements ContainerFactoryPluginInterfac
       $configuration,
       $plugin_id,
       $plugin_definition,
-      $container->get('entity_type.manager')->getStorage('taxonomy_term')
+      $container->get('entity.manager')->getStorage('taxonomy_term')
     );
   }
 
   /**
    * Override the behavior of title(). Get the title of the node.
    */
-  public function title() {
+  function title() {
     // There might be no valid argument.
     if ($this->argument) {
       $term = $this->termStorage->load($this->argument);
       if (!empty($term)) {
-        return $term->getName();
+        return SafeMarkup::checkPlain($term->getName());
       }
     }
     // TODO review text

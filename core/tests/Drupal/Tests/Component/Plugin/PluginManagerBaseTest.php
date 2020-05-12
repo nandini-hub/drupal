@@ -1,17 +1,20 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Tests\Component\Plugin\PluginManagerBaseTest.
+ */
+
 namespace Drupal\Tests\Component\Plugin;
 
 use Drupal\Component\Plugin\Exception\PluginNotFoundException;
-use Drupal\Component\Plugin\Mapper\MapperInterface;
-use Drupal\Component\Plugin\PluginManagerBase;
-use PHPUnit\Framework\TestCase;
+use Drupal\Tests\UnitTestCase;
 
 /**
  * @coversDefaultClass \Drupal\Component\Plugin\PluginManagerBase
  * @group Plugin
  */
-class PluginManagerBaseTest extends TestCase {
+class PluginManagerBaseTest extends UnitTestCase {
 
   /**
    * A callback method for mocking FactoryInterface objects.
@@ -23,10 +26,10 @@ class PluginManagerBaseTest extends TestCase {
     if ('invalid' == $plugin_id) {
       throw new PluginNotFoundException($plugin_id);
     }
-    return [
+    return array(
       'plugin_id' => $plugin_id,
       'configuration' => $configuration,
-    ];
+    );
   }
 
   /**
@@ -34,11 +37,11 @@ class PluginManagerBaseTest extends TestCase {
    */
   public function getMockFactoryInterface($expects_count) {
     $mock_factory = $this->getMockBuilder('Drupal\Component\Plugin\Factory\FactoryInterface')
-      ->setMethods(['createInstance'])
+      ->setMethods(array('createInstance'))
       ->getMockForAbstractClass();
     $mock_factory->expects($this->exactly($expects_count))
       ->method('createInstance')
-      ->willReturnCallback([$this, 'createInstanceCallback']);
+      ->willReturnCallback(array($this, 'createInstanceCallback'));
     return $mock_factory;
   }
 
@@ -57,10 +60,10 @@ class PluginManagerBaseTest extends TestCase {
     $factory_ref->setValue($manager, $this->getMockFactoryInterface(1));
 
     // Finally the test.
-    $configuration_array = ['config' => 'something'];
+    $configuration_array = array('config' => 'something');
     $result = $manager->createInstance('valid', $configuration_array);
     $this->assertEquals('valid', $result['plugin_id']);
-    $this->assertEquals($configuration_array, $result['configuration']);
+    $this->assertArrayEquals($configuration_array, $result['configuration']);
   }
 
   /**
@@ -77,53 +80,19 @@ class PluginManagerBaseTest extends TestCase {
     $factory_ref->setAccessible(TRUE);
 
     // Set up the configuration array.
-    $configuration_array = ['config' => 'something'];
+    $configuration_array = array('config' => 'something');
 
     // Test with fallback interface and valid plugin_id.
     $factory_ref->setValue($manager, $this->getMockFactoryInterface(1));
     $no_fallback_result = $manager->createInstance('valid', $configuration_array);
     $this->assertEquals('valid', $no_fallback_result['plugin_id']);
-    $this->assertEquals($configuration_array, $no_fallback_result['configuration']);
+    $this->assertArrayEquals($configuration_array, $no_fallback_result['configuration']);
 
     // Test with fallback interface and invalid plugin_id.
     $factory_ref->setValue($manager, $this->getMockFactoryInterface(2));
     $fallback_result = $manager->createInstance('invalid', $configuration_array);
     $this->assertEquals('invalid_fallback', $fallback_result['plugin_id']);
-    $this->assertEquals($configuration_array, $fallback_result['configuration']);
-  }
-
-  /**
-   * @covers ::getInstance
-   */
-  public function testGetInstance() {
-    $options = [
-      'foo' => 'F00',
-      'bar' => 'bAr',
-    ];
-    $instance = new \stdClass();
-    $mapper = $this->prophesize(MapperInterface::class);
-    $mapper->getInstance($options)
-      ->shouldBeCalledTimes(1)
-      ->willReturn($instance);
-    $manager = new StubPluginManagerBaseWithMapper($mapper->reveal());
-    $this->assertEquals($instance, $manager->getInstance($options));
-  }
-
-  /**
-   * @covers ::getInstance
-   */
-  public function testGetInstanceWithoutMapperShouldThrowException() {
-    $options = [
-      'foo' => 'F00',
-      'bar' => 'bAr',
-    ];
-    /** @var \Drupal\Component\Plugin\PluginManagerBase $manager */
-    $manager = $this->getMockBuilder(PluginManagerBase::class)
-      ->getMockForAbstractClass();
-    // Set the expected exception thrown by ::getInstance.
-    $this->expectException(\BadMethodCallException::class);
-    $this->expectExceptionMessage(sprintf('%s does not support this method unless %s::$mapper is set.', get_class($manager), get_class($manager)));
-    $manager->getInstance($options);
+    $this->assertArrayEquals($configuration_array, $fallback_result['configuration']);
   }
 
 }

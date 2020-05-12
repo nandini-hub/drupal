@@ -1,14 +1,16 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\views_test_data\Cache\ViewsTestCacheContext.
+ */
+
 namespace Drupal\views_test_data\Cache;
 
-use Drupal\Core\Cache\CacheableMetadata;
-use Drupal\Core\Cache\Context\CacheContextInterface;
+use Drupal\Core\Cache\CacheContextInterface;
 
 /**
  * Test cache context which uses a dynamic context coming from state.
- *
- * Cache context ID: 'views_test_cache_context'.
  */
 class ViewsTestCacheContext implements CacheContextInterface {
 
@@ -24,13 +26,6 @@ class ViewsTestCacheContext implements CacheContextInterface {
    */
   public function getContext() {
     return \Drupal::state()->get('views_test_cache_context', 'George');
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function getCacheableMetadata() {
-    return new CacheableMetadata();
   }
 
 }

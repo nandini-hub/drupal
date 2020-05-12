@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains Drupal\Core\PathProcessor\InboundPathProcessorInterface.
+ */
+
 namespace Drupal\Core\PathProcessor;
 
 use Symfony\Component\HttpFoundation\Request;
@@ -12,17 +17,11 @@ interface InboundPathProcessorInterface {
   /**
    * Processes the inbound path.
    *
-   * Implementations may make changes to the request object passed in but should
-   * avoid all other side effects. This method can be called to process requests
-   * other than the current request.
-   *
    * @param string $path
-   *   The path to process, with a leading slash.
+   *   The path to process.
+   *
    * @param \Symfony\Component\HttpFoundation\Request $request
-   *   The HttpRequest object representing the request to process. Note, if this
-   *   method is being called via the path_processor_manager service and is not
-   *   part of routing, the current request object must be cloned before being
-   *   passed in.
+   *   The HttpRequest object representing the current request.
    *
    * @return string
    *   The processed path.

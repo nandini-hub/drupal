@@ -1,11 +1,13 @@
 <?php
+/**
+ * @file
+ * Contains \Drupal\Core\Access\AccessResult.
+ */
 
 namespace Drupal\Core\Access;
 
 use Drupal\Core\Cache\Cache;
 use Drupal\Core\Cache\CacheableDependencyInterface;
-use Drupal\Core\Cache\RefinableCacheableDependencyInterface;
-use Drupal\Core\Cache\RefinableCacheableDependencyTrait;
 use Drupal\Core\Config\ConfigBase;
 use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Session\AccountInterface;
@@ -24,29 +26,58 @@ use Drupal\Core\Session\AccountInterface;
  * When using ::orIf() and ::andIf(), cacheability metadata will be merged
  * accordingly as well.
  */
-abstract class AccessResult implements AccessResultInterface, RefinableCacheableDependencyInterface {
+abstract class AccessResult implements AccessResultInterface, CacheableDependencyInterface {
 
-  use RefinableCacheableDependencyTrait;
+  /**
+   * The cache context IDs (to vary a cache item ID based on active contexts).
+   *
+   * @see \Drupal\Core\Cache\CacheContextInterface
+   * @see \Drupal\Core\Cache\CacheContextsManager::convertTokensToKeys()
+   *
+   * @var string[]
+   */
+  protected $contexts;
+
+  /**
+   * The cache tags.
+   *
+   * @var array
+   */
+  protected $tags;
+
+  /**
+   * The maximum caching time in seconds.
+   *
+   * @var int
+   */
+  protected $maxAge;
+
+  /**
+   * Constructs a new AccessResult object.
+   */
+  public function __construct() {
+    $this->resetCacheContexts()
+      ->resetCacheTags()
+      // Max-age must be non-zero for an access result to be cacheable.
+      // Typically, cache items are invalidated via associated cache tags, not
+      // via a maximum age.
+      ->setCacheMaxAge(Cache::PERMANENT);
+  }
 
   /**
    * Creates an AccessResultInterface object with isNeutral() === TRUE.
    *
-   * @param string|null $reason
-   *   (optional) The reason why access is neutral. Intended for developers,
-   *   hence not translatable.
-   *
-   * @return \Drupal\Core\Access\AccessResultNeutral
+   * @return \Drupal\Core\Access\AccessResult
    *   isNeutral() will be TRUE.
    */
-  public static function neutral($reason = NULL) {
-    assert(is_string($reason) || is_null($reason));
-    return new AccessResultNeutral($reason);
+  public static function neutral() {
+    return new AccessResultNeutral();
   }
 
   /**
    * Creates an AccessResultInterface object with isAllowed() === TRUE.
    *
-   * @return \Drupal\Core\Access\AccessResultAllowed
+   * @return \Drupal\Core\Access\AccessResult
    *   isAllowed() will be TRUE.
    */
   public static function allowed() {
@@ -56,16 +87,11 @@ abstract class AccessResult implements AccessResultInterface, RefinableCacheable
   /**
    * Creates an AccessResultInterface object with isForbidden() === TRUE.
    *
-   * @param string|null $reason
-   *   (optional) The reason why access is forbidden. Intended for developers,
-   *   hence not translatable.
-   *
-   * @return \Drupal\Core\Access\AccessResultForbidden
+   * @return \Drupal\Core\Access\AccessResult
    *   isForbidden() will be TRUE.
    */
-  public static function forbidden($reason = NULL) {
-    assert(is_string($reason) || is_null($reason));
-    return new AccessResultForbidden($reason);
+  public static function forbidden() {
+    return new AccessResultForbidden();
   }
 
   /**
@@ -87,16 +113,13 @@ abstract class AccessResult implements AccessResultInterface, RefinableCacheable
    *
    * @param bool $condition
    *   The condition to evaluate.
-   * @param string|null $reason
-   *   (optional) The reason why access is forbidden. Intended for developers,
-   *   hence not translatable
    *
    * @return \Drupal\Core\Access\AccessResult
    *   If $condition is TRUE, isForbidden() will be TRUE, otherwise isNeutral()
    *   will be TRUE.
    */
-  public static function forbiddenIf($condition, $reason = NULL) {
-    return $condition ? static::forbidden($reason) : static::neutral();
+  public static function forbiddenIf($condition) {
+    return $condition ? static::forbidden(): static::neutral();
   }
 
   /**
@@ -114,12 +137,7 @@ abstract class AccessResult implements AccessResultInterface, RefinableCacheable
    *   isNeutral() will be TRUE.
    */
   public static function allowedIfHasPermission(AccountInterface $account, $permission) {
-    $access_result = static::allowedIf($account->hasPermission($permission))->addCacheContexts(['user.permissions']);
-
-    if ($access_result instanceof AccessResultReasonInterface) {
-      $access_result->setReason("The '$permission' permission is required.");
-    }
-    return $access_result;
+    return static::allowedIf($account->hasPermission($permission))->addCacheContexts(['user.permissions']);
   }
 
   /**
@@ -160,21 +178,7 @@ abstract class AccessResult implements AccessResultInterface, RefinableCacheable
       }
     }
 
-    $access_result = static::allowedIf($access)->addCacheContexts(empty($permissions) ? [] : ['user.permissions']);
-
-    if ($access_result instanceof AccessResultReasonInterface) {
-      if (count($permissions) === 1) {
-        $access_result->setReason("The '$permission' permission is required.");
-      }
-      elseif (count($permissions) > 1) {
-        $quote = function ($s) {
-          return "'$s'";
-        };
-        $access_result->setReason(sprintf("The following permissions are required: %s.", implode(" $conjunction ", array_map($quote, $permissions))));
-      }
-    }
-
-    return $access_result;
+    return static::allowedIf($access)->addCacheContexts(empty($permissions) ? [] : ['user.permissions']);
   }
 
   /**
@@ -208,21 +212,35 @@ abstract class AccessResult implements AccessResultInterface, RefinableCacheable
    * {@inheritdoc}
    */
   public function getCacheContexts() {
-    return $this->cacheContexts;
+    sort($this->contexts);
+    return $this->contexts;
   }
 
   /**
    * {@inheritdoc}
    */
   public function getCacheTags() {
-    return $this->cacheTags;
+    return $this->tags;
   }
 
   /**
    * {@inheritdoc}
    */
   public function getCacheMaxAge() {
-    return $this->cacheMaxAge;
+    return $this->maxAge;
+  }
+
+  /**
+   * Adds cache contexts associated with the access result.
+   *
+   * @param string[] $contexts
+   *   An array of cache context IDs, used to generate a cache ID.
+   *
+   * @return $this
+   */
+  public function addCacheContexts(array $contexts) {
+    $this->contexts = array_unique(array_merge($this->contexts, $contexts));
+    return $this;
   }
 
   /**
@@ -231,7 +249,20 @@ abstract class AccessResult implements AccessResultInterface, RefinableCacheable
    * @return $this
    */
   public function resetCacheContexts() {
-    $this->cacheContexts = [];
+    $this->contexts = array();
+    return $this;
+  }
+
+  /**
+   * Adds cache tags associated with the access result.
+   *
+   * @param array $tags
+   *   An array of cache tags.
+   *
+   * @return $this
+   */
+  public function addCacheTags(array $tags) {
+    $this->tags = Cache::mergeTags($this->tags, $tags);
     return $this;
   }
 
@@ -241,7 +272,7 @@ abstract class AccessResult implements AccessResultInterface, RefinableCacheable
    * @return $this
    */
   public function resetCacheTags() {
-    $this->cacheTags = [];
+    $this->tags = array();
     return $this;
   }
 
@@ -254,7 +285,7 @@ abstract class AccessResult implements AccessResultInterface, RefinableCacheable
    * @return $this
    */
   public function setCacheMaxAge($max_age) {
-    $this->cacheMaxAge = $max_age;
+    $this->maxAge = $max_age;
     return $this;
   }
 
@@ -264,7 +295,7 @@ abstract class AccessResult implements AccessResultInterface, RefinableCacheable
    * @return $this
    */
   public function cachePerPermissions() {
-    $this->addCacheContexts(['user.permissions']);
+    $this->addCacheContexts(array('user.permissions'));
     return $this;
   }
 
@@ -274,7 +305,7 @@ abstract class AccessResult implements AccessResultInterface, RefinableCacheable
    * @return $this
    */
   public function cachePerUser() {
-    $this->addCacheContexts(['user']);
+    $this->addCacheContexts(array('user'));
     return $this;
   }
 
@@ -285,13 +316,10 @@ abstract class AccessResult implements AccessResultInterface, RefinableCacheable
    *   The entity whose cache tag to set on the access result.
    *
    * @return $this
-   *
-   * @deprecated in drupal:8.0.0 and is removed from drupal:9.0.0. Use
-   *   ::addCacheableDependency() instead.
    */
   public function cacheUntilEntityChanges(EntityInterface $entity) {
-    @trigger_error(__METHOD__ . ' is deprecated in drupal:8.0.0 and is removed in drupal:9.0.0. Use \Drupal\Core\Access\AccessResult::addCacheableDependency() instead.', E_USER_DEPRECATED);
-    return $this->addCacheableDependency($entity);
+    $this->addCacheTags($entity->getCacheTags());
+    return $this;
   }
 
   /**
@@ -301,13 +329,10 @@ abstract class AccessResult implements AccessResultInterface, RefinableCacheable
    *   The configuration object whose cache tag to set on the access result.
    *
    * @return $this
-   *
-   * @deprecated in drupal:8.0.0 and is removed from drupal:9.0.0. Use
-   *   \Drupal\Core\Access\AccessResult::addCacheableDependency() instead.
    */
   public function cacheUntilConfigurationChanges(ConfigBase $configuration) {
-    @trigger_error(__METHOD__ . ' is deprecated in drupal:8.0.0 and is removed in drupal:9.0.0. Use \Drupal\Core\Access\AccessResult::addCacheableDependency() instead.', E_USER_DEPRECATED);
-    return $this->addCacheableDependency($configuration);
+    $this->addCacheTags($configuration->getCacheTags());
+    return $this;
   }
 
   /**
@@ -337,13 +362,6 @@ abstract class AccessResult implements AccessResultInterface, RefinableCacheable
       if (!$this->isForbidden() || ($this->getCacheMaxAge() === 0 && $other->isForbidden())) {
         $merge_other = TRUE;
       }
-
-      if ($this->isForbidden() && $this instanceof AccessResultReasonInterface && !is_null($this->getReason())) {
-        $result->setReason($this->getReason());
-      }
-      elseif ($other->isForbidden() && $other instanceof AccessResultReasonInterface && !is_null($other->getReason())) {
-        $result->setReason($other->getReason());
-      }
     }
     elseif ($this->isAllowed() || $other->isAllowed()) {
       $result = static::allowed();
@@ -355,13 +373,6 @@ abstract class AccessResult implements AccessResultInterface, RefinableCacheable
       $result = static::neutral();
       if (!$this->isNeutral() || ($this->getCacheMaxAge() === 0 && $other->isNeutral()) || ($this->getCacheMaxAge() !== 0 && $other instanceof CacheableDependencyInterface && $other->getCacheMaxAge() !== 0)) {
         $merge_other = TRUE;
-      }
-
-      if ($this instanceof AccessResultReasonInterface && !is_null($this->getReason())) {
-        $result->setReason($this->getReason());
-      }
-      elseif ($other instanceof AccessResultReasonInterface && !is_null($other->getReason())) {
-        $result->setReason($other->getReason());
       }
     }
     $result->inheritCacheability($this);
@@ -382,15 +393,7 @@ abstract class AccessResult implements AccessResultInterface, RefinableCacheable
     if ($this->isForbidden() || $other->isForbidden()) {
       $result = static::forbidden();
       if (!$this->isForbidden()) {
-        if ($other instanceof AccessResultReasonInterface) {
-          $result->setReason($other->getReason());
-        }
         $merge_other = TRUE;
-      }
-      else {
-        if ($this instanceof AccessResultReasonInterface) {
-          $result->setReason($this->getReason());
-        }
       }
     }
     elseif ($this->isAllowed() && $other->isAllowed()) {
@@ -401,14 +404,6 @@ abstract class AccessResult implements AccessResultInterface, RefinableCacheable
       $result = static::neutral();
       if (!$this->isNeutral()) {
         $merge_other = TRUE;
-        if ($other instanceof AccessResultReasonInterface) {
-          $result->setReason($other->getReason());
-        }
-      }
-      else {
-        if ($this instanceof AccessResultReasonInterface) {
-          $result->setReason($this->getReason());
-        }
       }
     }
     $result->inheritCacheability($this);
@@ -428,19 +423,12 @@ abstract class AccessResult implements AccessResultInterface, RefinableCacheable
   /**
    * Inherits the cacheability of the other access result, if any.
    *
-   * This method differs from addCacheableDependency() in how it handles
-   * max-age, because it is designed to inherit the cacheability of the second
-   * operand in the andIf() and orIf() operations. There, the situation
-   * "allowed, max-age=0 OR allowed, max-age=1000" needs to yield max-age 1000
-   * as the end result.
-   *
    * @param \Drupal\Core\Access\AccessResultInterface $other
    *   The other access result, whose cacheability (if any) to inherit.
    *
    * @return $this
    */
   public function inheritCacheability(AccessResultInterface $other) {
-    $this->addCacheableDependency($other);
     if ($other instanceof CacheableDependencyInterface) {
       if ($this->getCacheMaxAge() !== 0 && $other->getCacheMaxAge() !== 0) {
         $this->setCacheMaxAge(Cache::mergeMaxAges($this->getCacheMaxAge(), $other->getCacheMaxAge()));
@@ -448,6 +436,14 @@ abstract class AccessResult implements AccessResultInterface, RefinableCacheable
       else {
         $this->setCacheMaxAge($other->getCacheMaxAge());
       }
+      $this->addCacheContexts($other->getCacheContexts());
+      $this->addCacheTags($other->getCacheTags());
+    }
+    // If any of the access results don't provide cacheability metadata, then
+    // we cannot cache the combined access result, for we may not make
+    // assumptions.
+    else {
+      $this->setCacheMaxAge(0);
     }
     return $this;
   }

@@ -1,9 +1,15 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Field\Plugin\Field\FieldFormatter\StringFormatter.
+ */
+
 namespace Drupal\Core\Field\Plugin\Field\FieldFormatter;
 
-use Drupal\Core\Entity\EntityInterface;
-use Drupal\Core\Entity\EntityTypeManagerInterface;
+use Drupal\Component\Utility\SafeMarkup;
+use Drupal\Core\Entity\EntityManagerInterface;
+use Drupal\Core\Entity\RevisionableInterface;
 use Drupal\Core\Field\FieldDefinitionInterface;
 use Drupal\Core\Field\FieldItemInterface;
 use Drupal\Core\Field\FormatterBase;
@@ -30,13 +36,6 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
 class StringFormatter extends FormatterBase implements ContainerFactoryPluginInterface {
 
   /**
-   * The entity type manager.
-   *
-   * @var \Drupal\Core\Entity\EntityTypeManagerInterface
-   */
-  protected $entityTypeManager;
-
-  /**
    * Constructs a StringFormatter instance.
    *
    * @param string $plugin_id
@@ -53,13 +52,13 @@ class StringFormatter extends FormatterBase implements ContainerFactoryPluginInt
    *   The view mode.
    * @param array $third_party_settings
    *   Any third party settings settings.
-   * @param \Drupal\Core\Entity\EntityTypeManagerInterface $entity_type_manager
-   *   The entity type manager.
+   * @param \Drupal\Core\Entity\EntityManagerInterface $entity_manager
+   *   The entity manager.
    */
-  public function __construct($plugin_id, $plugin_definition, FieldDefinitionInterface $field_definition, array $settings, $label, $view_mode, array $third_party_settings, EntityTypeManagerInterface $entity_type_manager) {
+  public function __construct($plugin_id, $plugin_definition, FieldDefinitionInterface $field_definition, array $settings, $label, $view_mode, array $third_party_settings, EntityManagerInterface $entity_manager) {
     parent::__construct($plugin_id, $plugin_definition, $field_definition, $settings, $label, $view_mode, $third_party_settings);
 
-    $this->entityTypeManager = $entity_type_manager;
+    $this->entityManager = $entity_manager;
   }
 
   /**
@@ -74,7 +73,7 @@ class StringFormatter extends FormatterBase implements ContainerFactoryPluginInt
       $configuration['label'],
       $configuration['view_mode'],
       $configuration['third_party_settings'],
-      $container->get('entity_type.manager')
+      $container->get('entity.manager')
     );
   }
 
@@ -94,7 +93,7 @@ class StringFormatter extends FormatterBase implements ContainerFactoryPluginInt
   public function settingsForm(array $form, FormStateInterface $form_state) {
     $form = parent::settingsForm($form, $form_state);
 
-    $entity_type = $this->entityTypeManager->getDefinition($this->fieldDefinition->getTargetEntityTypeId());
+    $entity_type = $this->entityManager->getDefinition($this->fieldDefinition->getTargetEntityTypeId());
 
     $form['link_to_entity'] = [
       '#type' => 'checkbox',
@@ -111,7 +110,7 @@ class StringFormatter extends FormatterBase implements ContainerFactoryPluginInt
   public function settingsSummary() {
     $summary = [];
     if ($this->getSetting('link_to_entity')) {
-      $entity_type = $this->entityTypeManager->getDefinition($this->fieldDefinition->getTargetEntityTypeId());
+      $entity_type = $this->entityManager->getDefinition($this->fieldDefinition->getTargetEntityTypeId());
       $summary[] = $this->t('Linked to the @entity_label', ['@entity_label' => $entity_type->getLabel()]);
     }
     return $summary;
@@ -120,24 +119,25 @@ class StringFormatter extends FormatterBase implements ContainerFactoryPluginInt
   /**
    * {@inheritdoc}
    */
-  public function viewElements(FieldItemListInterface $items, $langcode) {
-    $elements = [];
+  public function viewElements(FieldItemListInterface $items) {
+    $elements = array();
     $url = NULL;
     if ($this->getSetting('link_to_entity')) {
-      $url = $this->getEntityUrl($items->getEntity());
+      // For the default revision this falls back to 'canonical'
+      $url = $items->getEntity()->urlInfo('revision');
     }
 
     foreach ($items as $delta => $item) {
-      $view_value = $this->viewValue($item);
+      $string = $this->viewValue($item);
       if ($url) {
         $elements[$delta] = [
           '#type' => 'link',
-          '#title' => $view_value,
+          '#title' => $string,
           '#url' => $url,
         ];
       }
       else {
-        $elements[$delta] = $view_value;
+        $elements[$delta] = ['#markup' => $string];
       }
     }
     return $elements;
@@ -149,34 +149,13 @@ class StringFormatter extends FormatterBase implements ContainerFactoryPluginInt
    * @param \Drupal\Core\Field\FieldItemInterface $item
    *   One field item.
    *
-   * @return array
-   *   The textual output generated as a render array.
+   * @return string
+   *   The textual output generated.
    */
   protected function viewValue(FieldItemInterface $item) {
     // The text value has no text format assigned to it, so the user input
     // should equal the output, including newlines.
-    return [
-      '#type' => 'inline_template',
-      '#template' => '{{ value|nl2br }}',
-      '#context' => ['value' => $item->value],
-    ];
-  }
-
-  /**
-   * Gets the URI elements of the entity.
-   *
-   * @param \Drupal\Core\Entity\EntityInterface $entity
-   *   The entity object.
-   *
-   * @return \Drupal\Core\Url
-   *   The URI elements of the entity.
-   */
-  protected function getEntityUrl(EntityInterface $entity) {
-    // For the default revision, the 'revision' link template falls back to
-    // 'canonical'.
-    // @see \Drupal\Core\Entity\Entity::toUrl()
-    $rel = $entity->getEntityType()->hasLinkTemplate('revision') ? 'revision' : 'canonical';
-    return $entity->toUrl($rel);
+    return nl2br(SafeMarkup::checkPlain($item->value));
   }
 
 }

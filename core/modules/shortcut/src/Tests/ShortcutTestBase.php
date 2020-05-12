@@ -1,8 +1,11 @@
 <?php
 
-namespace Drupal\shortcut\Tests;
+/**
+ * @file
+ * Definition of Drupal\shortcut\Tests\ShortcutTestBase.
+ */
 
-@trigger_error(__NAMESPACE__ . '\ShortcutTestBase is deprecated in Drupal 8.5.0 and will be removed before Drupal 9.0.0. Instead, use \Drupal\Tests\shortcut\Functional\ShortcutTestBase, see https://www.drupal.org/node/2906736.', E_USER_DEPRECATED);
+namespace Drupal\shortcut\Tests;
 
 use Drupal\shortcut\Entity\Shortcut;
 use Drupal\shortcut\Entity\ShortcutSet;
@@ -11,11 +14,6 @@ use Drupal\simpletest\WebTestBase;
 
 /**
  * Defines base class for shortcut test cases.
- *
- * @deprecated in drupal:8.5.0 and is removed from drupal:9.0.0.
- *   Use \Drupal\Tests\shortcut\Functional\ShortcutTestBase.
- *
- * @see https://www.drupal.org/node/2906736
  */
 abstract class ShortcutTestBase extends WebTestBase {
 
@@ -24,7 +22,7 @@ abstract class ShortcutTestBase extends WebTestBase {
    *
    * @var array
    */
-  public static $modules = ['node', 'toolbar', 'shortcut'];
+  public static $modules = array('node', 'toolbar', 'shortcut');
 
   /**
    * User with permission to administer shortcuts.
@@ -59,52 +57,52 @@ abstract class ShortcutTestBase extends WebTestBase {
 
     if ($this->profile != 'standard') {
       // Create Basic page and Article node types.
-      $this->drupalCreateContentType(['type' => 'page', 'name' => 'Basic page']);
-      $this->drupalCreateContentType(['type' => 'article', 'name' => 'Article']);
+      $this->drupalCreateContentType(array('type' => 'page', 'name' => 'Basic page'));
+      $this->drupalCreateContentType(array('type' => 'article', 'name' => 'Article'));
 
       // Populate the default shortcut set.
-      $shortcut = Shortcut::create([
+      $shortcut = Shortcut::create(array(
         'shortcut_set' => 'default',
         'title' => t('Add content'),
         'weight' => -20,
-        'link' => [
+        'link' => array(
           'uri' => 'internal:/node/add',
-        ],
-      ]);
+        ),
+      ));
       $shortcut->save();
 
-      $shortcut = Shortcut::create([
+      $shortcut = Shortcut::create(array(
         'shortcut_set' => 'default',
         'title' => t('All content'),
         'weight' => -19,
-        'link' => [
+        'link' => array(
           'uri' => 'internal:/admin/content',
-        ],
-      ]);
+        ),
+      ));
       $shortcut->save();
     }
 
     // Create users.
-    $this->adminUser = $this->drupalCreateUser(['access toolbar', 'administer shortcuts', 'view the administration theme', 'create article content', 'create page content', 'access content overview', 'administer users', 'link to any page', 'edit any article content']);
-    $this->shortcutUser = $this->drupalCreateUser(['customize shortcut links', 'switch shortcut sets', 'access shortcuts', 'access content']);
+    $this->adminUser = $this->drupalCreateUser(array('access toolbar', 'administer shortcuts', 'view the administration theme', 'create article content', 'create page content', 'access content overview', 'administer users', 'link to any page', 'edit any article content'));
+    $this->shortcutUser = $this->drupalCreateUser(array('customize shortcut links', 'switch shortcut sets', 'access shortcuts', 'access content'));
 
     // Create a node.
-    $this->node = $this->drupalCreateNode(['type' => 'article']);
+    $this->node = $this->drupalCreateNode(array('type' => 'article'));
 
     // Log in as admin and grab the default shortcut set.
     $this->drupalLogin($this->adminUser);
     $this->set = ShortcutSet::load('default');
-    \Drupal::entityTypeManager()->getStorage('shortcut_set')->assignUser($this->set, $this->adminUser);
+    \Drupal::entityManager()->getStorage('shortcut_set')->assignUser($this->set, $this->adminUser);
   }
 
   /**
    * Creates a generic shortcut set.
    */
-  public function generateShortcutSet($label = '', $id = NULL) {
-    $set = ShortcutSet::create([
+  function generateShortcutSet($label = '', $id = NULL) {
+    $set = ShortcutSet::create(array(
       'id' => isset($id) ? $id : strtolower($this->randomMachineName()),
       'label' => empty($label) ? $this->randomString() : $label,
-    ]);
+    ));
     $set->save();
     return $set;
   }
@@ -123,9 +121,9 @@ abstract class ShortcutTestBase extends WebTestBase {
    * @return array
    *   Array of the requested information from each link.
    */
-  public function getShortcutInformation(ShortcutSetInterface $set, $key) {
-    $info = [];
-    \Drupal::entityTypeManager()->getStorage('shortcut')->resetCache();
+  function getShortcutInformation(ShortcutSetInterface $set, $key) {
+    $info = array();
+    \Drupal::entityManager()->getStorage('shortcut')->resetCache();
     foreach ($set->getShortcuts() as $shortcut) {
       if ($key == 'link') {
         $info[] = $shortcut->link->uri;

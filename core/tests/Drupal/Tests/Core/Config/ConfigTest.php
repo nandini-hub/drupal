@@ -1,13 +1,16 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Tests\Core\Config\ConfigTest.
+ */
+
 namespace Drupal\Tests\Core\Config;
 
 use Drupal\Core\DependencyInjection\ContainerBuilder;
-use Drupal\Core\Render\Markup;
 use Drupal\Tests\UnitTestCase;
 use Drupal\Core\Config\Config;
-use Drupal\Core\Config\ConfigValueException;
-use PHPUnit\Framework\Error\Warning;
+use Drupal\Component\Utility\SafeMarkup;
 
 /**
  * Tests the Config.
@@ -30,37 +33,37 @@ class ConfigTest extends UnitTestCase {
   /**
    * Storage.
    *
-   * @var \Drupal\Core\Config\StorageInterface|\PHPUnit\Framework\MockObject\MockObject
+   * @var \Drupal\Core\Config\StorageInterface|\PHPUnit_Framework_MockObject_MockObject
    */
   protected $storage;
 
   /**
    * Event Dispatcher.
    *
-   * @var \Symfony\Component\EventDispatcher\EventDispatcherInterface|\PHPUnit\Framework\MockObject\MockObject
+   * @var \Symfony\Component\EventDispatcher\EventDispatcherInterface|\PHPUnit_Framework_MockObject_MockObject
    */
   protected $eventDispatcher;
 
   /**
    * Typed Config.
    *
-   * @var \Drupal\Core\Config\TypedConfigManagerInterface|\PHPUnit\Framework\MockObject\MockObject
+   * @var \Drupal\Core\Config\TypedConfigManagerInterface|\PHPUnit_Framework_MockObject_MockObject
    */
   protected $typedConfig;
 
   /**
    * The mocked cache tags invalidator.
    *
-   * @var \Drupal\Core\Cache\CacheTagsInvalidatorInterface|\PHPUnit\Framework\MockObject\MockObject
+   * @var \Drupal\Core\Cache\CacheTagsInvalidatorInterface|\PHPUnit_Framework_MockObject_MockObject
    */
   protected $cacheTagsInvalidator;
 
-  protected function setUp() {
-    $this->storage = $this->createMock('Drupal\Core\Config\StorageInterface');
-    $this->eventDispatcher = $this->createMock('Symfony\Component\EventDispatcher\EventDispatcherInterface');
-    $this->typedConfig = $this->createMock('\Drupal\Core\Config\TypedConfigManagerInterface');
+  public function setUp() {
+    $this->storage = $this->getMock('Drupal\Core\Config\StorageInterface');
+    $this->eventDispatcher = $this->getMock('Symfony\Component\EventDispatcher\EventDispatcherInterface');
+    $this->typedConfig = $this->getMock('\Drupal\Core\Config\TypedConfigManagerInterface');
     $this->config = new Config('config.test', $this->storage, $this->eventDispatcher, $this->typedConfig);
-    $this->cacheTagsInvalidator = $this->createMock('Drupal\Core\Cache\CacheTagsInvalidatorInterface');
+    $this->cacheTagsInvalidator = $this->getMock('Drupal\Core\Cache\CacheTagsInvalidatorInterface');
 
     $container = new ContainerBuilder();
     $container->set('cache_tags.invalidator', $this->cacheTagsInvalidator);
@@ -89,16 +92,16 @@ class ConfigTest extends UnitTestCase {
    * @see \Drupal\Tests\Core\Config\ConfigTest::testSetName()
    */
   public function setNameProvider() {
-    return [
+    return array(
       // Valid name with dot.
-      [
+      array(
         'test.name',
-      ],
+      ),
       // Maximum length.
-      [
+      array(
         'test.' . str_repeat('a', Config::MAX_NAME_LENGTH - 5),
-      ],
-    ];
+      ),
+    );
   }
 
   /**
@@ -174,7 +177,6 @@ class ConfigTest extends UnitTestCase {
    * @covers ::setModuleOverride
    * @covers ::setSettingsOverride
    * @covers ::getOriginal
-   * @covers ::hasOverrides
    * @dataProvider overrideDataProvider
    */
   public function testOverrideData($data, $module_data, $setting_data) {
@@ -186,40 +188,26 @@ class ConfigTest extends UnitTestCase {
 
     // Save so that the original data is stored.
     $this->config->save();
-    $this->assertFalse($this->config->hasOverrides());
-    $this->assertOverriddenKeys($data, []);
 
     // Set module override data and check value before and after save.
     $this->config->setModuleOverride($module_data);
     $this->assertConfigDataEquals($module_data);
-    $this->assertOverriddenKeys($data, $module_data);
-
     $this->config->save();
     $this->assertConfigDataEquals($module_data);
-    $this->assertOverriddenKeys($data, $module_data);
-
-    // Reset the module overrides.
-    $this->config->setModuleOverride([]);
-    $this->assertOverriddenKeys($data, []);
 
     // Set setting override data and check value before and after save.
     $this->config->setSettingsOverride($setting_data);
     $this->assertConfigDataEquals($setting_data);
-    $this->assertOverriddenKeys($data, $setting_data);
     $this->config->save();
     $this->assertConfigDataEquals($setting_data);
-    $this->assertOverriddenKeys($data, $setting_data);
 
     // Set module overrides again to ensure override order is correct.
     $this->config->setModuleOverride($module_data);
-    $merged_overrides = array_merge($module_data, $setting_data);
 
     // Setting data should be overriding module data.
     $this->assertConfigDataEquals($setting_data);
-    $this->assertOverriddenKeys($data, $merged_overrides);
     $this->config->save();
     $this->assertConfigDataEquals($setting_data);
-    $this->assertOverriddenKeys($data, $merged_overrides);
 
     // Check original data has not changed.
     $this->assertOriginalConfigDataEquals($data, FALSE);
@@ -232,15 +220,6 @@ class ConfigTest extends UnitTestCase {
       $config_value = $this->config->getOriginal($key);
       $this->assertEquals($value, $config_value);
     }
-
-    // Check that the overrides can be completely reset.
-    $this->config->setModuleOverride([]);
-    $this->config->setSettingsOverride([]);
-    $this->assertConfigDataEquals($data);
-    $this->assertOverriddenKeys($data, []);
-    $this->config->save();
-    $this->assertConfigDataEquals($data);
-    $this->assertOverriddenKeys($data, []);
   }
 
   /**
@@ -256,21 +235,21 @@ class ConfigTest extends UnitTestCase {
 
   /**
    * @covers ::set
+   * @expectedException \Drupal\Core\Config\ConfigValueException
    */
   public function testSetValidation() {
-    $this->expectException(ConfigValueException::class);
-    $this->config->set('testData', ['dot.key' => 1]);
+    $this->config->set('testData', array('dot.key' => 1));
   }
 
   /**
    * @covers ::set
+   * @expectedException PHPUnit_Framework_Error_Warning
    */
   public function testSetIllegalOffsetValue() {
     // Set a single value.
     $this->config->set('testData', 1);
 
     // Attempt to treat the single value as a nested item.
-    $this->expectException(Warning::class);
     $this->config->set('testData.illegalOffset', 1);
   }
 
@@ -395,25 +374,25 @@ class ConfigTest extends UnitTestCase {
    * @see \Drupal\Tests\Core\Config\ConfigTest::testMerge()
    */
   public function mergeDataProvider() {
-    return [
-      [
+    return array(
+      array(
         // Data.
-        ['a' => 1, 'b' => 2, 'c' => ['d' => 3]],
+        array('a' => 1, 'b' => 2, 'c' => array('d' => 3)),
         // Data to merge.
-        ['a' => 2, 'e' => 4, 'c' => ['f' => 5]],
+        array('a' => 2, 'e' => 4, 'c' => array('f' => 5)),
         // Data merged.
-        ['a' => 2, 'b' => 2, 'c' => ['d' => 3, 'f' => 5], 'e' => 4],
-      ],
-    ];
+        array('a' => 2, 'b' => 2, 'c' => array('d' => 3, 'f' => 5), 'e' => 4),
+      ),
+    );
   }
 
   /**
    * @covers ::validateName
+   * @expectedException \Drupal\Core\Config\ConfigNameException
    * @dataProvider validateNameProvider
    */
   public function testValidateNameException($name, $exception_message) {
-    $this->expectException('\Drupal\Core\Config\ConfigNameException');
-    $this->expectExceptionMessage($exception_message);
+    $this->setExpectedException('\Drupal\Core\Config\ConfigNameException', $exception_message);
     $this->config->validateName($name);
   }
 
@@ -430,25 +409,32 @@ class ConfigTest extends UnitTestCase {
    * @see \Drupal\Tests\Core\Config\ConfigTest::testValidateNameException()
    */
   public function validateNameProvider() {
-    $return = [
+    $return = array(
       // Name missing namespace (dot).
-      [
+      array(
         'MissingNamespace',
-        'Missing namespace in Config object name MissingNamespace.',
-      ],
+        SafeMarkup::format('Missing namespace in Config object name MissingNamespace.', array(
+          '@name' => 'MissingNamespace',
+        )),
+      ),
       // Exceeds length (max length plus an extra dot).
-      [
+      array(
         str_repeat('a', Config::MAX_NAME_LENGTH) . ".",
-        'Config object name ' . str_repeat('a', Config::MAX_NAME_LENGTH) . '. exceeds maximum allowed length of ' . Config::MAX_NAME_LENGTH . ' characters.',
-      ],
-    ];
+        SafeMarkup::format('Config object name @name exceeds maximum allowed length of @length characters.', array(
+          '@name' => str_repeat('a', Config::MAX_NAME_LENGTH) . ".",
+          '@length' => Config::MAX_NAME_LENGTH,
+        )),
+      ),
+    );
     // Name must not contain : ? * < > " ' / \
-    foreach ([':', '?', '*', '<', '>', '"', "'", '/', '\\'] as $char) {
+    foreach (array(':', '?', '*', '<', '>', '"', "'", '/', '\\') as $char) {
       $name = 'name.' . $char;
-      $return[] = [
+      $return[] = array(
         $name,
-        "Invalid character in Config object name $name.",
-      ];
+        SafeMarkup::format('Invalid character in Config object name @name.', array(
+          '@name' => $name,
+        )),
+      );
     }
     return $return;
   }
@@ -460,72 +446,22 @@ class ConfigTest extends UnitTestCase {
    * @see \Drupal\Tests\Core\Config\ConfigTest::testDelete()
    */
   public function overrideDataProvider() {
-    $test_cases = [
-      [
+    return array(
+      array(
         // Original data.
-        [
+        array(
           'a' => 'originalValue',
-        ],
+        ),
         // Module overrides.
-        [
+        array(
           'a' => 'moduleValue',
-        ],
+        ),
         // Setting overrides.
-        [
+        array(
           'a' => 'settingValue',
-        ],
-      ],
-      [
-        // Original data.
-        [
-          'a' => 'originalValue',
-          'b' => 'originalValue',
-          'c' => 'originalValue',
-        ],
-        // Module overrides.
-        [
-          'a' => 'moduleValue',
-          'b' => 'moduleValue',
-        ],
-        // Setting overrides.
-        [
-          'a' => 'settingValue',
-        ],
-      ],
-      [
-        // Original data.
-        [
-          'a' => 'allTheSameValue',
-        ],
-        // Module overrides.
-        [
-          'a' => 'allTheSameValue',
-        ],
-        // Setting overrides.
-        [
-          'a' => 'allTheSameValue',
-        ],
-      ],
-    ];
-    // For each of the above test cases create duplicate test case except with
-    // config values nested.
-    foreach ($test_cases as $test_key => $test_case) {
-      foreach ($test_case as $parameter) {
-        $nested_parameter = [];
-        foreach ($parameter as $config_key => $value) {
-          // Nest config value 5 levels.
-          $nested_value = $value;
-          for ($i = 5; $i >= 0; $i--) {
-            $nested_value = [
-              $i => $nested_value,
-            ];
-          }
-          $nested_parameter[$config_key] = $nested_value;
-        }
-        $test_cases["nested:$test_key"][] = $nested_parameter;
-      }
-    }
-    return $test_cases;
+        ),
+      ),
+    );
   }
 
   /**
@@ -534,15 +470,15 @@ class ConfigTest extends UnitTestCase {
    * @see \Drupal\Tests\Core\Config\ConfigTest::testClear()
    */
   public function simpleDataProvider() {
-    return [
-      [
-        [
+    return array(
+      array(
+        array(
           'a' => '1',
           'b' => '2',
           'c' => '3',
-        ],
-      ],
-    ];
+        ),
+      ),
+    );
   }
 
   /**
@@ -555,21 +491,21 @@ class ConfigTest extends UnitTestCase {
    * @see \Drupal\Tests\Core\Config\ConfigTest::testNestedClear()
    */
   public function nestedDataProvider() {
-    return [
-      [
-        [
-          'a' => [
+    return array(
+      array(
+        array(
+          'a' => array(
             'd' => 1,
-          ],
-          'b' => [
+          ),
+          'b' => array(
             'e' => 2,
-          ],
-          'c' => [
+          ),
+          'c' => array(
             'f' => 3,
-          ],
-        ],
-      ],
-    ];
+          ),
+        ),
+      ),
+    );
   }
 
   /**
@@ -596,73 +532,6 @@ class ConfigTest extends UnitTestCase {
     foreach ($data as $key => $value) {
       $config_value = $this->config->getOriginal($key, $apply_overrides);
       $this->assertEquals($value, $config_value);
-    }
-  }
-
-  /**
-   * @covers ::setData
-   * @covers ::set
-   * @covers ::initWithData
-   */
-  public function testSafeStringHandling() {
-    // Safe strings are cast when using ::set().
-    $safe_string = Markup::create('bar');
-    $this->config->set('foo', $safe_string);
-    $this->assertSame('bar', $this->config->get('foo'));
-    $this->config->set('foo', ['bar' => $safe_string]);
-    $this->assertSame('bar', $this->config->get('foo.bar'));
-
-    // Safe strings are cast when using ::setData().
-    $this->config->setData(['bar' => $safe_string]);
-    $this->assertSame('bar', $this->config->get('bar'));
-
-    // Safe strings are not cast when using ::initWithData().
-    $this->config->initWithData(['bar' => $safe_string]);
-    $this->assertSame($safe_string, $this->config->get('bar'));
-  }
-
-  /**
-   * Asserts that the correct keys are overridden.
-   *
-   * @param array $data
-   *   The original data.
-   * @param array $overridden_data
-   *   The overridden data.
-   */
-  protected function assertOverriddenKeys(array $data, array $overridden_data) {
-    if (empty($overridden_data)) {
-      $this->assertFalse($this->config->hasOverrides());
-    }
-    else {
-      $this->assertTrue($this->config->hasOverrides());
-      foreach ($overridden_data as $key => $value) {
-        // If there are nested overrides test a keys at every level.
-        if (is_array($value)) {
-          $nested_key = $key;
-          $nested_value = $overridden_data[$key];
-          while (is_array($nested_value)) {
-            $nested_key .= '.' . key($nested_value);
-            $this->assertTrue($this->config->hasOverrides($nested_key));
-            $nested_value = array_pop($nested_value);
-          }
-        }
-        $this->assertTrue($this->config->hasOverrides($key));
-      }
-    }
-
-    $non_overridden_keys = array_diff(array_keys($data), array_keys($overridden_data));
-    foreach ($non_overridden_keys as $non_overridden_key) {
-      $this->assertFalse($this->config->hasOverrides($non_overridden_key));
-      // If there are nested overrides test keys at every level.
-      if (is_array($data[$non_overridden_key])) {
-        $nested_key = $non_overridden_key;
-        $nested_value = $data[$non_overridden_key];
-        while (is_array($nested_value)) {
-          $nested_key .= '.' . key($nested_value);
-          $this->assertFalse($this->config->hasOverrides($nested_key));
-          $nested_value = array_pop($nested_value);
-        }
-      }
     }
   }
 

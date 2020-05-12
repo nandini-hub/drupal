@@ -1,10 +1,14 @@
 <?php
 
+/**
+ * @file
+ * Definition of \Drupal\views\Plugin\views\filter\Bundle.
+ */
+
 namespace Drupal\views\Plugin\views\filter;
 
-use Drupal\Core\DependencyInjection\DeprecatedServicePropertyTrait;
-use Drupal\Core\Entity\EntityTypeManagerInterface;
-use Drupal\Core\Entity\EntityTypeBundleInfoInterface;
+use Drupal\Core\Config\Entity\ConfigEntityInterface;
+use Drupal\Core\Entity\EntityManagerInterface;
 use Drupal\views\ViewExecutable;
 use Drupal\views\Plugin\views\display\DisplayPluginBase;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -17,12 +21,6 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
  * @ViewsFilter("bundle")
  */
 class Bundle extends InOperator {
-  use DeprecatedServicePropertyTrait;
-
-  /**
-   * {@inheritdoc}
-   */
-  protected $deprecatedProperties = ['entityManager' => 'entity.manager'];
 
   /**
    * The entity type for the filter.
@@ -39,18 +37,11 @@ class Bundle extends InOperator {
   protected $entityType;
 
   /**
-   * The entity type manager.
+   * The entity manager.
    *
-   * @var \Drupal\Core\Entity\EntityTypeManagerInterface
+   * @var \Drupal\Core\Entity\EntityManagerInterface
    */
-  protected $entityTypeManager;
-
-  /**
-   * The bundle info service.
-   *
-   * @var \Drupal\Core\Entity\EntityTypeBundleInfoInterface
-   */
-  protected $bundleInfoService;
+  protected $entityManager;
 
   /**
    * Constructs a Bundle object.
@@ -61,16 +52,13 @@ class Bundle extends InOperator {
    *   The plugin_id for the plugin instance.
    * @param mixed $plugin_definition
    *   The plugin implementation definition.
-   * @param \Drupal\Core\Entity\EntityTypeManagerInterface $entity_type_manager
-   *   The entity type manager.
-   * @param \Drupal\Core\Entity\EntityTypeBundleInfoInterface $bundle_info_service
-   *   The bundle info service.
+   * @param \Drupal\Core\Entity\EntityManagerInterface $entity_manager
+   *   The entity manager.
    */
-  public function __construct(array $configuration, $plugin_id, $plugin_definition, EntityTypeManagerInterface $entity_type_manager, EntityTypeBundleInfoInterface $bundle_info_service) {
+  public function __construct(array $configuration, $plugin_id, $plugin_definition, EntityManagerInterface $entity_manager) {
     parent::__construct($configuration, $plugin_id, $plugin_definition);
 
-    $this->entityTypeManager = $entity_type_manager;
-    $this->bundleInfoService = $bundle_info_service;
+    $this->entityManager = $entity_manager;
   }
 
   /**
@@ -81,31 +69,30 @@ class Bundle extends InOperator {
       $configuration,
       $plugin_id,
       $plugin_definition,
-      $container->get('entity_type.manager'),
-      $container->get('entity_type.bundle.info')
+      $container->get('entity.manager')
     );
   }
 
   /**
-   * {@inheritdoc}
+   * Overrides \Drupal\views\Plugin\views\filter\InOperator::init().
    */
   public function init(ViewExecutable $view, DisplayPluginBase $display, array &$options = NULL) {
     parent::init($view, $display, $options);
 
     $this->entityTypeId = $this->getEntityType();
-    $this->entityType = \Drupal::entityTypeManager()->getDefinition($this->entityTypeId);
+    $this->entityType = \Drupal::entityManager()->getDefinition($this->entityTypeId);
     $this->real_field = $this->entityType->getKey('bundle');
   }
 
   /**
-   * {@inheritdoc}
+   * Overrides \Drupal\views\Plugin\views\filter\InOperator::getValueOptions().
    */
   public function getValueOptions() {
     if (!isset($this->valueOptions)) {
-      $types = $this->bundleInfoService->getBundleInfo($this->entityTypeId);
-      $this->valueTitle = $this->t('@entity types', ['@entity' => $this->entityType->getLabel()]);
+      $types = entity_get_bundles($this->entityTypeId);
+      $this->valueTitle = $this->t('@entity types', array('@entity' => $this->entityType->getLabel()));
 
-      $options = [];
+      $options = array();
       foreach ($types as $type => $info) {
         $options[$type] = $info['label'];
       }
@@ -118,7 +105,7 @@ class Bundle extends InOperator {
   }
 
   /**
-   * {@inheritdoc}
+   * Overrides \Drupal\views\Plugin\views\filter\InOperator::query().
    */
   public function query() {
     // Make sure that the entity base table is in the query.
@@ -133,7 +120,7 @@ class Bundle extends InOperator {
     $dependencies = parent::calculateDependencies();
 
     $bundle_entity_type = $this->entityType->getBundleEntityType();
-    $bundle_entity_storage = $this->entityTypeManager->getStorage($bundle_entity_type);
+    $bundle_entity_storage = $this->entityManager->getStorage($bundle_entity_type);
 
     foreach (array_keys($this->value) as $bundle) {
       if ($bundle_entity = $bundle_entity_storage->load($bundle)) {

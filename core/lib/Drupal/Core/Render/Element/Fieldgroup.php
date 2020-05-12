@@ -1,15 +1,17 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Render\Element\Fieldgroup.
+ */
+
 namespace Drupal\Core\Render\Element;
 
 /**
  * Provides a render element for a group of form elements.
  *
  * In default rendering, the only difference between a 'fieldgroup' and a
- * 'fieldset' is the CSS class applied to the containing HTML element. Normally
- * use a fieldset.
- *
- * @see \Drupal\Core\Render\Element\Fieldset for documentation and usage.
+ * 'fieldset' is the CSS class applied to the containing HTML element.
  *
  * @see \Drupal\Core\Render\Element\Fieldset
  * @see \Drupal\Core\Render\Element\Details
@@ -19,9 +21,9 @@ namespace Drupal\Core\Render\Element;
 class Fieldgroup extends Fieldset {
 
   public function getInfo() {
-    return [
-      '#attributes' => ['class' => ['fieldgroup']],
-    ] + parent::getInfo();
+    return array(
+      '#attributes' => array('class' => array('fieldgroup')),
+    ) + parent::getInfo();
   }
 
 }

@@ -10,14 +10,14 @@ description: ''
 tag: ''
 base_table: node_field_data
 base_field: nid
+core: '8'
 display:
   default:
     display_options:
-      title: 'Test Exposed Block'
       access:
         type: none
       cache:
-        type: tag
+        type: none
       exposed_form:
         options:
           reset_button: true

@@ -1,10 +1,14 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\views\Plugin\views\argument_default\QueryParameter.
+ */
+
 namespace Drupal\views\Plugin\views\argument_default;
 
-use Drupal\Core\Cache\Cache;
-use Drupal\Core\Cache\CacheableDependencyInterface;
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\views\Plugin\CacheablePluginInterface;
 
 /**
  * A query parameter argument default handler.
@@ -16,16 +20,16 @@ use Drupal\Core\Form\FormStateInterface;
  *   title = @Translation("Query parameter")
  * )
  */
-class QueryParameter extends ArgumentDefaultPluginBase implements CacheableDependencyInterface {
+class QueryParameter extends ArgumentDefaultPluginBase implements CacheablePluginInterface {
 
   /**
    * {@inheritdoc}
    */
   protected function defineOptions() {
     $options = parent::defineOptions();
-    $options['query_param'] = ['default' => ''];
-    $options['fallback'] = ['default' => ''];
-    $options['multiple'] = ['default' => 'and'];
+    $options['query_param'] = array('default' => '');
+    $options['fallback'] = array('default' => '');
+    $options['multiple'] = array('default' => 'and');
 
     return $options;
   }
@@ -35,28 +39,28 @@ class QueryParameter extends ArgumentDefaultPluginBase implements CacheableDepen
    */
   public function buildOptionsForm(&$form, FormStateInterface $form_state) {
     parent::buildOptionsForm($form, $form_state);
-    $form['query_param'] = [
+    $form['query_param'] = array(
       '#type' => 'textfield',
       '#title' => $this->t('Query parameter'),
       '#description' => $this->t('The query parameter to use.'),
       '#default_value' => $this->options['query_param'],
-    ];
-    $form['fallback'] = [
+    );
+    $form['fallback'] = array(
       '#type' => 'textfield',
       '#title' => $this->t('Fallback value'),
       '#description' => $this->t('The fallback value to use when the above query parameter is not present.'),
       '#default_value' => $this->options['fallback'],
-    ];
-    $form['multiple'] = [
+    );
+    $form['multiple'] = array(
       '#type' => 'radios',
       '#title' => $this->t('Multiple values'),
       '#description' => $this->t('Conjunction to use when handling multiple values. E.g. "?value[0]=a&value[1]=b".'),
       '#default_value' => $this->options['multiple'],
-      '#options' => [
+      '#options' => array(
         'and' => $this->t('AND'),
         'or' => $this->t('OR'),
-      ],
-    ];
+      ),
+    );
   }
 
   /**
@@ -83,8 +87,8 @@ class QueryParameter extends ArgumentDefaultPluginBase implements CacheableDepen
   /**
    * {@inheritdoc}
    */
-  public function getCacheMaxAge() {
-    return Cache::PERMANENT;
+  public function isCacheable() {
+    return TRUE;
   }
 
   /**

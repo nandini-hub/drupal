@@ -5,6 +5,7 @@
  * API for loading and interacting with Drupal modules.
  */
 
+use Drupal\Core\Cache\Cache;
 use Drupal\Core\Extension\ExtensionDiscovery;
 
 /**
@@ -14,49 +15,51 @@ use Drupal\Core\Extension\ExtensionDiscovery;
  *   The type of list to return:
  *   - theme: All installed themes.
  *
- * @return array
+ * @return
  *   An associative array of themes, keyed by name.
  *   For $type 'theme', the array values are objects representing the
  *   respective database row, with the 'info' property already unserialized.
  *
- * @deprecated in drupal:8.7.0 and is removed from drupal:9.0.0. Use
- *   \Drupal::service('theme_handler')->listInfo() instead.
- *
- * @see https://www.drupal.org/node/2709919
  * @see \Drupal\Core\Extension\ThemeHandler::listInfo()
  */
 function system_list($type) {
-  @trigger_error('system_list() is deprecated in Drupal 8.7.0 and will be removed before Drupal 9.0.0. Use \Drupal::service(\'theme_handler\')->listInfo() instead. See https://www.drupal.org/node/2709919', E_USER_DEPRECATED);
-
-  $lists = [
-    'theme' => \Drupal::service('theme_handler')->listInfo(),
-    'filepaths' => [],
-  ];
-  foreach ($lists['theme'] as $name => $theme) {
-    $lists['filepaths'][] = [
-      'type' => 'theme',
-      'name' => $name,
-      'filepath' => $theme->getPathname(),
-    ];
+  $lists = &drupal_static(__FUNCTION__);
+  if ($cached = \Drupal::cache('bootstrap')->get('system_list')) {
+    $lists = $cached->data;
   }
+  else {
+    $lists = array(
+      'theme' => array(),
+      'filepaths' => array(),
+    );
+    // ThemeHandler maintains the 'system.theme.data' state record.
+    $theme_data = \Drupal::state()->get('system.theme.data', array());
+    foreach ($theme_data as $name => $theme) {
+      $lists['theme'][$name] = $theme;
+      $lists['filepaths'][] = array(
+        'type' => 'theme',
+        'name' => $name,
+        'filepath' => $theme->getPathname(),
+      );
+    }
+    \Drupal::cache('bootstrap')->set('system_list', $lists);
+  }
+  // To avoid a separate database lookup for the filepath, prime the
+  // drupal_get_filename() static cache with all enabled themes.
+  foreach ($lists['filepaths'] as $item) {
+    system_register($item['type'], $item['name'], $item['filepath']);
+  }
+
   return $lists[$type];
 }
 
 /**
  * Resets all system_list() caches.
- *
- * @deprecated in drupal:8.7.0 and is removed from drupal:9.0.0. There
- *   is no direct replacement. Call each
- *   \Drupal::service('extension.list.TYPE')->reset() as necessary.
- *
- * @see https://www.drupal.org/node/2709919
  */
 function system_list_reset() {
-  @trigger_error("system_list_reset() is deprecated in Drupal 8.7.0 and will be removed before Drupal 9.0.0. There is no direct replacement. Call each \Drupal::service('extension.list.TYPE')->reset() as necessary. See https://www.drupal.org/node/2709919.", E_USER_DEPRECATED);
-  \Drupal::service('extension.list.profile')->reset();
-  \Drupal::service('extension.list.module')->reset();
-  \Drupal::service('extension.list.theme_engine')->reset();
-  \Drupal::service('extension.list.theme')->reset();
+  drupal_static_reset('system_list');
+  drupal_static_reset('system_rebuild_module_data');
+  \Drupal::cache('bootstrap')->delete('system_list');
 }
 
 /**
@@ -69,18 +72,10 @@ function system_list_reset() {
  * @param string $uri
  *   The relative URI of the primary extension file; e.g.,
  *   'core/modules/node/node.module'.
- *
- * @deprecated in drupal:8.8.0 and is removed from drupal:9.0.0. There is
- *   no replacement for this function. Use the following sequence of code to
- *   achieve the same functionality:
- *   @code
- *   $path = \Drupal::service("extension.list.$type")->getPath($name);
- *   \Drupal::service('class_loader')->addPsr4('Drupal\\' . $name . '\\', \Drupal::root() . '/' . $path . '/src');
- *   @endcode
  */
 function system_register($type, $name, $uri) {
-  @trigger_error('system_register() is deprecated in Drupal 8.8.0 and will be removed before Drupal 9.0.0. There is no replacement for this function. To achieve the same functionality use this snippet: $path = \Drupal::service("extension.list.$type")->getPath($name); ' . "\\Drupal::service('class_loader')->addPsr4('Drupal\\\\' . \$name . '\\\\', \\Drupal::root() . '/' . \$path . '/src'); See https://www.drupal.org/node/3035275.", E_USER_DEPRECATED);
-  \Drupal::service('class_loader')->addPsr4('Drupal\\' . $name . '\\', \Drupal::root() . '/' . dirname($uri) . '/src');
+  drupal_get_filename($type, $name, $uri);
+  drupal_classloader_register($name, dirname($uri));
 }
 
 /**
@@ -152,11 +147,12 @@ function module_load_include($type, $module, $name = NULL) {
 function drupal_required_modules() {
   $listing = new ExtensionDiscovery(\Drupal::root());
   $files = $listing->scan('module');
-  $required = [];
+  $required = array();
 
   // Unless called by the installer, an installation profile is required and
-  // must always be loaded.
-  if ($profile = \Drupal::installProfile()) {
+  // must always be loaded. drupal_get_profile() also returns the installation
+  // profile in the installer, but only after it has been selected.
+  if ($profile = drupal_get_profile()) {
     $required[] = $profile;
   }
 
@@ -183,20 +179,18 @@ function drupal_required_modules() {
 function module_set_weight($module, $weight) {
   $extension_config = \Drupal::configFactory()->getEditable('core.extension');
   if ($extension_config->get("module.$module") !== NULL) {
-    // Pre-cast the $weight to an integer so that we can save this without using
-    // schema. This is a performance improvement for module installation.
     $extension_config
-      ->set("module.$module", (int) $weight)
+      ->set("module.$module", $weight)
       ->set('module', module_config_sort($extension_config->get('module')))
-      ->save(TRUE);
+      ->save();
 
     // Prepare the new module list, sorted by weight, including filenames.
-    // @see \Drupal\Core\Extension\ModuleInstaller::install()
+    // @see \Drupal\Core\Extension\ModuleHandler::install()
     $module_handler = \Drupal::moduleHandler();
     $current_module_filenames = $module_handler->getModuleList();
     $current_modules = array_fill_keys(array_keys($current_module_filenames), 0);
     $current_modules = module_config_sort(array_merge($current_modules, $extension_config->get('module')));
-    $module_filenames = [];
+    $module_filenames = array();
     foreach ($current_modules as $name => $weight) {
       $module_filenames[$name] = $current_module_filenames[$name];
     }
@@ -227,7 +221,7 @@ function module_config_sort($data) {
   // two modules and weights (spaces added for clarity):
   // - Block with weight -5: 0 0000000000000000005 block
   // - Node  with weight  0: 1 0000000000000000000 node
-  $sort = [];
+  $sort = array();
   foreach ($data as $name => $weight) {
     // Prefix negative weights with 0, positive weights with 1.
     // +/- signs cannot be used, since + (ASCII 43) is before - (ASCII 45).

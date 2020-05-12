@@ -12,7 +12,7 @@ entity_type: node
 bundle: article
 label: Comments
 description: ''
-required: false
+required: true
 translatable: true
 default_value:
   -
@@ -29,4 +29,5 @@ settings:
   form_location: true
   anonymous: 0
   preview: 1
+third_party_settings: {  }
 field_type: comment

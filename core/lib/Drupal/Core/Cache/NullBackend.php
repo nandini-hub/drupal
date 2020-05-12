@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\Core\Cache\NullBackend.
+ */
+
 namespace Drupal\Core\Cache;
 
 /**
@@ -26,61 +31,61 @@ class NullBackend implements CacheBackendInterface {
   public function __construct($bin) {}
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\Cache\CacheBackendInterface::get().
    */
   public function get($cid, $allow_invalid = FALSE) {
     return FALSE;
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\Cache\CacheBackendInterface::getMultiple().
    */
   public function getMultiple(&$cids, $allow_invalid = FALSE) {
-    return [];
+    return array();
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\Cache\CacheBackendInterface::set().
    */
-  public function set($cid, $data, $expire = Cache::PERMANENT, array $tags = []) {}
+  public function set($cid, $data, $expire = Cache::PERMANENT, array $tags = array()) {}
 
   /**
    * {@inheritdoc}
    */
-  public function setMultiple(array $items = []) {}
+  public function setMultiple(array $items = array()) {}
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\Cache\CacheBackendInterface::delete().
    */
   public function delete($cid) {}
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\Cache\CacheBackendInterface::deleteMultiple().
    */
   public function deleteMultiple(array $cids) {}
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\Cache\CacheBackendInterface::deleteAll().
    */
   public function deleteAll() {}
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\Cache\CacheBackendInterface::invalidate().
    */
   public function invalidate($cid) {}
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\Cache\CacheBackendInterface::invalidateMultiple().
    */
   public function invalidateMultiple(array $cids) {}
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\Cache\CacheBackendInterface::invalidateAll().
    */
   public function invalidateAll() {}
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\Cache\CacheBackendInterface::garbageCollection().
    */
   public function garbageCollection() {}
 
@@ -88,5 +93,4 @@ class NullBackend implements CacheBackendInterface {
    * {@inheritdoc}
    */
   public function removeBin() {}
-
 }

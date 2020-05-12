@@ -1,9 +1,13 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\serialization\Normalizer\ComplexDataNormalizer.
+ */
+
 namespace Drupal\serialization\Normalizer;
 
-use Drupal\Core\TypedData\ComplexDataInterface;
-use Drupal\Core\TypedData\TypedDataInternalPropertiesHelper;
+use Symfony\Component\Serializer\Exception\RuntimeException;
 
 /**
  * Converts the Drupal entity object structures to a normalized array.
@@ -18,28 +22,19 @@ use Drupal\Core\TypedData\TypedDataInternalPropertiesHelper;
 class ComplexDataNormalizer extends NormalizerBase {
 
   /**
-   * {@inheritdoc}
+   * The interface or class that this Normalizer supports.
+   *
+   * @var string
    */
-  protected $supportedInterfaceOrClass = ComplexDataInterface::class;
+  protected $supportedInterfaceOrClass = 'Drupal\Core\TypedData\ComplexDataInterface';
 
   /**
-   * {@inheritdoc}
+   * Implements \Symfony\Component\Serializer\Normalizer\NormalizerInterface::normalize().
    */
-  public function normalize($object, $format = NULL, array $context = []) {
-    $attributes = [];
-    // $object will not always match $supportedInterfaceOrClass.
-    // @see \Drupal\serialization\Normalizer\EntityNormalizer
-    // Other normalizers that extend this class may only provide $object that
-    // implements \Traversable.
-    if ($object instanceof ComplexDataInterface) {
-      // If there are no properties to normalize, just normalize the value.
-      $object = !empty($object->getProperties(TRUE))
-        ? TypedDataInternalPropertiesHelper::getNonInternalProperties($object)
-        : $object->getValue();
-    }
-    /** @var \Drupal\Core\TypedData\TypedDataInterface $property */
-    foreach ($object as $name => $property) {
-      $attributes[$name] = $this->serializer->normalize($property, $format, $context);
+  public function normalize($object, $format = NULL, array $context = array()) {
+    $attributes = array();
+    foreach ($object as $name => $field) {
+      $attributes[$name] = $this->serializer->normalize($field, $format);
     }
     return $attributes;
   }

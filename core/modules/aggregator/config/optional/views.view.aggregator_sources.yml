@@ -1,9 +1,6 @@
 langcode: en
 status: true
 dependencies:
-  config:
-    - core.entity_view_mode.aggregator_feed.summary
-    - system.menu.tools
   module:
     - aggregator
     - user
@@ -14,6 +11,7 @@ description: ''
 tag: aggregator
 base_table: aggregator_feed
 base_field: fid
+core: 8.x
 display:
   default:
     display_plugin: default
@@ -26,7 +24,7 @@ display:
         options:
           perm: 'access news feeds'
       cache:
-        type: tag
+        type: none
         options: {  }
       query:
         type: views_query
@@ -62,10 +60,10 @@ display:
             offset: false
             offset_label: Offset
           tags:
-            previous: '‹ Previous'
-            next: 'Next ›'
-            first: '« First'
-            last: 'Last »'
+            previous: '‹ previous'
+            next: 'next ›'
+            first: '« first'
+            last: 'last »'
           quantity: 9
       style:
         type: default
@@ -135,15 +133,6 @@ display:
       empty: {  }
       relationships: {  }
       arguments: {  }
-      display_extenders: {  }
-    cache_metadata:
-      contexts:
-        - 'languages:language_content'
-        - 'languages:language_interface'
-        - url.query_args
-        - user.permissions
-      max-age: -1
-      tags: {  }
   feed_1:
     display_plugin: feed
     id: feed_1
@@ -204,21 +193,8 @@ display:
           hide_empty: false
           empty_zero: false
           hide_alter_empty: true
-          click_sort_column: value
-          type: aggregator_title
-          settings:
-            display_as_link: false
-          group_column: value
-          group_columns: {  }
-          group_rows: true
-          delta_limit: 0
-          delta_offset: 0
-          delta_reversed: false
-          delta_first_last: false
-          multi_type: separator
-          separator: ', '
-          field_api_classes: false
-          plugin_id: field
+          display_as_link: false
+          plugin_id: aggregator_title_link
           entity_type: aggregator_feed
           entity_field: title
         url:
@@ -395,14 +371,6 @@ display:
         default: '0'
       title: 'OPML feed'
       sitename_title: true
-      display_extenders: {  }
-    cache_metadata:
-      contexts:
-        - 'languages:language_content'
-        - 'languages:language_interface'
-        - user.permissions
-      max-age: -1
-      tags: {  }
   page_1:
     display_plugin: page
     id: page_1
@@ -417,12 +385,3 @@ display:
         weight: 0
         context: '0'
         menu_name: tools
-      display_extenders: {  }
-    cache_metadata:
-      contexts:
-        - 'languages:language_content'
-        - 'languages:language_interface'
-        - url.query_args
-        - user.permissions
-      max-age: -1
-      tags: {  }

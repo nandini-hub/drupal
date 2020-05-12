@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\Core\Flood\MemoryBackend.
+ */
+
 namespace Drupal\Core\Flood;
 
 use Symfony\Component\HttpFoundation\RequestStack;
@@ -19,7 +24,7 @@ class MemoryBackend implements FloodInterface {
   /**
    * An array holding flood events, keyed by event name and identifier.
    */
-  protected $events = [];
+  protected $events = array();
 
   /**
    * Construct the MemoryBackend.
@@ -32,7 +37,7 @@ class MemoryBackend implements FloodInterface {
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\Flood\FloodInterface::register().
    */
   public function register($name, $window = 3600, $identifier = NULL) {
     if (!isset($identifier)) {
@@ -45,7 +50,7 @@ class MemoryBackend implements FloodInterface {
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\Flood\FloodInterface::clear().
    */
   public function clear($name, $identifier = NULL) {
     if (!isset($identifier)) {
@@ -55,14 +60,11 @@ class MemoryBackend implements FloodInterface {
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\Flood\FloodInterface::isAllowed().
    */
   public function isAllowed($name, $threshold, $window = 3600, $identifier = NULL) {
     if (!isset($identifier)) {
       $identifier = $this->requestStack->getCurrentRequest()->getClientIp();
-    }
-    if (!isset($this->events[$name][$identifier])) {
-      return $threshold > 0;
     }
     $limit = microtime(TRUE) - $window;
     $number = count(array_filter($this->events[$name][$identifier], function ($timestamp) use ($limit) {
@@ -72,7 +74,7 @@ class MemoryBackend implements FloodInterface {
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\Flood\FloodInterface::garbageCollection().
    */
   public function garbageCollection() {
     foreach ($this->events as $name => $identifiers) {
@@ -86,5 +88,4 @@ class MemoryBackend implements FloodInterface {
       }
     }
   }
-
 }

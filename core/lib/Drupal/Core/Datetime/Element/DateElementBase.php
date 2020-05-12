@@ -1,8 +1,12 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Datetime\Element\DateElementBase.
+ */
+
 namespace Drupal\Core\Datetime\Element;
 
-use Drupal\Component\Utility\NestedArray;
 use Drupal\Core\Datetime\DrupalDateTime;
 use Drupal\Core\Render\Element\FormElement;
 
@@ -62,44 +66,13 @@ abstract class DateElementBase extends FormElement {
       $min_year = $temp;
     }
     // If there is a current value, stretch the range to include it.
-    $value_year = $date instanceof DrupalDateTime ? $date->format('Y') : '';
+    $value_year = $date instanceOf DrupalDateTime ? $date->format('Y') : '';
     if (!empty($value_year)) {
       $min_year = min($value_year, $min_year);
       $max_year = max($value_year, $max_year);
     }
-    return [$min_year, $max_year];
-  }
-
-  /**
-   * Returns the most relevant title of a datetime element.
-   *
-   * Since datetime form elements often consist of combined date and time fields
-   * the element title might not be located on the element itself but on the
-   * parent container element.
-   *
-   * @param array $element
-   *   The element being processed.
-   * @param array $complete_form
-   *   The complete form structure.
-   *
-   * @return string
-   *   The title.
-   */
-  protected static function getElementTitle($element, $complete_form) {
-    $title = '';
-    if (!empty($element['#title'])) {
-      $title = $element['#title'];
-    }
-    else {
-      $parents = $element['#array_parents'];
-      array_pop($parents);
-      $parent_element = NestedArray::getValue($complete_form, $parents);
-      if (!empty($parent_element['#title'])) {
-        $title = $parent_element['#title'];
-      }
-    }
-
-    return $title;
+    return array($min_year, $max_year);
   }
 
 }
+

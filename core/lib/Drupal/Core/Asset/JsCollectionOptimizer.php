@@ -1,9 +1,13 @@
 <?php
 
+/**
+ * Contains \Drupal\Core\Asset\JsCollectionOptimizer.
+ */
+
 namespace Drupal\Core\Asset;
 
-use Drupal\Core\File\FileSystemInterface;
 use Drupal\Core\State\StateInterface;
+
 
 /**
  * Optimizes JavaScript assets.
@@ -39,36 +43,22 @@ class JsCollectionOptimizer implements AssetCollectionOptimizerInterface {
   protected $state;
 
   /**
-   * The file system service.
-   *
-   * @var \Drupal\Core\File\FileSystemInterface
-   */
-  protected $fileSystem;
-
-  /**
    * Constructs a JsCollectionOptimizer.
    *
-   * @param \Drupal\Core\Asset\AssetCollectionGrouperInterface $grouper
+   * @param \Drupal\Core\Asset\AssetCollectionGrouperInterface
    *   The grouper for JS assets.
-   * @param \Drupal\Core\Asset\AssetOptimizerInterface $optimizer
+   * @param \Drupal\Core\Asset\AssetOptimizerInterface
    *   The optimizer for a single JS asset.
-   * @param \Drupal\Core\Asset\AssetDumperInterface $dumper
+   * @param \Drupal\Core\Asset\AssetDumperInterface
    *   The dumper for optimized JS assets.
-   * @param \Drupal\Core\State\StateInterface $state
+   * @param \Drupal\Core\State\StateInterface
    *   The state key/value store.
-   * @param \Drupal\Core\File\FileSystemInterface $file_system
-   *   The file system service.
    */
-  public function __construct(AssetCollectionGrouperInterface $grouper, AssetOptimizerInterface $optimizer, AssetDumperInterface $dumper, StateInterface $state, FileSystemInterface $file_system = NULL) {
+  public function __construct(AssetCollectionGrouperInterface $grouper, AssetOptimizerInterface $optimizer, AssetDumperInterface $dumper, StateInterface $state) {
     $this->grouper = $grouper;
     $this->optimizer = $optimizer;
     $this->dumper = $dumper;
     $this->state = $state;
-    if (!$file_system) {
-      @trigger_error('The file_system service must be passed to JsCollectionOptimizer::__construct(), it is required before Drupal 9.0.0. See https://www.drupal.org/node/3006851.', E_USER_DEPRECATED);
-      $file_system = \Drupal::service('file_system');
-    }
-    $this->fileSystem = $file_system;
   }
 
   /**
@@ -95,8 +85,8 @@ class JsCollectionOptimizer implements AssetCollectionOptimizerInterface {
     // Drupal contrib can override this default JS aggregator to keep the same
     // grouping, optimizing and dumping, but change the strategy that is used to
     // determine when the aggregate should be rebuilt (e.g. mtime, HTTPS …).
-    $map = $this->state->get('system.js_cache_files') ?: [];
-    $js_assets = [];
+    $map = $this->state->get('system.js_cache_files') ?: array();
+    $js_assets = array();
     foreach ($js_groups as $order => $js_group) {
       // We have to return a single asset, not a group of assets. It is now up
       // to one of the pieces of code in the switch statement below to set the
@@ -152,8 +142,10 @@ class JsCollectionOptimizer implements AssetCollectionOptimizerInterface {
           break;
 
         case 'external':
-          // We don't do any aggregation and hence also no caching for external
-          // JS assets.
+        case 'setting':
+        case 'inline':
+          // We don't do any aggregation and hence also no caching for external,
+          // setting or inline JS assets.
           $uri = $js_group['items'][0]['data'];
           $js_assets[$order]['data'] = $uri;
           break;
@@ -173,7 +165,7 @@ class JsCollectionOptimizer implements AssetCollectionOptimizerInterface {
    *   A hash to uniquely identify the given group of JavaScript assets.
    */
   protected function generateHash(array $js_group) {
-    $js_data = [];
+    $js_data = array();
     foreach ($js_group['items'] as $js_file) {
       $js_data[] = $js_file['data'];
     }
@@ -192,15 +184,13 @@ class JsCollectionOptimizer implements AssetCollectionOptimizerInterface {
    */
   public function deleteAll() {
     $this->state->delete('system.js_cache_files');
-    $delete_stale = function ($uri) {
+    $delete_stale = function($uri) {
       // Default stale file threshold is 30 days.
       if (REQUEST_TIME - filemtime($uri) > \Drupal::config('system.performance')->get('stale_file_threshold')) {
-        $this->fileSystem->delete($uri);
+        file_unmanaged_delete($uri);
       }
     };
-    if (is_dir('public://js')) {
-      $this->fileSystem->scanDirectory('public://js', '/.*/', ['callback' => $delete_stale]);
-    }
+    file_scan_directory('public://js', '/.*/', array('callback' => $delete_stale));
   }
 
 }

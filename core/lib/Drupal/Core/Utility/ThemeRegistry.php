@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\Core\Utility\ThemeRegistry
+ */
+
 namespace Drupal\Core\Utility;
 
 use Drupal\Core\Cache\Cache;
@@ -24,8 +29,6 @@ class ThemeRegistry extends CacheCollector implements DestructableInterface {
    * This is only allowed if all modules and the request method is GET. _theme()
    * should be very rarely called on POST requests and this avoids polluting
    * the runtime cache.
-   *
-   * @var bool
    */
   protected $persistable;
 
@@ -48,14 +51,14 @@ class ThemeRegistry extends CacheCollector implements DestructableInterface {
    * @param bool $modules_loaded
    *   Whether all modules have already been loaded.
    */
-  public function __construct($cid, CacheBackendInterface $cache, LockBackendInterface $lock, $tags = [], $modules_loaded = FALSE) {
+  function __construct($cid, CacheBackendInterface $cache, LockBackendInterface $lock, $tags = array(), $modules_loaded = FALSE) {
     $this->cid = $cid;
     $this->cache = $cache;
     $this->lock = $lock;
     $this->tags = $tags;
     $this->persistable = $modules_loaded && \Drupal::hasRequest() && \Drupal::request()->isMethod('GET');
 
-    // @todo: Implement lazyload.
+     // @todo: Implement lazyload.
     $this->cacheLoaded = TRUE;
 
     if ($this->persistable && $cached = $this->cache->get($this->cid)) {
@@ -83,7 +86,7 @@ class ThemeRegistry extends CacheCollector implements DestructableInterface {
    *   An array with the keys of the full theme registry, but the values
    *   initialized to NULL.
    */
-  public function initializeRegistry() {
+  function initializeRegistry() {
     // @todo DIC this.
     $this->completeRegistry = \Drupal::service('theme.registry')->get();
 
@@ -98,7 +101,7 @@ class ThemeRegistry extends CacheCollector implements DestructableInterface {
     // are not registered, just check the existence of the key in the registry.
     // Use array_key_exists() here since a NULL value indicates that the theme
     // hook exists but has not yet been requested.
-    return isset($this->storage[$key]) || array_key_exists($key, $this->storage);
+    return array_key_exists($key, $this->storage);
   }
 
   /**
@@ -138,7 +141,7 @@ class ThemeRegistry extends CacheCollector implements DestructableInterface {
       return;
     }
     // @todo: Is the custom implementation necessary?
-    $data = [];
+    $data = array();
     foreach ($this->keysToPersist as $offset => $persist) {
       if ($persist) {
         $data[$offset] = $this->storage[$offset];

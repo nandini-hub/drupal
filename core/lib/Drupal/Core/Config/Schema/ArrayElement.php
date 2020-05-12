@@ -1,13 +1,34 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Config\Schema\ArrayElement.
+ */
+
 namespace Drupal\Core\Config\Schema;
 
-use Drupal\Core\TypedData\ComplexDataInterface;
+use Drupal\Component\Utility\SafeMarkup;
+use Drupal\Core\Config\TypedConfigManagerInterface;
+use Drupal\Core\TypedData\TypedData;
 
 /**
  * Defines a generic configuration element that contains multiple properties.
  */
-abstract class ArrayElement extends Element implements \IteratorAggregate, TypedConfigInterface, ComplexDataInterface {
+abstract class ArrayElement extends TypedData implements \IteratorAggregate, TypedConfigInterface {
+
+  /**
+   * The typed config manager.
+   *
+   * @var \Drupal\Core\Config\TypedConfigManagerInterface
+   */
+  protected $typedConfig;
+
+  /**
+   * The configuration value.
+   *
+   * @var mixed
+   */
+  protected $value;
 
   /**
    * Parsed elements.
@@ -21,7 +42,7 @@ abstract class ArrayElement extends Element implements \IteratorAggregate, Typed
    *   Array of valid configuration data keys.
    */
   protected function getAllKeys() {
-    return is_array($this->value) ? array_keys($this->value) : [];
+    return is_array($this->value) ? array_keys($this->value) : array();
   }
 
   /**
@@ -31,7 +52,7 @@ abstract class ArrayElement extends Element implements \IteratorAggregate, Typed
    *   An array of elements contained in this element.
    */
   protected function parse() {
-    $elements = [];
+    $elements = array();
     foreach ($this->getAllKeys() as $key) {
       $value = isset($this->value[$key]) ? $this->value[$key] : NULL;
       $definition = $this->getElementDefinition($key);
@@ -48,7 +69,7 @@ abstract class ArrayElement extends Element implements \IteratorAggregate, Typed
    *
    * @return \Drupal\Core\TypedData\DataDefinitionInterface
    */
-  abstract protected function getElementDefinition($key);
+  protected abstract function getElementDefinition($key);
 
   /**
    * {@inheritdoc}
@@ -73,7 +94,7 @@ abstract class ArrayElement extends Element implements \IteratorAggregate, Typed
       return $element;
     }
     else {
-      throw new \InvalidArgumentException("The configuration property $name doesn't exist.");
+      throw new \InvalidArgumentException(SafeMarkup::format("The configuration property @key doesn't exist.", array('@key' => $name)));
     }
   }
 
@@ -98,7 +119,7 @@ abstract class ArrayElement extends Element implements \IteratorAggregate, Typed
    * {@inheritdoc}
    */
   public function toArray() {
-    return isset($this->value) ? $this->value : [];
+    return isset($this->value) ? $this->value : array();
   }
 
   /**
@@ -112,7 +133,7 @@ abstract class ArrayElement extends Element implements \IteratorAggregate, Typed
   }
 
   /**
-   * {@inheritdoc}
+   * Implements IteratorAggregate::getIterator();
    */
   public function getIterator() {
     return new \ArrayIterator($this->getElements());
@@ -132,7 +153,7 @@ abstract class ArrayElement extends Element implements \IteratorAggregate, Typed
    * @return \Drupal\Core\TypedData\TypedDataInterface
    */
   protected function createElement($definition, $value, $key) {
-    return $this->getTypedDataManager()->create($definition, $value, $key, $this);
+    return $this->typedConfig->create($definition, $value, $key, $this);
   }
 
   /**
@@ -150,38 +171,20 @@ abstract class ArrayElement extends Element implements \IteratorAggregate, Typed
    * @return \Drupal\Core\TypedData\DataDefinitionInterface
    */
   protected function buildDataDefinition($definition, $value, $key) {
-    return $this->getTypedDataManager()->buildDataDefinition($definition, $value, $key, $this);
+    return $this->typedConfig->buildDataDefinition($definition, $value, $key, $this);
   }
 
+
   /**
-   * Determines if this element allows NULL as a value.
+   * Sets the typed config manager on the instance.
    *
-   * @return bool
-   *   TRUE if NULL is a valid value, FALSE otherwise.
+   * This must be called immediately after construction to enable
+   * self::parseElement() and self::buildDataDefinition() to work.
+   *
+   * @param \Drupal\Core\Config\TypedConfigManagerInterface $typed_config
    */
-  public function isNullable() {
-    return isset($this->definition['nullable']) && $this->definition['nullable'] == TRUE;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function set($property_name, $value, $notify = TRUE) {
-    $this->value[$property_name] = $value;
-    // Config schema elements do not make use of notifications. Thus, we skip
-    // notifying parents.
-    return $this;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function getProperties($include_computed = FALSE) {
-    $properties = [];
-    foreach (array_keys($this->value) as $name) {
-      $properties[$name] = $this->get($name);
-    }
-    return $properties;
+  public function setTypedConfig(TypedConfigManagerInterface $typed_config) {
+    $this->typedConfig = $typed_config;
   }
 
 }

@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Entity\Query\ConditionFundamentals.
+ */
+
 namespace Drupal\Core\Entity\Query;
 
 /**
@@ -12,7 +17,7 @@ abstract class ConditionFundamentals {
    *
    * @var array
    */
-  protected $conditions = [];
+  protected $conditions = array();
 
   /**
    * The conjunction of this condition group. The value is one of the following:
@@ -32,44 +37,32 @@ abstract class ConditionFundamentals {
   protected $query;
 
   /**
-   * List of potential namespaces of the classes belonging to this condition.
-   *
-   * @var array
-   */
-  protected $namespaces = [];
-
-  /**
    * Constructs a Condition object.
    *
    * @param string $conjunction
    *   The operator to use to combine conditions: 'AND' or 'OR'.
-   * @param QueryInterface $query
-   *   The entity query this condition belongs to.
-   * @param array $namespaces
-   *   List of potential namespaces of the classes belonging to this condition.
    */
-  public function __construct($conjunction, QueryInterface $query, $namespaces = []) {
+  public function __construct($conjunction, QueryInterface $query) {
     $this->conjunction = $conjunction;
     $this->query = $query;
-    $this->namespaces = $namespaces;
   }
 
   /**
-   * {@inheritdoc}
+   * Implements \Drupal\Core\Entity\Query\ConditionInterface::getConjunction().
    */
   public function getConjunction() {
     return $this->conjunction;
   }
 
   /**
-   * {@inheritdoc}
+   * Implements \Countable::count().
    */
   public function count() {
-    return count($this->conditions);
+    return count($this->conditions) - 1;
   }
 
   /**
-   * {@inheritdoc}
+   * Implements \Drupal\Core\Entity\Query\ConditionInterface::conditions().
    */
   public function &conditions() {
     return $this->conditions;
@@ -82,7 +75,7 @@ abstract class ConditionFundamentals {
    */
   public function __clone() {
     foreach ($this->conditions as $key => $condition) {
-      if ($condition['field'] instanceof ConditionInterface) {
+      if ($condition['field'] instanceOf ConditionInterface) {
         $this->conditions[$key]['field'] = clone($condition['field']);
       }
     }

@@ -1,12 +1,17 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\language\EventSubscriber\LanguageRequestSubscriber.
+ */
+
 namespace Drupal\language\EventSubscriber;
 
-use Drupal\Core\DrupalKernelInterface;
 use Drupal\Core\Session\AccountInterface;
 use Drupal\Core\StringTranslation\Translator\TranslatorInterface;
 use Drupal\language\ConfigurableLanguageManagerInterface;
 use Drupal\language\LanguageNegotiatorInterface;
+use Symfony\Component\HttpKernel\HttpKernelInterface;
 use Symfony\Component\HttpKernel\KernelEvents;
 use Symfony\Component\HttpKernel\Event\GetResponseEvent;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
@@ -33,14 +38,14 @@ class LanguageRequestSubscriber implements EventSubscriberInterface {
   /**
    * The translation service.
    *
-   * @var \Drupal\Core\StringTranslation\Translator\TranslatorInterface
+   * @var \Drupal\Core\StringTranslation\Translator\TranslatorInterface;
    */
   protected $translation;
 
   /**
    * The current active user.
    *
-   * @var \Drupal\Core\Session\AccountInterface
+   * @return \Drupal\Core\Session\AccountInterface
    */
   protected $currentUser;
 
@@ -49,9 +54,9 @@ class LanguageRequestSubscriber implements EventSubscriberInterface {
    *
    * @param \Drupal\language\ConfigurableLanguageManagerInterface $language_manager
    *   The language manager service.
-   * @param \Drupal\language\LanguageNegotiatorInterface $negotiator
+   * @param \Drupal\language\LanguageNegotiatorInterface
    *   The language negotiator.
-   * @param \Drupal\Core\StringTranslation\Translator\TranslatorInterface $translation
+   * @param \Drupal\Core\StringTranslation\Translator\TranslatorInterface $translation;
    *   The translation service.
    * @param \Drupal\Core\Session\AccountInterface $current_user
    *   The current active user.
@@ -64,37 +69,25 @@ class LanguageRequestSubscriber implements EventSubscriberInterface {
   }
 
   /**
-   * Initializes the language manager at the beginning of the request.
+   * Sets the request on the language manager.
    *
    * @param \Symfony\Component\HttpKernel\Event\GetResponseEvent $event
    *   The Event to process.
    */
   public function onKernelRequestLanguage(GetResponseEvent $event) {
-    if ($event->isMasterRequest()) {
-      $this->setLanguageOverrides();
+    if ($event->getRequestType() == HttpKernelInterface::MASTER_REQUEST) {
+      $request = $event->getRequest();
+      $this->negotiator->setCurrentUser($this->currentUser);
+      $this->negotiator->reset();
+      if ($this->languageManager instanceof ConfigurableLanguageManagerInterface) {
+        $this->languageManager->setNegotiator($this->negotiator);
+        $this->languageManager->setConfigOverrideLanguage($this->languageManager->getCurrentLanguage());
+      }
+      // After the language manager has initialized, set the default langcode
+      // for the string translations.
+      $langcode = $this->languageManager->getCurrentLanguage()->getId();
+      $this->translation->setDefaultLangcode($langcode);
     }
-  }
-
-  /**
-   * Initializes config overrides whenever the service container is rebuilt.
-   */
-  public function onContainerInitializeSubrequestFinished() {
-    $this->setLanguageOverrides();
-  }
-
-  /**
-   * Sets the language for config overrides on the language manager.
-   */
-  private function setLanguageOverrides() {
-    $this->negotiator->setCurrentUser($this->currentUser);
-    if ($this->languageManager instanceof ConfigurableLanguageManagerInterface) {
-      $this->languageManager->setNegotiator($this->negotiator);
-      $this->languageManager->setConfigOverrideLanguage($this->languageManager->getCurrentLanguage());
-    }
-    // After the language manager has initialized, set the default langcode for
-    // the string translations.
-    $langcode = $this->languageManager->getCurrentLanguage()->getId();
-    $this->translation->setDefaultLangcode($langcode);
   }
 
   /**
@@ -103,9 +96,8 @@ class LanguageRequestSubscriber implements EventSubscriberInterface {
    * @return array
    *   An array of event listener definitions.
    */
-  public static function getSubscribedEvents() {
-    $events[KernelEvents::REQUEST][] = ['onKernelRequestLanguage', 255];
-    $events[DrupalKernelInterface::CONTAINER_INITIALIZE_SUBREQUEST_FINISHED][] = ['onContainerInitializeSubrequestFinished', 255];
+  static function getSubscribedEvents() {
+    $events[KernelEvents::REQUEST][] = array('onKernelRequestLanguage', 255);
 
     return $events;
   }

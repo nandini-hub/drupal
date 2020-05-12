@@ -1,4 +1,8 @@
 <?php
+/**
+ * @file
+ * Contains \Drupal\form_test\Controller\FormTestController.
+ */
 
 namespace Drupal\form_test\Controller;
 
@@ -20,13 +24,13 @@ class FormTestController extends ControllerBase {
    */
   public function twoFormInstances() {
     $user = $this->currentUser();
-    $values = [
+    $values = array(
       'uid' => $user->id(),
-      'name' => $user->getAccountName(),
+      'name' => $user->getUsername(),
       'type' => 'page',
       'langcode' => LanguageInterface::LANGCODE_NOT_SPECIFIED,
-    ];
-    $node1 = $this->entityTypeManager()->getStorage('node')->create($values);
+    );
+    $node1 = $this->entityManager()->getStorage('node')->create($values);
     $node2 = clone($node1);
     $return['node_form_1'] = $this->entityFormBuilder()->getForm($node1);
     $return['node_form_2'] = $this->entityFormBuilder()->getForm($node2);

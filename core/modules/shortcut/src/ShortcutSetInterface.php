@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\shortcut\ShortcutSetInterface.
+ */
+
 namespace Drupal\shortcut;
 
 use Drupal\Core\Config\Entity\ConfigEntityInterface;
@@ -16,7 +21,7 @@ interface ShortcutSetInterface extends ConfigEntityInterface {
    * to the set. If the link is added to the end of the array and this function
    * is called, it will force that link to display at the end of the list.
    *
-   * @return $this
+   * @return \Drupal\shortcut\ShortcutSetInterface
    *   The shortcut set.
    */
   public function resetLinkWeights();

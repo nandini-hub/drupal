@@ -5,7 +5,20 @@
  * Provides Config module hook implementations for testing purposes.
  */
 
+use Drupal\config_test\Entity\ConfigTest;
+use Symfony\Component\HttpFoundation\RedirectResponse;
+
 require_once dirname(__FILE__) . '/config_test.hooks.inc';
+
+/**
+ * Loads a ConfigTest object.
+ *
+ * @param string $id
+ *   The ID of the ConfigTest object to load.
+ */
+function config_test_load($id) {
+  return entity_load('config_test', $id);
+}
 
 /**
  * Implements hook_cache_flush().
@@ -13,6 +26,15 @@ require_once dirname(__FILE__) . '/config_test.hooks.inc';
 function config_test_cache_flush() {
   // Set a global value we can check in test code.
   $GLOBALS['hook_cache_flush'] = __FUNCTION__;
+}
+
+/**
+ * Implements hook_ENTITY_TYPE_create() for 'config_test'.
+ */
+function config_test_config_test_create(ConfigTest $config_test) {
+  if (\Drupal::state()->get('config_test.prepopulate')) {
+    $config_test->set('foo', 'baz');
+  }
 }
 
 /**
@@ -36,8 +58,4 @@ function config_test_entity_type_alter(array &$entity_types) {
   $config_test_no_status->set('id', 'config_test_no_status');
   $config_test_no_status->set('entity_keys', $keys);
   $config_test_no_status->set('config_prefix', 'no_status');
-  $config_test_no_status->set('mergedConfigExport', ['id' => 'id', 'label' => 'label']);
-  if (\Drupal::service('state')->get('config_test.lookup_keys', FALSE)) {
-    $entity_types['config_test']->set('lookup_keys', ['uuid', 'style']);
-  }
 }

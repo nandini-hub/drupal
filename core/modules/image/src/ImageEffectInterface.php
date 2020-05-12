@@ -1,10 +1,13 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\image\ImageEffectInterface.
+ */
+
 namespace Drupal\image;
 
-use Drupal\Component\Plugin\ConfigurableInterface;
 use Drupal\Component\Plugin\ConfigurablePluginInterface;
-use Drupal\Component\Plugin\DependentPluginInterface;
 use Drupal\Component\Plugin\PluginInspectionInterface;
 use Drupal\Core\Image\ImageInterface;
 
@@ -18,7 +21,7 @@ use Drupal\Core\Image\ImageInterface;
  * @see \Drupal\image\ImageEffectManager
  * @see plugin_api
  */
-interface ImageEffectInterface extends PluginInspectionInterface, ConfigurableInterface, DependentPluginInterface, ConfigurablePluginInterface {
+interface ImageEffectInterface extends PluginInspectionInterface, ConfigurablePluginInterface {
 
   /**
    * Applies an image effect to the image object.
@@ -40,19 +43,12 @@ interface ImageEffectInterface extends PluginInspectionInterface, ConfigurableIn
    *   - height: the height in pixels, or NULL if unknown
    *   When either of the dimensions are NULL, the corresponding HTML attribute
    *   will be omitted when an image style using this image effect is used.
-   * @param string $uri
-   *   Original image file URI. It is passed in to allow an effect to
-   *   optionally use this information to retrieve additional image metadata
-   *   to determine dimensions of the styled image.
-   *   ImageEffectInterface::transformDimensions key objective is to calculate
-   *   styled image dimensions without performing actual image operations, so
-   *   be aware that performing IO on the URI may lead to decrease in
-   *   performance.
    */
-  public function transformDimensions(array &$dimensions, $uri);
+  public function transformDimensions(array &$dimensions);
 
   /**
-   * Returns the extension of the derivative after applying this image effect.
+   * Returns the extension the derivative would have have after applying this
+   * image effect.
    *
    * @param string $extension
    *   The file extension the derivative has before applying.

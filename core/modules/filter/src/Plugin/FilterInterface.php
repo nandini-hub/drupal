@@ -1,11 +1,14 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\filter\Plugin\FilterInterface.
+ */
+
 namespace Drupal\filter\Plugin;
 
-use Drupal\Component\Plugin\ConfigurablePluginInterface;
 use Drupal\Component\Plugin\PluginInspectionInterface;
-use Drupal\Component\Plugin\ConfigurableInterface;
-use Drupal\Component\Plugin\DependentPluginInterface;
+use Drupal\Component\Plugin\ConfigurablePluginInterface;
 use Drupal\Core\Form\FormStateInterface;
 
 /**
@@ -34,7 +37,7 @@ use Drupal\Core\Form\FormStateInterface;
  * should then actually change the content: transform URLs into hyperlinks,
  * convert smileys into images, etc.
  *
- * @see \Drupal\filter\Plugin\FilterInterface::process()
+ * @see filter_process_text()
  * @see check_markup()
  *
  * Typically, only text processing is applied, but in more advanced use cases,
@@ -43,24 +46,24 @@ use Drupal\Core\Form\FormStateInterface;
  * - declare cache tags that the resulting filtered text depends upon, so when
  *   either of those cache tags is invalidated, the render-cached HTML that the
  *   filtered text is part of should also be invalidated;
- * - create placeholders to apply uncacheable filtering, for example because it
- *   changes every few seconds.
+ * - declare #post_render_cache callbacks to apply uncacheable filtering, for
+ *   example because it differs per user.
  *
  * @see \Drupal\filter\Plugin\FilterInterface::process()
  *
  * Filters are discovered through annotations, which may contain the following
  * definition properties:
  * - title: (required) An administrative summary of what the filter does.
- * - type: (required) A classification of the filter's purpose. This is one of
- *   the following:
- *   - FilterInterface::TYPE_HTML_RESTRICTOR: HTML tag and attribute restricting
- *     filters.
- *   - FilterInterface::TYPE_MARKUP_LANGUAGE: Non-HTML markup language filters
- *     that generate HTML.
- *   - FilterInterface::TYPE_TRANSFORM_IRREVERSIBLE: Irreversible transformation
- *     filters.
- *   - FilterInterface::TYPE_TRANSFORM_REVERSIBLE: Reversible transformation
- *     filters.
+ *   - type: (required) A classification of the filter's purpose. This is one
+ *     of the following:
+ *     - FilterInterface::TYPE_HTML_RESTRICTOR: HTML tag and attribute
+ *       restricting filters.
+ *     - FilterInterface::TYPE_MARKUP_LANGUAGE: Non-HTML markup language filters
+ *       that generate HTML.
+ *     - FilterInterface::TYPE_TRANSFORM_IRREVERSIBLE: Irreversible
+ *       transformation filters.
+ *     - FilterInterface::TYPE_TRANSFORM_REVERSIBLE: Reversible transformation
+ *       filters.
  * - description: Additional administrative information about the filter's
  *   behavior, if needed for clarification.
  * - status: The default status for new instances of the filter. Defaults to
@@ -77,27 +80,27 @@ use Drupal\Core\Form\FormStateInterface;
  * @see \Drupal\filter\Plugin\FilterBase
  * @see plugin_api
  */
-interface FilterInterface extends ConfigurableInterface, DependentPluginInterface, ConfigurablePluginInterface, PluginInspectionInterface {
+interface FilterInterface extends ConfigurablePluginInterface, PluginInspectionInterface {
 
-  /**
-   * Non-HTML markup language filters that generate HTML.
-   */
-  const TYPE_MARKUP_LANGUAGE = 0;
+   /**
+    * Non-HTML markup language filters that generate HTML.
+    */
+   const TYPE_MARKUP_LANGUAGE = 0;
 
-  /**
-   * HTML tag and attribute restricting filters to prevent XSS attacks.
-   */
-  const TYPE_HTML_RESTRICTOR = 1;
+   /**
+    * HTML tag and attribute restricting filters to prevent XSS attacks.
+    */
+   const TYPE_HTML_RESTRICTOR = 1;
 
-  /**
-   * Reversible transformation filters.
-   */
-  const TYPE_TRANSFORM_REVERSIBLE = 2;
+   /**
+    * Reversible transformation filters.
+    */
+   const TYPE_TRANSFORM_REVERSIBLE = 2;
 
-  /**
-   * Irreversible transformation filters.
-   */
-  const TYPE_TRANSFORM_IRREVERSIBLE = 3;
+   /**
+    * Irreversible transformation filters.
+    */
+   const TYPE_TRANSFORM_IRREVERSIBLE = 3;
 
   /**
    * Returns the processing type of this filter plugin.
@@ -166,7 +169,7 @@ interface FilterInterface extends ConfigurableInterface, DependentPluginInterfac
    *
    * @return \Drupal\filter\FilterProcessResult
    *   The filtered text, wrapped in a FilterProcessResult object, and possibly
-   *   with associated assets, cacheability metadata and placeholders.
+   *   with associated assets, cache tags and #post_render_cache callbacks.
    *
    * @see \Drupal\filter\FilterProcessResult
    */
@@ -184,7 +187,7 @@ interface FilterInterface extends ConfigurableInterface, DependentPluginInterfac
    * a generic manner into which HTML tags and attributes are allowed by a
    * format.
    *
-   * @return array|false
+   * @return array|FALSE
    *   A nested array with *either* of the following keys:
    *     - 'allowed': (optional) the allowed tags as keys, and for each of those
    *       tags (keys) either of the following values:

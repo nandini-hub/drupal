@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Entity\EntityReferenceSelection\SelectionPluginManagerInterface.
+ */
+
 namespace Drupal\Core\Entity\EntityReferenceSelection;
 
 use Drupal\Component\Plugin\PluginManagerInterface;
@@ -25,7 +30,7 @@ interface SelectionPluginManagerInterface extends PluginManagerInterface {
   public function getPluginId($target_type, $base_plugin_id);
 
   /**
-   * Gets the selection plugins that can reference a specific entity type.
+   * Returns selection plugins that can reference a specific entity type.
    *
    * @param string $entity_type_id
    *   A Drupal entity type ID.

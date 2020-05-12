@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Field\Plugin\Field\FieldFormatter\EntityReferenceFormatterBase.
+ */
+
 namespace Drupal\Core\Field\Plugin\Field\FieldFormatter;
 
 use Drupal\Core\Cache\CacheableMetadata;
@@ -31,25 +36,24 @@ abstract class EntityReferenceFormatterBase extends FormatterBase {
    *
    * @param \Drupal\Core\Field\EntityReferenceFieldItemListInterface $items
    *   The item list.
-   * @param string $langcode
-   *   The language code of the referenced entities to display.
    *
    * @return \Drupal\Core\Entity\EntityInterface[]
    *   The array of referenced entities to display, keyed by delta.
    *
    * @see ::prepareView()
    */
-  protected function getEntitiesToView(EntityReferenceFieldItemListInterface $items, $langcode) {
-    $entities = [];
+  protected function getEntitiesToView(EntityReferenceFieldItemListInterface $items) {
+    $entities = array();
 
+    $parent_entity_langcode = $items->getEntity()->language()->getId();
     foreach ($items as $delta => $item) {
       // Ignore items where no entity could be loaded in prepareView().
       if (!empty($item->_loaded)) {
         $entity = $item->entity;
 
         // Set the entity in the correct language for display.
-        if ($entity instanceof TranslatableInterface) {
-          $entity = \Drupal::service('entity.repository')->getTranslationFromContext($entity, $langcode);
+        if ($entity instanceof TranslatableInterface && $entity->hasTranslation($parent_entity_langcode)) {
+          $entity = $entity->getTranslation($parent_entity_langcode);
         }
 
         $access = $this->checkAccess($entity);
@@ -72,8 +76,8 @@ abstract class EntityReferenceFormatterBase extends FormatterBase {
    * @see ::prepareView()
    * @see ::getEntitiestoView()
    */
-  public function view(FieldItemListInterface $items, $langcode = NULL) {
-    $elements = parent::view($items, $langcode);
+  public function view(FieldItemListInterface $items) {
+    $elements = parent::view($items);
 
     $field_level_access_cacheability = new CacheableMetadata();
 
@@ -104,8 +108,7 @@ abstract class EntityReferenceFormatterBase extends FormatterBase {
     // tags on which the access results depend, to ensure users that cannot view
     // this field at the moment will gain access once any of those cache tags
     // are invalidated.
-    $field_level_access_cacheability->merge(CacheableMetadata::createFromRenderArray($elements))
-      ->applyTo($elements);
+    $field_level_access_cacheability->applyTo($elements);
 
     return $elements;
   }
@@ -121,7 +124,7 @@ abstract class EntityReferenceFormatterBase extends FormatterBase {
     // "multiple entity load" to load all the entities for the multiple
     // "entity reference item lists" being displayed. We thus cannot use
     // \Drupal\Core\Field\EntityReferenceFieldItemList::referencedEntities().
-    $ids = [];
+    $ids = array();
     foreach ($entities_items as $items) {
       foreach ($items as $item) {
         // To avoid trying to reload non-existent entities in
@@ -136,7 +139,7 @@ abstract class EntityReferenceFormatterBase extends FormatterBase {
     }
     if ($ids) {
       $target_type = $this->getFieldSetting('target_type');
-      $target_entities = \Drupal::entityTypeManager()->getStorage($target_type)->loadMultiple($ids);
+      $target_entities = \Drupal::entityManager()->getStorage($target_type)->loadMultiple($ids);
     }
 
     // For each item, pre-populate the loaded entity in $item->entity, and set
@@ -158,7 +161,7 @@ abstract class EntityReferenceFormatterBase extends FormatterBase {
    * Returns whether the entity referenced by an item needs to be loaded.
    *
    * @param \Drupal\Core\Field\Plugin\Field\FieldType\EntityReferenceItem $item
-   *   The item to check.
+   *    The item to check.
    *
    * @return bool
    *   TRUE if the entity needs to be loaded.
@@ -170,12 +173,12 @@ abstract class EntityReferenceFormatterBase extends FormatterBase {
   /**
    * Checks access to the given entity.
    *
-   * By default, entity 'view' access is checked. However, a subclass can choose
-   * to exclude certain items from entity access checking by immediately
-   * granting access.
+   * By default, entity access is checked. However, a subclass can choose to
+   * exclude certain items from entity access checking by immediately granting
+   * access.
    *
    * @param \Drupal\Core\Entity\EntityInterface $entity
-   *   The entity to check.
+   *    The entity to check.
    *
    * @return \Drupal\Core\Access\AccessResult
    *   A cacheable access result.

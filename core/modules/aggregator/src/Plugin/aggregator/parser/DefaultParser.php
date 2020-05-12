@@ -1,10 +1,14 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\aggregator\Plugin\aggregator\parser\DefaultParser.
+ */
+
 namespace Drupal\aggregator\Plugin\aggregator\parser;
 
 use Drupal\aggregator\Plugin\ParserInterface;
 use Drupal\aggregator\FeedInterface;
-use Drupal\Core\Messenger\MessengerTrait;
 use Zend\Feed\Reader\Reader;
 use Zend\Feed\Reader\Exception\ExceptionInterface;
 
@@ -21,8 +25,6 @@ use Zend\Feed\Reader\Exception\ExceptionInterface;
  */
 class DefaultParser implements ParserInterface {
 
-  use MessengerTrait;
-
   /**
    * {@inheritdoc}
    */
@@ -34,7 +36,7 @@ class DefaultParser implements ParserInterface {
     }
     catch (ExceptionInterface $e) {
       watchdog_exception('aggregator', $e);
-      $this->messenger()->addError(t('The feed from %site seems to be broken because of error "%error".', ['%site' => $feed->label(), '%error' => $e->getMessage()]));
+      drupal_set_message(t('The feed from %site seems to be broken because of error "%error".', array('%site' => $feed->label(), '%error' => $e->getMessage())), 'error');
 
       return FALSE;
     }
@@ -45,10 +47,10 @@ class DefaultParser implements ParserInterface {
       $feed->setImage($image['uri']);
     }
     // Initialize items array.
-    $feed->items = [];
+    $feed->items = array();
     foreach ($channel as $item) {
       // Reset the parsed item.
-      $parsed_item = [];
+      $parsed_item = array();
       // Move the values to an array as expected by processors.
       $parsed_item['title'] = $item->getTitle();
       $parsed_item['guid'] = $item->getId();

@@ -1,5 +1,12 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Utility\ProjectInfo.
+ *
+ * API for building lists of installed projects.
+ */
+
 namespace Drupal\Core\Utility;
 
 use Drupal\Core\Extension\Extension;
@@ -12,18 +19,20 @@ class ProjectInfo {
   /**
    * Populates an array of project data.
    *
+   * @todo https://www.drupal.org/node/2338167 update class since extensions can
+   *   no longer be hidden, enabled or disabled. Additionally, base themes have
+   *   to be installed for sub themes to work.
+   *
    * This iterates over a list of the installed modules or themes and groups
    * them by project and status. A few parts of this function assume that
-   * enabled modules and themes are always processed first, and if uninstalled
+   * enabled modules and themes are always processed first, and if disabled
    * modules or themes are being processed (there is a setting to control if
-   * uninstalled code should be included in the Available updates report or
-   * not),those are only processed after $projects has been populated with
-   * information about the enabled code. 'Hidden' modules and themes are
-   * ignored if they are not installed. 'Hidden' Modules and themes in the
-   * "Testing" package are ignored regardless of installation status.
-   *
-   * This function also records the latest change time on the .info.yml files
-   * for each module or theme, which is important data which is used when
+   * disabled code should be included in the Available updates report or not),
+   * those are only processed after $projects has been populated with
+   * information about the enabled code. 'Hidden' modules are always ignored.
+   * 'Hidden' themes are ignored only if they have no enabled sub-themes.
+   * This function also records the latest change time on the .info.yml
+   * files for each module or theme, which is important data which is used when
    * deciding if the available update data should be invalidated.
    *
    * @param array $projects
@@ -33,16 +42,33 @@ class ProjectInfo {
    * @param string $project_type
    *   The kind of data in the list. Can be 'module' or 'theme'.
    * @param bool $status
-   *   Boolean that controls what status (enabled or uninstalled) to process out
-   *   of the $list and add to the $projects array.
+   *   Boolean that controls what status (enabled or disabled) to process out of
+   *   the $list and add to the $projects array.
    * @param array $additional_whitelist
    *   (optional) Array of additional elements to be collected from the .info.yml
    *   file. Defaults to array().
    */
-  public function processInfoList(array &$projects, array $list, $project_type, $status, array $additional_whitelist = []) {
+  function processInfoList(array &$projects, array $list, $project_type, $status, array $additional_whitelist = array()) {
     foreach ($list as $file) {
-      // Just projects with a matching status should be listed.
-      if ($file->status != $status) {
+      // A disabled or hidden base theme of an enabled sub-theme still has all
+      // of its code run by the sub-theme, so we include it in our "enabled"
+      // projects list.
+      if ($status && !empty($file->sub_themes)) {
+        foreach ($file->sub_themes as $key => $name) {
+          // Build a list of installed sub-themes.
+          if ($list[$key]->status) {
+            $file->installed_sub_themes[$key] = $name;
+          }
+        }
+        // If the theme is uninstalled and there are no installed subthemes, we
+        // should ignore this base theme for the installed case. If the site is
+        // trying to display uninstalled themes, we'll catch it then.
+        if (!$file->status && empty($file->installed_sub_themes)) {
+          continue;
+        }
+      }
+      // Otherwise, just add projects of the proper status to our list.
+      elseif ($file->status != $status) {
         continue;
       }
 
@@ -51,15 +77,9 @@ class ProjectInfo {
         continue;
       }
 
-      // Skip if it's a hidden project and the project is not installed.
-      if (!empty($file->info['hidden']) && empty($status)) {
-        continue;
-      }
-
-      // Skip if it's a hidden project and the project is a test project. Tests
-      // should use hook_system_info_alter() to test ProjectInfo's
-      // functionality.
-      if (!empty($file->info['hidden']) && isset($file->info['package']) && $file->info['package'] == 'Testing') {
+      // Skip if it's a hidden module or hidden theme without installed
+      // sub-themes.
+      if (!empty($file->info['hidden']) && empty($file->installed_sub_themes)) {
         continue;
       }
 
@@ -100,40 +120,62 @@ class ProjectInfo {
       else {
         $project_display_type = $project_type;
       }
-      if (empty($status)) {
-        // If we're processing uninstalled modules or themes, append a suffix.
+      if (empty($status) && empty($file->installed_sub_themes)) {
+        // If we're processing disabled modules or themes, append a suffix.
+        // However, we don't do this to a base theme with installed
+        // subthemes, since we treat that case as if it is installed.
         $project_display_type .= '-disabled';
+      }
+      // Add a list of sub-themes that "depend on" the project and a list of base
+      // themes that are "required by" the project.
+      if ($project_name == 'drupal') {
+        // Drupal core is always required, so this extra info would be noise.
+        $sub_themes = array();
+        $base_themes = array();
+      }
+      else {
+        // Add list of installed sub-themes.
+        $sub_themes = !empty($file->installed_sub_themes) ? $file->installed_sub_themes : array();
+        // Add list of base themes.
+        $base_themes = !empty($file->base_themes) ? $file->base_themes : array();
       }
       if (!isset($projects[$project_name])) {
         // Only process this if we haven't done this project, since a single
         // project can have multiple modules or themes.
-        $projects[$project_name] = [
+        $projects[$project_name] = array(
           'name' => $project_name,
           // Only save attributes from the .info.yml file we care about so we do
           // not bloat our RAM usage needlessly.
           'info' => $this->filterProjectInfo($file->info, $additional_whitelist),
           'datestamp' => $file->info['datestamp'],
-          'includes' => [$file->getName() => $file->info['name']],
+          'includes' => array($file->getName() => $file->info['name']),
           'project_type' => $project_display_type,
           'project_status' => $status,
-        ];
+          'sub_themes' => $sub_themes,
+          'base_themes' => $base_themes,
+        );
       }
       elseif ($projects[$project_name]['project_type'] == $project_display_type) {
         // Only add the file we're processing to the 'includes' array for this
         // project if it is of the same type and status (which is encoded in the
-        // $project_display_type). This prevents listing all the uninstalled
+        // $project_display_type). This prevents listing all the disabled
         // modules included with an enabled project if we happen to be checking
-        // for uninstalled modules, too.
+        // for disabled modules, too.
         $projects[$project_name]['includes'][$file->getName()] = $file->info['name'];
         $projects[$project_name]['info']['_info_file_ctime'] = max($projects[$project_name]['info']['_info_file_ctime'], $file->info['_info_file_ctime']);
         $projects[$project_name]['datestamp'] = max($projects[$project_name]['datestamp'], $file->info['datestamp']);
+        if (!empty($sub_themes)) {
+          $projects[$project_name]['sub_themes'] += $sub_themes;
+        }
+        if (!empty($base_themes)) {
+          $projects[$project_name]['base_themes'] += $base_themes;
+        }
       }
       elseif (empty($status)) {
         // If we have a project_name that matches, but the project_display_type
-        // does not, it means we're processing a uninstalled module or theme
-        // that belongs to a project that has some enabled code. In this case,
-        // we add the uninstalled thing into a separate array for separate
-        // display.
+        // does not, it means we're processing a disabled module or theme that
+        // belongs to a project that has some enabled code. In this case, we add
+        // the disabled thing into a separate array for separate display.
         $projects[$project_name]['disabled'][$file->getName()] = $file->info['name'];
       }
     }
@@ -148,7 +190,7 @@ class ProjectInfo {
    * @return string
    *   The canonical project short name.
    */
-  public function getProjectName(Extension $file) {
+  function getProjectName(Extension $file) {
     $project_name = '';
     if (isset($file->info['project'])) {
       $project_name = $file->info['project'];
@@ -172,10 +214,10 @@ class ProjectInfo {
    * @return
    *   Array of .info.yml file data we need for the update manager.
    *
-   * @see \Drupal\Core\Utility\ProjectInfo::processInfoList()
+   * @see \Drupal\Core\Utility\ProjectInfo->processInfoList()
    */
-  public function filterProjectInfo($info, $additional_whitelist = []) {
-    $whitelist = [
+  function filterProjectInfo($info, $additional_whitelist = array()) {
+    $whitelist = array(
       '_info_file_ctime',
       'datestamp',
       'major',
@@ -184,7 +226,7 @@ class ProjectInfo {
       'project',
       'project status url',
       'version',
-    ];
+    );
     $whitelist = array_merge($whitelist, $additional_whitelist);
     return array_intersect_key($info, array_combine($whitelist, $whitelist));
   }

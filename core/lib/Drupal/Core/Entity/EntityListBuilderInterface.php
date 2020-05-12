@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Entity\EntityListBuilderInterface.
+ */
+
 namespace Drupal\Core\Entity;
 
 /**
@@ -22,9 +27,7 @@ interface EntityListBuilderInterface {
    * sorting the loaded entities.
    *
    * @return \Drupal\Core\Entity\EntityInterface[]
-   *   An array of entities implementing \Drupal\Core\Entity\EntityInterface
-   *   indexed by their IDs. Returns an empty array if no matching entities are
-   *   found.
+   *   An array of entities implementing \Drupal\Core\Entity\EntityInterface.
    */
   public function load();
 
@@ -38,17 +41,17 @@ interface EntityListBuilderInterface {
    *   An associative array of operation link data for this list, keyed by
    *   operation name, containing the following key-value pairs:
    *   - title: The localized title of the operation.
-   *   - url: An instance of \Drupal\Core\Url for the operation URL.
+   *   - href: The path for the operation.
+   *   - options: An array of URL options for the path.
    *   - weight: The weight of this operation.
    */
   public function getOperations(EntityInterface $entity);
 
   /**
-   * Builds a listing of entities for the given entity type.
+   * Returns a listing of entities for the given entity type.
    *
    * @return array
-   *   A render array as expected by
-   *   \Drupal\Core\Render\RendererInterface::render().
+   *   A render array as expected by drupal_render().
    */
   public function render();
 

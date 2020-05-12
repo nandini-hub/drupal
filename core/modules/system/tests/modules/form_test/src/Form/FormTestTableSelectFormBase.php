@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\form_test\Form\FormTestTableSelectFormBase.
+ */
+
 namespace Drupal\form_test\Form;
 
 use Drupal\Core\Form\FormBase;
@@ -7,8 +12,6 @@ use Drupal\Core\Form\FormStateInterface;
 
 /**
  * Provides a base class for tableselect forms.
- *
- * @internal
  */
 abstract class FormTestTableSelectFormBase extends FormBase {
 
@@ -25,29 +28,23 @@ abstract class FormTestTableSelectFormBase extends FormBase {
    * @return array
    *   A form with a tableselect element and a submit button.
    */
-  public function tableselectFormBuilder($form, FormStateInterface $form_state, $element_properties) {
+  function tableselectFormBuilder($form, FormStateInterface $form_state, $element_properties) {
     list($header, $options) = _form_test_tableselect_get_data();
 
     $form['tableselect'] = $element_properties;
 
-    $form['tableselect'] += [
-      '#prefix' => '<div id="tableselect-wrapper">',
-      '#suffix' => '</div>',
+    $form['tableselect'] += array(
       '#type' => 'tableselect',
       '#header' => $header,
       '#options' => $options,
       '#multiple' => FALSE,
       '#empty' => t('Empty text.'),
-      '#ajax' => [
-        'callback' => 'form_test_tableselect_ajax_callback',
-        'wrapper' => 'tableselect-wrapper',
-      ],
-    ];
+    );
 
-    $form['submit'] = [
+    $form['submit'] = array(
       '#type' => 'submit',
       '#value' => t('Submit'),
-    ];
+    );
 
     return $form;
   }

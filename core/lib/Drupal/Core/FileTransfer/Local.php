@@ -1,132 +1,110 @@
 <?php
 
-namespace Drupal\Core\FileTransfer;
+/**
+ * @file
+ * Definition of Drupal\Core\FileTransfer\Local.
+ */
 
-use Drupal\Core\DependencyInjection\DependencySerializationTrait;
-use Drupal\Core\File\FileSystemInterface;
+namespace Drupal\Core\FileTransfer;
 
 /**
  * Defines the local connection class for copying files as the httpd user.
  */
 class Local extends FileTransfer implements ChmodInterface {
 
-  use DependencySerializationTrait;
-
   /**
-   * The file system service.
-   *
-   * @var \Drupal\Core\File\FileSystemInterface
-   */
-  protected $fileSystem;
-
-  /**
-   * {@inheritdoc}
-   */
-  public function __construct($jail, FileSystemInterface $file_system = NULL) {
-    parent::__construct($jail);
-    if (!isset($file_system)) {
-      @trigger_error('The $file_system parameter was added in Drupal 8.8.0 and will be required in 9.0.0. See https://www.drupal.org/node/3021434.', E_USER_DEPRECATED);
-      $file_system = \Drupal::service('file_system');
-    }
-    $this->fileSystem = $file_system;
-  }
-
-  /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\FileTransfer\FileTransfer::connect().
    */
   public function connect() {
     // No-op
   }
 
   /**
-   * {@inheritdoc}
+   * Overrides Drupal\Core\FileTransfer\FileTransfer::factory().
    */
-  public static function factory($jail, $settings) {
-    return new Local($jail, \Drupal::service('file_system'));
+  static function factory($jail, $settings) {
+    return new Local($jail);
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\FileTransfer\FileTransfer::copyFileJailed().
    */
   protected function copyFileJailed($source, $destination) {
     if (@!copy($source, $destination)) {
-      throw new FileTransferException('Cannot copy %source to %destination.', NULL, ['%source' => $source, '%destination' => $destination]);
+      throw new FileTransferException('Cannot copy %source to %destination.', NULL, array('%source' => $source, '%destination' => $destination));
     }
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\FileTransfer\FileTransfer::createDirectoryJailed().
    */
   protected function createDirectoryJailed($directory) {
     if (!is_dir($directory) && @!mkdir($directory, 0777, TRUE)) {
-      throw new FileTransferException('Cannot create directory %directory.', NULL, ['%directory' => $directory]);
+      throw new FileTransferException('Cannot create directory %directory.', NULL, array('%directory' => $directory));
     }
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\FileTransfer\FileTransfer::removeDirectoryJailed().
    */
   protected function removeDirectoryJailed($directory) {
     if (!is_dir($directory)) {
       // Programmer error assertion, not something we expect users to see.
-      throw new FileTransferException('removeDirectoryJailed() called with a path (%directory) that is not a directory.', NULL, ['%directory' => $directory]);
+      throw new FileTransferException('removeDirectoryJailed() called with a path (%directory) that is not a directory.', NULL, array('%directory' => $directory));
     }
-    /** @var \Drupal\Core\File\FileSystemInterface $file_system */
-    $file_system = \Drupal::service('file_system');
     foreach (new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($directory, \RecursiveDirectoryIterator::SKIP_DOTS), \RecursiveIteratorIterator::CHILD_FIRST) as $filename => $file) {
       if ($file->isDir()) {
-        if (@!$file_system->rmdir($filename)) {
-          throw new FileTransferException('Cannot remove directory %directory.', NULL, ['%directory' => $filename]);
+        if (@!drupal_rmdir($filename)) {
+          throw new FileTransferException('Cannot remove directory %directory.', NULL, array('%directory' => $filename));
         }
       }
       elseif ($file->isFile()) {
-        if (@!$this->fileSystem->unlink($filename)) {
-          throw new FileTransferException('Cannot remove file %file.', NULL, ['%file' => $filename]);
+        if (@!drupal_unlink($filename)) {
+          throw new FileTransferException('Cannot remove file %file.', NULL, array('%file' => $filename));
         }
       }
     }
-    if (@!$file_system->rmdir($directory)) {
-      throw new FileTransferException('Cannot remove directory %directory.', NULL, ['%directory' => $directory]);
+    if (@!drupal_rmdir($directory)) {
+      throw new FileTransferException('Cannot remove directory %directory.', NULL, array('%directory' => $directory));
     }
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\FileTransfer\FileTransfer::removeFileJailed().
    */
   protected function removeFileJailed($file) {
-    if (@!$this->fileSystem->unlink($file)) {
-      throw new FileTransferException('Cannot remove file %file.', NULL, ['%file' => $file]);
+    if (@!drupal_unlink($file)) {
+      throw new FileTransferException('Cannot remove file %file.', NULL, array('%file' => $file));
     }
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\FileTransfer\FileTransfer::isDirectory().
    */
   public function isDirectory($path) {
     return is_dir($path);
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\FileTransfer\FileTransfer::isFile().
    */
   public function isFile($path) {
     return is_file($path);
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\FileTransfer\ChmodInterface::chmodJailed().
    */
   public function chmodJailed($path, $mode, $recursive) {
     if ($recursive && is_dir($path)) {
       foreach (new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($path, \RecursiveDirectoryIterator::SKIP_DOTS), \RecursiveIteratorIterator::SELF_FIRST) as $filename => $file) {
         if (@!chmod($filename, $mode)) {
-          throw new FileTransferException('Cannot chmod %path.', NULL, ['%path' => $filename]);
+          throw new FileTransferException('Cannot chmod %path.', NULL, array('%path' => $filename));
         }
       }
     }
     elseif (@!chmod($path, $mode)) {
-      throw new FileTransferException('Cannot chmod %path.', NULL, ['%path' => $path]);
+      throw new FileTransferException('Cannot chmod %path.', NULL, array('%path' => $path));
     }
   }
-
 }

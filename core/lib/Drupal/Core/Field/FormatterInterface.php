@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Field\FormatterInterface.
+ */
+
 namespace Drupal\Core\Field;
 
 use Drupal\Core\Form\FormStateInterface;
@@ -34,7 +39,7 @@ interface FormatterInterface extends PluginSettingsInterface {
    * If an empty result is returned, a UI can still be provided to display
    * a settings form in case the formatter has configurable settings.
    *
-   * @return string[]
+   * @return array()
    *   A short summary of the formatter settings.
    */
   public function settingsSummary();
@@ -55,7 +60,7 @@ interface FormatterInterface extends PluginSettingsInterface {
    * items.
    *
    * @param \Drupal\Core\Field\FieldItemListInterface[] $entities_items
-   *   An array with the field values from the multiple entities being rendered.
+   *   Array of field values, keyed by entity ID.
    */
   public function prepareView(array $entities_items);
 
@@ -64,28 +69,23 @@ interface FormatterInterface extends PluginSettingsInterface {
    *
    * @param \Drupal\Core\Field\FieldItemListInterface $items
    *   The field values to be rendered.
-   * @param string $langcode
-   *   (optional) The language that should be used to render the field. Defaults
-   *   to the current content language.
    *
    * @return array
    *   A renderable array for a themed field with its label and all its values.
    */
-  public function view(FieldItemListInterface $items, $langcode = NULL);
+  public function view(FieldItemListInterface $items);
 
   /**
    * Builds a renderable array for a field value.
    *
    * @param \Drupal\Core\Field\FieldItemListInterface $items
    *   The field values to be rendered.
-   * @param string $langcode
-   *   The language that should be used to render the field.
    *
    * @return array
    *   A renderable array for $items, as an array of child elements keyed by
    *   consecutive numeric indexes starting from 0.
    */
-  public function viewElements(FieldItemListInterface $items, $langcode);
+  public function viewElements(FieldItemListInterface $items);
 
   /**
    * Returns if the formatter can be used for the provided field.

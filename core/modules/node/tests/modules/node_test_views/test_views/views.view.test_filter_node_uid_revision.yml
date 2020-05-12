@@ -11,13 +11,14 @@ description: ''
 tag: default
 base_table: node_field_data
 base_field: nid
+core: 8.0-dev
 display:
   default:
     display_options:
       access:
         type: perm
       cache:
-        type: tag
+        type: none
       exposed_form:
         type: basic
       fields:

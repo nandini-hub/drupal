@@ -1,37 +1,20 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Path\AliasStorage.
+ */
+
 namespace Drupal\Core\Path;
 
 use Drupal\Core\Database\Connection;
-use Drupal\Core\Database\Query\Condition;
-use Drupal\Core\Database\Query\SelectInterface;
-use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\Core\Language\LanguageInterface;
 
-@trigger_error('\Drupal\Core\Path\AliasStorage is deprecated in drupal:8.8.0 and is removed from drupal:9.0.0. Use the "path_alias.repository" service instead, or the entity storage handler for the "path_alias" entity type for CRUD methods. See https://www.drupal.org/node/3013865.', E_USER_DEPRECATED);
-
 /**
  * Provides a class for CRUD operations on path aliases.
- *
- * All queries perform case-insensitive matching on the 'source' and 'alias'
- * fields, so the aliases '/test-alias' and '/test-Alias' are considered to be
- * the same, and will both refer to the same internal system path.
- *
- * @deprecated \Drupal\Core\Path\AliasStorage is deprecated in drupal:8.8.0 and
- *   is removed from drupal:9.0.0. Use the "path_alias.repository" service
- *   instead, or the entity storage handler for the "path_alias" entity type
- *   for CRUD methods.
- *
- * @see https://www.drupal.org/node/3013865
  */
 class AliasStorage implements AliasStorageInterface {
-
-  /**
-   * The table for the url_alias storage.
-   */
-  const TABLE = 'path_alias';
-
   /**
    * The database connection.
    *
@@ -47,249 +30,180 @@ class AliasStorage implements AliasStorageInterface {
   protected $moduleHandler;
 
   /**
-   * The entity type manager.
-   *
-   * @var \Drupal\Core\Entity\EntityTypeManagerInterface
-   */
-  protected $entityTypeManager;
-
-  /**
    * Constructs a Path CRUD object.
    *
    * @param \Drupal\Core\Database\Connection $connection
    *   A database connection for reading and writing path aliases.
+   *
    * @param \Drupal\Core\Extension\ModuleHandlerInterface $module_handler
    *   The module handler.
-   * @param \Drupal\Core\Entity\EntityTypeManagerInterface $entity_type_manager
-   *   The entity type manager.
    */
-  public function __construct(Connection $connection, ModuleHandlerInterface $module_handler, EntityTypeManagerInterface $entity_type_manager = NULL) {
+  public function __construct(Connection $connection, ModuleHandlerInterface $module_handler) {
     $this->connection = $connection;
     $this->moduleHandler = $module_handler;
-    $this->entityTypeManager = $entity_type_manager ?: \Drupal::entityTypeManager();
   }
 
   /**
    * {@inheritdoc}
    */
   public function save($source, $alias, $langcode = LanguageInterface::LANGCODE_NOT_SPECIFIED, $pid = NULL) {
-    if ($source[0] !== '/') {
-      throw new \InvalidArgumentException(sprintf('Source path %s has to start with a slash.', $source));
-    }
 
-    if ($alias[0] !== '/') {
-      throw new \InvalidArgumentException(sprintf('Alias path %s has to start with a slash.', $alias));
-    }
+    $fields = array(
+      'source' => $source,
+      'alias' => $alias,
+      'langcode' => $langcode,
+    );
 
-    if ($pid) {
-      /** @var \Drupal\path_alias\PathAliasInterface $path_alias */
-      $path_alias = $this->getPathAliasEntityStorage()->load($pid);
-      $original_values = [
-        'source' => $path_alias->getPath(),
-        'alias' => $path_alias->getAlias(),
-        'langcode' => $path_alias->get('langcode')->value,
-      ];
-
-      $path_alias->setPath($source);
-      $path_alias->setAlias($alias);
-      $path_alias->set('langcode', $langcode);
+    // Insert or update the alias.
+    if (empty($pid)) {
+      $query = $this->connection->insert('url_alias')
+        ->fields($fields);
+      $pid = $query->execute();
+      $fields['pid'] = $pid;
+      $operation = 'insert';
     }
     else {
-      $path_alias = $this->getPathAliasEntityStorage()->create([
-        'path' => $source,
-        'alias' => $alias,
-        'langcode' => $langcode,
-      ]);
+      // Fetch the current values so that an update hook can identify what
+      // exactly changed.
+      $original = $this->connection->query('SELECT source, alias, langcode FROM {url_alias} WHERE pid = :pid', array(':pid' => $pid))->fetchAssoc();
+      $fields['pid'] = $pid;
+      $query = $this->connection->update('url_alias')
+        ->fields($fields)
+        ->condition('pid', $pid);
+      $pid = $query->execute();
+      $fields['original'] = $original;
+      $operation = 'update';
     }
-
-    $path_alias->save();
-
-    $path_alias_values = [
-      'pid' => $path_alias->id(),
-      'source' => $path_alias->getPath(),
-      'alias' => $path_alias->getAlias(),
-      'langcode' => $path_alias->get('langcode')->value,
-    ];
-
-    if (isset($original_values)) {
-      $path_alias_values['original'] = $original_values;
+    if ($pid) {
+      // @todo Switch to using an event for this instead of a hook.
+      $this->moduleHandler->invokeAll('path_' . $operation, array($fields));
+      return $fields;
     }
-
-    return $path_alias_values;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function load($conditions) {
-    $query = $this->getPathAliasEntityStorage()->getQuery();
-    // Ignore access restrictions for this API.
-    $query->accessCheck(FALSE);
-    foreach ($conditions as $field => $value) {
-      if ($field === 'source') {
-        $field = 'path';
-      }
-      elseif ($field === 'pid') {
-        $field = 'id';
-      }
-
-      $query->condition($field, $value, '=');
-    }
-
-    $result = $query
-      ->sort('id', 'DESC')
-      ->range(0, 1)
-      ->execute();
-    $entities = $this->getPathAliasEntityStorage()->loadMultiple($result);
-
-    /** @var \Drupal\path_alias\PathAliasInterface $path_alias */
-    $path_alias = reset($entities);
-    if ($path_alias) {
-      return [
-        'pid' => $path_alias->id(),
-        'source' => $path_alias->getPath(),
-        'alias' => $path_alias->getAlias(),
-        'langcode' => $path_alias->get('langcode')->value,
-      ];
-    }
-
     return FALSE;
   }
 
   /**
    * {@inheritdoc}
    */
-  public function delete($conditions) {
-    $storage = $this->getPathAliasEntityStorage();
-    $query = $storage->getQuery();
-    // API functions should be able to access all entities regardless of access
-    // restrictions. Those need to happen on a higher level.
-    $query->accessCheck(FALSE);
+  public function load($conditions) {
+    $select = $this->connection->select('url_alias');
     foreach ($conditions as $field => $value) {
-      if ($field === 'source') {
-        $field = 'path';
-      }
-      elseif ($field === 'pid') {
-        $field = 'id';
-      }
-
-      $query->condition($field, $value, '=');
+      $select->condition($field, $value);
     }
-
-    $result = $query->execute();
-    $storage->delete($storage->loadMultiple($result));
+    return $select
+      ->fields('url_alias')
+      ->orderBy('pid', 'DESC')
+      ->range(0, 1)
+      ->execute()
+      ->fetchAssoc();
   }
 
   /**
-   * Returns a SELECT query for the path_alias base table.
-   *
-   * @return \Drupal\Core\Database\Query\SelectInterface
-   *   A Select query object.
+   * {@inheritdoc}
    */
-  protected function getBaseQuery() {
-    $query = $this->connection->select(static::TABLE, 'base_table');
-    $query->condition('base_table.status', 1);
-
-    return $query;
+  public function delete($conditions) {
+    $path = $this->load($conditions);
+    $query = $this->connection->delete('url_alias');
+    foreach ($conditions as $field => $value) {
+      $query->condition($field, $value);
+    }
+    $deleted = $query->execute();
+    // @todo Switch to using an event for this instead of a hook.
+    $this->moduleHandler->invokeAll('path_delete', array($path));
+    return $deleted;
   }
 
   /**
    * {@inheritdoc}
    */
   public function preloadPathAlias($preloaded, $langcode) {
-    $select = $this->getBaseQuery()
-      ->fields('base_table', ['path', 'alias']);
-
-    if (!empty($preloaded)) {
-      $conditions = new Condition('OR');
-      foreach ($preloaded as $preloaded_item) {
-        $conditions->condition('base_table.path', $this->connection->escapeLike($preloaded_item), 'LIKE');
-      }
-      $select->condition($conditions);
+    $args = array(
+      ':system[]' => $preloaded,
+      ':langcode' => $langcode,
+      ':langcode_undetermined' => LanguageInterface::LANGCODE_NOT_SPECIFIED,
+    );
+    // Always get the language-specific alias before the language-neutral one.
+    // For example 'de' is less than 'und' so the order needs to be ASC, while
+    // 'xx-lolspeak' is more than 'und' so the order needs to be DESC. We also
+    // order by pid ASC so that fetchAllKeyed() returns the most recently
+    // created alias for each source. Subsequent queries using fetchField() must
+    // use pid DESC to have the same effect. For performance reasons, the query
+    // builder is not used here.
+    if ($langcode == LanguageInterface::LANGCODE_NOT_SPECIFIED) {
+      // Prevent PDO from complaining about a token the query doesn't use.
+      unset($args[':langcode']);
+      $result = $this->connection->query('SELECT source, alias FROM {url_alias} WHERE source IN ( :system[] ) AND langcode = :langcode_undetermined ORDER BY pid ASC', $args);
+    }
+    elseif ($langcode < LanguageInterface::LANGCODE_NOT_SPECIFIED) {
+      $result = $this->connection->query('SELECT source, alias FROM {url_alias} WHERE source IN ( :system[] ) AND langcode IN (:langcode, :langcode_undetermined) ORDER BY langcode ASC, pid ASC', $args);
+    }
+    else {
+      $result = $this->connection->query('SELECT source, alias FROM {url_alias} WHERE source IN ( :system[] ) AND langcode IN (:langcode, :langcode_undetermined) ORDER BY langcode DESC, pid ASC', $args);
     }
 
-    $this->addLanguageFallback($select, $langcode);
-
-    // We order by ID ASC so that fetchAllKeyed() returns the most recently
-    // created alias for each source. Subsequent queries using fetchField() must
-    // use ID DESC to have the same effect.
-    $select->orderBy('base_table.id', 'ASC');
-
-    return $select->execute()->fetchAllKeyed();
+    return $result->fetchAllKeyed();
   }
 
   /**
    * {@inheritdoc}
    */
   public function lookupPathAlias($path, $langcode) {
-    // See the queries above. Use LIKE for case-insensitive matching.
-    $select = $this->getBaseQuery()
-      ->fields('base_table', ['alias'])
-      ->condition('base_table.path', $this->connection->escapeLike($path), 'LIKE');
+    $args = array(
+      ':source' => $path,
+      ':langcode' => $langcode,
+      ':langcode_undetermined' => LanguageInterface::LANGCODE_NOT_SPECIFIED,
+    );
+    // See the queries above.
+    if ($langcode == LanguageInterface::LANGCODE_NOT_SPECIFIED) {
+      unset($args[':langcode']);
+      $alias = $this->connection->query("SELECT alias FROM {url_alias} WHERE source = :source AND langcode = :langcode_undetermined ORDER BY pid DESC", $args)->fetchField();
+    }
+    elseif ($langcode > LanguageInterface::LANGCODE_NOT_SPECIFIED) {
+      $alias = $this->connection->query("SELECT alias FROM {url_alias} WHERE source = :source AND langcode IN (:langcode, :langcode_undetermined) ORDER BY langcode DESC, pid DESC", $args)->fetchField();
+    }
+    else {
+      $alias = $this->connection->query("SELECT alias FROM {url_alias} WHERE source = :source AND langcode IN (:langcode, :langcode_undetermined) ORDER BY langcode ASC, pid DESC", $args)->fetchField();
+    }
 
-    $this->addLanguageFallback($select, $langcode);
-
-    $select->orderBy('base_table.id', 'DESC');
-
-    return $select->execute()->fetchField();
+    return $alias;
   }
 
   /**
    * {@inheritdoc}
    */
-  public function lookupPathSource($alias, $langcode) {
-    // See the queries above. Use LIKE for case-insensitive matching.
-    $select = $this->getBaseQuery()
-      ->fields('base_table', ['path'])
-      ->condition('base_table.alias', $this->connection->escapeLike($alias), 'LIKE');
-
-    $this->addLanguageFallback($select, $langcode);
-
-    $select->orderBy('base_table.id', 'DESC');
-
-    return $select->execute()->fetchField();
-  }
-
-  /**
-   * Adds path alias language fallback conditions to a select query object.
-   *
-   * @param \Drupal\Core\Database\Query\SelectInterface $query
-   *   A Select query object.
-   * @param string $langcode
-   *   Language code to search the path with. If there's no path defined for
-   *   that language it will search paths without language.
-   */
-  protected function addLanguageFallback(SelectInterface $query, $langcode) {
-    // Always get the language-specific alias before the language-neutral one.
-    // For example 'de' is less than 'und' so the order needs to be ASC, while
-    // 'xx-lolspeak' is more than 'und' so the order needs to be DESC.
-    $langcode_list = [$langcode, LanguageInterface::LANGCODE_NOT_SPECIFIED];
-    if ($langcode === LanguageInterface::LANGCODE_NOT_SPECIFIED) {
-      array_pop($langcode_list);
+  public function lookupPathSource($path, $langcode) {
+    $args = array(
+      ':alias' => $path,
+      ':langcode' => $langcode,
+      ':langcode_undetermined' => LanguageInterface::LANGCODE_NOT_SPECIFIED,
+    );
+    // See the queries above.
+    if ($langcode == LanguageInterface::LANGCODE_NOT_SPECIFIED) {
+      unset($args[':langcode']);
+      $result = $this->connection->query("SELECT source FROM {url_alias} WHERE alias = :alias AND langcode = :langcode_undetermined ORDER BY pid DESC", $args);
     }
     elseif ($langcode > LanguageInterface::LANGCODE_NOT_SPECIFIED) {
-      $query->orderBy('base_table.langcode', 'DESC');
+      $result = $this->connection->query("SELECT source FROM {url_alias} WHERE alias = :alias AND langcode IN (:langcode, :langcode_undetermined) ORDER BY langcode DESC, pid DESC", $args);
     }
     else {
-      $query->orderBy('base_table.langcode', 'ASC');
+      $result = $this->connection->query("SELECT source FROM {url_alias} WHERE alias = :alias AND langcode IN (:langcode, :langcode_undetermined) ORDER BY langcode ASC, pid DESC", $args);
     }
-    $query->condition('base_table.langcode', $langcode_list, 'IN');
+
+    return $result->fetchField();
   }
 
   /**
    * {@inheritdoc}
    */
   public function aliasExists($alias, $langcode, $source = NULL) {
-    // Use LIKE and NOT LIKE for case-insensitive matching.
-    $query = $this->connection->select(static::TABLE)
-      ->condition('alias', $this->connection->escapeLike($alias), 'LIKE')
+    $query = $this->connection->select('url_alias')
+      ->condition('alias', $alias)
       ->condition('langcode', $langcode);
     if (!empty($source)) {
-      $query->condition('path', $this->connection->escapeLike($source), 'NOT LIKE');
+      $query->condition('source', $source, '<>');
     }
     $query->addExpression('1');
     $query->range(0, 1);
-
     return (bool) $query->execute()->fetchField();
   }
 
@@ -297,25 +211,22 @@ class AliasStorage implements AliasStorageInterface {
    * {@inheritdoc}
    */
   public function languageAliasExists() {
-    return (bool) $this->connection->queryRange('SELECT 1 FROM {' . static::TABLE . '} WHERE langcode <> :langcode', 0, 1, [':langcode' => LanguageInterface::LANGCODE_NOT_SPECIFIED])->fetchField();
+    return (bool) $this->connection->queryRange('SELECT 1 FROM {url_alias} WHERE langcode <> :langcode', 0, 1, array(':langcode' => LanguageInterface::LANGCODE_NOT_SPECIFIED))->fetchField();
   }
 
   /**
    * {@inheritdoc}
    */
   public function getAliasesForAdminListing($header, $keys = NULL) {
-    $query = $this->connection->select(static::TABLE)
+    $query = $this->connection->select('url_alias')
       ->extend('Drupal\Core\Database\Query\PagerSelectExtender')
       ->extend('Drupal\Core\Database\Query\TableSortExtender');
     if ($keys) {
       // Replace wildcards with PDO wildcards.
       $query->condition('alias', '%' . preg_replace('!\*+!', '%', $keys) . '%', 'LIKE');
     }
-
-    $query->addField(static::TABLE, 'id', 'pid');
-    $query->addField(static::TABLE, 'path', 'source');
     return $query
-      ->fields(static::TABLE, ['alias', 'langcode'])
+      ->fields('url_alias')
       ->orderByHeader($header)
       ->limit(50)
       ->execute()
@@ -326,31 +237,12 @@ class AliasStorage implements AliasStorageInterface {
    * {@inheritdoc}
    */
   public function pathHasMatchingAlias($initial_substring) {
-    if (!$this->moduleHandler->moduleExists('path_alias')) {
-      return FALSE;
-    }
-
-    $query = $this->getBaseQuery();
+    $query = $this->connection->select('url_alias', 'u');
     $query->addExpression(1);
-
     return (bool) $query
-      ->condition('base_table.path', $this->connection->escapeLike($initial_substring) . '%', 'LIKE')
+      ->condition('u.source', $this->connection->escapeLike($initial_substring) . '%', 'LIKE')
       ->range(0, 1)
       ->execute()
       ->fetchField();
   }
-
-  /**
-   * Returns the path alias entity storage handler.
-   *
-   * We can not store it in the constructor because that leads to a circular
-   * dependency in the service container.
-   *
-   * @return \Drupal\Core\Entity\EntityStorageInterface
-   *   The path alias entity storage.
-   */
-  protected function getPathAliasEntityStorage() {
-    return $this->entityTypeManager->getStorage('path_alias');
-  }
-
 }

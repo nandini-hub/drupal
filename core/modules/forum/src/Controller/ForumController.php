@@ -1,12 +1,16 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\forum\Controller\ForumController.
+ */
+
 namespace Drupal\forum\Controller;
 
 use Drupal\Core\Cache\Cache;
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Entity\EntityAccessControlHandlerInterface;
 use Drupal\Core\Entity\EntityStorageInterface;
-use Drupal\Core\Entity\EntityTypeInterface;
 use Drupal\Core\Render\RendererInterface;
 use Drupal\Core\Session\AccountInterface;
 use Drupal\Core\Url;
@@ -71,20 +75,6 @@ class ForumController extends ControllerBase {
   protected $renderer;
 
   /**
-   * Node entity type, we need to get cache tags from here.
-   *
-   * @var \Drupal\Core\Entity\EntityTypeInterface
-   */
-  protected $nodeEntityTypeDefinition;
-
-  /**
-   * Comment entity type, we need to get cache tags from here.
-   *
-   * @var \Drupal\Core\Entity\EntityTypeInterface
-   */
-  protected $commentEntityTypeDefinition;
-
-  /**
    * Constructs a ForumController object.
    *
    * @param \Drupal\forum\ForumManagerInterface $forum_manager
@@ -103,12 +93,8 @@ class ForumController extends ControllerBase {
    *   Node type storage handler.
    * @param \Drupal\Core\Render\RendererInterface $renderer
    *   The renderer.
-   * @param \Drupal\Core\Entity\EntityTypeInterface $node_entity_type_definition
-   *   Node entity type definition object
-   * @param \Drupal\Core\Entity\EntityTypeInterface $comment_entity_type_definition
-   *   Comment entity type definition object
    */
-  public function __construct(ForumManagerInterface $forum_manager, VocabularyStorageInterface $vocabulary_storage, TermStorageInterface $term_storage, AccountInterface $current_user, EntityAccessControlHandlerInterface $node_access, array $field_map, EntityStorageInterface $node_type_storage, RendererInterface $renderer, EntityTypeInterface $node_entity_type_definition, EntityTypeInterface $comment_entity_type_definition) {
+  public function __construct(ForumManagerInterface $forum_manager, VocabularyStorageInterface $vocabulary_storage, TermStorageInterface $term_storage, AccountInterface $current_user, EntityAccessControlHandlerInterface $node_access, array $field_map, EntityStorageInterface $node_type_storage, RendererInterface $renderer) {
     $this->forumManager = $forum_manager;
     $this->vocabularyStorage = $vocabulary_storage;
     $this->termStorage = $term_storage;
@@ -117,28 +103,23 @@ class ForumController extends ControllerBase {
     $this->fieldMap = $field_map;
     $this->nodeTypeStorage = $node_type_storage;
     $this->renderer = $renderer;
-    $this->nodeEntityTypeDefinition = $node_entity_type_definition;
-    $this->commentEntityTypeDefinition = $comment_entity_type_definition;
   }
 
   /**
    * {@inheritdoc}
    */
   public static function create(ContainerInterface $container) {
-    /** @var \Drupal\Core\Entity\EntityTypeManagerInterface $entity_type_manager */
-    $entity_type_manager = $container->get('entity_type.manager');
-
+    /** @var \Drupal\Core\Entity\EntityManagerInterface $entity_manager */
+    $entity_manager = $container->get('entity.manager');
     return new static(
       $container->get('forum_manager'),
-      $entity_type_manager->getStorage('taxonomy_vocabulary'),
-      $entity_type_manager->getStorage('taxonomy_term'),
+      $entity_manager->getStorage('taxonomy_vocabulary'),
+      $entity_manager->getStorage('taxonomy_term'),
       $container->get('current_user'),
-      $entity_type_manager->getAccessControlHandler('node'),
-      $container->get('entity_field.manager')->getFieldMap(),
-      $entity_type_manager->getStorage('node_type'),
-      $container->get('renderer'),
-      $entity_type_manager->getDefinition('node'),
-      $entity_type_manager->getDefinition('comment')
+      $entity_manager->getAccessControlHandler('node'),
+      $entity_manager->getFieldMap(),
+      $entity_manager->getStorage('node_type'),
+      $container->get('renderer')
     );
   }
 
@@ -154,7 +135,7 @@ class ForumController extends ControllerBase {
   public function forumPage(TermInterface $taxonomy_term) {
     // Get forum details.
     $taxonomy_term->forums = $this->forumManager->getChildren($this->config('forum.settings')->get('vocabulary'), $taxonomy_term->id());
-    $taxonomy_term->parents = $this->termStorage->loadAllParents($taxonomy_term->id());
+    $taxonomy_term->parents = $this->forumManager->getParents($taxonomy_term->id());
 
     if (empty($taxonomy_term->forum_container->value)) {
       $build = $this->forumManager->getTopics($taxonomy_term->id(), $this->currentUser());
@@ -162,8 +143,8 @@ class ForumController extends ControllerBase {
       $header = $build['header'];
     }
     else {
-      $topics = [];
-      $header = [];
+      $topics = '';
+      $header = array();
     }
     return $this->build($taxonomy_term->forums, $taxonomy_term, $topics, $taxonomy_term->parents, $header);
   }
@@ -185,7 +166,6 @@ class ForumController extends ControllerBase {
     else {
       // Set the page title to forum's vocabulary name.
       $build['#title'] = $vocabulary->label();
-      $this->renderer->addCacheableDependency($build, $vocabulary);
     }
     return $build;
   }
@@ -207,9 +187,9 @@ class ForumController extends ControllerBase {
    * @return array
    *   A render array.
    */
-  protected function build($forums, TermInterface $term, $topics = [], $parents = [], $header = []) {
+  protected function build($forums, TermInterface $term, $topics = array(), $parents = array(), $header = array()) {
     $config = $this->config('forum.settings');
-    $build = [
+    $build = array(
       '#theme' => 'forums',
       '#forums' => $forums,
       '#topics' => $topics,
@@ -218,29 +198,16 @@ class ForumController extends ControllerBase {
       '#term' => $term,
       '#sortby' => $config->get('topics.order'),
       '#forums_per_page' => $config->get('topics.page_limit'),
-    ];
+    );
+    $build['#attached']['library'][] = 'forum/forum.index';
     if (empty($term->forum_container->value)) {
-      $build['#attached']['feed'][] = ['taxonomy/term/' . $term->id() . '/feed', 'RSS - ' . $term->getName()];
+      $build['#attached']['feed'][] = array('taxonomy/term/' . $term->id() . '/feed', 'RSS - ' . $term->getName());
     }
     $this->renderer->addCacheableDependency($build, $config);
-
-    foreach ($forums as $forum) {
-      $this->renderer->addCacheableDependency($build, $forum);
-    }
-    foreach ($topics as $topic) {
-      $this->renderer->addCacheableDependency($build, $topic);
-    }
-    foreach ($parents as $parent) {
-      $this->renderer->addCacheableDependency($build, $parent);
-    }
-    $this->renderer->addCacheableDependency($build, $term);
 
     return [
       'action' => $this->buildActionLinks($config->get('vocabulary'), $term),
       'forum' => $build,
-      '#cache' => [
-        'tags' => Cache::mergeTags($this->nodeEntityTypeDefinition->getListCacheTags(), $this->commentEntityTypeDefinition->getListCacheTags()),
-      ],
     ];
   }
 
@@ -252,10 +219,10 @@ class ForumController extends ControllerBase {
    */
   public function addForum() {
     $vid = $this->config('forum.settings')->get('vocabulary');
-    $taxonomy_term = $this->termStorage->create([
+    $taxonomy_term = $this->termStorage->create(array(
       'vid' => $vid,
       'forum_controller' => 0,
-    ]);
+    ));
     return $this->entityFormBuilder()->getForm($taxonomy_term, 'forum');
   }
 
@@ -267,10 +234,10 @@ class ForumController extends ControllerBase {
    */
   public function addContainer() {
     $vid = $this->config('forum.settings')->get('vocabulary');
-    $taxonomy_term = $this->termStorage->create([
+    $taxonomy_term = $this->termStorage->create(array(
       'vid' => $vid,
       'forum_container' => 1,
-    ]);
+    ));
     return $this->entityFormBuilder()->getForm($taxonomy_term, 'container');
   }
 
@@ -292,7 +259,6 @@ class ForumController extends ControllerBase {
     // Loop through all bundles for forum taxonomy vocabulary field.
     foreach ($this->fieldMap['node']['taxonomy_forums']['bundles'] as $type) {
       if ($this->nodeAccess->createAccess($type)) {
-        $node_type = $this->nodeTypeStorage->load($type);
         $links[$type] = [
           '#attributes' => ['class' => ['action-links']],
           '#theme' => 'menu_local_action',
@@ -301,9 +267,6 @@ class ForumController extends ControllerBase {
               '@node_type' => $this->nodeTypeStorage->load($type)->label(),
             ]),
             'url' => Url::fromRoute('node.add', ['node_type' => $type]),
-          ],
-          '#cache' => [
-            'tags' => $node_type->getCacheTags(),
           ],
         ];
         if ($forum_term && $forum_term->bundle() == $vid) {
@@ -325,10 +288,10 @@ class ForumController extends ControllerBase {
         $links['login'] = [
           '#attributes' => ['class' => ['action-links']],
           '#theme' => 'menu_local_action',
-          '#link' => [
+          '#link' => array(
             'title' => $this->t('Log in to post new content in the forum.'),
             'url' => Url::fromRoute('user.login', [], ['query' => $this->getDestinationArray()]),
-          ],
+          ),
         ];
       }
     }

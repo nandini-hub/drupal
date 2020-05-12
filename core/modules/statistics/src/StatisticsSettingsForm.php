@@ -1,4 +1,8 @@
 <?php
+/**
+ * @file
+ * Contains \Drupal\statistics\StatisticsSettingsForm.
+ */
 
 namespace Drupal\statistics;
 
@@ -10,8 +14,6 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
  * Configure statistics settings for this site.
- *
- * @internal
  */
 class StatisticsSettingsForm extends ConfigFormBase {
 
@@ -23,7 +25,7 @@ class StatisticsSettingsForm extends ConfigFormBase {
   protected $moduleHandler;
 
   /**
-   * Constructs a \Drupal\statistics\StatisticsSettingsForm object.
+   * Constructs a \Drupal\user\StatisticsSettingsForm object.
    *
    * @param \Drupal\Core\Config\ConfigFactoryInterface $config_factory
    *   The factory for configuration objects.
@@ -67,17 +69,17 @@ class StatisticsSettingsForm extends ConfigFormBase {
     $config = $this->config('statistics.settings');
 
     // Content counter settings.
-    $form['content'] = [
+    $form['content'] = array(
       '#type' => 'details',
       '#title' => t('Content viewing counter settings'),
       '#open' => TRUE,
-    ];
-    $form['content']['statistics_count_content_views'] = [
+    );
+    $form['content']['statistics_count_content_views'] = array(
       '#type' => 'checkbox',
       '#title' => t('Count content views'),
       '#default_value' => $config->get('count_content_views'),
       '#description' => t('Increment a counter each time content is viewed.'),
-    ];
+    );
 
     return parent::buildForm($form, $form_state);
   }
@@ -98,5 +100,5 @@ class StatisticsSettingsForm extends ConfigFormBase {
 
     parent::submitForm($form, $form_state);
   }
-
 }
+

@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\Core\Database\Query\AlterableInterface
+ */
+
 namespace Drupal\Core\Database\Query;
 
 /**
@@ -19,7 +24,7 @@ interface AlterableInterface {
    * @param $tag
    *   The tag to add.
    *
-   * @return $this
+   * @return \Drupal\Core\Database\Query\AlterableInterface
    *   The called object.
    */
   public function addTag($tag);
@@ -38,10 +43,8 @@ interface AlterableInterface {
   /**
    * Determines if a given query has all specified tags.
    *
-   * Each tag to check should be supplied as a separate argument.
-   *
-   * @todo Restore PHPDoc of variadic argument in Drupal 8.8, see
-   * https://www.drupal.org/project/drupal/issues/3029729
+   * @param $tags
+   *   A variable number of arguments, one for each tag to check.
    *
    * @return
    *   TRUE if this query has been marked with all specified tags, FALSE
@@ -52,10 +55,8 @@ interface AlterableInterface {
   /**
    * Determines if a given query has any specified tag.
    *
-   * Each tag to check should be supplied as a separate argument.
-   *
-   * @todo Restore PHPDoc of variadic argument in Drupal 8.8, see
-   * https://www.drupal.org/project/drupal/issues/3029729
+   * @param $tags
+   *   A variable number of arguments, one for each tag to check.
    *
    * @return
    *   TRUE if this query has been marked with at least one of the specified
@@ -76,7 +77,7 @@ interface AlterableInterface {
    * @param $object
    *   The additional data to add to the query. May be any valid PHP variable.
    *
-   * @return $this
+   * @return \Drupal\Core\Database\Query\AlterableInterface
    *   The called object.
    */
   public function addMetaData($key, $object);
@@ -91,5 +92,4 @@ interface AlterableInterface {
    *   The previously attached metadata object, or NULL if one doesn't exist.
    */
   public function getMetaData($key);
-
 }

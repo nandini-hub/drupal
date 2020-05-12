@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Entity\Entity\EntityViewMode.
+ */
+
 namespace Drupal\Core\Entity\Entity;
 
 use Drupal\Core\Entity\EntityDisplayModeBase;
@@ -30,12 +35,6 @@ use Drupal\Core\Entity\EntityViewModeInterface;
  *   entity_keys = {
  *     "id" = "id",
  *     "label" = "label"
- *   },
- *   config_export = {
- *     "id",
- *     "label",
- *     "targetEntityType",
- *     "cache",
  *   }
  * )
  */

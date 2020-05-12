@@ -1,8 +1,13 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\options\Type\ListStringItem.
+ */
+
 namespace Drupal\options\Plugin\Field\FieldType;
 
-use Drupal\Core\Field\FieldFilteredMarkup;
+use Drupal\Component\Utility\Unicode;
 use Drupal\Core\Field\FieldStorageDefinitionInterface;
 use Drupal\Core\TypedData\DataDefinition;
 
@@ -26,7 +31,7 @@ class ListStringItem extends ListItemBase {
   public static function propertyDefinitions(FieldStorageDefinitionInterface $field_definition) {
     $properties['value'] = DataDefinition::create('string')
       ->setLabel(t('Text value'))
-      ->addConstraint('Length', ['max' => 255])
+      ->addConstraint('Length', array('max' => 255))
       ->setRequired(TRUE);
 
     return $properties;
@@ -36,17 +41,17 @@ class ListStringItem extends ListItemBase {
    * {@inheritdoc}
    */
   public static function schema(FieldStorageDefinitionInterface $field_definition) {
-    return [
-      'columns' => [
-        'value' => [
+    return array(
+      'columns' => array(
+        'value' => array(
           'type' => 'varchar',
           'length' => 255,
-        ],
-      ],
-      'indexes' => [
-        'value' => ['value'],
-      ],
-    ];
+        ),
+      ),
+      'indexes' => array(
+        'value' => array('value'),
+      ),
+    );
   }
 
   /**
@@ -57,7 +62,7 @@ class ListStringItem extends ListItemBase {
     $description .= '<br/>' . t('The key is the stored value. The label will be used in displayed values and edit forms.');
     $description .= '<br/>' . t('The label is optional: if a line contains a single string, it will be used as key and label.');
     $description .= '</p>';
-    $description .= '<p>' . t('Allowed HTML tags in labels: @tags', ['@tags' => FieldFilteredMarkup::displayAllowedTags()]) . '</p>';
+    $description .= '<p>' . t('Allowed HTML tags in labels: @tags', array('@tags' => $this->displayAllowedTags())) . '</p>';
     return $description;
   }
 
@@ -65,16 +70,9 @@ class ListStringItem extends ListItemBase {
    * {@inheritdoc}
    */
   protected static function validateAllowedValue($option) {
-    if (mb_strlen($option) > 255) {
+    if (Unicode::strlen($option) > 255) {
       return t('Allowed values list: each key must be a string at most 255 characters long.');
     }
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  protected static function castAllowedValue($value) {
-    return (string) $value;
   }
 
 }

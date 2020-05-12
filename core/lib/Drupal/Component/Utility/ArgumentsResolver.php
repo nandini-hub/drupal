@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Component\Utility\ArgumentsResolver.
+ */
+
 namespace Drupal\Component\Utility;
 
 /**
@@ -49,7 +54,7 @@ class ArgumentsResolver implements ArgumentsResolverInterface {
    * {@inheritdoc}
    */
   public function getArguments(callable $callable) {
-    $arguments = [];
+    $arguments = array();
     foreach ($this->getReflector($callable)->getParameters() as $parameter) {
       $arguments[] = $this->getArgument($parameter);
     }
@@ -57,7 +62,7 @@ class ArgumentsResolver implements ArgumentsResolverInterface {
   }
 
   /**
-   * Gets the argument value for a parameter.
+   * Returns the argument value for a parameter.
    *
    * @param \ReflectionParameter $parameter
    *   The parameter of a callable to get the value for.
@@ -105,7 +110,7 @@ class ArgumentsResolver implements ArgumentsResolverInterface {
   }
 
   /**
-   * Gets a reflector for the access check callable.
+   * Returns a reflector for the access check callable.
    *
    * The access checker may be either a procedural function (in which case the
    * callable is the function name) or a method (in which case the callable is

@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\views\Plugin\views\relationship\Standard.
+ */
+
 namespace Drupal\views\Plugin\views\relationship;
 
 /**

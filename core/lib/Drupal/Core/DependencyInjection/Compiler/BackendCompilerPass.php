@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\DependencyInjection\Compiler\BackendCompilerPass.
+ */
+
 namespace Drupal\Core\DependencyInjection\Compiler;
 
 use Symfony\Component\DependencyInjection\Alias;
@@ -9,7 +14,7 @@ use Symfony\Component\DependencyInjection\ContainerBuilder;
 /**
  * Defines a compiler pass to allow automatic override per backend.
  *
- * A module developer has to tag a backend service with "backend_overridable":
+ * A module developer has to tag his backend service with "backend_overridable":
  * @code
  * custom_service:
  *   class: ...
@@ -37,23 +42,10 @@ class BackendCompilerPass implements CompilerPassInterface {
    * {@inheritdoc}
    */
   public function process(ContainerBuilder $container) {
-    if ($container->hasParameter('default_backend')) {
-      $default_backend = $container->getParameter('default_backend');
-      // Opt out from the default backend.
-      if (!$default_backend) {
-        return;
-      }
-    }
-    else {
-      try {
-        $default_backend = $container->get('database')->driver();
-        $container->set('database', NULL);
-      }
-      catch (\Exception $e) {
-        // If Drupal is not installed or a test doesn't define database there
-        // is nothing to override.
-        return;
-      }
+    $default_backend = $container->hasParameter('default_backend') ? $container->getParameter('default_backend') : NULL;
+    // No default backend was configured, so continue as normal.
+    if (!isset($default_backend)) {
+      return;
     }
 
     foreach ($container->findTaggedServiceIds('backend_overridable') as $id => $attributes) {

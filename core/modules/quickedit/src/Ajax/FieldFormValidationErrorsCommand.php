@@ -1,8 +1,11 @@
 <?php
 
-namespace Drupal\quickedit\Ajax;
+/**
+ * @file
+ * Contains \Drupal\quickedit\Ajax\FieldFormValidationErrorsCommand.
+ */
 
-use Drupal\Core\Ajax\BaseCommand;
+namespace Drupal\quickedit\Ajax;
 
 /**
  * AJAX command to indicate a field form was attempted to be saved but failed

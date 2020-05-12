@@ -1,10 +1,15 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Tests\Core\Menu\LocalActionDefaultTest.
+ */
+
 namespace Drupal\Tests\Core\Menu;
 
 use Drupal\Core\Menu\LocalActionDefault;
-use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\Tests\UnitTestCase;
+use Symfony\Component\HttpFoundation\ParameterBag;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
@@ -25,7 +30,7 @@ class LocalActionDefaultTest extends UnitTestCase {
    *
    * @var array
    */
-  protected $config = [];
+  protected $config = array();
 
   /**
    * The used plugin ID.
@@ -39,29 +44,29 @@ class LocalActionDefaultTest extends UnitTestCase {
    *
    * @var array
    */
-  protected $pluginDefinition = [
+  protected $pluginDefinition = array(
     'id' => 'local_action_default',
-  ];
+  );
 
   /**
    * The mocked translator.
    *
-   * @var \Drupal\Core\StringTranslation\TranslationInterface|\PHPUnit\Framework\MockObject\MockObject
+   * @var \Drupal\Core\StringTranslation\TranslationInterface|\PHPUnit_Framework_MockObject_MockObject
    */
   protected $stringTranslation;
 
   /**
    * The mocked route provider.
    *
-   * @var \Drupal\Core\Routing\RouteProviderInterface|\PHPUnit\Framework\MockObject\MockObject
+   * @var \Drupal\Core\Routing\RouteProviderInterface|\PHPUnit_Framework_MockObject_MockObject
    */
   protected $routeProvider;
 
   protected function setUp() {
     parent::setUp();
 
-    $this->stringTranslation = $this->createMock('Drupal\Core\StringTranslation\TranslationInterface');
-    $this->routeProvider = $this->createMock('Drupal\Core\Routing\RouteProviderInterface');
+    $this->stringTranslation = $this->getMock('Drupal\Core\StringTranslation\TranslationInterface');
+    $this->routeProvider = $this->getMock('Drupal\Core\Routing\RouteProviderInterface');
   }
 
   /**
@@ -69,6 +74,7 @@ class LocalActionDefaultTest extends UnitTestCase {
    */
   protected function setupLocalActionDefault() {
     $this->localActionDefault = new LocalActionDefault($this->config, $this->pluginId, $this->pluginDefinition, $this->routeProvider);
+    $this->localActionDefault->setStringTranslation($this->stringTranslation);
   }
 
   /**
@@ -77,10 +83,10 @@ class LocalActionDefaultTest extends UnitTestCase {
    * @see \Drupal\Core\Menu\LocalTaskDefault::getTitle()
    */
   public function testGetTitle() {
-    $this->pluginDefinition['title'] = (new TranslatableMarkup('Example', [], [], $this->stringTranslation));
+    $this->pluginDefinition['title'] = 'Example';
     $this->stringTranslation->expects($this->once())
-      ->method('translateString')
-      ->with($this->pluginDefinition['title'])
+      ->method('translate')
+      ->with($this->pluginDefinition['title'], array(), array())
       ->will($this->returnValue('Example translated'));
 
     $this->setupLocalActionDefault();
@@ -93,10 +99,11 @@ class LocalActionDefaultTest extends UnitTestCase {
    * @see \Drupal\Core\Menu\LocalTaskDefault::getTitle()
    */
   public function testGetTitleWithContext() {
-    $this->pluginDefinition['title'] = (new TranslatableMarkup('Example', [], ['context' => 'context'], $this->stringTranslation));
+    $this->pluginDefinition['title'] = 'Example';
+    $this->pluginDefinition['title_context'] = 'context';
     $this->stringTranslation->expects($this->once())
-      ->method('translateString')
-      ->with($this->pluginDefinition['title'])
+      ->method('translate')
+      ->with($this->pluginDefinition['title'], array(), array('context' => 'context'))
       ->will($this->returnValue('Example translated with context'));
 
     $this->setupLocalActionDefault();
@@ -107,10 +114,11 @@ class LocalActionDefaultTest extends UnitTestCase {
    * Tests the getTitle method with title arguments.
    */
   public function testGetTitleWithTitleArguments() {
-    $this->pluginDefinition['title'] = (new TranslatableMarkup('Example @test', ['@test' => 'value'], [], $this->stringTranslation));
+    $this->pluginDefinition['title'] = 'Example @test';
+    $this->pluginDefinition['title_arguments'] = array('@test' => 'value');
     $this->stringTranslation->expects($this->once())
-      ->method('translateString')
-      ->with($this->pluginDefinition['title'])
+      ->method('translate')
+      ->with($this->pluginDefinition['title'], $this->arrayHasKey('@test'), array())
       ->will($this->returnValue('Example value'));
 
     $this->setupLocalActionDefault();

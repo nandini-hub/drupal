@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Menu\MenuTreeStorageInterface.
+ */
+
 namespace Drupal\Core\Menu;
 
 /**
@@ -32,6 +37,7 @@ interface MenuTreeStorageInterface {
    *
    * @param array $definitions
    *   The new menu link definitions.
+   *
    */
   public function rebuild(array $definitions);
 
@@ -41,7 +47,7 @@ interface MenuTreeStorageInterface {
    * @param string $id
    *   The menu link plugin ID.
    *
-   * @return array|false
+   * @return array|FALSE
    *   The plugin definition, or FALSE if no definition was found for the ID.
    */
   public function load($id);
@@ -65,11 +71,11 @@ interface MenuTreeStorageInterface {
    * @param array $properties
    *   The properties to filter by.
    *
-   * @return array
-   *   An array of menu link definition arrays.
-   *
    * @throws \InvalidArgumentException
    *   Thrown if an invalid property name is specified in $properties.
+   *
+   * @return array
+   *   An array of menu link definition arrays.
    */
   public function loadByProperties(array $properties);
 
@@ -86,7 +92,7 @@ interface MenuTreeStorageInterface {
    * @return array
    *   An array of menu link definitions keyed by ID and ordered by depth.
    */
-  public function loadByRoute($route_name, array $route_parameters = [], $menu_name = NULL);
+  public function loadByRoute($route_name, array $route_parameters = array(), $menu_name = NULL);
 
   /**
    * Saves a plugin definition to the storage.
@@ -125,9 +131,9 @@ interface MenuTreeStorageInterface {
    *
    * The tree order is maintained using an optimized algorithm, for example by
    * storing each parent in an individual field, see
-   * https://www.drupal.org/node/141866 for more details. However, any details
-   * of the storage should not be relied upon since it may be swapped with a
-   * different implementation.
+   * http://drupal.org/node/141866 for more details. However, any details of the
+   * storage should not be relied upon since it may be swapped with a different
+   * implementation.
    *
    * @param string $menu_name
    *   The name of the menu.

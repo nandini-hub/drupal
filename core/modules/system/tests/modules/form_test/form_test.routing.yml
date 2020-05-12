@@ -15,7 +15,7 @@ form_test.route2:
 form_test.route3:
   path: '/form-test/object-service-builder'
   defaults:
-    _form: 'form_test.form.serviceform'
+    _form: 'form_test.form.serviceForm'
   requirements:
     _access: 'TRUE'
 
@@ -100,14 +100,6 @@ form_test.validate_required_no_title:
   requirements:
     _access: 'TRUE'
 
-form_test.validate_without_csrf_token:
-  path: '/form-test/validate-no-token'
-  defaults:
-    _form: '\Drupal\form_test\Form\FormTestValidateNoToken'
-    _title: 'Form validation on forms with a disabled CSRF token'
-  requirements:
-    _access: 'TRUE'
-
 form_test.validate_with_error_suppresion:
   path: '/form-test/limit-validation-errors'
   defaults:
@@ -177,14 +169,6 @@ form_test.storage:
   defaults:
     _form: '\Drupal\form_test\Form\FormTestStorageForm'
     _title: 'Form storage test'
-  requirements:
-    _access: 'TRUE'
-
-form_test.vertical_tabs_access:
-  path: '/form_test/vertical-tabs-access'
-  defaults:
-    _form: '\Drupal\form_test\Form\FormTestVerticalTabsAccessForm'
-    _title: 'Vertical tabs tests'
   requirements:
     _access: 'TRUE'
 
@@ -294,14 +278,6 @@ form_test.checkboxes_radios:
   requirements:
     _access: 'TRUE'
 
-form_test.radios_checked:
-  path: '/form-test/radios-checked'
-  defaults:
-    _form: '\Drupal\form_test\Form\FormTestRadiosCheckedForm'
-    _title: 'Radios checked defalt value'
-  requirements:
-    _access: 'TRUE'
-
 form_test.email:
   path: '/form-test/email'
   defaults:
@@ -366,14 +342,6 @@ form_test.label:
   requirements:
     _access: 'TRUE'
 
-form_test.machine_name:
-  path: '/form-test/machine-name'
-  defaults:
-    _form: '\Drupal\form_test\Form\FormTestMachineNameForm'
-    _title: 'Machine name fields'
-  requirements:
-    _access: 'TRUE'
-
 form_test.state_persistence:
   path: '/form-test/state-persist'
   defaults:
@@ -398,6 +366,7 @@ form_test.checkboxes_zero:
   defaults:
     _form: '\Drupal\form_test\Form\FormTestCheckboxesZeroForm'
     _title: 'FAPI test involving checkboxes and zero'
+    json: TRUE
   requirements:
     _access: 'TRUE'
 
@@ -417,14 +386,6 @@ form_test.button_class:
   requirements:
     _access: 'TRUE'
 
-form_test.details_form:
-  path: '/form_test/details-form'
-  defaults:
-    _form: '\Drupal\form_test\Form\FormTestDetailsForm'
-    _title: 'Form details form test'
-  requirements:
-    _access: 'TRUE'
-
 form_test.description_display:
   path: '/form_test/form-descriptions'
   defaults:
@@ -434,11 +395,10 @@ form_test.description_display:
     _access: 'TRUE'
 
 form_test.group_details:
-  path: '/form-test/group-details/{required}'
+  path: '/form-test/group-details'
   defaults:
     _form: '\Drupal\form_test\Form\FormTestGroupDetailsForm'
     _title: 'Group details testing'
-    required: FALSE
   requirements:
     _access: 'TRUE'
 
@@ -451,11 +411,10 @@ form_test.group_container:
     _access: 'TRUE'
 
 form_test.group_fieldset:
-  path: '/form-test/group-fieldset/{required}'
+  path: '/form-test/group-fieldset'
   defaults:
     _form: '\Drupal\form_test\Form\FormTestGroupFieldsetForm'
     _title: 'Group fieldset testing'
-    required: FALSE
   requirements:
     _access: 'TRUE'
 
@@ -488,35 +447,5 @@ form_test.form_storage_page_cache:
   defaults:
     _form: '\Drupal\form_test\Form\FormTestStoragePageCacheForm'
     _title: 'Form storage with page cache test'
-  requirements:
-    _access: 'TRUE'
-
-form_test.get_form:
-  path: '/form-test/get-form'
-  defaults:
-    _form: '\Drupal\form_test\Form\FormTestGetForm'
-  requirements:
-    _access: 'TRUE'
-
-form_test.machine_name_validation:
-  path: '/form-test/form-test-machine-name-validation'
-  defaults:
-    _form: '\Drupal\form_test\Form\FormTestMachineNameValidationForm'
-    _title: 'Form machine name validation test'
-  requirements:
-    _access: 'TRUE'
-
-form_test.optional_container:
-  path: '/form-test/optional-container'
-  defaults:
-    _form: '\Drupal\form_test\Form\FormTestOptionalContainerForm'
-    _title: 'Optional container testing'
-  requirements:
-    _access: 'TRUE'
-
-form_test.javascript_states_form:
-  path: '/form-test/javascript-states-form'
-  defaults:
-    _form: '\Drupal\form_test\Form\JavascriptStatesForm'
   requirements:
     _access: 'TRUE'

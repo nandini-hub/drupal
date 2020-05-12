@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\aggregator\AggregatorItemViewsData.
+ */
+
 namespace Drupal\aggregator;
 
 use Drupal\views\EntityViewsData;
@@ -23,7 +28,8 @@ class AggregatorItemViewsData extends EntityViewsData {
     $data['aggregator_item']['iid']['argument']['numeric'] = TRUE;
 
     $data['aggregator_item']['title']['help'] = $this->t('The title of the aggregator item.');
-    $data['aggregator_item']['title']['field']['default_formatter'] = 'aggregator_title';
+    $data['aggregator_item']['title']['field']['id'] = 'aggregator_title_link';
+    $data['aggregator_item']['title']['field']['extra'] = 'link';
 
     $data['aggregator_item']['link']['help'] = $this->t('The link to the original source URL of the item.');
 

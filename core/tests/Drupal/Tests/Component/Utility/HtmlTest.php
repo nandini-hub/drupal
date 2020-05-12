@@ -1,12 +1,14 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Tests\Component\Utility\HtmlTest.
+ */
+
 namespace Drupal\Tests\Component\Utility;
 
-use Drupal\Component\Render\MarkupInterface;
-use Drupal\Component\Render\MarkupTrait;
 use Drupal\Component\Utility\Html;
-use Drupal\Component\Utility\Random;
-use PHPUnit\Framework\TestCase;
+use Drupal\Tests\UnitTestCase;
 
 /**
  * Tests \Drupal\Component\Utility\Html.
@@ -15,7 +17,7 @@ use PHPUnit\Framework\TestCase;
  *
  * @coversDefaultClass \Drupal\Component\Utility\Html
  */
-class HtmlTest extends TestCase {
+class HtmlTest extends UnitTestCase {
 
   /**
    * {@inheritdoc}
@@ -62,26 +64,23 @@ class HtmlTest extends TestCase {
     $id1 = 'abcdefghijklmnopqrstuvwxyz_ABCDEFGHIJKLMNOPQRSTUVWXYZ-0123456789';
     $id2 = '¡¢£¤¥';
     $id3 = 'css__identifier__with__double__underscores';
-    return [
+    return array(
       // Verify that no valid ASCII characters are stripped from the identifier.
-      [$id1, $id1, []],
+      array($id1, $id1, array()),
       // Verify that valid UTF-8 characters are not stripped from the identifier.
-      [$id2, $id2, []],
+      array($id2, $id2, array()),
+      // Verify that invalid characters (including non-breaking space) are stripped from the identifier.
+      array($id3, $id3),
       // Verify that double underscores are not stripped from the identifier.
-      [$id3, $id3],
-      // Verify that invalid characters (including non-breaking space) are
-      // stripped from the identifier.
-      ['invalididentifier', 'invalid !"#$%&\'()*+,./:;<=>?@[\\]^`{|}~ identifier', []],
+      array('invalididentifier', 'invalid !"#$%&\'()*+,./:;<=>?@[\\]^`{|}~ identifier', array()),
       // Verify that an identifier starting with a digit is replaced.
-      ['_cssidentifier', '1cssidentifier', []],
+      array('_cssidentifier', '1cssidentifier', array()),
       // Verify that an identifier starting with a hyphen followed by a digit is
       // replaced.
-      ['__cssidentifier', '-1cssidentifier', []],
+      array('__cssidentifier', '-1cssidentifier', array()),
       // Verify that an identifier starting with two hyphens is replaced.
-      ['__cssidentifier', '--cssidentifier', []],
-      // Verify that passing double underscores as a filter is processed.
-      ['_cssidentifier', '__cssidentifier', ['__' => '_']],
-    ];
+      array('__cssidentifier', '--cssidentifier', array())
+    );
   }
 
   /**
@@ -91,12 +90,7 @@ class HtmlTest extends TestCase {
    */
   public function testHtmlClass() {
     // Verify Drupal coding standards are enforced.
-    $this->assertSame('class-name--ü', Html::getClass('CLASS NAME_[Ü]'), 'Enforce Drupal coding standards.');
-
-    // Test Html::getClass() handles Drupal\Component\Render\MarkupInterface
-    // input.
-    $markup = HtmlTestMarkup::create('CLASS_FROM_OBJECT');
-    $this->assertSame('class-from-object', Html::getClass($markup), 'Markup object is converted to CSS class.');
+    $this->assertSame(Html::getClass('CLASS NAME_[Ü]'), 'class-name--ü', 'Enforce Drupal coding standards.');
   }
 
   /**
@@ -128,18 +122,18 @@ class HtmlTest extends TestCase {
    */
   public function providerTestHtmlGetUniqueId() {
     $id = 'abcdefghijklmnopqrstuvwxyz-0123456789';
-    return [
+    return array(
       // Verify that letters, digits, and hyphens are not stripped from the ID.
-      [$id, $id],
+      array($id, $id),
       // Verify that invalid characters are stripped from the ID.
-      ['invalididentifier', 'invalid,./:@\\^`{Üidentifier'],
+      array('invalididentifier', 'invalid,./:@\\^`{Üidentifier'),
       // Verify Drupal coding standards are enforced.
-      ['id-name-1', 'ID NAME_[1]'],
+      array('id-name-1', 'ID NAME_[1]'),
       // Verify that a repeated ID is made unique.
-      ['test-unique-id', 'test-unique-id', TRUE],
-      ['test-unique-id--2', 'test-unique-id'],
-      ['test-unique-id--3', 'test-unique-id'],
-    ];
+      array('test-unique-id', 'test-unique-id', TRUE),
+      array('test-unique-id--2', 'test-unique-id'),
+      array('test-unique-id--3', 'test-unique-id'),
+    );
   }
 
   /**
@@ -149,25 +143,19 @@ class HtmlTest extends TestCase {
    *   The expected result.
    * @param string $source
    *   The string being transformed to an ID.
+   * @param bool $reset
+   *   (optional) If TRUE, reset the list of seen IDs. Defaults to FALSE.
    *
    * @dataProvider providerTestHtmlGetUniqueIdWithAjaxIds
    *
    * @covers ::getUniqueId
    */
-  public function testHtmlGetUniqueIdWithAjaxIds($expected, $source) {
-    Html::setIsAjax(TRUE);
-    $id = Html::getUniqueId($source);
-
-    // Note, we truncate two hyphens at the end.
-    // @see \Drupal\Component\Utility\Html::getId()
-    if (strpos($source, '--') !== FALSE) {
-      $random_suffix = substr($id, strlen($source) + 1);
+  public function testHtmlGetUniqueIdWithAjaxIds($expected, $source, $reset = FALSE) {
+    if ($reset) {
+      Html::resetSeenIds();
     }
-    else {
-      $random_suffix = substr($id, strlen($source) + 2);
-    }
-    $expected = $expected . $random_suffix;
-    $this->assertSame($expected, $id);
+    Html::setAjaxHtmlIds('test-unique-id1 test-unique-id2--3');
+    $this->assertSame($expected, Html::getUniqueId($source));
   }
 
   /**
@@ -177,13 +165,12 @@ class HtmlTest extends TestCase {
    *   Test data.
    */
   public function providerTestHtmlGetUniqueIdWithAjaxIds() {
-    return [
-      ['test-unique-id1--', 'test-unique-id1'],
-      // Note, we truncate two hyphens at the end.
-      // @see \Drupal\Component\Utility\Html::getId()
-      ['test-unique-id1---', 'test-unique-id1--'],
-      ['test-unique-id2--', 'test-unique-id2'],
-    ];
+    return array(
+      array('test-unique-id1--2', 'test-unique-id1', TRUE),
+      array('test-unique-id1--3', 'test-unique-id1'),
+      array('test-unique-id2--4', 'test-unique-id2', TRUE),
+      array('test-unique-id2--5', 'test-unique-id2'),
+    );
   }
 
   /**
@@ -199,7 +186,6 @@ class HtmlTest extends TestCase {
    * @covers ::getId
    */
   public function testHtmlGetId($expected, $source) {
-    Html::setIsAjax(FALSE);
     $this->assertSame($expected, Html::getId($source));
   }
 
@@ -211,17 +197,17 @@ class HtmlTest extends TestCase {
    */
   public function providerTestHtmlGetId() {
     $id = 'abcdefghijklmnopqrstuvwxyz-0123456789';
-    return [
+    return array(
       // Verify that letters, digits, and hyphens are not stripped from the ID.
-      [$id, $id],
+      array($id, $id),
       // Verify that invalid characters are stripped from the ID.
-      ['invalididentifier', 'invalid,./:@\\^`{Üidentifier'],
+      array('invalididentifier', 'invalid,./:@\\^`{Üidentifier'),
       // Verify Drupal coding standards are enforced.
-      ['id-name-1', 'ID NAME_[1]'],
+      array('id-name-1', 'ID NAME_[1]'),
       // Verify that a repeated ID is made unique.
-      ['test-unique-id', 'test-unique-id'],
-      ['test-unique-id', 'test-unique-id'],
-    ];
+      array('test-unique-id', 'test-unique-id'),
+      array('test-unique-id', 'test-unique-id'),
+    );
   }
 
   /**
@@ -237,176 +223,32 @@ class HtmlTest extends TestCase {
   /**
    * Data provider for testDecodeEntities().
    *
-   * @see testDecodeEntities()
+   * @see testCheckPlain()
    */
   public function providerDecodeEntities() {
-    return [
-      ['Drupal', 'Drupal'],
-      ['<script>', '<script>'],
-      ['&lt;script&gt;', '<script>'],
-      ['&#60;script&#62;', '<script>'],
-      ['&amp;lt;script&amp;gt;', '&lt;script&gt;'],
-      ['"', '"'],
-      ['&#34;', '"'],
-      ['&amp;#34;', '&#34;'],
-      ['&quot;', '"'],
-      ['&amp;quot;', '&quot;'],
-      ["'", "'"],
-      ['&#39;', "'"],
-      ['&amp;#39;', '&#39;'],
-      ['©', '©'],
-      ['&copy;', '©'],
-      ['&#169;', '©'],
-      ['→', '→'],
-      ['&#8594;', '→'],
-      ['➼', '➼'],
-      ['&#10172;', '➼'],
-      ['&euro;', '€'],
-    ];
+    return array(
+      array('Drupal', 'Drupal'),
+      array('<script>', '<script>'),
+      array('&lt;script&gt;', '<script>'),
+      array('&#60;script&#62;', '<script>'),
+      array('&amp;lt;script&amp;gt;', '&lt;script&gt;'),
+      array('"', '"'),
+      array('&#34;', '"'),
+      array('&amp;#34;', '&#34;'),
+      array('&quot;', '"'),
+      array('&amp;quot;', '&quot;'),
+      array("'", "'"),
+      array('&#39;', "'"),
+      array('&amp;#39;', '&#39;'),
+      array('©', '©'),
+      array('&copy;', '©'),
+      array('&#169;', '©'),
+      array('→', '→'),
+      array('&#8594;', '→'),
+      array('➼', '➼'),
+      array('&#10172;', '➼'),
+      array('&euro;', '€'),
+    );
   }
-
-  /**
-   * Tests Html::escape().
-   *
-   * @dataProvider providerEscape
-   * @covers ::escape
-   */
-  public function testEscape($expected, $text) {
-    $this->assertEquals($expected, Html::escape($text));
-  }
-
-  /**
-   * Data provider for testEscape().
-   *
-   * @see testEscape()
-   */
-  public function providerEscape() {
-    return [
-      ['Drupal', 'Drupal'],
-      ['&lt;script&gt;', '<script>'],
-      ['&amp;lt;script&amp;gt;', '&lt;script&gt;'],
-      ['&amp;#34;', '&#34;'],
-      ['&quot;', '"'],
-      ['&amp;quot;', '&quot;'],
-      ['&#039;', "'"],
-      ['&amp;#039;', '&#039;'],
-      ['©', '©'],
-      ['→', '→'],
-      ['➼', '➼'],
-      ['€', '€'],
-      ['Drup�al', "Drup\x80al"],
-    ];
-  }
-
-  /**
-   * Tests relationship between escaping and decoding HTML entities.
-   *
-   * @covers ::decodeEntities
-   * @covers ::escape
-   */
-  public function testDecodeEntitiesAndEscape() {
-    $string = "<em>répét&eacute;</em>";
-    $escaped = Html::escape($string);
-    $this->assertSame('&lt;em&gt;répét&amp;eacute;&lt;/em&gt;', $escaped);
-    $decoded = Html::decodeEntities($escaped);
-    $this->assertSame('<em>répét&eacute;</em>', $decoded);
-    $decoded = Html::decodeEntities($decoded);
-    $this->assertSame('<em>répété</em>', $decoded);
-    $escaped = Html::escape($decoded);
-    $this->assertSame('&lt;em&gt;répété&lt;/em&gt;', $escaped);
-  }
-
-  /**
-   * Tests Html::serialize().
-   *
-   * Resolves an issue by where an empty DOMDocument object sent to serialization would
-   * cause errors in getElementsByTagName() in the serialization function.
-   *
-   * @covers ::serialize
-   */
-  public function testSerialize() {
-    $document = new \DOMDocument();
-    $result = Html::serialize($document);
-    $this->assertSame('', $result);
-  }
-
-  /**
-   * @covers ::transformRootRelativeUrlsToAbsolute
-   * @dataProvider providerTestTransformRootRelativeUrlsToAbsolute
-   */
-  public function testTransformRootRelativeUrlsToAbsolute($html, $scheme_and_host, $expected_html) {
-    $this->assertSame($expected_html ?: $html, Html::transformRootRelativeUrlsToAbsolute($html, $scheme_and_host));
-  }
-
-  /**
-   * @covers ::transformRootRelativeUrlsToAbsolute
-   * @dataProvider providerTestTransformRootRelativeUrlsToAbsoluteAssertion
-   */
-  public function testTransformRootRelativeUrlsToAbsoluteAssertion($scheme_and_host) {
-    $this->expectException(\AssertionError::class);
-    Html::transformRootRelativeUrlsToAbsolute('', $scheme_and_host);
-  }
-
-  /**
-   * Provides test data for testTransformRootRelativeUrlsToAbsolute().
-   *
-   * @return array
-   *   Test data.
-   */
-  public function providerTestTransformRootRelativeUrlsToAbsolute() {
-    $data = [];
-
-    // Random generator.
-    $random = new Random();
-
-    // One random tag name.
-    $tag_name = strtolower($random->name(8, TRUE));
-
-    // A site installed either in the root of a domain or a subdirectory.
-    $base_paths = ['/', '/subdir/' . $random->name(8, TRUE) . '/'];
-
-    foreach ($base_paths as $base_path) {
-      // The only attribute that has more than just a URL as its value, is
-      // 'srcset', so special-case it.
-      $data += [
-        "$tag_name, srcset, $base_path: root-relative" => ["<$tag_name srcset=\"http://example.com{$base_path}already-absolute 200w, {$base_path}root-relative 300w\">root-relative test</$tag_name>", 'http://example.com', "<$tag_name srcset=\"http://example.com{$base_path}already-absolute 200w, http://example.com{$base_path}root-relative 300w\">root-relative test</$tag_name>"],
-        "$tag_name, srcset, $base_path: protocol-relative" => ["<$tag_name srcset=\"http://example.com{$base_path}already-absolute 200w, //example.com{$base_path}protocol-relative 300w\">protocol-relative test</$tag_name>", 'http://example.com', FALSE],
-        "$tag_name, srcset, $base_path: absolute" => ["<$tag_name srcset=\"http://example.com{$base_path}already-absolute 200w, http://example.com{$base_path}absolute 300w\">absolute test</$tag_name>", 'http://example.com', FALSE],
-      ];
-
-      foreach (['href', 'poster', 'src', 'cite', 'data', 'action', 'formaction', 'about'] as $attribute) {
-        $data += [
-          "$tag_name, $attribute, $base_path: root-relative" => ["<$tag_name $attribute=\"{$base_path}root-relative\">root-relative test</$tag_name>", 'http://example.com', "<$tag_name $attribute=\"http://example.com{$base_path}root-relative\">root-relative test</$tag_name>"],
-          "$tag_name, $attribute, $base_path: protocol-relative" => ["<$tag_name $attribute=\"//example.com{$base_path}protocol-relative\">protocol-relative test</$tag_name>", 'http://example.com', FALSE],
-          "$tag_name, $attribute, $base_path: absolute" => ["<$tag_name $attribute=\"http://example.com{$base_path}absolute\">absolute test</$tag_name>", 'http://example.com', FALSE],
-        ];
-      }
-    }
-
-    return $data;
-  }
-
-  /**
-   * Provides test data for testTransformRootRelativeUrlsToAbsoluteAssertion().
-   *
-   * @return array
-   *   Test data.
-   */
-  public function providerTestTransformRootRelativeUrlsToAbsoluteAssertion() {
-    return [
-      'only relative path' => ['llama'],
-      'only root-relative path' => ['/llama'],
-      'host and path' => ['example.com/llama'],
-      'scheme, host and path' => ['http://example.com/llama'],
-    ];
-  }
-
-}
-
-/**
- * Marks an object's __toString() method as returning markup.
- */
-class HtmlTestMarkup implements MarkupInterface {
-  use MarkupTrait;
 
 }

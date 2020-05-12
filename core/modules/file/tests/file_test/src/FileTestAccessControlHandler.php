@@ -1,4 +1,8 @@
 <?php
+/**
+ * @file
+ * Contains \Drupal\file_test\FileTestAccessControlHandler.
+ */
 
 namespace Drupal\file_test;
 
@@ -15,9 +19,9 @@ class FileTestAccessControlHandler extends FileAccessControlHandler implements F
   /**
    * {@inheritdoc}
    */
-  protected function checkAccess(EntityInterface $entity, $operation, AccountInterface $account) {
+  protected function checkAccess(EntityInterface $entity, $operation, $langcode, AccountInterface $account) {
     \Drupal::state()->set('file_access_formatter_check', TRUE);
-    return parent::checkAccess($entity, $operation, $account);
+    return parent::checkAccess($entity, $operation, $langcode, $account);
   }
 
 }

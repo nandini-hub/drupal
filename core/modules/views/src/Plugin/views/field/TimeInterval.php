@@ -1,8 +1,13 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\views\Plugin\views\field\TimeInterval.
+ */
+
 namespace Drupal\views\Plugin\views\field;
 
-use Drupal\Core\Datetime\DateFormatterInterface;
+use Drupal\Core\Datetime\DateFormatter;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\views\ResultRow;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -19,7 +24,7 @@ class TimeInterval extends FieldPluginBase {
   /**
    * The date formatter service.
    *
-   * @var \Drupal\Core\Datetime\DateFormatterInterface
+   * @var \Drupal\Core\Datetime\DateFormatter
    */
   protected $dateFormatter;
 
@@ -32,10 +37,10 @@ class TimeInterval extends FieldPluginBase {
    *   The plugin_id for the plugin instance.
    * @param mixed $plugin_definition
    *   The plugin implementation definition.
-   * @param \Drupal\Core\Datetime\DateFormatterInterface $date_formatter
+   * @param \Drupal\Core\Datetime\DateFormatter $date_formatter
    *   The date formatter service.
    */
-  public function __construct(array $configuration, $plugin_id, $plugin_definition, DateFormatterInterface $date_formatter) {
+  public function __construct(array $configuration, $plugin_id, $plugin_definition, DateFormatter $date_formatter) {
     $this->dateFormatter = $date_formatter;
     parent::__construct($configuration, $plugin_id, $plugin_definition);
   }
@@ -58,7 +63,7 @@ class TimeInterval extends FieldPluginBase {
   protected function defineOptions() {
     $options = parent::defineOptions();
 
-    $options['granularity'] = ['default' => 2];
+    $options['granularity'] = array('default' => 2);
 
     return $options;
   }
@@ -69,12 +74,12 @@ class TimeInterval extends FieldPluginBase {
   public function buildOptionsForm(&$form, FormStateInterface $form_state) {
     parent::buildOptionsForm($form, $form_state);
 
-    $form['granularity'] = [
+    $form['granularity'] = array(
       '#type' => 'textfield',
       '#title' => $this->t('Granularity'),
       '#description' => $this->t('How many different units to display in the string.'),
       '#default_value' => $this->options['granularity'],
-    ];
+    );
   }
 
   /**

@@ -1,16 +1,22 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\Core\Config\Entity\ConfigEntityBase.
+ */
+
 namespace Drupal\Core\Config\Entity;
 
-use Drupal\Component\Utility\NestedArray;
+use Drupal\Component\Utility\SafeMarkup;
 use Drupal\Core\Cache\Cache;
+use Drupal\Core\Config\ConfigException;
 use Drupal\Core\Config\Schema\SchemaIncompleteException;
-use Drupal\Core\Entity\EntityBase;
+use Drupal\Core\Entity\Entity;
 use Drupal\Core\Config\ConfigDuplicateUUIDException;
 use Drupal\Core\Entity\EntityStorageInterface;
 use Drupal\Core\Entity\EntityTypeInterface;
 use Drupal\Core\Entity\EntityWithPluginCollectionInterface;
-use Drupal\Core\Entity\SynchronizableEntityTrait;
+use Drupal\Core\Language\LanguageInterface;
 use Drupal\Core\Plugin\PluginDependencyTrait;
 
 /**
@@ -18,12 +24,11 @@ use Drupal\Core\Plugin\PluginDependencyTrait;
  *
  * @ingroup entity_api
  */
-abstract class ConfigEntityBase extends EntityBase implements ConfigEntityInterface {
+abstract class ConfigEntityBase extends Entity implements ConfigEntityInterface {
 
   use PluginDependencyTrait {
     addDependency as addDependencyTrait;
   }
-  use SynchronizableEntityTrait;
 
   /**
    * The original ID of the configuration entity.
@@ -35,6 +40,16 @@ abstract class ConfigEntityBase extends EntityBase implements ConfigEntityInterf
    * @var string
    */
   protected $originalId;
+
+  /**
+   * The name of the property that is used to store plugin configuration.
+   *
+   * This is needed when the entity uses a LazyPluginCollection, to dictate
+   * where the plugin configuration should be stored.
+   *
+   * @var string
+   */
+  protected $pluginConfigKey;
 
   /**
    * The enabled/disabled status of the configuration entity.
@@ -49,6 +64,14 @@ abstract class ConfigEntityBase extends EntityBase implements ConfigEntityInterf
    * @var string
    */
   protected $uuid;
+
+  /**
+   * Whether the config is being created, updated or deleted through the
+   * import process.
+   *
+   * @var bool
+   */
+  private $isSyncing = FALSE;
 
   /**
    * Whether the config is being deleted by the uninstall process.
@@ -80,28 +103,10 @@ abstract class ConfigEntityBase extends EntityBase implements ConfigEntityInterf
    *
    * @var array
    */
-  protected $third_party_settings = [];
+  protected $third_party_settings = array();
 
   /**
-   * Information maintained by Drupal core about configuration.
-   *
-   * Keys:
-   * - default_config_hash: A hash calculated by the config.installer service
-   *   and added during installation.
-   *
-   * @var array
-   */
-  protected $_core = [];
-
-  /**
-   * Trust supplied data and not use configuration schema on save.
-   *
-   * @var bool
-   */
-  protected $trustedData = FALSE;
-
-  /**
-   * {@inheritdoc}
+   * Overrides Entity::__construct().
    */
   public function __construct(array $values, $entity_type) {
     parent::__construct($values, $entity_type);
@@ -180,6 +185,8 @@ abstract class ConfigEntityBase extends EntityBase implements ConfigEntityInterf
    * {@inheritdoc}
    */
   public function disable() {
+    // An entity was disabled, invalidate its own cache tag.
+    Cache::invalidateTags($this->getCacheTags());
     return $this->setStatus(FALSE);
   }
 
@@ -196,6 +203,22 @@ abstract class ConfigEntityBase extends EntityBase implements ConfigEntityInterf
    */
   public function status() {
     return !empty($this->status);
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function setSyncing($syncing) {
+    $this->isSyncing = $syncing;
+
+    return $this;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function isSyncing() {
+    return $this->isSyncing;
   }
 
   /**
@@ -241,32 +264,25 @@ abstract class ConfigEntityBase extends EntityBase implements ConfigEntityInterf
    * {@inheritdoc}
    */
   public function toArray() {
-    $properties = [];
-    /** @var \Drupal\Core\Config\Entity\ConfigEntityTypeInterface $entity_type */
-    $entity_type = $this->getEntityType();
-
-    $id_key = $entity_type->getKey('id');
-    $property_names = $entity_type->getPropertiesToExport($this->id());
-    if (empty($property_names)) {
-      $config_name = $entity_type->getConfigPrefix() . '.' . $this->id();
-      throw new SchemaIncompleteException("Incomplete or missing schema for $config_name");
+    $properties = array();
+    $config_name = $this->getEntityType()->getConfigPrefix() . '.' . $this->id();
+    $definition = $this->getTypedConfig()->getDefinition($config_name);
+    if (!isset($definition['mapping'])) {
+      throw new SchemaIncompleteException(SafeMarkup::format('Incomplete or missing schema for @config_name', array('@config_name' => $config_name)));
     }
-    foreach ($property_names as $property_name => $export_name) {
+    $id_key = $this->getEntityType()->getKey('id');
+    foreach (array_keys($definition['mapping']) as $name) {
       // Special handling for IDs so that computed compound IDs work.
       // @see \Drupal\Core\Entity\EntityDisplayBase::id()
-      if ($property_name == $id_key) {
-        $properties[$export_name] = $this->id();
+      if ($name == $id_key) {
+        $properties[$name] = $this->id();
       }
       else {
-        $properties[$export_name] = $this->get($property_name);
+        $properties[$name] = $this->get($name);
       }
     }
-
     if (empty($this->third_party_settings)) {
       unset($properties['third_party_settings']);
-    }
-    if (empty($this->_core)) {
-      unset($properties['_core']);
     }
     return $properties;
   }
@@ -301,7 +317,7 @@ abstract class ConfigEntityBase extends EntityBase implements ConfigEntityInterf
       ->execute();
     $matched_entity = reset($matching_entities);
     if (!empty($matched_entity) && ($matched_entity != $this->id()) && $matched_entity != $this->getOriginalId()) {
-      throw new ConfigDuplicateUUIDException("Attempt to save a configuration entity '{$this->id()}' with UUID '{$this->uuid()}' when this UUID is already used for '$matched_entity'");
+      throw new ConfigDuplicateUUIDException(SafeMarkup::format('Attempt to save a configuration entity %id with UUID %uuid when this UUID is already used for %matched', array('%id' => $this->id(), '%uuid' => $this->uuid(), '%matched' => $matched_entity)));
     }
 
     // If this entity is not new, load the original entity for comparison.
@@ -309,7 +325,7 @@ abstract class ConfigEntityBase extends EntityBase implements ConfigEntityInterf
       $original = $storage->loadUnchanged($this->getOriginalId());
       // Ensure that the UUID cannot be changed for an existing entity.
       if ($original && ($original->uuid() != $this->uuid())) {
-        throw new ConfigDuplicateUUIDException("Attempt to save a configuration entity '{$this->id()}' with UUID '{$this->uuid()}' when this entity already exists with UUID '{$original->uuid()}'");
+        throw new ConfigDuplicateUUIDException(SafeMarkup::format('Attempt to save a configuration entity %id with UUID %uuid when this entity already exists with UUID %original_uuid', array('%id' => $this->id(), '%uuid' => $this->uuid(), '%original_uuid' => $original->uuid())));
       }
     }
     if (!$this->isSyncing()) {
@@ -323,39 +339,17 @@ abstract class ConfigEntityBase extends EntityBase implements ConfigEntityInterf
   /**
    * {@inheritdoc}
    */
-  public function __sleep() {
-    $keys_to_unset = [];
-    if ($this instanceof EntityWithPluginCollectionInterface) {
-      // Get the plugin collections first, so that the properties are
-      // initialized in $vars and can be found later.
-      $plugin_collections = $this->getPluginCollections();
-      $vars = get_object_vars($this);
-      foreach ($plugin_collections as $plugin_config_key => $plugin_collection) {
-        // Save any changes to the plugin configuration to the entity.
-        $this->set($plugin_config_key, $plugin_collection->getConfiguration());
-        // If the plugin collections are stored as properties on the entity,
-        // mark them to be unset.
-        $keys_to_unset += array_filter($vars, function ($value) use ($plugin_collection) {
-          return $plugin_collection === $value;
-        });
-      }
-    }
-
-    $vars = parent::__sleep();
-
-    if (!empty($keys_to_unset)) {
-      $vars = array_diff($vars, array_keys($keys_to_unset));
-    }
-    return $vars;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
   public function calculateDependencies() {
-    // All dependencies should be recalculated on every save apart from enforced
-    // dependencies. This ensures stale dependencies are never saved.
-    $this->dependencies = array_intersect_key($this->dependencies, ['enforced' => '']);
+    // Dependencies should be recalculated on every save. This ensures stale
+    // dependencies are never saved.
+    if (isset($this->dependencies['enforced'])) {
+      $dependencies = $this->dependencies['enforced'];
+      $this->dependencies = $dependencies;
+      $this->dependencies['enforced'] = $dependencies;
+    }
+    else {
+      $this->dependencies = array();
+    }
     if ($this instanceof EntityWithPluginCollectionInterface) {
       // Configuration entities need to depend on the providers of any plugins
       // that they store the configuration for.
@@ -372,23 +366,27 @@ abstract class ConfigEntityBase extends EntityBase implements ConfigEntityInterf
         $this->addDependency('module', $provider);
       }
     }
-    return $this;
+    return $this->dependencies;
   }
 
   /**
    * {@inheritdoc}
    */
   public function urlInfo($rel = 'edit-form', array $options = []) {
-    // Unless language was already provided, avoid setting an explicit language.
-    $options += ['language' => NULL];
     return parent::urlInfo($rel, $options);
   }
 
   /**
    * {@inheritdoc}
    */
-  public function url($rel = 'edit-form', $options = []) {
-    // Do not remove this override: the default value of $rel is different.
+  public function getSystemPath($rel = 'edit-form') {
+    return parent::getSystemPath($rel);
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function url($rel = 'edit-form', $options = array()) {
     return parent::url($rel, $options);
   }
 
@@ -396,23 +394,13 @@ abstract class ConfigEntityBase extends EntityBase implements ConfigEntityInterf
    * {@inheritdoc}
    */
   public function link($text = NULL, $rel = 'edit-form', array $options = []) {
-    // Do not remove this override: the default value of $rel is different.
     return parent::link($text, $rel, $options);
   }
 
   /**
    * {@inheritdoc}
    */
-  public function toUrl($rel = 'edit-form', array $options = []) {
-    // Unless language was already provided, avoid setting an explicit language.
-    $options += ['language' => NULL];
-    return parent::toUrl($rel, $options);
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function getCacheTagsToInvalidate() {
+  public function getCacheTags() {
     // Use cache tags that match the underlying config object's name.
     // @see \Drupal\Core\Config\ConfigBase::getCacheTags()
     return ['config:' . $this->getConfigDependencyName()];
@@ -442,14 +430,7 @@ abstract class ConfigEntityBase extends EntityBase implements ConfigEntityInterf
    * {@inheritdoc}
    */
   public function getDependencies() {
-    $dependencies = $this->dependencies;
-    if (isset($dependencies['enforced'])) {
-      // Merge the enforced dependencies into the list of dependencies.
-      $enforced_dependencies = $dependencies['enforced'];
-      unset($dependencies['enforced']);
-      $dependencies = NestedArray::mergeDeep($dependencies, $enforced_dependencies);
-    }
-    return $dependencies;
+    return $this->dependencies;
   }
 
   /**
@@ -527,7 +508,7 @@ abstract class ConfigEntityBase extends EntityBase implements ConfigEntityInterf
    * {@inheritdoc}
    */
   public function getThirdPartySettings($module) {
-    return isset($this->third_party_settings[$module]) ? $this->third_party_settings[$module] : [];
+    return isset($this->third_party_settings[$module]) ? $this->third_party_settings[$module] : array();
   }
 
   /**
@@ -589,30 +570,6 @@ abstract class ConfigEntityBase extends EntityBase implements ConfigEntityInterf
    */
   public function isInstallable() {
     return TRUE;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function trustData() {
-    $this->trustedData = TRUE;
-    return $this;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function hasTrustedData() {
-    return $this->trustedData;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function save() {
-    $return = parent::save();
-    $this->trustedData = FALSE;
-    return $return;
   }
 
 }

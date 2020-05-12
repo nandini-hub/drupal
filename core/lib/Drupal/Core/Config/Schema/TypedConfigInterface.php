@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Config\Schema\TypedConfigInterface.
+ */
+
 namespace Drupal\Core\Config\Schema;
 
 use Drupal\Core\TypedData\TraversableTypedDataInterface;
@@ -19,7 +24,7 @@ interface TypedConfigInterface extends TraversableTypedDataInterface {
   /**
    * Determines whether the data structure is empty.
    *
-   * @return bool
+   * @return boolean
    *   TRUE if the data structure is empty, FALSE otherwise.
    */
   public function isEmpty();
@@ -40,11 +45,11 @@ interface TypedConfigInterface extends TraversableTypedDataInterface {
    *   elements can be get using multiple dot delimited names, for example,
    *   'page.front'.
    *
-   * @return \Drupal\Core\TypedData\TypedDataInterface
-   *   The property object.
-   *
    * @throws \InvalidArgumentException
    *   If an invalid property name is given.
+   *
+   * @return \Drupal\Core\TypedData\TypedDataInterface
+   *   The property object.
    */
   public function get($name);
 

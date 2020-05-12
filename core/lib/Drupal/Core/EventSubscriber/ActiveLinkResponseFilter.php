@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\EventSubscriber\ActiveLinkResponseFilter.
+ */
+
 namespace Drupal\Core\EventSubscriber;
 
 use Drupal\Component\Serialization\Json;
@@ -7,7 +12,9 @@ use Drupal\Core\Language\LanguageInterface;
 use Drupal\Core\Language\LanguageManagerInterface;
 use Drupal\Core\Path\CurrentPathStack;
 use Drupal\Core\Path\PathMatcherInterface;
+use Drupal\Core\Routing\RouteMatchInterface;
 use Drupal\Core\Session\AccountInterface;
+use Drupal\Core\Url;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\HttpKernel\Event\FilterResponseEvent;
 use Symfony\Component\HttpKernel\KernelEvents;
@@ -76,10 +83,8 @@ class ActiveLinkResponseFilter implements EventSubscriberInterface {
    *   The response event.
    */
   public function onResponse(FilterResponseEvent $event) {
-    $response = $event->getResponse();
-
     // Only care about HTML responses.
-    if (stripos($response->headers->get('Content-Type'), 'text/html') === FALSE) {
+    if (stripos($event->getResponse()->headers->get('Content-Type'), 'text/html') === FALSE) {
       return;
     }
 
@@ -89,28 +94,23 @@ class ActiveLinkResponseFilter implements EventSubscriberInterface {
       return;
     }
 
-    // If content is FALSE, assume the response does not support the
-    // setContent() method and skip it, for example,
-    // \Symfony\Component\HttpFoundation\BinaryFileResponse.
-    $content = $response->getContent();
-    if ($content !== FALSE) {
-      $response->setContent(static::setLinkActiveClass(
-        $content,
-        ltrim($this->currentPath->getPath(), '/'),
-        $this->pathMatcher->isFrontPage(),
-        $this->languageManager->getCurrentLanguage(LanguageInterface::TYPE_URL)
-          ->getId(),
-        $event->getRequest()->query->all()
-      ));
-    }
+    $response = $event->getResponse();
+    $response->setContent(static::setLinkActiveClass(
+      $response->getContent(),
+      ltrim($this->currentPath->getPath(), '/'),
+      $this->pathMatcher->isFrontPage(),
+      $this->languageManager->getCurrentLanguage(LanguageInterface::TYPE_URL)->getId(),
+      $event->getRequest()->query->all()
+    ));
   }
+
 
   /**
    * Sets the "is-active" class on relevant links.
    *
    * This is a PHP implementation of the drupal.active-link JavaScript library.
    *
-   * @param string $html_markup
+   * @param string $html_markup.
    *   The HTML markup to update.
    * @param string $current_path
    *   The system path of the currently active page.
@@ -126,28 +126,19 @@ class ActiveLinkResponseFilter implements EventSubscriberInterface {
    *   The updated HTML markup.
    *
    * @todo Once a future version of PHP supports parsing HTML5 properly
-   *   (i.e. doesn't fail on
-   *   https://www.drupal.org/comment/7938201#comment-7938201) then we can get
-   *   rid of this manual parsing and use DOMDocument instead.
+   *   (i.e. doesn't fail on https://drupal.org/comment/7938201#comment-7938201)
+   *   then we can get rid of this manual parsing and use DOMDocument instead.
    */
   public static function setLinkActiveClass($html_markup, $current_path, $is_front, $url_language, array $query) {
     $search_key_current_path = 'data-drupal-link-system-path="' . $current_path . '"';
     $search_key_front = 'data-drupal-link-system-path="&lt;front&gt;"';
 
-    // Receive the query in a standardized manner.
-    ksort($query);
-
+    // An active link's path is equal to the current path, so search the HTML
+    // for an attribute with that value.
     $offset = 0;
-    // There are two distinct conditions that can make a link be marked active:
-    // 1. A link has the current path in its 'data-drupal-link-system-path'
-    //    attribute.
-    // 2. We are on the front page and a link has the special '<front>' value in
-    //    its 'data-drupal-link-system-path' attribute.
     while (strpos($html_markup, $search_key_current_path, $offset) !== FALSE || ($is_front && strpos($html_markup, $search_key_front, $offset) !== FALSE)) {
       $pos_current_path = strpos($html_markup, $search_key_current_path, $offset);
-      // Only look for links with the special '<front>' system path if we are
-      // actually on the front page.
-      $pos_front = $is_front ? strpos($html_markup, $search_key_front, $offset) : FALSE;
+      $pos_front = strpos($html_markup, $search_key_front, $offset);
 
       // Determine which of the two values is the next match: the exact path, or
       // the <front> special case.

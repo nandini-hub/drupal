@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Menu\MenuLinkDefault.
+ */
+
 namespace Drupal\Core\Menu;
 
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
@@ -13,13 +18,13 @@ class MenuLinkDefault extends MenuLinkBase implements ContainerFactoryPluginInte
   /**
    * {@inheritdoc}
    */
-  protected $overrideAllowed = [
+  protected $overrideAllowed = array(
     'menu_name' => 1,
     'parent' => 1,
     'weight' => 1,
     'expanded' => 1,
     'enabled' => 1,
-  ];
+  );
 
   /**
    * The static menu link service used to store updates to weight/parent etc.
@@ -62,14 +67,26 @@ class MenuLinkDefault extends MenuLinkBase implements ContainerFactoryPluginInte
    * {@inheritdoc}
    */
   public function getTitle() {
-    return (string) $this->pluginDefinition['title'];
+    // Subclasses may pull in the request or specific attributes as parameters.
+    $options = array();
+    if (!empty($this->pluginDefinition['title_context'])) {
+      $options['context'] = $this->pluginDefinition['title_context'];
+    }
+    $args = array();
+    if (isset($this->pluginDefinition['title_arguments']) && $title_arguments = $this->pluginDefinition['title_arguments']) {
+      $args = (array) $title_arguments;
+    }
+    return $this->t($this->pluginDefinition['title'], $args, $options);
   }
 
   /**
    * {@inheritdoc}
    */
   public function getDescription() {
-    return (string) $this->pluginDefinition['description'];
+    if ($this->pluginDefinition['description']) {
+      return $this->t($this->pluginDefinition['description']);
+    }
+    return '';
   }
 
   /**
@@ -91,7 +108,7 @@ class MenuLinkDefault extends MenuLinkBase implements ContainerFactoryPluginInte
     if ($persist) {
       // Always save the menu name as an override to avoid defaulting to tools.
       $overrides['menu_name'] = $this->pluginDefinition['menu_name'];
-      $this->staticOverride->saveOverride($this->getPluginId(), $this->pluginDefinition);
+      $this->staticOverride->saveOverride($this->getPluginId(), $overrides);
     }
     return $this->pluginDefinition;
   }

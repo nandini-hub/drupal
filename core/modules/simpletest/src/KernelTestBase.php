@@ -1,69 +1,39 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\simpletest\KernelTestBase.
+ */
+
 namespace Drupal\simpletest;
 
-@trigger_error(__NAMESPACE__ . '\KernelTestBase is deprecated in Drupal 8.0.x, will be removed before Drupal 9.0.0. Use \Drupal\KernelTests\KernelTestBase instead.', E_USER_DEPRECATED);
-
-use Drupal\Component\Utility\Html;
-use Drupal\Component\Render\FormattableMarkup;
+use Drupal\Component\Utility\SafeMarkup;
 use Drupal\Component\Utility\Variable;
-use Drupal\Core\Config\Development\ConfigSchemaChecker;
 use Drupal\Core\Database\Database;
 use Drupal\Core\DependencyInjection\ContainerBuilder;
 use Drupal\Core\DrupalKernel;
 use Drupal\Core\Entity\Sql\SqlEntityStorageInterface;
-use Drupal\Core\Extension\ExtensionDiscovery;
-use Drupal\Core\File\FileSystemInterface;
 use Drupal\Core\KeyValueStore\KeyValueMemoryFactory;
 use Drupal\Core\Language\Language;
 use Drupal\Core\Site\Settings;
-use Drupal\KernelTests\TestServiceProvider;
 use Symfony\Component\DependencyInjection\Parameter;
 use Drupal\Core\StreamWrapper\StreamWrapperInterface;
 use Symfony\Component\DependencyInjection\Reference;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
- * Base class for functional integration tests.
+ * Base class for integration tests.
  *
- * This base class should be useful for testing some types of integrations which
- * don't require the overhead of a fully-installed Drupal instance, but which
- * have many dependencies on parts of Drupal which can't or shouldn't be mocked.
+ * Tests extending this base class can access files and the database, but the
+ * entire environment is initially empty. Drupal runs in a minimal mocked
+ * environment, comparable to the one in the early installer.
  *
- * This base class partially boots a fixture Drupal. The state of the fixture
- * Drupal is comparable to the state of a system during the early part of the
- * installation process.
+ * The module/hook system is functional and operates on a fixed module list.
+ * Additional modules needed in a test may be loaded and added to the fixed
+ * module list.
  *
- * Tests extending this base class can access services and the database, but the
- * system is initially empty. This Drupal runs in a minimal mocked filesystem
- * which operates within vfsStream.
- *
- * Modules specified in the $modules property are added to the service container
- * for each test. The module/hook system is functional. Additional modules
- * needed in a test should override $modules. Modules specified in this way will
- * be added to those specified in superclasses.
- *
- * Unlike \Drupal\Tests\BrowserTestBase, the modules are not installed. They are
- * loaded such that their services and hooks are available, but the install
- * process has not been performed.
- *
- * Other modules can be made available in this way using
- * KernelTestBase::enableModules().
- *
- * Some modules can be brought into a fully-installed state using
- * KernelTestBase::installConfig(), KernelTestBase::installSchema(), and
- * KernelTestBase::installEntitySchema(). Alternately, tests which need modules
- * to be fully installed could inherit from \Drupal\Tests\BrowserTestBase.
- *
- * @see \Drupal\Tests\KernelTestBase::$modules
- * @see \Drupal\Tests\KernelTestBase::enableModules()
- * @see \Drupal\Tests\KernelTestBase::installConfig()
- * @see \Drupal\Tests\KernelTestBase::installEntitySchema()
- * @see \Drupal\Tests\KernelTestBase::installSchema()
- * @see \Drupal\Tests\BrowserTestBase
- *
- * @deprecated in drupal:8.0.0 and is removed from drupal:9.0.0. Use
- *   \Drupal\KernelTests\KernelTestBase instead.
+ * @see \Drupal\simpletest\KernelTestBase::$modules
+ * @see \Drupal\simpletest\KernelTestBase::enableModules()
  *
  * @ingroup testing
  */
@@ -90,7 +60,7 @@ abstract class KernelTestBase extends TestBase {
    *
    * @var array
    */
-  public static $modules = [];
+  public static $modules = array();
 
   private $moduleFiles;
   private $themeFiles;
@@ -100,12 +70,12 @@ abstract class KernelTestBase extends TestBase {
    *
    * @var array
    */
-  protected $configDirectories = [];
+  protected $configDirectories = array();
 
   /**
    * A KeyValueMemoryFactory instance to use when building the container.
    *
-   * @var \Drupal\Core\KeyValueStore\KeyValueMemoryFactory
+   * @var \Drupal\Core\KeyValueStore\KeyValueMemoryFactory.
    */
   protected $keyValueFactory;
 
@@ -114,12 +84,12 @@ abstract class KernelTestBase extends TestBase {
    *
    * @var array
    */
-  protected $streamWrappers = [];
+  protected $streamWrappers = array();
 
   /**
    * {@inheritdoc}
    */
-  public function __construct($test_id = NULL) {
+  function __construct($test_id = NULL) {
     parent::__construct($test_id);
     $this->skipClasses[__CLASS__] = TRUE;
   }
@@ -130,34 +100,34 @@ abstract class KernelTestBase extends TestBase {
   protected function beforePrepareEnvironment() {
     // Copy/prime extension file lists once to avoid filesystem scans.
     if (!isset($this->moduleFiles)) {
-      $this->moduleFiles = \Drupal::state()->get('system.module.files') ?: [];
-      $this->themeFiles = \Drupal::state()->get('system.theme.files') ?: [];
+      $this->moduleFiles = \Drupal::state()->get('system.module.files') ?: array();
+      $this->themeFiles = \Drupal::state()->get('system.theme.files') ?: array();
     }
   }
 
   /**
    * Create and set new configuration directories.
    *
-   * @see \Drupal\Core\Site\Settings::getConfigDirectory()
+   * @see config_get_config_directory()
    *
    * @throws \RuntimeException
-   *   Thrown when the configuration sync directory cannot be created or made
-   *   writable.
-   *
-   * @return string
-   *   The config sync directory path.
+   *   Thrown when CONFIG_ACTIVE_DIRECTORY or CONFIG_STAGING_DIRECTORY cannot
+   *   be created or made writable.
    */
   protected function prepareConfigDirectories() {
-    $this->configDirectories = [];
-    // Assign the relative path to the global variable.
-    $path = $this->siteDirectory . '/config_' . CONFIG_SYNC_DIRECTORY;
-    // Ensure the directory can be created and is writeable.
-    if (!\Drupal::service('file_system')->prepareDirectory($path, FileSystemInterface::CREATE_DIRECTORY | FileSystemInterface::MODIFY_PERMISSIONS)) {
-      throw new \RuntimeException("Failed to create '" . CONFIG_SYNC_DIRECTORY . "' config directory $path");
+    $this->configDirectories = array();
+    include_once DRUPAL_ROOT . '/core/includes/install.inc';
+    foreach (array(CONFIG_ACTIVE_DIRECTORY, CONFIG_STAGING_DIRECTORY) as $type) {
+      // Assign the relative path to the global variable.
+      $path = $this->siteDirectory . '/config_' . $type;
+      $GLOBALS['config_directories'][$type] = $path;
+      // Ensure the directory can be created and is writeable.
+      if (!install_ensure_config_directory($type)) {
+        throw new \RuntimeException("Failed to create '$type' config directory $path");
+      }
+      // Provide the already resolved path for tests.
+      $this->configDirectories[$type] = $path;
     }
-    // Provide the already resolved path for tests.
-    $this->configDirectories[CONFIG_SYNC_DIRECTORY] = $path;
-    return $path;
   }
 
   /**
@@ -205,7 +175,7 @@ EOD;
 
     // Add this test class as a service provider.
     // @todo Remove the indirection; implement ServiceProviderInterface instead.
-    $GLOBALS['conf']['container_service_providers']['TestServiceProvider'] = TestServiceProvider::class;
+    $GLOBALS['conf']['container_service_providers']['TestServiceProvider'] = 'Drupal\simpletest\TestServiceProvider';
 
     // Bootstrap a new kernel.
     $class_loader = require DRUPAL_ROOT . '/autoload.php';
@@ -216,27 +186,6 @@ EOD;
     if (file_exists($directory . '/settings.testing.php')) {
       Settings::initialize(DRUPAL_ROOT, $site_path, $class_loader);
     }
-    // Set the module list upfront to avoid setting the kernel into the
-    // pre-installer mode.
-    $this->kernel->updateModules([], []);
-    $this->kernel->boot();
-
-    // Ensure database install tasks have been run.
-    require_once __DIR__ . '/../../../includes/install.inc';
-    $connection = Database::getConnection();
-    $errors = db_installer_object($connection->driver())->runTasks();
-    if (!empty($errors)) {
-      $this->fail('Failed to run installer database tasks: ' . implode(', ', $errors));
-    }
-
-    // Reboot the kernel because the container might contain a connection to the
-    // database that has been closed during the database install tasks. This
-    // prevents any services created during the first boot from having stale
-    // database connections, for example, \Drupal\Core\Config\DatabaseStorage.
-    $this->kernel->shutdown();
-    // Set the module list upfront to avoid setting the kernel into the
-    // pre-installer mode.
-    $this->kernel->updateModules([], []);
     $this->kernel->boot();
 
     // Save the original site directory path, so that extensions in the
@@ -245,13 +194,13 @@ EOD;
     // @see \Drupal\Core\Extension\ExtensionDiscovery::scan()
     $settings['test_parent_site'] = $this->originalSite;
 
-    // Create and set new configuration directories.
-    $settings['config_sync_directory'] = $this->prepareConfigDirectories();
-
     // Restore and merge settings.
     // DrupalKernel::boot() initializes new Settings, and the containerBuild()
     // method sets additional settings.
     new Settings($settings + Settings::getAll());
+
+    // Create and set new configuration directories.
+    $this->prepareConfigDirectories();
 
     // Set the request scope.
     $this->container = $this->kernel->getContainer();
@@ -269,11 +218,11 @@ EOD;
     // \Drupal\Core\Config\ConfigInstaller::installDefaultConfig() to work.
     // Write directly to active storage to avoid early instantiation of
     // the event dispatcher which can prevent modules from registering events.
-    \Drupal::service('config.storage')->write('core.extension', ['module' => [], 'theme' => [], 'profile' => '']);
+    \Drupal::service('config.storage')->write('core.extension', array('module' => array(), 'theme' => array()));
 
     // Collect and set a fixed module list.
     $class = get_class($this);
-    $modules = [];
+    $modules = array();
     while ($class) {
       if (property_exists($class, 'modules')) {
         // Only add the modules, if the $modules property was not inherited.
@@ -295,19 +244,15 @@ EOD;
 
     // Tests based on this class are entitled to use Drupal's File and
     // StreamWrapper APIs.
-    \Drupal::service('file_system')->prepareDirectory($this->publicFilesDirectory, FileSystemInterface::CREATE_DIRECTORY | FileSystemInterface::MODIFY_PERMISSIONS);
+    // @todo Move StreamWrapper management into DrupalKernel.
+    // @see https://drupal.org/node/2028109
+    file_prepare_directory($this->publicFilesDirectory, FILE_CREATE_DIRECTORY | FILE_MODIFY_PERMISSIONS);
     $this->settingsSet('file_public_path', $this->publicFilesDirectory);
-    $this->streamWrappers = [];
+    $this->streamWrappers = array();
     $this->registerStreamWrapper('public', 'Drupal\Core\StreamWrapper\PublicStream');
     // The temporary stream wrapper is able to operate both with and without
     // configuration.
     $this->registerStreamWrapper('temporary', 'Drupal\Core\StreamWrapper\TemporaryStream');
-
-    // Manually configure the test mail collector implementation to prevent
-    // tests from sending out emails and collect them in state instead.
-    // While this should be enforced via settings.php prior to installation,
-    // some tests expect to be able to test mail system implementations.
-    $GLOBALS['config']['system.mail']['interface']['default'] = 'test_mail_collector';
   }
 
   /**
@@ -322,7 +267,7 @@ EOD;
     // state variables in Drupal, stream wrappers are a global state construct
     // of PHP core, which has to be maintained manually.
     // @todo Move StreamWrapper management into DrupalKernel.
-    // @see https://www.drupal.org/node/2028109
+    // @see https://drupal.org/node/2028109
     foreach ($this->streamWrappers as $scheme => $type) {
       $this->unregisterStreamWrapper($scheme, $type);
     }
@@ -357,13 +302,12 @@ EOD;
 
     if ($this->strictConfigSchema) {
       $container
-        ->register('testing.config_schema_checker', ConfigSchemaChecker::class)
+        ->register('simpletest.config_schema_checker', 'Drupal\Core\Config\Testing\ConfigSchemaChecker')
         ->addArgument(new Reference('config.typed'))
-        ->addArgument($this->getConfigSchemaExclusions())
         ->addTag('event_subscriber');
     }
 
-    $keyvalue_options = $container->getParameter('factory.keyvalue') ?: [];
+    $keyvalue_options = $container->getParameter('factory.keyvalue') ?: array();
     $keyvalue_options['default'] = 'keyvalue.memory';
     $container->setParameter('factory.keyvalue', $keyvalue_options);
     $container->set('keyvalue.memory', $this->keyValueFactory);
@@ -391,24 +335,24 @@ EOD;
         ->addArgument(new Reference('keyvalue'));
     }
 
-    if ($container->hasDefinition('path_alias.path_processor')) {
-      // The alias-based processor requires the path_alias entity schema to be
-      // installed, so we prevent it from being registered to the path processor
-      // manager. We do this by removing the tags that the compiler pass looks
-      // for. This means that the URL generator can safely be used within tests.
-      $definition = $container->getDefinition('path_alias.path_processor');
+    if ($container->hasDefinition('path_processor_alias')) {
+      // Prevent the alias-based path processor, which requires a url_alias db
+      // table, from being registered to the path processor manager. We do this
+      // by removing the tags that the compiler pass looks for. This means the
+      // url generator can safely be used within tests.
+      $definition = $container->getDefinition('path_processor_alias');
       $definition->clearTag('path_processor_inbound')->clearTag('path_processor_outbound');
     }
 
     if ($container->hasDefinition('password')) {
-      $container->getDefinition('password')->setArguments([1]);
+      $container->getDefinition('password')->setArguments(array(1));
     }
 
     // Register the stream wrapper manager.
     $container
       ->register('stream_wrapper_manager', 'Drupal\Core\StreamWrapper\StreamWrapperManager')
       ->addArgument(new Reference('module_handler'))
-      ->addMethodCall('setContainer', [new Reference('service_container')]);
+      ->addMethodCall('setContainer', array(new Reference('service_container')));
 
     $request = Request::create('/');
     $container->get('request_stack')->push($request);
@@ -436,13 +380,15 @@ EOD;
   protected function installConfig(array $modules) {
     foreach ($modules as $module) {
       if (!$this->container->get('module_handler')->moduleExists($module)) {
-        throw new \RuntimeException("'$module' module is not enabled");
+        throw new \RuntimeException(format_string("'@module' module is not enabled.", array(
+          '@module' => $module,
+        )));
       }
       \Drupal::service('config.installer')->installDefaultConfig('module', $module);
     }
-    $this->pass(new FormattableMarkup('Installed default config: %modules.', [
+    $this->pass(format_string('Installed default config: %modules.', array(
       '%modules' => implode(', ', $modules),
-    ]));
+    )));
   }
 
   /**
@@ -458,35 +404,38 @@ EOD;
    *   found in the module specified.
    */
   protected function installSchema($module, $tables) {
-    // drupal_get_module_schema() is technically able to install a schema
+    // drupal_get_schema_unprocessed() is technically able to install a schema
     // of a non-enabled module, but its ability to load the module's .install
     // file depends on many other factors. To prevent differences in test
     // behavior and non-reproducible test failures, we only allow the schema of
     // explicitly loaded/enabled modules to be installed.
     if (!$this->container->get('module_handler')->moduleExists($module)) {
-      throw new \RuntimeException("'$module' module is not enabled");
+      throw new \RuntimeException(format_string("'@module' module is not enabled.", array(
+        '@module' => $module,
+      )));
     }
-
     $tables = (array) $tables;
     foreach ($tables as $table) {
-      $schema = drupal_get_module_schema($module, $table);
+      $schema = drupal_get_schema_unprocessed($module, $table);
       if (empty($schema)) {
-        // BC layer to avoid some contrib tests to fail.
-        // @todo Remove the BC layer before 8.1.x release.
-        // @see https://www.drupal.org/node/2670360
-        // @see https://www.drupal.org/node/2670454
-        if ($module == 'system') {
-          continue;
-        }
-        throw new \RuntimeException("Unknown '$table' table schema in '$module' module.");
+        throw new \RuntimeException(format_string("Unknown '@table' table schema in '@module' module.", array(
+          '@module' => $module,
+          '@table' => $table,
+        )));
       }
       $this->container->get('database')->schema()->createTable($table, $schema);
     }
-    $this->pass(new FormattableMarkup('Installed %module tables: %tables.', [
+    // We need to refresh the schema cache, as any call to drupal_get_schema()
+    // would not know of/return the schema otherwise.
+    // @todo Refactor Schema API to make this obsolete.
+    drupal_get_schema(NULL, TRUE);
+    $this->pass(format_string('Installed %module tables: %tables.', array(
       '%tables' => '{' . implode('}, {', $tables) . '}',
       '%module' => $module,
-    ]));
+    )));
   }
+
+
 
   /**
    * Installs the storage schema for a specific entity type.
@@ -509,18 +458,18 @@ EOD;
       $all_tables_exist = TRUE;
       foreach ($tables as $table) {
         if (!$db_schema->tableExists($table)) {
-          $this->fail(new FormattableMarkup('Installed entity type table for the %entity_type entity type: %table', [
+          $this->fail(SafeMarkup::format('Installed entity type table for the %entity_type entity type: %table', array(
             '%entity_type' => $entity_type_id,
             '%table' => $table,
-          ]));
+          )));
           $all_tables_exist = FALSE;
         }
       }
       if ($all_tables_exist) {
-        $this->pass(new FormattableMarkup('Installed entity type tables for the %entity_type entity type: %tables', [
+        $this->pass(SafeMarkup::format('Installed entity type tables for the %entity_type entity type: %tables', array(
           '%entity_type' => $entity_type_id,
           '%tables' => '{' . implode('}, {', $tables) . '}',
-        ]));
+        )));
       }
     }
   }
@@ -528,36 +477,22 @@ EOD;
   /**
    * Enables modules for this test.
    *
-   * To install test modules outside of the testing environment, add
-   * @code
-   * $settings['extension_discovery_scan_tests'] = TRUE;
-   * @endcode
-   * to your settings.php.
-   *
    * @param array $modules
    *   A list of modules to enable. Dependencies are not resolved; i.e.,
    *   multiple modules have to be specified with dependent modules first.
    *   The new modules are only added to the active module list and loaded.
    */
   protected function enableModules(array $modules) {
-    // Perform an ExtensionDiscovery scan as this function may receive a
-    // profile that is not the current profile, and we don't yet have a cached
-    // way to receive inactive profile information.
-    // @todo Remove as part of https://www.drupal.org/node/2186491
-    $listing = new ExtensionDiscovery(\Drupal::root());
-    $module_list = $listing->scan('module');
-    // In ModuleHandlerTest we pass in a profile as if it were a module.
-    $module_list += $listing->scan('profile');
     // Set the list of modules in the extension handler.
     $module_handler = $this->container->get('module_handler');
 
     // Write directly to active storage to avoid early instantiation of
     // the event dispatcher which can prevent modules from registering events.
-    $active_storage = \Drupal::service('config.storage');
+    $active_storage =  \Drupal::service('config.storage');
     $extensions = $active_storage->read('core.extension');
 
     foreach ($modules as $module) {
-      $module_handler->addModule($module, $module_list[$module]->getPath());
+      $module_handler->addModule($module, drupal_get_path('module', $module));
       // Maintain the list of enabled modules in configuration.
       $extensions['module'][$module] = 0;
     }
@@ -567,14 +502,13 @@ EOD;
     $module_filenames = $module_handler->getModuleList();
     $this->kernel->updateModules($module_filenames, $module_filenames);
 
-    // Ensure isLoaded() is TRUE in order to make
-    // \Drupal\Core\Theme\ThemeManagerInterface::render() work.
+    // Ensure isLoaded() is TRUE in order to make _theme() work.
     // Note that the kernel has rebuilt the container; this $module_handler is
     // no longer the $module_handler instance from above.
     $this->container->get('module_handler')->reload();
-    $this->pass(new FormattableMarkup('Enabled modules: %modules.', [
+    $this->pass(format_string('Enabled modules: %modules.', array(
       '%modules' => implode(', ', $modules),
-    ]));
+    )));
   }
 
   /**
@@ -601,15 +535,14 @@ EOD;
     // Update the kernel to remove their services.
     $this->kernel->updateModules($module_filenames, $module_filenames);
 
-    // Ensure isLoaded() is TRUE in order to make
-    // \Drupal\Core\Theme\ThemeManagerInterface::render() work.
+    // Ensure isLoaded() is TRUE in order to make _theme() work.
     // Note that the kernel has rebuilt the container; this $module_handler is
     // no longer the $module_handler instance from above.
     $module_handler = $this->container->get('module_handler');
     $module_handler->reload();
-    $this->pass(new FormattableMarkup('Disabled modules: %modules.', [
+    $this->pass(format_string('Disabled modules: %modules.', array(
       '%modules' => implode(', ', $modules),
-    ]));
+    )));
   }
 
   /**
@@ -637,14 +570,10 @@ EOD;
    *   The rendered string output (typically HTML).
    */
   protected function render(array &$elements) {
-    // Use the bare HTML page renderer to render our links.
-    $renderer = $this->container->get('bare_html_page_renderer');
-    $response = $renderer->renderBarePage($elements, '', 'maintenance_page');
-
-    // Glean the content from the response object.
-    $content = $response->getContent();
+    $content = $this->container->get('renderer')->renderRoot($elements);
+    drupal_process_attached($elements);
     $this->setRawContent($content);
-    $this->verbose('<pre style="white-space: pre-wrap">' . Html::escape($content));
+    $this->verbose('<pre style="white-space: pre-wrap">' . SafeMarkup::checkPlain($content));
     return $content;
   }
 

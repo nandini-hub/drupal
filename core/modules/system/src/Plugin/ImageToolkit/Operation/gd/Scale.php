@@ -1,6 +1,13 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\system\Plugin\ImageToolkit\Operation\gd\Scale.
+ */
+
 namespace Drupal\system\Plugin\ImageToolkit\Operation\gd;
+
+use Drupal\Component\Utility\SafeMarkup;
 
 /**
  * Defines GD2 Scale operation.
@@ -19,23 +26,23 @@ class Scale extends Resize {
    * {@inheritdoc}
    */
   protected function arguments() {
-    return [
-      'width' => [
+    return array(
+      'width' => array(
         'description' => 'The target width, in pixels. This value is omitted then the scaling will based only on the height value',
         'required' => FALSE,
         'default' => NULL,
-      ],
-      'height' => [
+      ),
+      'height' => array(
         'description' => 'The target height, in pixels. This value is omitted then the scaling will based only on the width value',
         'required' => FALSE,
         'default' => NULL,
-      ],
-      'upscale' => [
+      ),
+      'upscale' => array(
         'description' => 'Boolean indicating that files smaller than the dimensions will be scaled up. This generally results in a low quality image',
         'required' => FALSE,
         'default' => FALSE,
-      ],
-    ];
+      ),
+    );
   }
 
   /**
@@ -66,10 +73,10 @@ class Scale extends Resize {
 
     // Fail when width or height are 0 or negative.
     if ($arguments['width'] <= 0) {
-      throw new \InvalidArgumentException("Invalid width ('{$arguments['width']}') specified for the image 'scale' operation");
+      throw new \InvalidArgumentException(SafeMarkup::format("Invalid width (@value) specified for the image 'scale' operation", array('@value' => $arguments['width'])));
     }
     if ($arguments['height'] <= 0) {
-      throw new \InvalidArgumentException("Invalid height ('{$arguments['height']}') specified for the image 'scale' operation");
+      throw new \InvalidArgumentException(SafeMarkup::format("Invalid height (@value) specified for the image 'scale' operation", array('@value' => $arguments['height'])));
     }
 
     return $arguments;
@@ -78,7 +85,7 @@ class Scale extends Resize {
   /**
    * {@inheritdoc}
    */
-  protected function execute(array $arguments = []) {
+  protected function execute(array $arguments = array()) {
     // Don't scale if we don't change the dimensions at all.
     if ($arguments['width'] !== $this->getToolkit()->getWidth() || $arguments['height'] !== $this->getToolkit()->getHeight()) {
       // Don't upscale if the option isn't enabled.

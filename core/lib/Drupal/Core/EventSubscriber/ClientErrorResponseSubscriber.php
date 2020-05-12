@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\EventSubscriber\CacheableResponseSubscriber.
+ */
+
 namespace Drupal\Core\EventSubscriber;
 
 use Drupal\Core\Cache\CacheableMetadata;

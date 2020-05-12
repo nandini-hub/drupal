@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\config_test\ConfigTestListBuilder.
+ */
+
 namespace Drupal\config_test;
 
 use Drupal\Core\Config\Entity\ConfigEntityListBuilder;
@@ -25,7 +30,7 @@ class ConfigTestListBuilder extends ConfigEntityListBuilder {
    * {@inheritdoc}
    */
   public function buildRow(EntityInterface $entity) {
-    $row['label'] = $entity->label();
+    $row['label'] = $this->getLabel($entity);
     $row['id'] = $entity->id();
     return $row + parent::buildRow($entity);
   }

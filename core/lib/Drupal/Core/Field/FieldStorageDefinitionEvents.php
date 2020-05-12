@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Field\FieldStorageDefinitionEvent.
+ */
+
 namespace Drupal\Core\Field;
 
 /**
@@ -17,7 +22,7 @@ final class FieldStorageDefinitionEvents {
    * @Event
    *
    * @see \Drupal\Core\Field\FieldStorageDefinitionEvent
-   * @see \Drupal\Core\Field\FieldStorageDefinitionListener::onFieldStorageDefinitionCreate
+   * @see \Drupal\Core\Entity\EntityManager::onFieldStorageDefinitionCreate()
    * @see \Drupal\Core\Field\FieldStorageDefinitionEventSubscriberTrait
    *
    * @var string
@@ -34,7 +39,7 @@ final class FieldStorageDefinitionEvents {
    * @Event
    *
    * @see \Drupal\Core\Field\FieldStorageDefinitionEvent
-   * @see \Drupal\Core\Field\FieldStorageDefinitionListener::onFieldStorageDefinitionUpdate()
+   * @see \Drupal\Core\Entity\EntityManager::onFieldStorageDefinitionUpdate()
    * @see \Drupal\Core\Field\FieldStorageDefinitionEventSubscriberTrait
    *
    * @var string
@@ -51,7 +56,7 @@ final class FieldStorageDefinitionEvents {
    * @Event
    *
    * @see \Drupal\Core\Field\FieldStorageDefinitionEvent
-   * @see \Drupal\Core\Field\FieldStorageDefinitionListener::onFieldStorageDefinitionDelete()
+   * @see \Drupal\Core\Entity\EntityManager::onFieldStorageDefinitionDelete()
    * @see \Drupal\Core\Field\FieldStorageDefinitionEventSubscriberTrait
    *
    * @var string

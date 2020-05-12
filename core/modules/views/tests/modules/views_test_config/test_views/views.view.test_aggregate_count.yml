@@ -8,6 +8,7 @@ description: ''
 tag: ''
 base_table: entity_test
 base_field: nid
+core: '8'
 display:
   default:
     display_options:
@@ -26,7 +27,7 @@ display:
           entity_type: entity_test
           entity_field: name
       cache:
-        type: tag
+        type: none
       exposed_form:
         type: basic
       fields:

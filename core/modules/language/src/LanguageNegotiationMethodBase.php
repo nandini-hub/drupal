@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\language\LanguageNegotiationMethodBase.
+ */
+
 namespace Drupal\language;
 
 use Drupal\Core\Config\ConfigFactoryInterface;
@@ -28,7 +33,7 @@ abstract class LanguageNegotiationMethodBase implements LanguageNegotiationMetho
   /**
    * The current active user.
    *
-   * @var \Drupal\Core\Session\AccountInterface
+   * @return \Drupal\Core\Session\AccountInterface
    */
   protected $currentUser;
 

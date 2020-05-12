@@ -1,10 +1,16 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\shortcut\Form\SwitchShortcutSet.
+ */
+
 namespace Drupal\shortcut\Form;
 
+use Drupal\Component\Utility\SafeMarkup;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
-use Drupal\Core\Url;
+use Drupal\Core\Routing\RouteMatchInterface;
 use Drupal\shortcut\Entity\ShortcutSet;
 use Drupal\shortcut\ShortcutSetStorageInterface;
 use Drupal\user\UserInterface;
@@ -12,8 +18,6 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
  * Builds the shortcut set switch form.
- *
- * @internal
  */
 class SwitchShortcutSet extends FormBase {
 
@@ -46,14 +50,14 @@ class SwitchShortcutSet extends FormBase {
    */
   public static function create(ContainerInterface $container) {
     return new static(
-      $container->get('entity_type.manager')->getStorage('shortcut_set')
+      $container->get('entity.manager')->getStorage('shortcut_set')
     );
   }
 
   /**
    * {@inheritdoc}
    */
-  public function getFormId() {
+  public function getFormID() {
     return 'shortcut_set_switch';
   }
 
@@ -67,7 +71,7 @@ class SwitchShortcutSet extends FormBase {
 
     // Prepare the list of shortcut sets.
     $options = array_map(function (ShortcutSet $set) {
-      return $set->label();
+      return SafeMarkup::checkPlain($set->label());
     }, $this->shortcutSetStorage->loadMultiple());
 
     $current_set = shortcut_current_displayed_set($this->user);
@@ -80,60 +84,60 @@ class SwitchShortcutSet extends FormBase {
 
     $account_is_user = $this->user->id() == $account->id();
     if (count($options) > 1) {
-      $form['set'] = [
+      $form['set'] = array(
         '#type' => 'radios',
         '#title' => $account_is_user ? $this->t('Choose a set of shortcuts to use') : $this->t('Choose a set of shortcuts for this user'),
         '#options' => $options,
         '#default_value' => $current_set->id(),
-      ];
+      );
 
-      $form['label'] = [
+      $form['label'] = array(
         '#type' => 'textfield',
         '#title' => $this->t('Label'),
         '#description' => $this->t('The new set is created by copying items from your default shortcut set.'),
         '#access' => $add_access,
-        '#states' => [
-          'visible' => [
-            ':input[name="set"]' => ['value' => 'new'],
-          ],
-          'required' => [
-            ':input[name="set"]' => ['value' => 'new'],
-          ],
-        ],
-      ];
-      $form['id'] = [
+        '#states' => array(
+          'visible' => array(
+            ':input[name="set"]' => array('value' => 'new'),
+          ),
+          'required' => array(
+            ':input[name="set"]' => array('value' => 'new'),
+          ),
+        ),
+      );
+      $form['id'] = array(
         '#type' => 'machine_name',
-        '#machine_name' => [
-          'exists' => [$this, 'exists'],
+        '#machine_name' => array(
+          'exists' => array($this, 'exists'),
           'replace_pattern' => '[^a-z0-9-]+',
           'replace' => '-',
-        ],
+        ),
         // This ID could be used for menu name.
         '#maxlength' => 23,
-        '#states' => [
-          'required' => [
-            ':input[name="set"]' => ['value' => 'new'],
-          ],
-        ],
+        '#states' => array(
+          'required' => array(
+            ':input[name="set"]' => array('value' => 'new'),
+          ),
+        ),
         '#required' => FALSE,
-      ];
+      );
 
       if (!$account_is_user) {
         $default_set = $this->shortcutSetStorage->getDefaultSet($this->user);
-        $form['new']['#description'] = $this->t('The new set is created by copying items from the %default set.', ['%default' => $default_set->label()]);
+        $form['new']['#description'] = $this->t('The new set is created by copying items from the %default set.', array('%default' => $default_set->label()));
       }
 
-      $form['actions'] = ['#type' => 'actions'];
-      $form['actions']['submit'] = [
+      $form['actions'] = array('#type' => 'actions');
+      $form['actions']['submit'] = array(
         '#type' => 'submit',
         '#value' => $this->t('Change set'),
-      ];
+      );
     }
     else {
       // There is only 1 option, so output a message in the $form array.
-      $form['info'] = [
-        '#markup' => '<p>' . $this->t('You are currently using the %set-name shortcut set.', ['%set-name' => $current_set->label()]) . '</p>',
-      ];
+      $form['info'] = array(
+        '#markup' => '<p>' . $this->t('You are currently using the %set-name shortcut set.', array('%set-name' => $current_set->label())) . '</p>',
+      );
     }
 
     return $form;
@@ -176,38 +180,38 @@ class SwitchShortcutSet extends FormBase {
     if ($form_state->getValue('set') == 'new') {
       // Save a new shortcut set with links copied from the user's default set.
       /* @var \Drupal\shortcut\Entity\ShortcutSet $set */
-      $set = $this->shortcutSetStorage->create([
+      $set = $this->shortcutSetStorage->create(array(
         'id' => $form_state->getValue('id'),
         'label' => $form_state->getValue('label'),
-      ]);
+      ));
       $set->save();
-      $replacements = [
+      $replacements = array(
         '%user' => $this->user->label(),
         '%set_name' => $set->label(),
-        ':switch-url' => Url::fromRoute('<current>')->toString(),
-      ];
+        '@switch-url' => $this->url('<current>'),
+      );
       if ($account_is_user) {
         // Only administrators can create new shortcut sets, so we know they have
         // access to switch back.
-        $this->messenger()->addStatus($this->t('You are now using the new %set_name shortcut set. You can edit it from this page or <a href=":switch-url">switch back to a different one.</a>', $replacements));
+        drupal_set_message($this->t('You are now using the new %set_name shortcut set. You can edit it from this page or <a href="@switch-url">switch back to a different one.</a>', $replacements));
       }
       else {
-        $this->messenger()->addStatus($this->t('%user is now using a new shortcut set called %set_name. You can edit it from this page.', $replacements));
+        drupal_set_message($this->t('%user is now using a new shortcut set called %set_name. You can edit it from this page.', $replacements));
       }
       $form_state->setRedirect(
         'entity.shortcut_set.customize_form',
-        ['shortcut_set' => $set->id()]
+        array('shortcut_set' => $set->id())
       );
     }
     else {
       // Switch to a different shortcut set.
       /* @var \Drupal\shortcut\Entity\ShortcutSet $set */
       $set = $this->shortcutSetStorage->load($form_state->getValue('set'));
-      $replacements = [
-        '%user' => $this->user->getDisplayName(),
+      $replacements = array(
+        '%user' => $this->user->label(),
         '%set_name' => $set->label(),
-      ];
-      $this->messenger()->addStatus($account_is_user ? $this->t('You are now using the %set_name shortcut set.', $replacements) : $this->t('%user is now using the %set_name shortcut set.', $replacements));
+      );
+      drupal_set_message($account_is_user ? $this->t('You are now using the %set_name shortcut set.', $replacements) : $this->t('%user is now using the %set_name shortcut set.', $replacements));
     }
 
     // Assign the shortcut set to the provided user account.

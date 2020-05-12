@@ -1,9 +1,14 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\Core\Annotation\Translation.
+ */
+
 namespace Drupal\Core\Annotation;
 
 use Drupal\Component\Annotation\AnnotationBase;
-use Drupal\Core\StringTranslation\TranslatableMarkup;
+use Drupal\Core\StringTranslation\TranslationWrapper;
 
 /**
  * @defgroup plugin_translatable Annotation for translatable text
@@ -23,7 +28,7 @@ use Drupal\Core\StringTranslation\TranslatableMarkup;
  *
  * To provide replacement values for placeholders, use the "arguments" array:
  * @code
- *   title = @ Translation("Bundle @title", arguments = {"@title" = "Foo"}),
+ *   title = @ Translation("Bundle !title", arguments = {"!title" = "Foo"}),
  * @endcode
  *
  * It is also possible to provide a context with the text, similar to t():
@@ -55,7 +60,7 @@ class Translation extends AnnotationBase {
   /**
    * The string translation object.
    *
-   * @var \Drupal\Core\StringTranslation\TranslatableMarkup
+   * @var \Drupal\Core\StringTranslation\TranslationWrapper
    */
   protected $translation;
 
@@ -74,14 +79,14 @@ class Translation extends AnnotationBase {
    */
   public function __construct(array $values) {
     $string = $values['value'];
-    $arguments = isset($values['arguments']) ? $values['arguments'] : [];
-    $options = [];
+    $arguments = isset($values['arguments']) ? $values['arguments'] : array();
+    $options = array();
     if (!empty($values['context'])) {
-      $options = [
+      $options = array(
         'context' => $values['context'],
-      ];
+      );
     }
-    $this->translation = new TranslatableMarkup($string, $arguments, $options);
+    $this->translation = new TranslationWrapper($string, $arguments, $options);
   }
 
   /**

@@ -1,10 +1,15 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\aggregator\Plugin\views\argument\Iid.
+ */
+
 namespace Drupal\aggregator\Plugin\views\argument;
 
-use Drupal\Core\DependencyInjection\DeprecatedServicePropertyTrait;
-use Drupal\Core\Entity\EntityTypeManagerInterface;
+use Drupal\Core\Entity\EntityManagerInterface;
 use Drupal\views\Plugin\views\argument\NumericArgument;
+use Drupal\Component\Utility\SafeMarkup;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
@@ -15,22 +20,16 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
  * @ViewsArgument("aggregator_iid")
  */
 class Iid extends NumericArgument {
-  use DeprecatedServicePropertyTrait;
 
   /**
-   * {@inheritdoc}
-   */
-  protected $deprecatedProperties = ['entityManager' => 'entity.manager'];
-
-  /**
-   * The entity type manager.
+   * The entity manager service.
    *
-   * @var \Drupal\Core\Entity\EntityTypeManagerInterface
+   * @var \Drupal\Core\Entity\EntityManagerInterface
    */
-  protected $entityTypeManager;
+  protected $entityManager;
 
   /**
-   * Constructs a \Drupal\aggregator\Plugin\views\argument\Iid object.
+   * Constructs a Drupal\Component\Plugin\PluginBase object.
    *
    * @param array $configuration
    *   A configuration array containing information about the plugin instance.
@@ -38,35 +37,30 @@ class Iid extends NumericArgument {
    *   The plugin_id for the plugin instance.
    * @param mixed $plugin_definition
    *   The plugin implementation definition.
-   * @param \Drupal\Core\Entity\EntityTypeManagerInterface $entity_type_manager
-   *   The entity type manager.
+   * @param \Drupal\Core\Entity\EntityManagerInterface $entity_manager
+   *   The entity manager.
    */
-  public function __construct(array $configuration, $plugin_id, $plugin_definition, EntityTypeManagerInterface $entity_type_manager) {
+  public function __construct(array $configuration, $plugin_id, $plugin_definition, EntityManagerInterface $entity_manager) {
     parent::__construct($configuration, $plugin_id, $plugin_definition);
-    $this->entityTypeManager = $entity_type_manager;
+    $this->entityManager = $entity_manager;
   }
 
   /**
    * {@inheritdoc}
    */
   public static function create(ContainerInterface $container, array $configuration, $plugin_id, $plugin_definition) {
-    return new static(
-      $configuration,
-      $plugin_id,
-      $plugin_definition,
-      $container->get('entity_type.manager')
-    );
+    return new static($configuration, $plugin_id, $plugin_definition, $container->get('entity.manager'));
   }
 
   /**
    * {@inheritdoc}
    */
   public function titleQuery() {
-    $titles = [];
+    $titles = array();
 
-    $items = $this->entityTypeManager->getStorage('aggregator_item')->loadMultiple($this->value);
+    $items = $this->entityManager->getStorage('aggregator_item')->loadMultiple($this->value);
     foreach ($items as $feed) {
-      $titles[] = $feed->label();
+      $titles[] = SafeMarkup::checkPlain($feed->label());
     }
     return $titles;
   }

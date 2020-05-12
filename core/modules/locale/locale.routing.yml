@@ -1,15 +1,15 @@
 locale.settings:
   path: '/admin/config/regional/translate/settings'
   defaults:
-    _form: '\Drupal\locale\Form\LocaleSettingsForm'
-    _title: 'Interface translation settings'
+    _form: 'Drupal\locale\Form\LocaleSettingsForm'
+    _title: 'Settings'
   requirements:
     _permission: 'translate interface'
 
 locale.check_translation:
   path: '/admin/reports/translations/check'
   defaults:
-    _controller: '\Drupal\locale\Controller\LocaleController::checkTranslation'
+    _controller: 'Drupal\locale\Controller\LocaleController::checkTranslation'
   requirements:
     _permission: 'translate interface'
 
@@ -25,7 +25,7 @@ locale.translate_import:
   path: '/admin/config/regional/translate/import'
   defaults:
     _form: '\Drupal\locale\Form\ImportForm'
-    _title: 'Interface translation import'
+    _title: 'Import'
   requirements:
     _permission: 'translate interface'
 
@@ -33,7 +33,7 @@ locale.translate_export:
   path: '/admin/config/regional/translate/export'
   defaults:
     _form: '\Drupal\locale\Form\ExportForm'
-    _title: 'Interface translation export'
+    _title: 'Export'
   requirements:
     _permission: 'translate interface'
 

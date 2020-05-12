@@ -1,18 +1,16 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Path\AliasStorageInterface.
+ */
+
 namespace Drupal\Core\Path;
 
 use Drupal\Core\Language\LanguageInterface;
 
 /**
  * Provides a class for CRUD operations on path aliases.
- *
- * @deprecated \Drupal\Core\Path\AliasStorage is deprecated in drupal:8.8.0 and
- *   is removed from drupal:9.0.0. Use the "path_alias.repository" service
- *   instead, or the entity storage handler for the "path_alias" entity type
- *   for CRUD methods.
- *
- * @see https://www.drupal.org/node/3013865
  */
 interface AliasStorageInterface {
 
@@ -31,23 +29,17 @@ interface AliasStorageInterface {
    * @return array|false
    *   FALSE if the path could not be saved or an associative array containing
    *   the following keys:
-   *   - source (string): The internal system path with a starting slash.
-   *   - alias (string): The URL alias with a starting slash.
+   *   - source (string): The internal system path.
+   *   - alias (string): The URL alias.
    *   - pid (int): Unique path alias identifier.
    *   - langcode (string): The language code of the alias.
    *   - original: For updates, an array with source, alias and langcode with
    *     the previous values.
-   *
-   * @thrown \InvalidArgumentException
-   *   Thrown when either the source or alias has not a starting slash.
    */
   public function save($source, $alias, $langcode = LanguageInterface::LANGCODE_NOT_SPECIFIED, $pid = NULL);
 
   /**
    * Fetches a specific URL alias from the database.
-   *
-   * The default implementation performs case-insensitive matching on the
-   * 'source' and 'alias' strings.
    *
    * @param array $conditions
    *   An array of query conditions.
@@ -55,8 +47,8 @@ interface AliasStorageInterface {
    * @return array|false
    *   FALSE if no alias was found or an associative array containing the
    *   following keys:
-   *   - source (string): The internal system path with a starting slash.
-   *   - alias (string): The URL alias with a starting slash.
+   *   - source (string): The internal system path.
+   *   - alias (string): The URL alias.
    *   - pid (int): Unique path alias identifier.
    *   - langcode (string): The language code of the alias.
    */
@@ -64,9 +56,6 @@ interface AliasStorageInterface {
 
   /**
    * Deletes a URL alias.
-   *
-   * The default implementation performs case-insensitive matching on the
-   * 'source' and 'alias' strings.
    *
    * @param array $conditions
    *   An array of criteria.
@@ -90,9 +79,6 @@ interface AliasStorageInterface {
   /**
    * Returns an alias of Drupal system URL.
    *
-   * The default implementation performs case-insensitive matching on the
-   * 'source' and 'alias' strings.
-   *
    * @param string $path
    *   The path to investigate for corresponding path aliases.
    * @param string $langcode
@@ -107,9 +93,6 @@ interface AliasStorageInterface {
   /**
    * Returns Drupal system URL of an alias.
    *
-   * The default implementation performs case-insensitive matching on the
-   * 'source' and 'alias' strings.
-   *
    * @param string $path
    *   The path to investigate for corresponding system URLs.
    * @param string $langcode
@@ -123,9 +106,6 @@ interface AliasStorageInterface {
 
   /**
    * Checks if alias already exists.
-   *
-   * The default implementation performs case-insensitive matching on the
-   * 'source' and 'alias' strings.
    *
    * @param string $alias
    *   Alias to check against.
@@ -152,9 +132,8 @@ interface AliasStorageInterface {
    *
    * @param array $header
    *   Table header.
-   * @param string|null $keys
-   *   (optional) Search keyword that may include one or more '*' as wildcard
-   *   values.
+   * @param string[]|null $keys
+   *   (optional) Search keys.
    *
    * @return array
    *   Array of items to be displayed on the current page.
@@ -171,5 +150,4 @@ interface AliasStorageInterface {
    *   TRUE if any alias exists, FALSE otherwise.
    */
   public function pathHasMatchingAlias($initial_substring);
-
 }

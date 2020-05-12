@@ -1,8 +1,14 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\node\Plugin\views\field\NodeBulkForm.
+ */
+
 namespace Drupal\node\Plugin\views\field;
 
-use Drupal\views\Plugin\views\field\BulkForm;
+use Drupal\Core\Entity\EntityManagerInterface;
+use Drupal\system\Plugin\views\field\BulkForm;
 
 /**
  * Defines a node operations bulk form element.

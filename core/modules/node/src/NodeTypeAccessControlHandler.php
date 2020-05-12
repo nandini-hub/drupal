@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\taxonomy\NodeTypeAccessControlHandler.
+ */
+
 namespace Drupal\node;
 
 use Drupal\Core\Access\AccessResult;
@@ -17,24 +22,16 @@ class NodeTypeAccessControlHandler extends EntityAccessControlHandler {
   /**
    * {@inheritdoc}
    */
-  protected function checkAccess(EntityInterface $entity, $operation, AccountInterface $account) {
-    switch ($operation) {
-      case 'view':
-        return AccessResult::allowedIfHasPermission($account, 'access content');
-
-      case 'delete':
-        if ($entity->isLocked()) {
-          return AccessResult::forbidden()->addCacheableDependency($entity);
-        }
-        else {
-          return parent::checkAccess($entity, $operation, $account)->addCacheableDependency($entity);
-        }
-        break;
-
-      default:
-        return parent::checkAccess($entity, $operation, $account);
-
+  protected function checkAccess(EntityInterface $entity, $operation, $langcode, AccountInterface $account) {
+    if ($operation == 'delete') {
+      if ($entity->isLocked()) {
+        return AccessResult::forbidden()->cacheUntilEntityChanges($entity);
+      }
+      else {
+        return parent::checkAccess($entity, $operation, $langcode, $account)->cacheUntilEntityChanges($entity);
+      }
     }
+    return parent::checkAccess($entity, $operation, $langcode, $account);
   }
 
 }

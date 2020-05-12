@@ -7,9 +7,9 @@
 
 namespace Drupal\Tests\Core\Render;
 
-use Drupal\Core\Cache\MemoryBackend;
 use Drupal\Core\KeyValueStore\KeyValueMemoryFactory;
-use Drupal\Core\Security\TrustedCallbackInterface;
+use Drupal\Core\Render\Element;
+use Drupal\Core\Render\Renderer;
 use Drupal\Core\State\State;
 use Drupal\Core\Cache\Cache;
 
@@ -28,15 +28,18 @@ class RendererBubblingTest extends RendererTestBase {
     $this->rendererConfig['required_cache_contexts'] = [];
 
     parent::setUp();
+
+    $this->setUpRequest();
+    $this->setupMemoryCache();
   }
 
   /**
    * Tests bubbling of assets when NOT using #pre_render callbacks.
    */
   public function testBubblingWithoutPreRender() {
-    $this->setUpRequest();
-    $this->setupMemoryCache();
-
+    $this->elementInfo->expects($this->any())
+      ->method('getInfo')
+      ->willReturn([]);
     $this->cacheContextsManager->expects($this->any())
       ->method('convertTokensToKeys')
       ->willReturnArgument(0);
@@ -46,7 +49,7 @@ class RendererBubblingTest extends RendererTestBase {
     $element = [
       '#type' => 'container',
       '#cache' => [
-        'keys' => ['simpletest', 'renderer', 'children_attached'],
+        'keys' => ['simpletest', 'drupal_render', 'children_attached'],
       ],
       '#attached' => ['library' => ['test/parent']],
       '#title' => 'Parent',
@@ -62,68 +65,15 @@ class RendererBubblingTest extends RendererTestBase {
     ];
 
     // Render the element and verify the presence of #attached JavaScript.
-    $this->renderer->renderRoot($element);
+    $this->renderer->render($element);
     $expected_libraries = ['test/parent', 'test/child', 'test/subchild'];
     $this->assertEquals($element['#attached']['library'], $expected_libraries, 'The element, child and subchild #attached libraries are included.');
 
     // Load the element from cache and verify the presence of the #attached
     // JavaScript.
-    $element = ['#cache' => ['keys' => ['simpletest', 'renderer', 'children_attached']]];
-    $this->assertTrue(strlen($this->renderer->renderRoot($element)) > 0, 'The element was retrieved from cache.');
+    $element = ['#cache' => ['keys' => ['simpletest', 'drupal_render', 'children_attached']]];
+    $this->assertTrue(strlen($this->renderer->render($element)) > 0, 'The element was retrieved from cache.');
     $this->assertEquals($element['#attached']['library'], $expected_libraries, 'The element, child and subchild #attached libraries are included.');
-  }
-
-  /**
-   * Tests cache context bubbling with a custom cache bin.
-   */
-  public function testContextBubblingCustomCacheBin() {
-    $bin = $this->randomMachineName();
-
-    $this->setUpRequest();
-    $this->memoryCache = new MemoryBackend();
-    $custom_cache = new MemoryBackend();
-
-    $this->cacheFactory->expects($this->atLeastOnce())
-      ->method('get')
-      ->with($bin)
-      ->willReturnCallback(function ($requested_bin) use ($bin, $custom_cache) {
-        if ($requested_bin === $bin) {
-          return $custom_cache;
-        }
-        else {
-          throw new \Exception();
-        }
-      });
-    $this->cacheContextsManager->expects($this->any())
-      ->method('convertTokensToKeys')
-      ->willReturnArgument(0);
-
-    $build = [
-      '#cache' => [
-        'keys' => ['parent'],
-        'contexts' => ['foo'],
-        'bin' => $bin,
-      ],
-      '#markup' => 'parent',
-      'child' => [
-        '#cache' => [
-          'contexts' => ['bar'],
-          'max-age' => 3600,
-        ],
-      ],
-    ];
-    $this->renderer->renderRoot($build);
-
-    $this->assertRenderCacheItem('parent:foo', [
-      '#cache_redirect' => TRUE,
-      '#cache' => [
-        'keys' => ['parent'],
-        'contexts' => ['bar', 'foo'],
-        'tags' => [],
-        'bin' => $bin,
-        'max-age' => 3600,
-      ],
-    ], $bin);
   }
 
   /**
@@ -140,7 +90,7 @@ class RendererBubblingTest extends RendererTestBase {
       ->method('convertTokensToKeys')
       ->willReturnArgument(0);
 
-    $this->renderer->renderRoot($element);
+    $this->renderer->render($element);
 
     $this->assertEquals($expected_top_level_contexts, $element['#cache']['contexts'], 'Expected cache contexts found.');
     foreach ($expected_cache_items as $cid => $expected_cache_item) {
@@ -174,6 +124,7 @@ class RendererBubblingTest extends RendererTestBase {
           'tags' => [],
           'max-age' => Cache::PERMANENT,
         ],
+        '#post_render_cache' => [],
         '#markup' => 'parent',
       ],
     ];
@@ -197,6 +148,7 @@ class RendererBubblingTest extends RendererTestBase {
           'tags' => [],
           'max-age' => Cache::PERMANENT,
         ],
+        '#post_render_cache' => [],
         '#markup' => '',
       ],
     ];
@@ -238,6 +190,7 @@ class RendererBubblingTest extends RendererTestBase {
           'tags' => [],
           'max-age' => 3600,
         ],
+        '#post_render_cache' => [],
         '#markup' => 'parent',
       ],
     ];
@@ -275,8 +228,6 @@ class RendererBubblingTest extends RendererTestBase {
           'keys' => ['parent'],
           'contexts' => ['bar', 'foo'],
           'tags' => ['dee', 'fiddle', 'har', 'yar'],
-          'bin' => 'render',
-          'max-age' => Cache::PERMANENT,
         ],
       ],
       'parent:bar:foo' => [
@@ -286,46 +237,11 @@ class RendererBubblingTest extends RendererTestBase {
           'tags' => ['dee', 'fiddle', 'har', 'yar'],
           'max-age' => Cache::PERMANENT,
         ],
+        '#post_render_cache' => [],
         '#markup' => 'parent',
       ],
     ];
     $data[] = [$test_element, ['bar', 'foo'], $expected_cache_items];
-
-    // Ensure that bubbleable metadata has been collected from children and set
-    // correctly to the main level of the render array. That ensures that correct
-    // bubbleable metadata exists if render array gets rendered multiple times.
-    $test_element = [
-      '#cache' => [
-        'keys' => ['parent'],
-        'tags' => ['yar', 'har'],
-      ],
-      '#markup' => 'parent',
-      'child' => [
-        '#render_children' => TRUE,
-        'subchild' => [
-          '#cache' => [
-            'contexts' => ['foo'],
-            'tags' => ['fiddle', 'dee'],
-          ],
-          '#attached' => [
-            'library' => ['foo/bar'],
-          ],
-          '#markup' => '',
-        ],
-      ],
-    ];
-    $expected_cache_items = [
-      'parent:foo' => [
-        '#attached' => ['library' => ['foo/bar']],
-        '#cache' => [
-          'contexts' => ['foo'],
-          'tags' => ['dee', 'fiddle', 'har', 'yar'],
-          'max-age' => Cache::PERMANENT,
-        ],
-        '#markup' => 'parent',
-      ],
-    ];
-    $data[] = [$test_element, ['foo'], $expected_cache_items];
 
     return $data;
   }
@@ -334,7 +250,7 @@ class RendererBubblingTest extends RendererTestBase {
    * Tests the self-healing of the redirect with conditional cache contexts.
    */
   public function testConditionalCacheContextBubblingSelfHealing() {
-    $current_user_role = &$this->currentUserRole;
+    global $current_user_role;
 
     $this->setUpRequest();
     $this->setupMemoryCache();
@@ -351,26 +267,24 @@ class RendererBubblingTest extends RendererTestBase {
           'tags' => ['b'],
         ],
         'grandchild' => [
-          '#access_callback' => function () use (&$current_user_role) {
+          '#access_callback' => function () {
+            global $current_user_role;
             // Only role A cannot access this subtree.
             return $current_user_role !== 'A';
           },
           '#cache' => [
             'contexts' => ['foo'],
             'tags' => ['c'],
-            // A lower max-age; the redirecting cache item should be updated.
-            'max-age' => 1800,
           ],
           'grandgrandchild' => [
-            '#access_callback' => function () use (&$current_user_role) {
-              // Only role C can access this subtree.
-              return $current_user_role === 'C';
-            },
+            '#access_callback' => function () {
+                global $current_user_role;
+                // Only role C can access this subtree.
+                return $current_user_role === 'C';
+              },
             '#cache' => [
               'contexts' => ['bar'],
               'tags' => ['d'],
-              // A lower max-age; the redirecting cache item should be updated.
-              'max-age' => 300,
             ],
           ],
         ],
@@ -381,15 +295,13 @@ class RendererBubblingTest extends RendererTestBase {
     // contexts: user.roles.
     $element = $test_element;
     $current_user_role = 'A';
-    $this->renderer->renderRoot($element);
+    $this->renderer->render($element);
     $this->assertRenderCacheItem('parent', [
       '#cache_redirect' => TRUE,
       '#cache' => [
         'keys' => ['parent'],
         'contexts' => ['user.roles'],
         'tags' => ['a', 'b'],
-        'bin' => 'render',
-        'max-age' => Cache::PERMANENT,
       ],
     ]);
     $this->assertRenderCacheItem('parent:r.A', [
@@ -399,22 +311,21 @@ class RendererBubblingTest extends RendererTestBase {
         'tags' => ['a', 'b'],
         'max-age' => Cache::PERMANENT,
       ],
+      '#post_render_cache' => [],
       '#markup' => 'parent',
     ]);
 
     // Request 2: role B, the grandchild is accessible => bubbled cache
-    // contexts: foo, user.roles + merged max-age: 1800.
+    // contexts: foo, user.roles.
     $element = $test_element;
     $current_user_role = 'B';
-    $this->renderer->renderRoot($element);
+    $this->renderer->render($element);
     $this->assertRenderCacheItem('parent', [
       '#cache_redirect' => TRUE,
       '#cache' => [
         'keys' => ['parent'],
         'contexts' => ['foo', 'user.roles'],
         'tags' => ['a', 'b', 'c'],
-        'bin' => 'render',
-        'max-age' => 1800,
       ],
     ]);
     $this->assertRenderCacheItem('parent:foo:r.B', [
@@ -422,8 +333,9 @@ class RendererBubblingTest extends RendererTestBase {
       '#cache' => [
         'contexts' => ['foo', 'user.roles'],
         'tags' => ['a', 'b', 'c'],
-        'max-age' => 1800,
+        'max-age' => Cache::PERMANENT,
       ],
+      '#post_render_cache' => [],
       '#markup' => 'parent',
     ]);
 
@@ -439,15 +351,13 @@ class RendererBubblingTest extends RendererTestBase {
     // and 'user.roles' cache contexts, resulting in a cache miss every time.)
     $element = $test_element;
     $current_user_role = 'A';
-    $this->renderer->renderRoot($element);
+    $this->renderer->render($element);
     $this->assertRenderCacheItem('parent', [
       '#cache_redirect' => TRUE,
       '#cache' => [
         'keys' => ['parent'],
         'contexts' => ['foo', 'user.roles'],
         'tags' => ['a', 'b', 'c'],
-        'bin' => 'render',
-        'max-age' => 1800,
       ],
     ]);
     $this->assertRenderCacheItem('parent:foo:r.A', [
@@ -455,28 +365,23 @@ class RendererBubblingTest extends RendererTestBase {
       '#cache' => [
         'contexts' => ['foo', 'user.roles'],
         'tags' => ['a', 'b'],
-        // Note that the max-age here is unaffected. When role A, the grandchild
-        // is never rendered, so neither is its max-age of 1800 present here,
-        // despite 1800 being the max-age of the redirecting cache item.
         'max-age' => Cache::PERMANENT,
       ],
+      '#post_render_cache' => [],
       '#markup' => 'parent',
     ]);
 
     // Request 4: role C, both the grandchild and the grandgrandchild are
-    // accessible => bubbled cache contexts: foo, bar, user.roles + merged
-    // max-age: 300.
+    // accessible => bubbled cache contexts: foo, bar, user.roles.
     $element = $test_element;
     $current_user_role = 'C';
-    $this->renderer->renderRoot($element);
+    $this->renderer->render($element);
     $final_parent_cache_item = [
       '#cache_redirect' => TRUE,
       '#cache' => [
         'keys' => ['parent'],
         'contexts' => ['bar', 'foo', 'user.roles'],
         'tags' => ['a', 'b', 'c', 'd'],
-        'bin' => 'render',
-        'max-age' => 300,
       ],
     ];
     $this->assertRenderCacheItem('parent', $final_parent_cache_item);
@@ -485,46 +390,41 @@ class RendererBubblingTest extends RendererTestBase {
       '#cache' => [
         'contexts' => ['bar', 'foo', 'user.roles'],
         'tags' => ['a', 'b', 'c', 'd'],
-        'max-age' => 300,
+        'max-age' => Cache::PERMANENT,
       ],
+      '#post_render_cache' => [],
       '#markup' => 'parent',
     ]);
 
     // Request 5: role A again, verifying the merging like we did for request 3.
     $element = $test_element;
     $current_user_role = 'A';
-    $this->renderer->renderRoot($element);
+    $this->renderer->render($element);
     $this->assertRenderCacheItem('parent', $final_parent_cache_item);
     $this->assertRenderCacheItem('parent:bar:foo:r.A', [
       '#attached' => [],
       '#cache' => [
         'contexts' => ['bar', 'foo', 'user.roles'],
         'tags' => ['a', 'b'],
-        // Note that the max-age here is unaffected. When role A, the grandchild
-        // is never rendered, so neither is its max-age of 1800 present here,
-        // nor the grandgrandchild's max-age of 300, despite 300 being the
-        // max-age of the redirecting cache item.
         'max-age' => Cache::PERMANENT,
       ],
+      '#post_render_cache' => [],
       '#markup' => 'parent',
     ]);
 
     // Request 6: role B again, verifying the merging like we did for request 3.
     $element = $test_element;
     $current_user_role = 'B';
-    $this->renderer->renderRoot($element);
+    $this->renderer->render($element);
     $this->assertRenderCacheItem('parent', $final_parent_cache_item);
     $this->assertRenderCacheItem('parent:bar:foo:r.B', [
       '#attached' => [],
       '#cache' => [
         'contexts' => ['bar', 'foo', 'user.roles'],
         'tags' => ['a', 'b', 'c'],
-        // Note that the max-age here is unaffected. When role B, the
-        // grandgrandchild is never rendered, so neither is its max-age of 300
-        // present here, despite 300 being the max-age of the redirecting cache
-        // item.
-        'max-age' => 1800,
+        'max-age' => Cache::PERMANENT,
       ],
+      '#post_render_cache' => [],
       '#markup' => 'parent',
     ]);
   }
@@ -535,11 +435,8 @@ class RendererBubblingTest extends RendererTestBase {
    * @dataProvider providerTestBubblingWithPrerender
    */
   public function testBubblingWithPrerender($test_element) {
-    $this->setUpRequest();
-    $this->setupMemoryCache();
-
     // Mock the State service.
-    $memory_state = new State(new KeyValueMemoryFactory());
+    $memory_state = new State(new KeyValueMemoryFactory());;
     \Drupal::getContainer()->set('state', $memory_state);
     $this->controllerResolver->expects($this->any())
       ->method('getControllerFromDefinition')
@@ -559,20 +456,20 @@ class RendererBubblingTest extends RendererTestBase {
     // - … is not cached DOES get called.
     \Drupal::state()->set('bubbling_nested_pre_render_cached', FALSE);
     \Drupal::state()->set('bubbling_nested_pre_render_uncached', FALSE);
-    $this->memoryCache->set('cached_nested', ['#markup' => 'Cached nested!', '#attached' => [], '#cache' => ['contexts' => [], 'tags' => []]]);
+    $this->memoryCache->set('cached_nested', ['#markup' => 'Cached nested!', '#attached' => [], '#cache' => ['contexts' => [], 'tags' => []], '#post_render_cache' => []]);
 
     // Simulate the rendering of an entire response (i.e. a root call).
     $output = $this->renderer->renderRoot($test_element);
 
     // First, assert the render array is of the expected form.
-    $this->assertEquals('Cache context!Cache tag!Asset!Placeholder!barquxNested!Cached nested!', trim($output), 'Expected HTML generated.');
+    $this->assertEquals('Cache context!Cache tag!Asset!Post-render cache!barquxNested!Cached nested!', trim($output), 'Expected HTML generated.');
     $this->assertEquals(['child.cache_context'], $test_element['#cache']['contexts'], 'Expected cache contexts found.');
     $this->assertEquals(['child:cache_tag'], $test_element['#cache']['tags'], 'Expected cache tags found.');
     $expected_attached = [
       'drupalSettings' => ['foo' => 'bar'],
-      'placeholders' => [],
     ];
-    $this->assertEquals($expected_attached, $test_element['#attached'], 'Expected attachments found.');
+    $this->assertEquals($expected_attached, $test_element['#attached'], 'Expected assets found.');
+    $this->assertEquals([], $test_element['#post_render_cache'], '#post_render_cache property is empty after rendering');
 
     // Second, assert that #pre_render callbacks are only executed if they don't
     // have a render cache hit (and hence a #pre_render callback for a render
@@ -590,29 +487,26 @@ class RendererBubblingTest extends RendererTestBase {
     $data = [];
 
     // Test element without theme.
-    $data[] = [
-      [
-        'foo' => [
-          '#pre_render' => [__NAMESPACE__ . '\\BubblingTest::bubblingPreRender'],
-        ],
-      ],
-    ];
+    $data[] = [[
+      'foo' => [
+        '#pre_render' => [__NAMESPACE__ . '\\BubblingTest::bubblingPreRender'],
+      ]]];
 
     // Test element with theme.
-    $data[] = [
-      [
-        '#theme' => 'common_test_render_element',
-        'foo' => [
-          '#pre_render' => [__NAMESPACE__ . '\\BubblingTest::bubblingPreRender'],
-        ],
-      ],
-    ];
+    $data[] = [[
+      '#theme' => 'common_test_render_element',
+      'foo' => [
+        '#pre_render' => [__NAMESPACE__ . '\\BubblingTest::bubblingPreRender'],
+      ]]];
 
     return $data;
   }
 
   /**
    * Tests that an element's cache keys cannot be changed during its rendering.
+   *
+   * @expectedException \LogicException
+   * @expectedExceptionMessage Cache keys may not be changed after initial setup. Use the contexts property instead to bubble additional metadata.
    */
   public function testOverWriteCacheKeys() {
     $this->setUpRequest();
@@ -625,20 +519,23 @@ class RendererBubblingTest extends RendererTestBase {
        ],
       '#pre_render' => [__NAMESPACE__ . '\\BubblingTest::bubblingCacheOverwritePrerender'],
     ];
-    $this->expectException(\LogicException::class);
-    $this->expectExceptionMessage('Cache keys may not be changed after initial setup. Use the contexts property instead to bubble additional metadata.');
-    $this->renderer->renderRoot($data);
+    $this->renderer->render($data);
   }
-
 }
 
 
-class BubblingTest implements TrustedCallbackInterface {
+class BubblingTest {
 
   /**
    * #pre_render callback for testBubblingWithPrerender().
    */
   public static function bubblingPreRender($elements) {
+    $callback = __CLASS__ . '::bubblingPostRenderCache';
+    $context = [
+      'foo' => 'bar',
+      'baz' => 'qux',
+    ];
+    $placeholder = \Drupal::service('renderer')->generateCachePlaceholder($callback, $context);
     $elements += [
       'child_cache_context' => [
         '#cache' => [
@@ -658,9 +555,13 @@ class BubblingTest implements TrustedCallbackInterface {
         ],
         '#markup' => 'Asset!',
       ],
-      'child_placeholder' => [
-        '#create_placeholder' => TRUE,
-        '#lazy_builder' => [__CLASS__ . '::bubblingPlaceholder', ['bar', 'qux']],
+      'child_post_render_cache' => [
+        '#post_render_cache' => [
+          $callback => [
+            $context,
+          ],
+        ],
+        '#markup' => $placeholder,
       ],
       'child_nested_pre_render_uncached' => [
         '#cache' => ['keys' => ['uncached_nested']],
@@ -692,12 +593,13 @@ class BubblingTest implements TrustedCallbackInterface {
   }
 
   /**
-   * #lazy_builder callback for testBubblingWithPrerender().
+   * #post_render_cache callback for testBubblingWithPrerender().
    */
-  public static function bubblingPlaceholder($foo, $baz) {
-    return [
-      '#markup' => 'Placeholder!' . $foo . $baz,
-    ];
+  public static function bubblingPostRenderCache(array $element, array $context) {
+    $callback = __CLASS__ . '::bubblingPostRenderCache';
+    $placeholder = \Drupal::service('renderer')->generateCachePlaceholder($callback, $context);
+    $element['#markup'] = str_replace($placeholder, 'Post-render cache!' . $context['foo'] . $context['baz'], $element['#markup']);
+    return $element;
   }
 
   /**
@@ -710,13 +612,6 @@ class BubblingTest implements TrustedCallbackInterface {
     ];
     $elements['#markup'] = 'Setting cache keys just now!';
     return $elements;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public static function trustedCallbacks() {
-    return ['bubblingPreRender', 'bubblingNestedPreRenderUncached', 'bubblingNestedPreRenderCached', 'bubblingPlaceholder', 'bubblingCacheOverwritePrerender'];
   }
 
 }

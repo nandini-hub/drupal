@@ -1,12 +1,14 @@
 <?php
 
+/**
+ * @file
+ * Contains of \Drupal\taxonomy\TermBreadcrumbBuilder.
+ */
+
 namespace Drupal\taxonomy;
 
 use Drupal\Core\Breadcrumb\BreadcrumbBuilderInterface;
-use Drupal\Core\Breadcrumb\Breadcrumb;
-use Drupal\Core\DependencyInjection\DeprecatedServicePropertyTrait;
-use Drupal\Core\Entity\EntityRepositoryInterface;
-use Drupal\Core\Entity\EntityTypeManagerInterface;
+use Drupal\Core\Entity\EntityManagerInterface;
 use Drupal\Core\Link;
 use Drupal\Core\Routing\RouteMatchInterface;
 use Drupal\Core\StringTranslation\StringTranslationTrait;
@@ -16,50 +18,30 @@ use Drupal\Core\StringTranslation\StringTranslationTrait;
  */
 class TermBreadcrumbBuilder implements BreadcrumbBuilderInterface {
   use StringTranslationTrait;
-  use DeprecatedServicePropertyTrait;
 
   /**
-   * {@inheritdoc}
-   */
-  protected $deprecatedProperties = ['entityManager' => 'entity.manager'];
-
-  /**
-   * The entity repository manager.
+   * The entity manager.
    *
-   * @var \Drupal\Core\Entity\EntityRepositoryInterface
+   * @var \Drupal\Core\Entity\EntityManagerInterface
    */
-  protected $entityRepository;
-
-  /**
-   * The entity type manager.
-   *
-   * @var \Drupal\Core\Entity\EntityTypeManagerInterface
-   */
-  protected $entityTypeManager;
+  protected $entityManager;
 
   /**
    * The taxonomy storage.
    *
-   * @var \Drupal\taxonomy\TermStorageInterface
+   * @var \Drupal\Core\Entity\EntityStorageInterface
    */
   protected $termStorage;
 
   /**
    * Constructs the TermBreadcrumbBuilder.
    *
-   * @param \Drupal\Core\Entity\EntityTypeManagerInterface $entity_type_manager
-   *   The entity type manager.
-   * @param \Drupal\Core\Entity\EntityRepositoryInterface $entity_repository
-   *   The entity repository.
+   * @param \Drupal\Core\Entity\EntityManagerInterface $entityManager
+   *   The entity manager.
    */
-  public function __construct(EntityTypeManagerInterface $entity_type_manager, EntityRepositoryInterface $entity_repository = NULL) {
-    $this->entityTypeManager = $entity_type_manager;
-    $this->termStorage = $entity_type_manager->getStorage('taxonomy_term');
-    if (!$entity_repository) {
-      @trigger_error('The entity.repository service must be passed to TermBreadcrumbBuilder::__construct(), it is required before Drupal 9.0.0. See https://www.drupal.org/node/2549139.', E_USER_DEPRECATED);
-      $entity_repository = \Drupal::service('entity.repository');
-    }
-    $this->entityRepository = $entity_repository;
+  public function __construct(EntityManagerInterface $entityManager) {
+    $this->entityManager = $entityManager;
+    $this->termStorage = $entityManager->getStorage('taxonomy_term');
   }
 
   /**
@@ -74,28 +56,18 @@ class TermBreadcrumbBuilder implements BreadcrumbBuilderInterface {
    * {@inheritdoc}
    */
   public function build(RouteMatchInterface $route_match) {
-    $breadcrumb = new Breadcrumb();
-    $breadcrumb->addLink(Link::createFromRoute($this->t('Home'), '<front>'));
     $term = $route_match->getParameter('taxonomy_term');
-    // Breadcrumb needs to have terms cacheable metadata as a cacheable
-    // dependency even though it is not shown in the breadcrumb because e.g. its
-    // parent might have changed.
-    $breadcrumb->addCacheableDependency($term);
     // @todo This overrides any other possible breadcrumb and is a pure
     //   hard-coded presumption. Make this behavior configurable per
     //   vocabulary or term.
-    $parents = $this->termStorage->loadAllParents($term->id());
-    // Remove current term being accessed.
-    array_shift($parents);
-    foreach (array_reverse($parents) as $term) {
-      $term = $this->entityRepository->getTranslationFromContext($term);
-      $breadcrumb->addCacheableDependency($term);
-      $breadcrumb->addLink(Link::createFromRoute($term->getName(), 'entity.taxonomy_term.canonical', ['taxonomy_term' => $term->id()]));
+    $breadcrumb = array();
+    while ($parents = $this->termStorage->loadParents($term->id())) {
+      $term = array_shift($parents);
+      $term = $this->entityManager->getTranslationFromContext($term);
+      $breadcrumb[] = Link::createFromRoute($term->getName(), 'entity.taxonomy_term.canonical', array('taxonomy_term' => $term->id()));
     }
-
-    // This breadcrumb builder is based on a route parameter, and hence it
-    // depends on the 'route' cache context.
-    $breadcrumb->addCacheContexts(['route']);
+    $breadcrumb[] = Link::createFromRoute($this->t('Home'), '<front>');
+    $breadcrumb = array_reverse($breadcrumb);
 
     return $breadcrumb;
   }

@@ -1,17 +1,18 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\book\Cache\BookNavigationCacheContext.
+ */
+
 namespace Drupal\book\Cache;
 
-use Drupal\Core\Cache\CacheableMetadata;
-use Drupal\Core\Cache\Context\CacheContextInterface;
-use Symfony\Component\DependencyInjection\ContainerAwareInterface;
-use Symfony\Component\DependencyInjection\ContainerAwareTrait;
+use Drupal\Core\Cache\CacheContextInterface;
+use Symfony\Component\DependencyInjection\ContainerAware;
 use Symfony\Component\HttpFoundation\RequestStack;
 
 /**
  * Defines the book navigation cache context service.
- *
- * Cache context ID: 'route.book_navigation'.
  *
  * This allows for book navigation location-aware caching. It depends on:
  * - whether the current route represents a book node at all
@@ -20,9 +21,7 @@ use Symfony\Component\HttpFoundation\RequestStack;
  * This class is container-aware to avoid initializing the 'book.manager'
  * service when it is not necessary.
  */
-class BookNavigationCacheContext implements CacheContextInterface, ContainerAwareInterface {
-
-  use ContainerAwareTrait;
+class BookNavigationCacheContext extends ContainerAware implements CacheContextInterface {
 
   /**
    * The request stack.
@@ -66,27 +65,7 @@ class BookNavigationCacheContext implements CacheContextInterface, ContainerAwar
     // If we're looking at a book node, get the trail for that node.
     $active_trail = $this->container->get('book.manager')
       ->getActiveTrailIds($node->book['bid'], $node->book);
-    return implode('|', $active_trail);
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function getCacheableMetadata() {
-    // The book active trail depends on the node and data attached to it.
-    // That information is however not stored as part of the node.
-    $cacheable_metadata = new CacheableMetadata();
-    if ($node = $this->requestStack->getCurrentRequest()->get('node')) {
-      // If the node is part of a book then we can use the cache tag for that
-      // book. If not, then it can't be optimized away.
-      if (!empty($node->book['bid'])) {
-        $cacheable_metadata->addCacheTags(['bid:' . $node->book['bid']]);
-      }
-      else {
-        $cacheable_metadata->setCacheMaxAge(0);
-      }
-    }
-    return $cacheable_metadata;
+    return 'book.' . implode('|', $active_trail);
   }
 
 }

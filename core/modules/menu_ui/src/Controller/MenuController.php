@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\menu_ui\Controller\MenuController.
+ */
+
 namespace Drupal\menu_ui\Controller;
 
 use Drupal\Component\Utility\Xss;
@@ -49,14 +54,12 @@ class MenuController extends ControllerBase {
    *   The available menu and menu items.
    */
   public function getParentOptions(Request $request) {
-    $available_menus = [];
+    $available_menus = array();
     if ($menus = $request->request->get('menus')) {
       foreach ($menus as $menu) {
         $available_menus[$menu] = $menu;
       }
     }
-    // @todo Update this to use the optional $cacheability parameter, so that
-    //   a cacheable JSON response can be sent.
     $options = $this->menuParentSelector->getParentSelectOptions('', $available_menus);
 
     return new JsonResponse($options);
@@ -68,11 +71,11 @@ class MenuController extends ControllerBase {
    * @param \Drupal\system\MenuInterface $menu
    *   The menu entity.
    *
-   * @return array
-   *   The menu label as a render array.
+   * @return string
+   *   The menu label.
    */
   public function menuTitle(MenuInterface $menu) {
-    return ['#markup' => $menu->label(), '#allowed_tags' => Xss::getHtmlTagList()];
+    return Xss::filter($menu->label());
   }
 
 }

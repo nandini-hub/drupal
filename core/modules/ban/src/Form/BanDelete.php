@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\ban\Form\BanDelete.
+ */
+
 namespace Drupal\ban\Form;
 
 use Drupal\Core\Form\ConfirmFormBase;
@@ -11,8 +16,6 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 /**
  * Provides a form to unban IP addresses.
- *
- * @internal
  */
 class BanDelete extends ConfirmFormBase {
 
@@ -22,13 +25,6 @@ class BanDelete extends ConfirmFormBase {
    * @var string
    */
   protected $banIp;
-
-  /**
-   * The IP manager.
-   *
-   * @var \Drupal\ban\BanIpManagerInterface
-   */
-  protected $ipManager;
 
   /**
    * Constructs a new BanDelete object.
@@ -60,7 +56,7 @@ class BanDelete extends ConfirmFormBase {
    * {@inheritdoc}
    */
   public function getQuestion() {
-    return $this->t('Are you sure you want to unblock %ip?', ['%ip' => $this->banIp]);
+    return $this->t('Are you sure you want to unblock %ip?', array('%ip' => $this->banIp));
   }
 
   /**
@@ -95,8 +91,8 @@ class BanDelete extends ConfirmFormBase {
    */
   public function submitForm(array &$form, FormStateInterface $form_state) {
     $this->ipManager->unbanIp($this->banIp);
-    $this->logger('user')->notice('Deleted %ip', ['%ip' => $this->banIp]);
-    $this->messenger()->addStatus($this->t('The IP address %ip was deleted.', ['%ip' => $this->banIp]));
+    $this->logger('user')->notice('Deleted %ip', array('%ip' => $this->banIp));
+    drupal_set_message($this->t('The IP address %ip was deleted.', array('%ip' => $this->banIp)));
     $form_state->setRedirectUrl($this->getCancelUrl());
   }
 

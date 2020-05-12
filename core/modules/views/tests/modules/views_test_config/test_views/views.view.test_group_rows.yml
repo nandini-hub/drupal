@@ -7,6 +7,7 @@ dependencies:
     - user
   config:
     - field.storage.node.field_views_testing_group_rows
+  module:
 id: test_group_rows
 label: test_group_rows
 module: views
@@ -14,6 +15,7 @@ description: ''
 tag: ''
 base_table: node_field_data
 base_field: nid
+core: 8.x
 display:
   default:
     display_plugin: default
@@ -24,7 +26,7 @@ display:
       access:
         type: perm
       cache:
-        type: tag
+        type: none
       query:
         type: views_query
       exposed_form:
@@ -189,10 +191,10 @@ display:
           plugin_id: field
       display_extenders: {  }
       sorts:
-        delta:
-          id: delta
-          table: node__field_group_rows
-          field: delta
+        created:
+          id: created
+          table: node_field_data
+          field: created
           relationship: none
           group_type: group
           admin_label: ''
@@ -200,7 +202,10 @@ display:
           exposed: false
           expose:
             label: ''
-          plugin_id: standard
+          granularity: second
+          entity_type: node
+          entity_field: created
+          plugin_id: date
   page_1:
     display_options:
       path: test-group-rows

@@ -1,24 +1,22 @@
 <?php
+/**
+ * @file
+ * Contains \Drupal\comment\CommentStatistics.
+ */
 
 namespace Drupal\comment;
 
+
 use Drupal\Core\Database\Connection;
-use Drupal\Core\DependencyInjection\DeprecatedServicePropertyTrait;
-use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Entity\FieldableEntityInterface;
 use Drupal\Core\Entity\EntityChangedInterface;
 use Drupal\Core\Entity\EntityInterface;
+use Drupal\Core\Entity\EntityManagerInterface;
 use Drupal\Core\State\StateInterface;
 use Drupal\Core\Session\AccountInterface;
 use Drupal\user\EntityOwnerInterface;
 
 class CommentStatistics implements CommentStatisticsInterface {
-  use DeprecatedServicePropertyTrait;
-
-  /**
-   * {@inheritdoc}
-   */
-  protected $deprecatedProperties = ['entityManager' => 'entity.manager'];
 
   /**
    * The current database connection.
@@ -28,13 +26,6 @@ class CommentStatistics implements CommentStatisticsInterface {
   protected $database;
 
   /**
-   * The replica database connection.
-   *
-   * @var \Drupal\Core\Database\Connection
-   */
-  protected $databaseReplica;
-
-  /**
    * The current logged in user.
    *
    * @var \Drupal\Core\Session\AccountInterface
@@ -42,11 +33,11 @@ class CommentStatistics implements CommentStatisticsInterface {
   protected $currentUser;
 
   /**
-   * The entity type manager.
+   * The entity manager service.
    *
-   * @var \Drupal\Core\Entity\EntityTypeManagerInterface
+   * @var \Drupal\Core\Entity\EntityManagerInterface
    */
-  protected $entityTypeManager;
+  protected $entityManager;
 
   /**
    * The state service.
@@ -62,18 +53,15 @@ class CommentStatistics implements CommentStatisticsInterface {
    *   The active database connection.
    * @param \Drupal\Core\Session\AccountInterface $current_user
    *   The current logged in user.
-   * @param \Drupal\Core\Entity\EntityTypeManagerInterface $entity_type_manager
-   *   The entity type manager.
+   * @param \Drupal\Core\Entity\EntityManagerInterface $entity_manager
+   *   The entity manager service.
    * @param \Drupal\Core\State\StateInterface $state
    *   The state service.
-   * @param \Drupal\Core\Database\Connection|null $database_replica
-   *   (Optional) the replica database connection.
    */
-  public function __construct(Connection $database, AccountInterface $current_user, EntityTypeManagerInterface $entity_type_manager, StateInterface $state, Connection $database_replica = NULL) {
+  public function __construct(Connection $database, AccountInterface $current_user, EntityManagerInterface $entity_manager, StateInterface $state) {
     $this->database = $database;
-    $this->databaseReplica = $database_replica ?: $database;
     $this->currentUser = $current_user;
-    $this->entityTypeManager = $entity_type_manager;
+    $this->entityManager = $entity_manager;
     $this->state = $state;
   }
 
@@ -81,14 +69,14 @@ class CommentStatistics implements CommentStatisticsInterface {
    * {@inheritdoc}
    */
   public function read($entities, $entity_type, $accurate = TRUE) {
-    $connection = $accurate ? $this->database : $this->databaseReplica;
-    $stats = $connection->select('comment_entity_statistics', 'ces')
+    $options = $accurate ? array() : array('target' => 'replica');
+    $stats =  $this->database->select('comment_entity_statistics', 'ces', $options)
       ->fields('ces')
       ->condition('ces.entity_id', array_keys($entities), 'IN')
       ->condition('ces.entity_type', $entity_type)
       ->execute();
 
-    $statistics_records = [];
+    $statistics_records = array();
     while ($entry = $stats->fetchObject()) {
       $statistics_records[] = $entry;
     }
@@ -110,7 +98,7 @@ class CommentStatistics implements CommentStatisticsInterface {
    */
   public function create(FieldableEntityInterface $entity, $fields) {
     $query = $this->database->insert('comment_entity_statistics')
-      ->fields([
+      ->fields(array(
         'entity_id',
         'entity_type',
         'field_name',
@@ -119,7 +107,7 @@ class CommentStatistics implements CommentStatisticsInterface {
         'last_comment_name',
         'last_comment_uid',
         'comment_count',
-      ]);
+      ));
     foreach ($fields as $field_name => $detail) {
       // Skip fields that entity does not have.
       if (!$entity->hasField($field_name)) {
@@ -138,12 +126,10 @@ class CommentStatistics implements CommentStatisticsInterface {
       }
       // Default to REQUEST_TIME when entity does not have a changed property.
       $last_comment_timestamp = REQUEST_TIME;
-      // @todo Make comment statistics language aware and add some tests. See
-      //   https://www.drupal.org/node/2318875
       if ($entity instanceof EntityChangedInterface) {
-        $last_comment_timestamp = $entity->getChangedTimeAcrossTranslations();
+        $last_comment_timestamp = $entity->getChangedTime();
       }
-      $query->values([
+      $query->values(array(
         'entity_id' => $entity->id(),
         'entity_type' => $entity->getEntityTypeId(),
         'field_name' => $field_name,
@@ -152,7 +138,7 @@ class CommentStatistics implements CommentStatisticsInterface {
         'last_comment_name' => NULL,
         'last_comment_uid' => $last_comment_uid,
         'comment_count' => 0,
-      ]);
+      ));
     }
     $query->execute();
   }
@@ -161,24 +147,24 @@ class CommentStatistics implements CommentStatisticsInterface {
    * {@inheritdoc}
    */
   public function getMaximumCount($entity_type) {
-    return $this->database->query('SELECT MAX(comment_count) FROM {comment_entity_statistics} WHERE entity_type = :entity_type', [':entity_type' => $entity_type])->fetchField();
+    return $this->database->query('SELECT MAX(comment_count) FROM {comment_entity_statistics} WHERE entity_type = :entity_type', array(':entity_type' => $entity_type))->fetchField();
   }
 
   /**
    * {@inheritdoc}
    */
   public function getRankingInfo() {
-    return [
-      'comments' => [
+    return array(
+      'comments' => array(
         'title' => t('Number of comments'),
-        'join' => [
+        'join' => array(
           'type' => 'LEFT',
           'table' => 'comment_entity_statistics',
           'alias' => 'ces',
           // Default to comment field as this is the most common use case for
           // nodes.
           'on' => "ces.entity_id = i.sid AND ces.entity_type = 'node' AND ces.field_name = 'comment'",
-        ],
+        ),
         // Inverse law that maps the highest view count on the site to 1 and 0
         // to 0. Note that the ROUND here is necessary for PostgreSQL and SQLite
         // in order to ensure that the :comment_scale argument is treated as
@@ -186,9 +172,9 @@ class CommentStatistics implements CommentStatisticsInterface {
         // values in as strings instead of numbers in complex expressions like
         // this.
         'score' => '2.0 - 2.0 / (1.0 + ces.comment_count * (ROUND(:comment_scale, 4)))',
-        'arguments' => [':comment_scale' => \Drupal::state()->get('comment.node_comment_statistics_scale') ?: 0],
-      ],
-    ];
+        'arguments' => array(':comment_scale' => \Drupal::state()->get('comment.node_comment_statistics_scale') ?: 0),
+      ),
+    );
   }
 
   /**
@@ -214,7 +200,7 @@ class CommentStatistics implements CommentStatisticsInterface {
     if ($count > 0) {
       // Comments exist.
       $last_reply = $this->database->select('comment_field_data', 'c')
-        ->fields('c', ['cid', 'name', 'changed', 'uid'])
+        ->fields('c', array('cid', 'name', 'changed', 'uid'))
         ->condition('c.entity_id', $comment->getCommentedEntityId())
         ->condition('c.entity_type', $comment->getCommentedEntityTypeId())
         ->condition('c.field_name', $comment->getFieldName())
@@ -226,18 +212,18 @@ class CommentStatistics implements CommentStatisticsInterface {
         ->fetchObject();
       // Use merge here because entity could be created before comment field.
       $this->database->merge('comment_entity_statistics')
-        ->fields([
+        ->fields(array(
           'cid' => $last_reply->cid,
           'comment_count' => $count,
           'last_comment_timestamp' => $last_reply->changed,
           'last_comment_name' => $last_reply->uid ? '' : $last_reply->name,
           'last_comment_uid' => $last_reply->uid,
-        ])
-        ->keys([
+        ))
+        ->keys(array(
           'entity_id' => $comment->getCommentedEntityId(),
           'entity_type' => $comment->getCommentedEntityTypeId(),
           'field_name' => $comment->getFieldName(),
-        ])
+        ))
         ->execute();
     }
     else {
@@ -254,15 +240,15 @@ class CommentStatistics implements CommentStatisticsInterface {
         $last_comment_uid = $this->currentUser->id();
       }
       $this->database->update('comment_entity_statistics')
-        ->fields([
+        ->fields(array(
           'cid' => 0,
           'comment_count' => 0,
-          // Use the changed date of the entity if it's set, or default to
+          // Use the created date of the entity if it's set, or default to
           // REQUEST_TIME.
-          'last_comment_timestamp' => ($entity instanceof EntityChangedInterface) ? $entity->getChangedTimeAcrossTranslations() : REQUEST_TIME,
+          'last_comment_timestamp' => ($entity instanceof EntityChangedInterface) ? $entity->getChangedTime() : REQUEST_TIME,
           'last_comment_name' => '',
           'last_comment_uid' => $last_comment_uid,
-        ])
+        ))
         ->condition('entity_id', $comment->getCommentedEntityId())
         ->condition('entity_type', $comment->getCommentedEntityTypeId())
         ->condition('field_name', $comment->getFieldName())
@@ -271,7 +257,7 @@ class CommentStatistics implements CommentStatisticsInterface {
 
     // Reset the cache of the commented entity so that when the entity is loaded
     // the next time, the statistics will be loaded again.
-    $this->entityTypeManager->getStorage($comment->getCommentedEntityTypeId())->resetCache([$comment->getCommentedEntityId()]);
+    $this->entityManager->getStorage($comment->getCommentedEntityTypeId())->resetCache(array($comment->getCommentedEntityId()));
   }
 
 }

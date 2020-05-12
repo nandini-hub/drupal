@@ -1,28 +1,29 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\twig_loader_test\Loader\TestLoader.
+ */
+
 namespace Drupal\twig_loader_test\Loader;
 
-use Twig\Source;
+use Drupal\Core\Template\Loader;
 
 /**
  * A test Twig loader.
  */
-class TestLoader implements \Twig_LoaderInterface, \Twig_ExistsLoaderInterface, \Twig_SourceContextLoaderInterface {
-
-  /**
-   * {@inheritdoc}
-   */
-  public function getSourceContext($name) {
-    $name = (string) $name;
-    $value = $name === 'kittens' ? 'kittens' : 'cats';
-    return new Source($value, $name);
-  }
+class TestLoader implements \Twig_LoaderInterface, \Twig_ExistsLoaderInterface {
 
   /**
    * {@inheritdoc}
    */
   public function getSource($name) {
-    return $this->getSourceContext($name)->getCode();
+    if ($name == 'kittens') {
+      return $name;
+    }
+    else {
+      return 'cats';
+    }
   }
 
   /**

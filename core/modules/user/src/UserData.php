@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains Drupal\user\UserData.
+ */
+
 namespace Drupal\user;
 
 use Drupal\Core\Database\Connection;
@@ -27,7 +32,7 @@ class UserData implements UserDataInterface {
   }
 
   /**
-   * {@inheritdoc}
+   * Implements \Drupal\user\UserDataInterface::get().
    */
   public function get($module, $uid = NULL, $name = NULL) {
     $query = $this->connection->select('users_data', 'ud')
@@ -40,7 +45,7 @@ class UserData implements UserDataInterface {
       $query->condition('name', $name);
     }
     $result = $query->execute();
-    // If $module, $uid, and $name were passed, return the value.
+    // If $module, $uid, and $name was passed, return the value.
     if (isset($name) && isset($uid)) {
       $result = $result->fetchAllAssoc('uid');
       if (isset($result[$uid])) {
@@ -48,51 +53,56 @@ class UserData implements UserDataInterface {
       }
       return NULL;
     }
-    $return = [];
-    // If $module and $uid were passed, return data keyed by name.
-    if (isset($uid)) {
+    // If $module and $uid was passed, return the name/value pairs.
+    elseif (isset($uid)) {
+      $return = array();
       foreach ($result as $record) {
         $return[$record->name] = ($record->serialized ? unserialize($record->value) : $record->value);
       }
       return $return;
     }
-    // If $module and $name were passed, return data keyed by uid.
-    if (isset($name)) {
+    // If $module and $name was passed, return the uid/value pairs.
+    elseif (isset($name)) {
+      $return = array();
       foreach ($result as $record) {
         $return[$record->uid] = ($record->serialized ? unserialize($record->value) : $record->value);
       }
       return $return;
     }
     // If only $module was passed, return data keyed by uid and name.
-    foreach ($result as $record) {
-      $return[$record->uid][$record->name] = ($record->serialized ? unserialize($record->value) : $record->value);
+    else {
+      $return = array();
+      foreach ($result as $record) {
+        $return[$record->uid][$record->name] = ($record->serialized ? unserialize($record->value) : $record->value);
+      }
+      return $return;
     }
-    return $return;
   }
 
   /**
-   * {@inheritdoc}
+   * Implements \Drupal\user\UserDataInterface::set().
    */
   public function set($module, $uid, $name, $value) {
-    $serialized = (int) !is_scalar($value);
-    if ($serialized) {
+    $serialized = 0;
+    if (!is_scalar($value)) {
       $value = serialize($value);
+      $serialized = 1;
     }
     $this->connection->merge('users_data')
-      ->keys([
+      ->keys(array(
         'uid' => $uid,
         'module' => $module,
         'name' => $name,
-      ])
-      ->fields([
+      ))
+      ->fields(array(
         'value' => $value,
         'serialized' => $serialized,
-      ])
+      ))
       ->execute();
   }
 
   /**
-   * {@inheritdoc}
+   * Implements \Drupal\user\UserDataInterface::delete().
    */
   public function delete($module = NULL, $uid = NULL, $name = NULL) {
     $query = $this->connection->delete('users_data');

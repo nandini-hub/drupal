@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\node\Entity\NodeType.
+ */
+
 namespace Drupal\node\Entity;
 
 use Drupal\Core\Config\Entity\ConfigEntityBundleBase;
@@ -12,13 +17,6 @@ use Drupal\node\NodeTypeInterface;
  * @ConfigEntityType(
  *   id = "node_type",
  *   label = @Translation("Content type"),
- *   label_collection = @Translation("Content types"),
- *   label_singular = @Translation("content type"),
- *   label_plural = @Translation("content types"),
- *   label_count = @PluralTranslation(
- *     singular = "@count content type",
- *     plural = "@count content types",
- *   ),
  *   handlers = {
  *     "access" = "Drupal\node\NodeTypeAccessControlHandler",
  *     "form" = {
@@ -39,15 +37,6 @@ use Drupal\node\NodeTypeInterface;
  *     "edit-form" = "/admin/structure/types/manage/{node_type}",
  *     "delete-form" = "/admin/structure/types/manage/{node_type}/delete",
  *     "collection" = "/admin/structure/types",
- *   },
- *   config_export = {
- *     "name",
- *     "type",
- *     "description",
- *     "help",
- *     "new_revision",
- *     "preview_mode",
- *     "display_submitted",
  *   }
  * )
  */
@@ -90,7 +79,7 @@ class NodeType extends ConfigEntityBundleBase implements NodeTypeInterface {
    *
    * @var bool
    */
-  protected $new_revision = TRUE;
+  protected $new_revision = FALSE;
 
   /**
    * The preview mode.
@@ -125,8 +114,7 @@ class NodeType extends ConfigEntityBundleBase implements NodeTypeInterface {
    * {@inheritdoc}
    */
   public function isNewRevision() {
-    @trigger_error('NodeType::isNewRevision is deprecated in drupal:8.3.0 and is removed from drupal:9.0.0. Use Drupal\Core\Entity\RevisionableEntityBundleInterface::shouldCreateNewRevision() instead. See https://www.drupal.org/node/3067365', E_USER_DEPRECATED);
-    return $this->shouldCreateNewRevision();
+    return $this->new_revision;
   }
 
   /**
@@ -146,8 +134,8 @@ class NodeType extends ConfigEntityBundleBase implements NodeTypeInterface {
   /**
    * {@inheritdoc}
    */
-  public function setDisplaySubmitted($display_submitted) {
-    $this->display_submitted = $display_submitted;
+  public function setDisplaySubmitted($display_submtited) {
+    $this->display_submitted = $display_submtited;
   }
 
   /**
@@ -187,19 +175,19 @@ class NodeType extends ConfigEntityBundleBase implements NodeTypeInterface {
     if ($update && $this->getOriginalId() != $this->id()) {
       $update_count = node_type_update_nodes($this->getOriginalId(), $this->id());
       if ($update_count) {
-        \Drupal::messenger()->addStatus(\Drupal::translation()->formatPlural($update_count,
+        drupal_set_message(\Drupal::translation()->formatPlural($update_count,
           'Changed the content type of 1 post from %old-type to %type.',
           'Changed the content type of @count posts from %old-type to %type.',
-          [
+          array(
             '%old-type' => $this->getOriginalId(),
             '%type' => $this->id(),
-          ]));
+          )));
       }
     }
     if ($update) {
       // Clear the cached field definitions as some settings affect the field
       // definitions.
-      \Drupal::service('entity_field.manager')->clearCachedFieldDefinitions();
+      $this->entityManager()->clearCachedFieldDefinitions();
     }
   }
 
@@ -211,13 +199,6 @@ class NodeType extends ConfigEntityBundleBase implements NodeTypeInterface {
 
     // Clear the node type cache to reflect the removal.
     $storage->resetCache(array_keys($entities));
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function shouldCreateNewRevision() {
-    return $this->new_revision;
   }
 
 }

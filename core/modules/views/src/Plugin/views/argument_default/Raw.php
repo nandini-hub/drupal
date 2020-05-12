@@ -1,14 +1,18 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\views\Plugin\views\argument_default\Raw.
+ */
+
 namespace Drupal\views\Plugin\views\argument_default;
 
-use Drupal\Core\Cache\Cache;
-use Drupal\Core\Cache\CacheableDependencyInterface;
 use Drupal\Core\Form\FormStateInterface;
-use Drupal\Core\Path\AliasManagerInterface as CoreAliasManagerInterface;
+use Drupal\Core\Path\AliasManagerInterface;
 use Drupal\Core\Path\CurrentPathStack;
-use Drupal\path_alias\AliasManagerInterface;
+use Drupal\views\Plugin\CacheablePluginInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
+use Symfony\Component\HttpFoundation\Request;
 
 /**
  * Default argument plugin to use the raw value from the URL.
@@ -20,12 +24,12 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
  *   title = @Translation("Raw value from URL")
  * )
  */
-class Raw extends ArgumentDefaultPluginBase implements CacheableDependencyInterface {
+class Raw extends ArgumentDefaultPluginBase implements CacheablePluginInterface {
 
   /**
    * The alias manager.
    *
-   * @var \Drupal\path_alias\AliasManagerInterface
+   * @var \Drupal\Core\Path\AliasManagerInterface
    */
   protected $aliasManager;
 
@@ -45,18 +49,13 @@ class Raw extends ArgumentDefaultPluginBase implements CacheableDependencyInterf
    *   The plugin_id for the plugin instance.
    * @param mixed $plugin_definition
    *   The plugin implementation definition.
-   * @param \Drupal\path_alias\AliasManagerInterface $alias_manager
+   * @param \Drupal\Core\Path\AliasManagerInterface $alias_manager
    *   The alias manager.
    * @param \Drupal\Core\Path\CurrentPathStack $current_path
    *   The current path.
    */
-  public function __construct(array $configuration, $plugin_id, $plugin_definition, $alias_manager, CurrentPathStack $current_path) {
+  public function __construct(array $configuration, $plugin_id, $plugin_definition, AliasManagerInterface $alias_manager, CurrentPathStack $current_path) {
     parent::__construct($configuration, $plugin_id, $plugin_definition);
-
-    if (!$alias_manager instanceof AliasManagerInterface) {
-      @trigger_error('Calling \\' . __METHOD__ . ' with \\' . CoreAliasManagerInterface::class . ' instead of \\' . AliasManagerInterface::class . ' is deprecated in drupal:8.8.0. The new service will be required in drupal:9.0.0. See https://www.drupal.org/node/3092086', E_USER_DEPRECATED);
-      $alias_manager = \Drupal::service('path_alias.manager');
-    }
 
     $this->aliasManager = $alias_manager;
     $this->currentPath = $current_path;
@@ -70,28 +69,22 @@ class Raw extends ArgumentDefaultPluginBase implements CacheableDependencyInterf
       $configuration,
       $plugin_id,
       $plugin_definition,
-      $container->get('path_alias.manager'),
+      $container->get('path.alias_manager'),
       $container->get('path.current')
     );
   }
 
-  /**
-   * {@inheritdoc}
-   */
   protected function defineOptions() {
     $options = parent::defineOptions();
-    $options['index'] = ['default' => ''];
-    $options['use_alias'] = ['default' => FALSE];
+    $options['index'] = array('default' => '');
+    $options['use_alias'] = array('default' => FALSE);
 
     return $options;
   }
 
-  /**
-   * {@inheritdoc}
-   */
   public function buildOptionsForm(&$form, FormStateInterface $form_state) {
     parent::buildOptionsForm($form, $form_state);
-    $form['index'] = [
+    $form['index'] = array(
       '#type' => 'select',
       '#title' => $this->t('Path component'),
       '#default_value' => $this->options['index'],
@@ -100,28 +93,21 @@ class Raw extends ArgumentDefaultPluginBase implements CacheableDependencyInterf
       // - values that count from 1 for display to humans.
       '#options' => range(1, 10),
       '#description' => $this->t('The numbering starts from 1, e.g. on the page admin/structure/types, the 3rd path component is "types".'),
-    ];
-    $form['use_alias'] = [
+    );
+    $form['use_alias'] = array(
       '#type' => 'checkbox',
       '#title' => $this->t('Use path alias'),
       '#default_value' => $this->options['use_alias'],
       '#description' => $this->t('Use path alias instead of internal path.'),
-    ];
+    );
   }
 
-  /**
-   * {@inheritdoc}
-   */
   public function getArgument() {
-    // Don't trim the leading slash since getAliasByPath() requires it.
-    $path = rtrim($this->currentPath->getPath($this->view->getRequest()), '/');
+    $path = trim($this->currentPath->getPath($this->view->getRequest()), '/');
     if ($this->options['use_alias']) {
       $path = $this->aliasManager->getAliasByPath($path);
     }
     $args = explode('/', $path);
-    // Drop the empty first element created by the leading slash since the path
-    // component index doesn't take it into account.
-    array_shift($args);
     if (isset($args[$this->options['index']])) {
       return $args[$this->options['index']];
     }
@@ -130,8 +116,8 @@ class Raw extends ArgumentDefaultPluginBase implements CacheableDependencyInterf
   /**
    * {@inheritdoc}
    */
-  public function getCacheMaxAge() {
-    return Cache::PERMANENT;
+  public function isCacheable() {
+    return TRUE;
   }
 
   /**

@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\TypedData\Plugin\DataType\Map.
+ */
+
 namespace Drupal\Core\TypedData\Plugin\DataType;
 
 use Drupal\Core\TypedData\TypedData;
@@ -13,8 +18,7 @@ use Drupal\Core\TypedData\ComplexDataInterface;
  * complex data type.
  *
  * By default there is no metadata for contained properties. Extending classes
- * may want to override MapDataDefinition::getPropertyDefinitions() to define
- * it.
+ * may want to override Map::getPropertyDefinitions() to define it.
  *
  * @ingroup typed_data
  *
@@ -38,14 +42,25 @@ class Map extends TypedData implements \IteratorAggregate, ComplexDataInterface 
    *
    * @var array
    */
-  protected $values = [];
+  protected $values = array();
 
   /**
    * The array of properties.
    *
    * @var \Drupal\Core\TypedData\TypedDataInterface[]
    */
-  protected $properties = [];
+  protected $properties = array();
+
+  /**
+   * Gets an array of property definitions of contained properties.
+   *
+   * @return \Drupal\Core\TypedData\DataDefinitionInterface[]
+   *   An array of property definitions of contained properties, keyed by
+   *   property name.
+   */
+  protected function getPropertyDefinitions() {
+    return $this->definition->getPropertyDefinitions();
+  }
 
   /**
    * {@inheritdoc}
@@ -92,19 +107,19 @@ class Map extends TypedData implements \IteratorAggregate, ComplexDataInterface 
   }
 
   /**
-   * {@inheritdoc}
+   * Overrides \Drupal\Core\TypedData\TypedData::getString().
    */
   public function getString() {
-    $strings = [];
+    $strings = array();
     foreach ($this->getProperties() as $property) {
       $strings[] = $property->getString();
     }
     // Remove any empty strings resulting from empty items.
-    return implode(', ', array_filter($strings, 'mb_strlen'));
+    return implode(', ', array_filter($strings, '\Drupal\Component\Utility\Unicode::strlen'));
   }
 
   /**
-   * {@inheritdoc}
+   * Implements \Drupal\Core\TypedData\ComplexDataInterface::get().
    */
   public function get($property_name) {
     if (!isset($this->properties[$property_name])) {
@@ -113,7 +128,7 @@ class Map extends TypedData implements \IteratorAggregate, ComplexDataInterface 
         $value = $this->values[$property_name];
       }
       // If the property is unknown, this will throw an exception.
-      $this->properties[$property_name] = $this->getTypedDataManager()->getPropertyInstance($this, $property_name, $value);
+      $this->properties[$property_name] = \Drupal::typedDataManager()->getPropertyInstance($this, $property_name, $value);
     }
     return $this->properties[$property_name];
   }
@@ -151,10 +166,10 @@ class Map extends TypedData implements \IteratorAggregate, ComplexDataInterface 
   }
 
   /**
-   * {@inheritdoc}
+   * Implements \Drupal\Core\TypedData\ComplexDataInterface::getProperties().
    */
   public function getProperties($include_computed = FALSE) {
-    $properties = [];
+    $properties = array();
     foreach ($this->definition->getPropertyDefinitions() as $name => $definition) {
       if ($include_computed || !$definition->isComputed()) {
         $properties[$name] = $this->get($name);
@@ -167,7 +182,7 @@ class Map extends TypedData implements \IteratorAggregate, ComplexDataInterface 
    * {@inheritdoc}
    */
   public function toArray() {
-    $values = [];
+    $values = array();
     foreach ($this->getProperties() as $name => $property) {
       $values[$name] = $property->getValue();
     }
@@ -175,14 +190,14 @@ class Map extends TypedData implements \IteratorAggregate, ComplexDataInterface 
   }
 
   /**
-   * {@inheritdoc}
+   * Implements \IteratorAggregate::getIterator().
    */
   public function getIterator() {
     return new \ArrayIterator($this->getProperties());
   }
 
   /**
-   * {@inheritdoc}
+   * Implements \Drupal\Core\TypedData\ComplexDataInterface::isEmpty().
    */
   public function isEmpty() {
     foreach ($this->properties as $property) {
@@ -236,5 +251,4 @@ class Map extends TypedData implements \IteratorAggregate, ComplexDataInterface 
     }
     return $this;
   }
-
 }

@@ -1,8 +1,12 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Tests\Core\RouteProcessor\RouteProcessorManager.
+ */
+
 namespace Drupal\Core\RouteProcessor;
 
-use Drupal\Core\Render\BubbleableMetadata;
 use Symfony\Component\Routing\Route;
 
 /**
@@ -20,7 +24,7 @@ class RouteProcessorManager implements OutboundRouteProcessorInterface {
    *   An array whose keys are priorities and whose values are arrays of path
    *   processor objects.
    */
-  protected $outboundProcessors = [];
+  protected $outboundProcessors = array();
 
   /**
    * Holds the array of outbound processors, sorted by priority.
@@ -28,7 +32,7 @@ class RouteProcessorManager implements OutboundRouteProcessorInterface {
    * @var array
    *   An array of path processor objects.
    */
-  protected $sortedOutbound = [];
+  protected $sortedOutbound = array();
 
   /**
    * Adds an outbound processor object to the $outboundProcessors property.
@@ -40,16 +44,16 @@ class RouteProcessorManager implements OutboundRouteProcessorInterface {
    */
   public function addOutbound(OutboundRouteProcessorInterface $processor, $priority = 0) {
     $this->outboundProcessors[$priority][] = $processor;
-    $this->sortedOutbound = [];
+    $this->sortedOutbound = array();
   }
 
   /**
    * {@inheritdoc}
    */
-  public function processOutbound($route_name, Route $route, array &$parameters, BubbleableMetadata $bubbleable_metadata = NULL) {
+  public function processOutbound($route_name, Route $route, array &$parameters) {
     $processors = $this->getOutbound();
     foreach ($processors as $processor) {
-      $processor->processOutbound($route_name, $route, $parameters, $bubbleable_metadata);
+      $processor->processOutbound($route_name, $route, $parameters);
     }
   }
 
@@ -71,7 +75,7 @@ class RouteProcessorManager implements OutboundRouteProcessorInterface {
    * Sorts the processors according to priority.
    */
   protected function sortProcessors() {
-    $sorted = [];
+    $sorted = array();
     krsort($this->outboundProcessors);
 
     foreach ($this->outboundProcessors as $processors) {

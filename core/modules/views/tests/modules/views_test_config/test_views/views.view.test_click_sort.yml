@@ -7,6 +7,7 @@ description: ''
 tag: ''
 base_table: views_test_data
 base_field: nid
+core: '8'
 display:
   default:
     display_options:
@@ -28,16 +29,11 @@ display:
           table: views_test_data
           field: created
           label: created
-          plugin_id: field
-          type: timestamp
-          settings:
-            date_format: medium
-            custom_date_format: ''
-            timezone: ''
+          plugin_id: date
       access:
         type: none
       cache:
-        type: tag
+        type: none
       style:
         type: table
         options:

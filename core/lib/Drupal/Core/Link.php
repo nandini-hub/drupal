@@ -1,21 +1,20 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Link.
+ */
+
 namespace Drupal\Core;
 
-use Drupal\Core\Render\RenderableInterface;
-use Drupal\Core\Utility\LinkGeneratorInterface;
+use Drupal\Core\Routing\LinkGeneratorTrait;
 
 /**
  * Defines an object that holds information about a link.
  */
-class Link implements RenderableInterface {
+class Link {
 
-  /**
-   * The link generator.
-   *
-   * @var \Drupal\Core\Utility\LinkGeneratorInterface
-   */
-  protected $linkGenerator;
+  use LinkGeneratorTrait;
 
   /**
    * The text of the link.
@@ -45,7 +44,7 @@ class Link implements RenderableInterface {
   }
 
   /**
-   * Creates a Link object from a given route name and parameters.
+   * Creates a link object from a given route name and parameters.
    *
    * @param string $text
    *   The text of the link.
@@ -54,27 +53,26 @@ class Link implements RenderableInterface {
    * @param array $route_parameters
    *   (optional) An associative array of parameter names and values.
    * @param array $options
-   *   The options parameter takes exactly the same structure.
-   *   See \Drupal\Core\Url::fromUri() for details.
+   *   (optional) An associative array of additional options, with the following
+   *   elements:
+   *   - 'query': An array of query key/value-pairs (without any URL-encoding)
+   *     to append to the URL. Merged with the parameters array.
+   *   - 'fragment': A fragment identifier (named anchor) to append to the URL.
+   *     Do not include the leading '#' character.
+   *   - 'absolute': Defaults to FALSE. Whether to force the output to be an
+   *     absolute link (beginning with http:). Useful for links that will be
+   *     displayed outside the site, such as in an RSS feed.
+   *   - 'language': An optional language object used to look up the alias
+   *     for the URL. If $options['language'] is omitted, it defaults to the
+   *     current language for the language type LanguageInterface::TYPE_URL.
+   *   - 'https': Whether this URL should point to a secure location. If not
+   *     defined, the current scheme is used, so the user stays on HTTP or HTTPS
+   *     respectively. TRUE enforces HTTPS and FALSE enforces HTTP.
    *
    * @return static
    */
-  public static function createFromRoute($text, $route_name, $route_parameters = [], $options = []) {
+  public static function createFromRoute($text, $route_name, $route_parameters = array(), $options = array()) {
     return new static($text, new Url($route_name, $route_parameters, $options));
-  }
-
-  /**
-   * Creates a Link object from a given Url object.
-   *
-   * @param string $text
-   *   The text of the link.
-   * @param \Drupal\Core\Url $url
-   *   The Url to create the link for.
-   *
-   * @return static
-   */
-  public static function fromTextAndUrl($text, Url $url) {
-    return new static($text, $url);
   }
 
   /**
@@ -123,57 +121,9 @@ class Link implements RenderableInterface {
 
   /**
    * Generates the HTML for this Link object.
-   *
-   * Do not use this method to render a link in an HTML context. In an HTML
-   * context, self::toRenderable() should be used so that render cache
-   * information is maintained. However, there might be use cases such as tests
-   * and non-HTML contexts where calling this method directly makes sense.
-   *
-   * @return \Drupal\Core\GeneratedLink
-   *   The link HTML markup.
-   *
-   * @see \Drupal\Core\Link::toRenderable()
    */
   public function toString() {
     return $this->getLinkGenerator()->generateFromLink($this);
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function toRenderable() {
-    return [
-      '#type' => 'link',
-      '#url' => $this->url,
-      '#title' => $this->text,
-    ];
-  }
-
-  /**
-   * Returns the link generator.
-   *
-   * @return \Drupal\Core\Utility\LinkGeneratorInterface
-   *   The link generator
-   */
-  protected function getLinkGenerator() {
-    if (!isset($this->linkGenerator)) {
-      $this->linkGenerator = \Drupal::service('link_generator');
-    }
-    return $this->linkGenerator;
-  }
-
-  /**
-   * Sets the link generator service.
-   *
-   * @param \Drupal\Core\Utility\LinkGeneratorInterface $generator
-   *   The link generator service.
-   *
-   * @return $this
-   */
-  public function setLinkGenerator(LinkGeneratorInterface $generator) {
-    $this->linkGenerator = $generator;
-
-    return $this;
   }
 
 }

@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\search\Form\ReindexConfirm.
+ */
+
 namespace Drupal\search\Form;
 
 use Drupal\Core\Form\ConfirmFormBase;
@@ -8,8 +13,6 @@ use Drupal\Core\Url;
 
 /**
  * Provides the search reindex confirmation form.
- *
- * @internal
  */
 class ReindexConfirm extends ConfirmFormBase {
 
@@ -21,28 +24,28 @@ class ReindexConfirm extends ConfirmFormBase {
   }
 
   /**
-   * {@inheritdoc}
+   * Implements \Drupal\Core\Form\ConfirmFormBase::getQuestion().
    */
   public function getQuestion() {
     return $this->t('Are you sure you want to re-index the site?');
   }
 
   /**
-   * {@inheritdoc}
+   * Overrides \Drupal\Core\Form\ConfirmFormBase::getDescription().
    */
   public function getDescription() {
     return $this->t("This will re-index content in the search indexes of all active search pages. Searching will continue to work, but new content won't be indexed until all existing content has been re-indexed. This action cannot be undone.");
   }
 
   /**
-   * {@inheritdoc}
+   * Overrides \Drupal\Core\Form\ConfirmFormBase::getConfirmText().
    */
   public function getConfirmText() {
     return $this->t('Re-index site');
   }
 
   /**
-   * {@inheritdoc}
+   * Overrides \Drupal\Core\Form\ConfirmFormBase::getCancelText().
    */
   public function getCancelText() {
     return $this->t('Cancel');
@@ -65,9 +68,8 @@ class ReindexConfirm extends ConfirmFormBase {
       foreach ($search_page_repository->getIndexableSearchPages() as $entity) {
         $entity->getPlugin()->markForReindex();
       }
-      $this->messenger()->addStatus($this->t('All search indexes will be rebuilt.'));
+      drupal_set_message($this->t('All search indexes will be rebuilt.'));
       $form_state->setRedirectUrl($this->getCancelUrl());
     }
   }
-
 }

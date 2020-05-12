@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Tests\Component\Uuid\UuidTest.
+ */
+
 namespace Drupal\Tests\Component\Uuid;
 
 use Drupal\Component\Uuid\Uuid;
@@ -7,14 +12,14 @@ use Drupal\Component\Uuid\UuidInterface;
 use Drupal\Component\Uuid\Com;
 use Drupal\Component\Uuid\Pecl;
 use Drupal\Component\Uuid\Php;
-use PHPUnit\Framework\TestCase;
+use Drupal\Tests\UnitTestCase;
 
 /**
  * Tests the handling of Universally Unique Identifiers (UUIDs).
  *
  * @group Uuid
  */
-class UuidTest extends TestCase {
+class UuidTest extends UnitTestCase {
 
   /**
    * Tests generating valid UUIDs.
@@ -41,7 +46,7 @@ class UuidTest extends TestCase {
    */
   public function providerUuidInstances() {
 
-    $instances = [];
+    $instances = array();
     $instances[][] = new Php();
 
     // If valid PECL extensions exists add to list.
@@ -77,21 +82,20 @@ class UuidTest extends TestCase {
    * Dataprovider for UUID instance tests.
    *
    * @return array
-   *   An array of arrays containing
+   *  An array of arrays containing
    *   - The Uuid to check against.
    *   - (bool) Whether or not the Uuid is valid.
    *   - Failure message.
    */
   public function providerTestValidation() {
-    return [
+    return array(
       // These valid UUIDs.
-      ['6ba7b810-9dad-11d1-80b4-00c04fd430c8', TRUE, 'Basic FQDN UUID did not validate'],
-      ['00000000-0000-0000-0000-000000000000', TRUE, 'Minimum UUID did not validate'],
-      ['ffffffff-ffff-ffff-ffff-ffffffffffff', TRUE, 'Maximum UUID did not validate'],
+      array('6ba7b810-9dad-11d1-80b4-00c04fd430c8', TRUE, 'Basic FQDN UUID did not validate'),
+      array('00000000-0000-0000-0000-000000000000', TRUE, 'Minimum UUID did not validate'),
+      array('ffffffff-ffff-ffff-ffff-ffffffffffff', TRUE, 'Maximum UUID did not validate'),
       // These are invalid UUIDs.
-      ['0ab26e6b-f074-4e44-9da-601205fa0e976', FALSE, 'Invalid format was validated'],
-      ['0ab26e6b-f074-4e44-9daf-1205fa0e9761f', FALSE, 'Invalid length was validated'],
-    ];
+      array('0ab26e6b-f074-4e44-9da-601205fa0e976', FALSE, 'Invalid format was validated'),
+      array('0ab26e6b-f074-4e44-9daf-1205fa0e9761f', FALSE, 'Invalid length was validated'),
+    );
   }
-
 }

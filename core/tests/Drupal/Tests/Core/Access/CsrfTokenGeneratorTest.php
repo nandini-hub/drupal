@@ -1,11 +1,17 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Tests\Core\Access\CsrfTokenGeneratorTest.
+ */
+
 namespace Drupal\Tests\Core\Access;
 
 use Drupal\Core\Site\Settings;
 use Drupal\Tests\UnitTestCase;
 use Drupal\Core\Access\CsrfTokenGenerator;
 use Drupal\Component\Utility\Crypt;
+use Symfony\Component\HttpFoundation\Request;
 
 /**
  * Tests the CsrfTokenGenerator class.
@@ -25,14 +31,14 @@ class CsrfTokenGeneratorTest extends UnitTestCase {
   /**
    * The mock private key instance.
    *
-   * @var \Drupal\Core\PrivateKey|\PHPUnit\Framework\MockObject\MockObject
+   * @var \Drupal\Core\PrivateKey|\PHPUnit_Framework_MockObject_MockObject
    */
   protected $privateKey;
 
   /**
    * The mock session metadata bag.
    *
-   * @var \Drupal\Core\Session\MetadataBag|\PHPUnit\Framework\MockObject\MockObject
+   * @var \Drupal\Core\Session\MetadataBag|\PHPUnit_Framework_MockObject_MockObject
    */
   protected $sessionMetadata;
 
@@ -44,16 +50,16 @@ class CsrfTokenGeneratorTest extends UnitTestCase {
 
     $this->privateKey = $this->getMockBuilder('Drupal\Core\PrivateKey')
       ->disableOriginalConstructor()
-      ->setMethods(['get'])
+      ->setMethods(array('get'))
       ->getMock();
 
     $this->sessionMetadata = $this->getMockBuilder('Drupal\Core\Session\MetadataBag')
       ->disableOriginalConstructor()
       ->getMock();
 
-    $settings = [
+    $settings = array(
       'hash_salt' => $this->randomMachineName(),
-    ];
+    );
 
     new Settings($settings);
 
@@ -142,9 +148,7 @@ class CsrfTokenGeneratorTest extends UnitTestCase {
 
     // The following check might throw PHP fatals and notices, so we disable
     // error assertions.
-    set_error_handler(function () {
-      return TRUE;
-    });
+    set_error_handler(function () {return TRUE;});
     $this->assertFalse($this->generator->validate($token, $value));
     restore_error_handler();
   }
@@ -156,11 +160,11 @@ class CsrfTokenGeneratorTest extends UnitTestCase {
    *   An array of data used by the test.
    */
   public function providerTestValidateParameterTypes() {
-    return [
-      [[], ''],
-      [TRUE, 'foo'],
-      [0, 'foo'],
-    ];
+    return array(
+      array(array(), ''),
+      array(TRUE, 'foo'),
+      array(0, 'foo'),
+    );
   }
 
   /**
@@ -173,11 +177,11 @@ class CsrfTokenGeneratorTest extends UnitTestCase {
    *
    * @covers ::validate
    * @dataProvider providerTestInvalidParameterTypes
+   * @expectedException InvalidArgumentException
    */
   public function testInvalidParameterTypes($token, $value = '') {
     $this->setupDefaultExpectations();
 
-    $this->expectException(\InvalidArgumentException::class);
     $this->generator->validate($token, $value);
   }
 
@@ -188,24 +192,24 @@ class CsrfTokenGeneratorTest extends UnitTestCase {
    *   An array of data used by the test.
    */
   public function providerTestInvalidParameterTypes() {
-    return [
-      [NULL, new \stdClass()],
-      [0, []],
-      ['', []],
-      [[], []],
-    ];
+    return array(
+      array(NULL, new \stdClass()),
+      array(0, array()),
+      array('', array()),
+      array(array(), array()),
+    );
   }
 
   /**
    * Tests the exception thrown when no 'hash_salt' is provided in settings.
    *
    * @covers ::get
+   * @expectedException \RuntimeException
    */
   public function testGetWithNoHashSalt() {
     // Update settings with no hash salt.
-    new Settings([]);
+    new Settings(array());
     $generator = new CsrfTokenGenerator($this->privateKey, $this->sessionMetadata);
-    $this->expectException(\RuntimeException::class);
     $generator->get();
   }
 

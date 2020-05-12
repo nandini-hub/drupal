@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Render\Element\File.
+ */
+
 namespace Drupal\Core\Render\Element;
 
 use Drupal\Core\Form\FormStateInterface;
@@ -7,13 +12,6 @@ use Drupal\Core\Render\Element;
 
 /**
  * Provides a form element for uploading a file.
- *
- * If you add this element to a form the enctype="multipart/form-data" attribute
- * will automatically be added to the form element.
- *
- * Properties:
- * - #multiple: A Boolean indicating whether multiple files may be uploaded.
- * - #size: The size of the file input element in characters.
  *
  * @FormElement("file")
  */
@@ -24,19 +22,19 @@ class File extends FormElement {
    */
   public function getInfo() {
     $class = get_class($this);
-    return [
+    return array(
       '#input' => TRUE,
       '#multiple' => FALSE,
-      '#process' => [
-        [$class, 'processFile'],
-      ],
+      '#process' => array(
+        array($class, 'processFile'),
+      ),
       '#size' => 60,
-      '#pre_render' => [
-        [$class, 'preRenderFile'],
-      ],
+      '#pre_render' => array(
+        array($class, 'preRenderFile'),
+      ),
       '#theme' => 'input__file',
-      '#theme_wrappers' => ['form_element'],
-    ];
+      '#theme_wrappers' => array('form_element'),
+    );
   }
 
   /**
@@ -44,7 +42,7 @@ class File extends FormElement {
    */
   public static function processFile(&$element, FormStateInterface $form_state, &$complete_form) {
     if ($element['#multiple']) {
-      $element['#attributes']['multiple'] = 'multiple';
+      $element['#attributes'] = array('multiple' => 'multiple');
       $element['#name'] .= '[]';
     }
     return $element;
@@ -66,8 +64,8 @@ class File extends FormElement {
    */
   public static function preRenderFile($element) {
     $element['#attributes']['type'] = 'file';
-    Element::setAttributes($element, ['id', 'name', 'size']);
-    static::setAttributes($element, ['js-form-file', 'form-file']);
+    Element::setAttributes($element, array('id', 'name', 'size'));
+    static::setAttributes($element, array('form-file'));
 
     return $element;
   }

@@ -1,17 +1,21 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\book\Form\BookRemoveForm.
+ */
+
 namespace Drupal\book\Form;
 
 use Drupal\book\BookManagerInterface;
 use Drupal\Core\Form\ConfirmFormBase;
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Url;
 use Drupal\node\NodeInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
  * Remove form for book module.
- *
- * @internal
  */
 class BookRemoveForm extends ConfirmFormBase {
 
@@ -67,7 +71,7 @@ class BookRemoveForm extends ConfirmFormBase {
    * {@inheritdoc}
    */
   public function getDescription() {
-    $title = ['%title' => $this->node->label()];
+    $title = array('%title' => $this->node->label());
     if ($this->node->book['has_children']) {
       return $this->t('%title has associated child pages, which will be relocated automatically to maintain their connection to the book. To recreate the hierarchy (as it was before removing this page), %title may be added again using the Outline tab, and each of its former child pages will need to be relocated manually.', $title);
     }
@@ -87,14 +91,14 @@ class BookRemoveForm extends ConfirmFormBase {
    * {@inheritdoc}
    */
   public function getQuestion() {
-    return $this->t('Are you sure you want to remove %title from the book hierarchy?', ['%title' => $this->node->label()]);
+    return $this->t('Are you sure you want to remove %title from the book hierarchy?', array('%title' => $this->node->label()));
   }
 
   /**
    * {@inheritdoc}
    */
   public function getCancelUrl() {
-    return $this->node->toUrl();
+    return $this->node->urlInfo();
   }
 
   /**
@@ -103,7 +107,7 @@ class BookRemoveForm extends ConfirmFormBase {
   public function submitForm(array &$form, FormStateInterface $form_state) {
     if ($this->bookManager->checkNodeIsRemovable($this->node)) {
       $this->bookManager->deleteFromBook($this->node->id());
-      $this->messenger()->addStatus($this->t('The post has been removed from the book.'));
+      drupal_set_message($this->t('The post has been removed from the book.'));
     }
     $form_state->setRedirectUrl($this->getCancelUrl());
   }

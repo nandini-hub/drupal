@@ -29,13 +29,8 @@ function test_theme_element_info_alter(&$info) {
   }
 }
 
-/**
- * Implements hook_library_info_alter().
- */
-function test_theme_library_info_alter(&$libraries, $extension) {
-  if ($extension === 'test_theme') {
-    $libraries['kitten']['js']['kittens.js'] = [];
-  }
+function test_theme_library_info_alter(&$libraries) {
+  $libraries['kitten']['js'][] = 'kittens.js';
 }
 
 /**
@@ -53,7 +48,7 @@ function test_theme_theme_test_alter_alter(&$data) {
  * Implements hook_theme_suggestions_alter().
  */
 function test_theme_theme_suggestions_alter(array &$suggestions, array $variables, $hook) {
-  \Drupal::messenger()->addStatus(__FUNCTION__ . '() executed.');
+  drupal_set_message(__FUNCTION__ . '() executed.');
   // Theme alter hooks run after module alter hooks, so add this theme
   // suggestion to the beginning of the array so that the suggestion added by
   // the theme_suggestions_test module can be picked up when that module is
@@ -67,7 +62,7 @@ function test_theme_theme_suggestions_alter(array &$suggestions, array $variable
  * Implements hook_theme_suggestions_HOOK_alter().
  */
 function test_theme_theme_suggestions_theme_test_suggestions_alter(array &$suggestions, array $variables) {
-  \Drupal::messenger()->addStatus(__FUNCTION__ . '() executed.');
+  drupal_set_message(__FUNCTION__ . '() executed.');
   // Theme alter hooks run after module alter hooks, so add this theme
   // suggestion to the beginning of the array so that the suggestion added by
   // the theme_suggestions_test module can be picked up when that module is
@@ -109,60 +104,4 @@ function test_theme_theme_test_function_suggestions__module_override($variables)
  */
 function test_theme_theme_registry_alter(&$registry) {
   $registry['theme_test_template_test']['variables']['additional'] = 'value';
-}
-
-/**
- * Tests a theme overriding a suggestion of a base theme hook.
- */
-function test_theme_theme_test_preprocess_suggestions__kitten__meerkat($variables) {
-  return 'Theme hook implementor=test_theme_theme_test__suggestion(). Foo=' . $variables['foo'];
-}
-
-/**
- * Tests a theme overriding a default hook with a suggestion.
- *
- * Implements hook_preprocess_HOOK().
- */
-function test_theme_preprocess_theme_test_preprocess_suggestions(&$variables) {
-  $variables['foo'] = 'Theme hook implementor=test_theme_preprocess_theme_test_preprocess_suggestions().';
-}
-
-/**
- * Tests a theme overriding a default hook with a suggestion.
- */
-function test_theme_preprocess_theme_test_preprocess_suggestions__suggestion(&$variables) {
-  $variables['foo'] = 'Suggestion';
-}
-
-/**
- * Tests a theme overriding a default hook with a suggestion.
- */
-function test_theme_preprocess_theme_test_preprocess_suggestions__kitten(&$variables) {
-  $variables['foo'] = 'Kitten';
-}
-
-/**
- * Tests a theme overriding a default hook with a suggestion.
- */
-function test_theme_preprocess_theme_test_preprocess_suggestions__kitten__flamingo(&$variables) {
-  $variables['bar'] = 'Flamingo';
-}
-
-/**
- * Tests a preprocess function with suggestions.
- */
-function test_theme_preprocess_theme_test_preprocess_suggestions__kitten__meerkat__tarsier__moose(&$variables) {
-  $variables['bar'] = 'Moose';
-}
-
-/**
- * Tests that a class can be loaded within a .theme file.
- */
-function test_theme_preprocess_theme_test_theme_class(&$variables) {
-  if (class_exists('\Drupal\test_theme\ThemeClass')) {
-    $variables['message'] = 'Loading ThemeClass was successful.';
-  }
-  else {
-    $variables['message'] = 'Loading ThemeClass failed.';
-  }
 }

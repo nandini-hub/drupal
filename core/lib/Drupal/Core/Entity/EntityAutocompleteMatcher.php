@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Entity\EntityAutocompleteMatcher.
+ */
+
 namespace Drupal\Core\Entity;
 
 use Drupal\Component\Utility\Html;
@@ -29,7 +34,7 @@ class EntityAutocompleteMatcher {
   }
 
   /**
-   * Gets matched labels based on a given search string.
+   * Returns matched labels based on a given search string.
    *
    * @param string $target_type
    *   The ID of the target entity type.
@@ -40,29 +45,29 @@ class EntityAutocompleteMatcher {
    * @param string $string
    *   (optional) The label of the entity to query by.
    *
+   * @throws \Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException
+   *   Thrown when the current user doesn't have access to the specifies entity.
+   *
    * @return array
    *   An array of matched entity labels, in the format required by the AJAX
    *   autocomplete API (e.g. array('value' => $value, 'label' => $label)).
    *
-   * @throws \Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException
-   *   Thrown when the current user doesn't have access to the specified entity.
-   *
    * @see \Drupal\system\Controller\EntityAutocompleteController
    */
   public function getMatches($target_type, $selection_handler, $selection_settings, $string = '') {
-    $matches = [];
+    $matches = array();
 
-    $options = $selection_settings + [
+    $options = array(
       'target_type' => $target_type,
       'handler' => $selection_handler,
-    ];
+      'handler_settings' => $selection_settings,
+    );
     $handler = $this->selectionManager->getInstance($options);
 
     if (isset($string)) {
       // Get an array of matching entities.
       $match_operator = !empty($selection_settings['match_operator']) ? $selection_settings['match_operator'] : 'CONTAINS';
-      $match_limit = isset($selection_settings['match_limit']) ? (int) $selection_settings['match_limit'] : 10;
-      $entity_labels = $handler->getReferenceableEntities($string, $match_operator, $match_limit);
+      $entity_labels = $handler->getReferenceableEntities($string, $match_operator, 10);
 
       // Loop through the entities and convert them into autocomplete output.
       foreach ($entity_labels as $values) {
@@ -73,7 +78,7 @@ class EntityAutocompleteMatcher {
           $key = preg_replace('/\s\s+/', ' ', str_replace("\n", '', trim(Html::decodeEntities(strip_tags($key)))));
           // Names containing commas or quotes must be wrapped in quotes.
           $key = Tags::encode($key);
-          $matches[] = ['value' => $key, 'label' => $label];
+          $matches[] = array('value' => $key, 'label' => $label);
         }
       }
     }

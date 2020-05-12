@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\Core\Queue\Memory.
+ */
+
 namespace Drupal\Core\Queue;
 
 /**
@@ -33,12 +38,12 @@ class Memory implements QueueInterface {
    *   An arbitrary string. The name of the queue to work with.
    */
   public function __construct($name) {
-    $this->queue = [];
+    $this->queue = array();
     $this->idSequence = 0;
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\Queue\QueueInterface::createItem().
    */
   public function createItem($data) {
     $item = new \stdClass();
@@ -51,14 +56,14 @@ class Memory implements QueueInterface {
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\Queue\QueueInterface::numberOfItems().
    */
   public function numberOfItems() {
     return count($this->queue);
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\Queue\QueueInterface::claimItem().
    */
   public function claimItem($lease_time = 30) {
     foreach ($this->queue as $key => $item) {
@@ -72,14 +77,14 @@ class Memory implements QueueInterface {
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\Queue\QueueInterface::deleteItem().
    */
   public function deleteItem($item) {
     unset($this->queue[$item->item_id]);
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\Queue\QueueInterface::releaseItem().
    */
   public function releaseItem($item) {
     if (isset($this->queue[$item->item_id]) && $this->queue[$item->item_id]->expire != 0) {
@@ -90,18 +95,17 @@ class Memory implements QueueInterface {
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\Queue\QueueInterface::createQueue().
    */
   public function createQueue() {
     // Nothing needed here.
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\Queue\QueueInterface::deleteQueue().
    */
   public function deleteQueue() {
-    $this->queue = [];
+    $this->queue = array();
     $this->idSequence = 0;
   }
-
 }

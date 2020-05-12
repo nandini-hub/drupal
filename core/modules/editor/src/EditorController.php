@@ -1,11 +1,20 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\editor\EditorController.
+ */
+
 namespace Drupal\editor;
 
 use Drupal\Core\Ajax\AjaxResponse;
+use Drupal\Core\Ajax\OpenModalDialogCommand;
+use Drupal\Core\Ajax\CloseModalDialogCommand;
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Entity\EntityInterface;
 use Drupal\editor\Ajax\GetUntransformedTextCommand;
+use Drupal\editor\Form\EditorImageDialog;
+use Drupal\editor\Form\EditorLinkDialog;
 use Drupal\filter\Plugin\FilterInterface;
 use Drupal\filter\FilterFormatInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -23,7 +32,7 @@ class EditorController extends ControllerBase {
    * @param \Drupal\Core\Entity\EntityInterface $entity
    *   The entity of which a formatted text field is being rerendered.
    * @param string $field_name
-   *   The name of the (formatted text) field that is being rerendered
+   *   The name of the (formatted text) field that that is being rerendered
    * @param string $langcode
    *   The name of the language for which the formatted text field is being
    *   rerendered.
@@ -38,7 +47,7 @@ class EditorController extends ControllerBase {
 
     // Direct text editing is only supported for single-valued fields.
     $field = $entity->getTranslation($langcode)->$field_name;
-    $editable_text = check_markup($field->value, $field->format, $langcode, [FilterInterface::TYPE_TRANSFORM_REVERSIBLE, FilterInterface::TYPE_TRANSFORM_IRREVERSIBLE]);
+    $editable_text = check_markup($field->value, $field->format, $langcode, array(FilterInterface::TYPE_TRANSFORM_REVERSIBLE, FilterInterface::TYPE_TRANSFORM_IRREVERSIBLE));
     $response->addCommand(new GetUntransformedTextCommand($editable_text));
 
     return $response;
@@ -55,9 +64,6 @@ class EditorController extends ControllerBase {
    * @return \Symfony\Component\HttpFoundation\JsonResponse
    *   A JSON response containing the XSS-filtered value.
    *
-   * @throws \Symfony\Component\HttpKernel\Exception\NotFoundHttpException
-   *   Thrown if no value to filter is specified.
-   *
    * @see editor_filter_xss()
    */
   public function filterXss(Request $request, FilterFormatInterface $filter_format) {
@@ -70,7 +76,7 @@ class EditorController extends ControllerBase {
     $original_format_id = $request->request->get('original_format_id');
     $original_format = NULL;
     if (isset($original_format_id)) {
-      $original_format = $this->entityTypeManager()
+      $original_format = $this->entityManager()
         ->getStorage('filter_format')
         ->load($original_format_id);
     }

@@ -22,7 +22,6 @@ toolbar:
     - core/jquery
     - core/drupal
     - core/drupalSettings
-    - core/drupal.ajax
     - core/drupal.announce
     - core/backbone
     - core/matchmedia

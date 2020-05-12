@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Entity\Plugin\Validation\Constraint\ReferenceAccessConstraint.
+ */
+
 namespace Drupal\Core\Entity\Plugin\Validation\Constraint;
 
 use Symfony\Component\Validator\Constraint;
@@ -9,7 +14,7 @@ use Symfony\Component\Validator\Constraint;
  *
  * Verifies that referenced entities are valid.
  *
- * @Constraint(
+ * @Plugin(
  *   id = "ReferenceAccess",
  *   label = @Translation("Entity Reference reference access", context = "Validation")
  * )

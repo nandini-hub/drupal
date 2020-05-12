@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Entity\Plugin\Field\FieldType\EmailItem.
+ */
+
 namespace Drupal\Core\Field\Plugin\Field\FieldType;
 
 use Drupal\Component\Utility\Random;
@@ -27,7 +32,7 @@ class EmailItem extends FieldItemBase {
    */
   public static function propertyDefinitions(FieldStorageDefinitionInterface $field_definition) {
     $properties['value'] = DataDefinition::create('email')
-      ->setLabel(t('Email'))
+      ->setLabel(t('E-mail'))
       ->setRequired(TRUE);
 
     return $properties;
@@ -37,14 +42,14 @@ class EmailItem extends FieldItemBase {
    * {@inheritdoc}
    */
   public static function schema(FieldStorageDefinitionInterface $field_definition) {
-    return [
-      'columns' => [
-        'value' => [
+    return array(
+      'columns' => array(
+        'value' => array(
           'type' => 'varchar',
           'length' => Email::EMAIL_MAX_LENGTH,
-        ],
-      ],
-    ];
+        ),
+      ),
+    );
   }
 
   /**
@@ -54,14 +59,14 @@ class EmailItem extends FieldItemBase {
     $constraint_manager = \Drupal::typedDataManager()->getValidationConstraintManager();
     $constraints = parent::getConstraints();
 
-    $constraints[] = $constraint_manager->create('ComplexData', [
-      'value' => [
-        'Length' => [
+    $constraints[] = $constraint_manager->create('ComplexData', array(
+      'value' => array(
+        'Length' => array(
           'max' => Email::EMAIL_MAX_LENGTH,
-          'maxMessage' => t('%name: the email address can not be longer than @max characters.', ['%name' => $this->getFieldDefinition()->getLabel(), '@max' => Email::EMAIL_MAX_LENGTH]),
-        ],
-      ],
-    ]);
+          'maxMessage' => t('%name: the email address can not be longer than @max characters.', array('%name' => $this->getFieldDefinition()->getLabel(), '@max' => Email::EMAIL_MAX_LENGTH)),
+        )
+      ),
+    ));
 
     return $constraints;
   }

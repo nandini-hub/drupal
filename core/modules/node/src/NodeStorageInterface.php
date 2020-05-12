@@ -1,20 +1,25 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\node\NodeStorageControllerInterface.
+ */
+
 namespace Drupal\node;
 
-use Drupal\Core\Entity\ContentEntityStorageInterface;
+use Drupal\Core\Entity\EntityStorageInterface;
 use Drupal\Core\Language\LanguageInterface;
 use Drupal\Core\Session\AccountInterface;
 
 /**
  * Defines an interface for node entity storage classes.
  */
-interface NodeStorageInterface extends ContentEntityStorageInterface {
+interface NodeStorageInterface extends EntityStorageInterface {
 
   /**
-   * Gets a list of node revision IDs for a specific node.
+   * Returns a list of node revision IDs for a specific node.
    *
-   * @param \Drupal\node\NodeInterface $node
+   * @param \Drupal\node\NodeInterface
    *   The node entity.
    *
    * @return int[]
@@ -23,7 +28,7 @@ interface NodeStorageInterface extends ContentEntityStorageInterface {
   public function revisionIds(NodeInterface $node);
 
   /**
-   * Gets a list of revision IDs having a given user as node author.
+   * Returns a list of revision IDs having a given user as node author.
    *
    * @param \Drupal\Core\Session\AccountInterface $account
    *   The user entity.
@@ -36,7 +41,7 @@ interface NodeStorageInterface extends ContentEntityStorageInterface {
   /**
    * Counts the number of revisions in the default language.
    *
-   * @param \Drupal\node\NodeInterface $node
+   * @param \Drupal\node\NodeInterface
    *   The node entity.
    *
    * @return int
@@ -61,8 +66,7 @@ interface NodeStorageInterface extends ContentEntityStorageInterface {
    * Unsets the language for all nodes with the given language.
    *
    * @param \Drupal\Core\Language\LanguageInterface $language
-   *   The language object.
+   *  The language object.
    */
   public function clearRevisionsLanguage(LanguageInterface $language);
-
 }

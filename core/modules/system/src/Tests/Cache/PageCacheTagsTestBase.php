@@ -1,20 +1,18 @@
 <?php
 
-namespace Drupal\system\Tests\Cache;
+/**
+ * @file
+ * Contains \Drupal\system\Tests\Cache\PageCacheTagsTestBase.
+ */
 
-@trigger_error(__NAMESPACE__ . '\PageCacheTagsTestBase is deprecated for removal before Drupal 9.0.0. Use \Drupal\Tests\system\Functional\Cache\PageCacheTagsTestBase instead. See https://www.drupal.org/node/2999939', E_USER_DEPRECATED);
+namespace Drupal\system\Tests\Cache;
 
 use Drupal\Core\Url;
 use Drupal\simpletest\WebTestBase;
-use Drupal\Component\Render\FormattableMarkup;
+use Drupal\Component\Utility\SafeMarkup;
 
 /**
  * Provides helper methods for page cache tags tests.
- *
- * @deprecated in drupal:8.?.? and is removed from drupal:9.0.0.
- *   Use \Drupal\Tests\system\Functional\Cache\PageCacheTagsTestBase instead.
- *
- * @see https://www.drupal.org/node/2999939
  */
 abstract class PageCacheTagsTestBase extends WebTestBase {
 
@@ -45,20 +43,20 @@ abstract class PageCacheTagsTestBase extends WebTestBase {
    * @param string $hit_or_miss
    *   'HIT' if a page cache hit is expected, 'MISS' otherwise.
    *
-   * @param array|false $tags
+   * @param array|FALSE $tags
    *   When expecting a page cache hit, you may optionally specify an array of
    *   expected cache tags. While FALSE, the cache tags will not be verified.
    */
   protected function verifyPageCache(Url $url, $hit_or_miss, $tags = FALSE) {
     $this->drupalGet($url);
-    $message = new FormattableMarkup('Page cache @hit_or_miss for %path.', ['@hit_or_miss' => $hit_or_miss, '%path' => $url->toString()]);
+    $message = SafeMarkup::format('Page cache @hit_or_miss for %path.', array('@hit_or_miss' => $hit_or_miss, '%path' => $url->toString()));
     $this->assertEqual($this->drupalGetHeader('X-Drupal-Cache'), $hit_or_miss, $message);
 
     if ($hit_or_miss === 'HIT' && is_array($tags)) {
       $absolute_url = $url->setAbsolute()->toString();
-      $cid_parts = [$absolute_url, 'html'];
+      $cid_parts = array($absolute_url, 'html');
       $cid = implode(':', $cid_parts);
-      $cache_entry = \Drupal::cache('page')->get($cid);
+      $cache_entry = \Drupal::cache('render')->get($cid);
       sort($cache_entry->tags);
       $tags = array_unique($tags);
       sort($tags);

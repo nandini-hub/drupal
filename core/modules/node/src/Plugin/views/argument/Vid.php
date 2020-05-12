@@ -1,7 +1,13 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\node\Plugin\views\argument\Vid.
+ */
+
 namespace Drupal\node\Plugin\views\argument;
 
+use Drupal\Component\Utility\SafeMarkup;
 use Drupal\Core\Database\Connection;
 use Drupal\views\Plugin\views\argument\NumericArgument;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -29,7 +35,7 @@ class Vid extends NumericArgument {
   protected $nodeStorage;
 
   /**
-   * Constructs a \Drupal\node\Plugin\views\argument\Vid object.
+   * Constructs a Drupal\Component\Plugin\PluginBase object.
    *
    * @param array $configuration
    *   A configuration array containing information about the plugin instance.
@@ -39,7 +45,7 @@ class Vid extends NumericArgument {
    *   The plugin implementation definition.
    * @param \Drupal\Core\Database\Connection $database
    *   Database Service Object.
-   * @param \Drupal\node\NodeStorageInterface $node_storage
+   * @param \Drupal\node\NodeStorageInterface
    *   The node storage.
    */
   public function __construct(array $configuration, $plugin_id, $plugin_definition, Connection $database, NodeStorageInterface $node_storage) {
@@ -58,7 +64,7 @@ class Vid extends NumericArgument {
       $plugin_id,
       $plugin_definition,
       $container->get('database'),
-      $container->get('entity_type.manager')->getStorage('node')
+      $container->get('entity.manager')->getStorage('node')
     );
   }
 
@@ -66,10 +72,10 @@ class Vid extends NumericArgument {
    * Override the behavior of title(). Get the title of the revision.
    */
   public function titleQuery() {
-    $titles = [];
+    $titles = array();
 
-    $results = $this->database->query('SELECT nr.vid, nr.nid, npr.title FROM {node_revision} nr WHERE nr.vid IN ( :vids[] )', [':vids[]' => $this->value])->fetchAllAssoc('vid', PDO::FETCH_ASSOC);
-    $nids = [];
+    $results = $this->database->query('SELECT nr.vid, nr.nid, npr.title FROM {node_revision} nr WHERE nr.vid IN ( :vids[] )', array(':vids[]' => $this->value))->fetchAllAssoc('vid', PDO::FETCH_ASSOC);
+    $nids = array();
     foreach ($results as $result) {
       $nids[] = $result['nid'];
     }
@@ -78,7 +84,7 @@ class Vid extends NumericArgument {
 
     foreach ($results as $result) {
       $nodes[$result['nid']]->set('title', $result['title']);
-      $titles[] = $nodes[$result['nid']]->label();
+      $titles[] = SafeMarkup::checkPlain($nodes[$result['nid']]->label());
     }
 
     return $titles;

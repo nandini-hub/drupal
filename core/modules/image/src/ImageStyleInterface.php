@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\image\ImageStyleInterface.
+ */
+
 namespace Drupal\image;
 
 use Drupal\Core\Config\Entity\ConfigEntityInterface;
@@ -12,14 +17,8 @@ interface ImageStyleInterface extends ConfigEntityInterface {
   /**
    * Returns the replacement ID.
    *
-   * @return string|null
-   *   The replacement image style ID or NULL if no replacement has been
-   *   selected.
-   *
-   * @deprecated in drupal:8.0.0 and is removed from drupal:9.0.0. Use
-   *   \Drupal\image\ImageStyleStorageInterface::getReplacementId() instead.
-   *
-   * @see \Drupal\image\ImageStyleStorageInterface::getReplacementId()
+   * @return string
+   *   The name of the image style to use as replacement upon delete.
    */
   public function getReplacementID();
 
@@ -37,10 +36,11 @@ interface ImageStyleInterface extends ConfigEntityInterface {
    * @param string $name
    *   The name of the image style.
    *
-   * @return $this
+   * @return \Drupal\image\ImageStyleInterface
    *   The class instance this method is called on.
    */
   public function setName($name);
+
 
   /**
    * Returns the URI of this image when using this style.
@@ -70,7 +70,6 @@ interface ImageStyleInterface extends ConfigEntityInterface {
    *   in an <img> tag. Requesting the URL will cause the image to be created.
    *
    * @see \Drupal\image\Controller\ImageStyleDownloadController::deliver()
-   * @see file_url_transform_relative()
    */
   public function buildUrl($path, $clean_urls = NULL);
 
@@ -128,18 +127,8 @@ interface ImageStyleInterface extends ConfigEntityInterface {
    * @param array $dimensions
    *   Associative array passed by reference. Implementations have to store the
    *   resulting width and height, in pixels.
-   * @param string $uri
-   *   Original image file URI. It is passed in to allow effects to
-   *   optionally use this information to retrieve additional image metadata
-   *   to determine dimensions of the styled image.
-   *   ImageStyleInterface::transformDimensions key objective is to calculate
-   *   styled image dimensions without performing actual image operations, so
-   *   be aware that performing IO on the URI may lead to decrease in
-   *   performance.
-   *
-   * @see ImageEffectInterface::transformDimensions
    */
-  public function transformDimensions(array &$dimensions, $uri);
+  public function transformDimensions(array &$dimensions);
 
   /**
    * Determines the extension of the derivative without generating it.
@@ -192,16 +181,5 @@ interface ImageStyleInterface extends ConfigEntityInterface {
    * @return $this
    */
   public function deleteImageEffect(ImageEffectInterface $effect);
-
-  /**
-   * Determines if this style can be applied to a given image.
-   *
-   * @param string $uri
-   *   The URI of the image.
-   *
-   * @return bool
-   *   TRUE if the image is supported, FALSE otherwise.
-   */
-  public function supportsUri($uri);
 
 }

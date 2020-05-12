@@ -1,7 +1,11 @@
 <?php
 
-namespace Drupal\Core\EventSubscriber;
+/**
+ * @file
+ * Contains \Drupal\Core\EventSubscriber\KernelDestructionSubscriber.
+ */
 
+namespace Drupal\Core\EventSubscriber;
 use Symfony\Component\DependencyInjection\ContainerAwareInterface;
 use Symfony\Component\DependencyInjection\ContainerAwareTrait;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
@@ -10,8 +14,6 @@ use Symfony\Component\HttpKernel\KernelEvents;
 
 /**
  * Destructs services that are initiated and tagged with "needs_destruction".
- *
- * @see \Drupal\Core\DestructableInterface
  */
 class KernelDestructionSubscriber implements EventSubscriberInterface, ContainerAwareInterface {
 
@@ -21,7 +23,7 @@ class KernelDestructionSubscriber implements EventSubscriberInterface, Container
    *
    * @var array
    */
-  protected $services = [];
+  protected $services = array();
 
   /**
    * Registers a service for destruction.
@@ -59,9 +61,8 @@ class KernelDestructionSubscriber implements EventSubscriberInterface, Container
    * @return array
    *   An array of event listener definitions.
    */
-  public static function getSubscribedEvents() {
-    $events[KernelEvents::TERMINATE][] = ['onKernelTerminate', 100];
+  static function getSubscribedEvents() {
+    $events[KernelEvents::TERMINATE][] = array('onKernelTerminate', 100);
     return $events;
   }
-
 }

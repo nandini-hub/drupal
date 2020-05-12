@@ -1,13 +1,27 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Language\LanguageManagerInterface.
+ */
+
 namespace Drupal\Core\Language;
 
+use Drupal\Core\StringTranslation\TranslationInterface;
 use Drupal\Core\Url;
 
 /**
  * Common interface for the language manager service.
  */
 interface LanguageManagerInterface {
+
+  /**
+   * Injects the string translation service.
+   *
+   * @param \Drupal\Core\StringTranslation\TranslationInterface $translation
+   *   The string translation service.
+   */
+  public function setTranslation(TranslationInterface $translation);
 
   /**
    * Returns whether or not the site has more than one language added.
@@ -58,7 +72,7 @@ interface LanguageManagerInterface {
    *   LanguageInterface::TYPE_INTERFACE, or NULL to reset all language types.
    *   Defaults to NULL.
    *
-   * @return $this
+   * @return \Drupal\Core\Language\LanguageManagerInterface
    *   The language manager that has been reset.
    */
   public function reset($type = NULL);
@@ -99,7 +113,7 @@ interface LanguageManagerInterface {
    * @param string $langcode
    *   The language code.
    *
-   * @return \Drupal\Core\Language\LanguageInterface|null
+   * @return \Drupal\core\Language\LanguageInterface|null
    *   A fully-populated language object or NULL.
    */
   public function getLanguage($langcode);
@@ -161,7 +175,7 @@ interface LanguageManagerInterface {
    *   An array of language codes sorted by priority: first values should be
    *   tried first.
    */
-  public function getFallbackCandidates(array $context = []);
+  public function getFallbackCandidates(array $context = array());
 
   /**
    * Returns the language switch links for the given language type.

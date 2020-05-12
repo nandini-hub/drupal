@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\config_translation\FormElement\FormElementBase.
+ */
+
 namespace Drupal\config_translation\FormElement;
 
 use Drupal\Core\Config\Config;
@@ -64,8 +69,8 @@ abstract class FormElementBase implements ElementInterface {
     $build['source'] = $this->getSourceElement($source_language, $source_config);
     $build['translation'] = $this->getTranslationElement($translation_language, $source_config, $translation_config);
 
-    $build['source']['#parents'] = array_merge(['source'], $parents);
-    $build['translation']['#parents'] = array_merge(['translation'], $parents);
+    $build['source']['#parents'] = array_merge(array('source'), $parents);
+    $build['translation']['#parents'] = array_merge(array('translation'), $parents);
     return $build;
   }
 
@@ -86,6 +91,7 @@ abstract class FormElementBase implements ElementInterface {
    *   A render array for the source value.
    */
   protected function getSourceElement(LanguageInterface $source_language, $source_config) {
+    // @todo Should support singular+plurals https://www.drupal.org/node/2454829
     if ($source_config) {
       $value = '<span lang="' . $source_language->getId() . '">' . nl2br($source_config) . '</span>';
     }
@@ -93,15 +99,14 @@ abstract class FormElementBase implements ElementInterface {
       $value = $this->t('(Empty)');
     }
 
-    return [
+    return array(
       '#type' => 'item',
-      '#title' => $this->t('@label <span class="visually-hidden">(@source_language)</span>', [
-        // Labels originate from configuration schema and are translatable.
-        '@label' => $this->t($this->definition->getLabel()),
-        '@source_language' => $source_language->getName(),
-      ]),
+      '#title' => $this->t('!label <span class="visually-hidden">(!source_language)</span>', array(
+        '!label' => $this->t($this->definition->getLabel()),
+        '!source_language' => $source_language->getName(),
+      )),
       '#markup' => $value,
-    ];
+    );
   }
 
   /**
@@ -157,15 +162,15 @@ abstract class FormElementBase implements ElementInterface {
    */
   protected function getTranslationElement(LanguageInterface $translation_language, $source_config, $translation_config) {
     // Add basic properties that apply to all form elements.
-    return [
-      '#title' => $this->t('@label <span class="visually-hidden">(@source_language)</span>', [
-        // Labels originate from configuration schema and are translatable.
-        '@label' => $this->t($this->definition->getLabel()),
-        '@source_language' => $translation_language->getName(),
-      ]),
+    // @todo Should support singular+plurals https://www.drupal.org/node/2454829
+    return array(
+      '#title' => $this->t('!label <span class="visually-hidden">(!source_language)</span>', array(
+        '!label' => $this->t($this->definition['label']),
+        '!source_language' => $translation_language->getName(),
+      )),
       '#default_value' => $translation_config,
-      '#attributes' => ['lang' => $translation_language->getId()],
-    ];
+      '#attributes' => array('lang' => $translation_language->getId()),
+    );
   }
 
   /**

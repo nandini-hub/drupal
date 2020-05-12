@@ -1,9 +1,7 @@
-langcode: en
+id: user.register
+label: Register
 status: true
+targetEntityType: user
 dependencies:
   module:
     - user
-id: user.register
-label: Register
-targetEntityType: user
-cache: true

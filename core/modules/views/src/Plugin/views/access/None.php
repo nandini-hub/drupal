@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\views\Plugin\views\access\None.
+ */
+
 namespace Drupal\views\Plugin\views\access;
 
 use Drupal\Core\Session\AccountInterface;
@@ -12,7 +17,7 @@ use Symfony\Component\Routing\Route;
  *
  * @ViewsAccess(
  *   id = "none",
- *   title = @Translation("Unrestricted"),
+ *   title = @Translation("None"),
  *   help = @Translation("Will be available to all users.")
  * )
  */

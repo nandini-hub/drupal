@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\router_test\TestContent.
+ */
+
 namespace Drupal\router_test;
 
 use Drupal\Core\Controller\ControllerBase;
@@ -49,13 +54,13 @@ class TestContent extends ControllerBase {
    */
   public function test11() {
     $account = $this->currentUser();
-    return ['#markup' => $account->getAccountName()];
+    return ['#markup' => $account->getUsername()];
   }
 
   public function testAccount(UserInterface $user) {
-    $current_user_name = $this->currentUser()->getAccountName();
+    $current_user_name = $this->currentUser()->getUsername();
     $this->currentUser()->setAccount($user);
-    return ['#markup' => $current_user_name . ':' . $user->getAccountName()];
+    return ['#markup' => $current_user_name . ':' . $user->getUsername()];
   }
 
   /**
@@ -63,7 +68,7 @@ class TestContent extends ControllerBase {
    */
   public function subrequestTest(UserInterface $user) {
     $request = \Drupal::request();
-    $request = Request::create('/router_test/test13/' . $user->id(), 'GET', $request->query->all(), $request->cookies->all(), [], $request->server->all());
+    $request = Request::create('/router_test/test13/' . $user->id(), 'GET', $request->query->all(), $request->cookies->all(), array(), $request->server->all());
 
     return $this->httpKernel->handle($request, HttpKernelInterface::SUB_REQUEST);
   }

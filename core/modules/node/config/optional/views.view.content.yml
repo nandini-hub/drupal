@@ -11,6 +11,7 @@ description: 'Find and manage content.'
 tag: default
 base_table: node_field_data
 base_field: nid
+core: 8.x
 display:
   default:
     display_options:
@@ -19,7 +20,7 @@ display:
         options:
           perm: 'access content overview'
       cache:
-        type: tag
+        type: none
       query:
         type: views_query
       exposed_form:
@@ -37,10 +38,10 @@ display:
         options:
           items_per_page: 50
           tags:
-            previous: '‹ Previous'
-            next: 'Next ›'
-            first: '« First'
-            last: 'Last »'
+            previous: '‹ previous'
+            next: 'next ›'
+            first: '« first'
+            last: 'last »'
       style:
         type: table
         options:
@@ -180,7 +181,7 @@ display:
           relationship: none
           group_type: group
           admin_label: ''
-          label: 'Content type'
+          label: 'Content Type'
           exclude: false
           alter:
             alter_text: false
@@ -293,12 +294,10 @@ display:
           hide_empty: false
           empty_zero: false
           hide_alter_empty: true
-          type: timestamp
-          settings:
-            date_format: short
-            custom_date_format: ''
-            timezone: ''
-          plugin_id: field
+          date_format: short
+          custom_date_format: ''
+          timezone: ''
+          plugin_id: date
           entity_type: node
           entity_field: changed
         operations:
@@ -352,6 +351,102 @@ display:
           destination: true
           plugin_id: entity_operations
       filters:
+        status_extra:
+          id: status_extra
+          table: node_field_data
+          field: status_extra
+          operator: '='
+          value: false
+          plugin_id: node_status
+          group: 1
+          entity_type: node
+        status:
+          id: status
+          table: node_field_data
+          field: status
+          relationship: none
+          group_type: group
+          admin_label: ''
+          operator: '='
+          value: true
+          group: 1
+          exposed: true
+          expose:
+            operator_id: ''
+            label: Status
+            description: ''
+            use_operator: false
+            operator: status_op
+            identifier: status
+            required: false
+            remember: false
+            multiple: false
+            remember_roles:
+              authenticated: authenticated
+          is_grouped: true
+          group_info:
+            label: 'Published status'
+            description: ''
+            identifier: status
+            optional: true
+            widget: select
+            multiple: false
+            remember: false
+            default_group: All
+            default_group_multiple: {  }
+            group_items:
+              1:
+                title: Published
+                operator: '='
+                value: '1'
+              2:
+                title: Unpublished
+                operator: '='
+                value: '0'
+          plugin_id: boolean
+          entity_type: node
+          entity_field: status
+        type:
+          id: type
+          table: node_field_data
+          field: type
+          relationship: none
+          group_type: group
+          admin_label: ''
+          operator: in
+          value: {  }
+          group: 1
+          exposed: true
+          expose:
+            operator_id: type_op
+            label: Type
+            description: ''
+            use_operator: false
+            operator: type_op
+            identifier: type
+            required: false
+            remember: false
+            multiple: false
+            remember_roles:
+              authenticated: authenticated
+              anonymous: '0'
+              administrator: '0'
+            reduce: false
+          is_grouped: false
+          group_info:
+            label: ''
+            description: ''
+            identifier: ''
+            optional: true
+            widget: select
+            multiple: false
+            remember: false
+            default_group: All
+            default_group_multiple: {  }
+            group_items: {  }
+          plugin_id: bundle
+          entity_type: node
+          entity_field: type
         title:
           id: title
           table: node_field_data
@@ -377,8 +472,6 @@ display:
               authenticated: authenticated
               anonymous: '0'
               administrator: '0'
-            operator_limit_selection: false
-            operator_list: {  }
           is_grouped: false
           group_info:
             label: ''
@@ -394,97 +487,6 @@ display:
           plugin_id: string
           entity_type: node
           entity_field: title
-        type:
-          id: type
-          table: node_field_data
-          field: type
-          relationship: none
-          group_type: group
-          admin_label: ''
-          operator: in
-          value: {  }
-          group: 1
-          exposed: true
-          expose:
-            operator_id: type_op
-            label: 'Content type'
-            description: ''
-            use_operator: false
-            operator: type_op
-            identifier: type
-            required: false
-            remember: false
-            multiple: false
-            remember_roles:
-              authenticated: authenticated
-              anonymous: '0'
-              administrator: '0'
-            reduce: false
-            operator_limit_selection: false
-            operator_list: {  }
-          is_grouped: false
-          group_info:
-            label: ''
-            description: ''
-            identifier: ''
-            optional: true
-            widget: select
-            multiple: false
-            remember: false
-            default_group: All
-            default_group_multiple: {  }
-            group_items: {  }
-          plugin_id: bundle
-          entity_type: node
-          entity_field: type
-        status:
-          id: status
-          table: node_field_data
-          field: status
-          relationship: none
-          group_type: group
-          admin_label: ''
-          operator: '='
-          value: '1'
-          group: 1
-          exposed: true
-          expose:
-            operator_id: ''
-            label: Status
-            description: ''
-            use_operator: false
-            operator: status_op
-            identifier: status
-            required: false
-            remember: false
-            multiple: false
-            remember_roles:
-              authenticated: authenticated
-            operator_limit_selection: false
-            operator_list: {  }
-          is_grouped: true
-          group_info:
-            label: 'Published status'
-            description: ''
-            identifier: status
-            optional: true
-            widget: select
-            multiple: false
-            remember: false
-            default_group: All
-            default_group_multiple: {  }
-            group_items:
-              1:
-                title: Published
-                operator: '='
-                value: '1'
-              2:
-                title: Unpublished
-                operator: '='
-                value: '0'
-          plugin_id: boolean
-          entity_type: node
-          entity_field: status
         langcode:
           id: langcode
           table: node_field_data
@@ -511,8 +513,6 @@ display:
               anonymous: '0'
               administrator: '0'
             reduce: false
-            operator_limit_selection: false
-            operator_list: {  }
           is_grouped: false
           group_info:
             label: ''
@@ -528,18 +528,6 @@ display:
           plugin_id: language
           entity_type: node
           entity_field: langcode
-        status_extra:
-          id: status_extra
-          table: node_field_data
-          field: status_extra
-          operator: '='
-          value: false
-          plugin_id: node_status
-          group: 1
-          entity_type: node
-          expose:
-            operator_limit_selection: false
-            operator_list: {  }
       sorts: {  }
       title: Content
       empty:
@@ -571,15 +559,11 @@ display:
     position: 0
     cache_metadata:
       contexts:
-        - 'languages:language_content'
-        - 'languages:language_interface'
+        - languages
         - url
-        - url.query_args
         - user
         - 'user.node_grants:view'
-        - user.permissions
-      max-age: 0
-      tags: {  }
+      cacheable: false
   page_1:
     display_options:
       path: admin/content/node
@@ -603,12 +587,8 @@ display:
     position: 1
     cache_metadata:
       contexts:
-        - 'languages:language_content'
-        - 'languages:language_interface'
+        - languages
         - url
-        - url.query_args
         - user
         - 'user.node_grants:view'
-        - user.permissions
-      max-age: 0
-      tags: {  }
+      cacheable: false

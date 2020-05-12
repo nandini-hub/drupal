@@ -5,21 +5,14 @@
  * Entity API for handling entities like nodes or users.
  */
 
+use Drupal\Core\Cache\Cache;
+use Drupal\Core\Entity\EntityStorageException;
 use Drupal\Core\Entity\EntityInterface;
 
 /**
  * Clears the entity render cache for all entity types.
- *
- * @deprecated in drupal:8.7.0 and is removed from drupal:9.0.0. Instead,
- *   use \Drupal\Core\Entity\EntityViewBuilderInterface::resetCache() on the
- *   required entity types or invalidate specific cache tags.
- *
- * @see https://www.drupal.org/node/3000037
- * @see \Drupal\Core\Entity\EntityViewBuilderInterface::resetCache()
- * @see \Drupal\Core\Entity\EntityTypeManagerInterface::getDefinitions()
  */
 function entity_render_cache_clear() {
-  @trigger_error(__FUNCTION__ . '() is deprecated. Use \Drupal\Core\Entity\EntityViewBuilderInterface::resetCache() on the required entity types or invalidate specific cache tags instead. See https://www.drupal.org/node/3000037', E_USER_DEPRECATED);
   $entity_manager = Drupal::entityManager();
   foreach ($entity_manager->getDefinitions() as $entity_type => $info) {
     if ($entity_manager->hasHandler($entity_type, 'view_builder')) {
@@ -38,18 +31,10 @@ function entity_render_cache_clear() {
  * @return array
  *   The bundle info for a specific entity type, or all entity types.
  *
- * @deprecated in drupal:8.0.0 and is removed from drupal:9.0.0. Use
- *   \Drupal\Core\Entity\EntityTypeBundleInfoInterface::getBundleInfo() for a
- *   single bundle, or
- *   \Drupal\Core\Entity\EntityTypeBundleInfoInterface::getAllBundleInfo() for
- *   all bundles.
- *
- * @see https://www.drupal.org/node/3051077
- * @see \Drupal\Core\Entity\EntityTypeBundleInfoInterface::getBundleInfo()
- * @see \Drupal\Core\Entity\EntityTypeBundleInfoInterface::getAllBundleInfo()
+ * @see \Drupal\Core\Entity\EntityManagerInterface::getBundleInfo()
+ * @see \Drupal\Core\Entity\EntityManagerInterface::getAllBundleInfo()
  */
 function entity_get_bundles($entity_type = NULL) {
-  @trigger_error('entity_get_bundles() is deprecated in Drupal 8.0.0 and will be removed before Drupal 9.0.0. Use \Drupal\Core\Entity\EntityTypeBundleInfoInterface::getBundleInfo() for a single bundle, or \Drupal\Core\Entity\EntityTypeBundleInfoInterface::getAllBundleInfo() for all bundles. See https://www.drupal.org/node/3051077', E_USER_DEPRECATED);
   if (isset($entity_type)) {
     return \Drupal::entityManager()->getBundleInfo($entity_type);
   }
@@ -71,16 +56,15 @@ function entity_get_bundles($entity_type = NULL) {
  * @return \Drupal\Core\Entity\EntityInterface|null
  *   The entity object, or NULL if there is no entity with the given ID.
  *
- * @deprecated in drupal:8.0.0 and is removed from drupal:9.0.0. Use the
- *   entity type storage's load() method.
- *
- * @see https://www.drupal.org/node/2266845
+ * @see \Drupal\Core\Entity\EntityManagerInterface
+ * @see \Drupal\Core\Entity\EntityStorageInterface
+ * @see \Drupal\Core\Entity\Sql\SqlContentEntityStorage
+ * @see \Drupal\Core\Entity\Query\QueryInterface
  */
 function entity_load($entity_type, $id, $reset = FALSE) {
-  @trigger_error('entity_load() is deprecated in Drupal 8.0.0 and will be removed before Drupal 9.0.0. Use the entity type storage\'s load() method. See https://www.drupal.org/node/2266845', E_USER_DEPRECATED);
   $controller = \Drupal::entityManager()->getStorage($entity_type);
   if ($reset) {
-    $controller->resetCache([$id]);
+    $controller->resetCache(array($id));
   }
   return $controller->load($id);
 }
@@ -97,13 +81,11 @@ function entity_load($entity_type, $id, $reset = FALSE) {
  *   The entity object, or NULL if there is no entity with the given revision
  *   id.
  *
- * @deprecated in drupal:8.0.0 and is removed from drupal:9.0.0. Use the
- *   entity type storage's loadRevision() method.
- *
- * @see https://www.drupal.org/node/1818376
+ * @see \Drupal\Core\Entity\EntityManagerInterface
+ * @see \Drupal\Core\Entity\EntityStorageInterface
+ * @see \Drupal\Core\Entity\Sql\SqlContentEntityStorage
  */
 function entity_revision_load($entity_type, $revision_id) {
-  @trigger_error('entity_revision_load() is deprecated in Drupal 8.0.0 and will be removed before Drupal 9.0.0. Use the entity type storage\'s loadRevision() method. See https://www.drupal.org/node/1818376', E_USER_DEPRECATED);
   return \Drupal::entityManager()
     ->getStorage($entity_type)
     ->loadRevision($revision_id);
@@ -116,14 +98,8 @@ function entity_revision_load($entity_type, $revision_id) {
  *   The entity type to load, e.g. node or user.
  * @param $revision_id
  *   The revision ID to delete.
- *
- * @deprecated in drupal:8.0.0 and is removed from drupal:9.0.0. Use the
- *   entity type storage's deleteRevision() method.
- *
- * @see https://www.drupal.org/node/1818376
  */
 function entity_revision_delete($entity_type, $revision_id) {
-  @trigger_error('entity_revision_delete() is deprecated in Drupal 8.0.0 and will be removed before Drupal 9.0.0. Use the entity type storage\'s deleteRevision() method. See https://www.drupal.org/node/1818376', E_USER_DEPRECATED);
   \Drupal::entityManager()
     ->getStorage($entity_type)
     ->deleteRevision($revision_id);
@@ -137,15 +113,16 @@ function entity_revision_delete($entity_type, $revision_id) {
  * database access if loaded again during the same page request.
  *
  * The actual loading is done through a class that has to implement the
- * \Drupal\Core\Entity\EntityStorageInterface interface. By default,
- * \Drupal\Core\Entity\Sql\SqlContentEntityStorage is used for content entities
+ * Drupal\Core\Entity\EntityStorageInterface interface. By default,
+ * Drupal\Core\Entity\Sql\SqlContentEntityStorage is used for content entities
  * and Drupal\Core\Config\Entity\ConfigEntityStorage for config entities. Entity
  * types can specify that a different class should be used by setting the
- * "handlers['storage']" key in the entity plugin annotation. These classes
- * can either implement the \Drupal\Core\Entity\EntityStorageInterface
+ * "controllers['storage']" key in the entity plugin annotation. These classes
+ * can either implement the Drupal\Core\Entity\EntityStorageInterface
  * interface, or, most commonly, extend the
- * \Drupal\Core\Entity\Sql\SqlContentEntityStorage class. See
- * \Drupal\node\Entity\Node and \Drupal\node\NodeStorage for an example.
+ * Drupal\Core\Entity\Sql\SqlContentEntityStorage class.
+ * See Drupal\node\Entity\Node and Drupal\node\NodeStorage
+ * for an example.
  *
  * @param string $entity_type
  *   The entity type to load, e.g. node or user.
@@ -157,13 +134,12 @@ function entity_revision_delete($entity_type, $revision_id) {
  * @return array
  *   An array of entity objects indexed by their IDs.
  *
- * @deprecated in drupal:8.0.0 and is removed from drupal:9.0.0. Use the
- *   entity type storage's loadMultiple() method.
- *
- * @see https://www.drupal.org/node/2266845
+ * @see \Drupal\Core\Entity\EntityManagerInterface
+ * @see \Drupal\Core\Entity\EntityStorageInterface
+ * @see \Drupal\Core\Entity\Sql\SqlContentEntityStorage
+ * @see \Drupal\Core\Entity\Query\QueryInterface
  */
 function entity_load_multiple($entity_type, array $ids = NULL, $reset = FALSE) {
-  @trigger_error('entity_load_multiple() is deprecated in Drupal 8.0.0 and will be removed before Drupal 9.0.0. Use the entity type storage\'s loadMultiple() method. See https://www.drupal.org/node/2266845', E_USER_DEPRECATED);
   $controller = \Drupal::entityManager()->getStorage($entity_type);
   if ($reset) {
     $controller->resetCache($ids);
@@ -183,14 +159,8 @@ function entity_load_multiple($entity_type, array $ids = NULL, $reset = FALSE) {
  * @return array
  *   An array of entity objects indexed by their IDs. Returns an empty array if
  *   no matching entities are found.
- *
- * @deprecated in drupal:8.0.0 and is removed from drupal:9.0.0. Use the
- *   entity type storage's loadByProperties() method.
- *
- * @see https://www.drupal.org/node/3050910
  */
 function entity_load_multiple_by_properties($entity_type, array $values) {
-  @trigger_error('entity_load_multiple_by_properties() is deprecated in Drupal 8.0.0 and will be removed before Drupal 9.0.0. Use the entity type storage\'s loadByProperties() method. See https://www.drupal.org/node/3050910', E_USER_DEPRECATED);
   return \Drupal::entityManager()
     ->getStorage($entity_type)
     ->loadByProperties($values);
@@ -209,16 +179,10 @@ function entity_load_multiple_by_properties($entity_type, array $values) {
  * @param $id
  *   The ID of the entity to load.
  *
- * @return \Drupal\Core\Entity\EntityInterface|null
+ * @return
  *   The unchanged entity, or FALSE if the entity cannot be loaded.
- *
- * @deprecated in drupal:8.0.0 and is removed from drupal:9.0.0. Use the
- *   entity type storage's loadUnchanged() method.
- *
- * @see https://www.drupal.org/node/1935744
  */
 function entity_load_unchanged($entity_type, $id) {
-  @trigger_error('entity_load_unchanged() is deprecated in Drupal 8.0.0 and will be removed before Drupal 9.0.0. Use the entity type storage\'s loadUnchanged() method. See https://www.drupal.org/node/1935744', E_USER_DEPRECATED);
   return \Drupal::entityManager()
     ->getStorage($entity_type)
     ->loadUnchanged($id);
@@ -231,22 +195,8 @@ function entity_load_unchanged($entity_type, $id) {
  *   The type of the entity.
  * @param array $ids
  *   An array of entity IDs of the entities to delete.
- *
- * @deprecated in drupal:8.0.0 and is removed from drupal:9.0.0. Use
- *   the entity storage's delete() method to delete multiple entities:
- *   @code
- *     $storage_handler = \Drupal::entityTypeManager()->getStorage($entity_type);
- *     $entities = $storage_handler->loadMultiple($ids);
- *     $storage_handler->delete($entities);
- *   @endcode
- *
- * @see \Drupal\Core\Entity\EntityTypeManagerInterface::getStorage()
- * @see \Drupal\Core\Entity\EntityStorageInterface::loadMultiple()
- * @see \Drupal\Core\Entity\EntityStorageInterface::delete()
- * @see https://www.drupal.org/node/3051072
  */
 function entity_delete_multiple($entity_type, array $ids) {
-  @trigger_error(__FUNCTION__ . ' is deprecated in drupal:8.0.0 and will be removed in drupal:9.0.0. Use the entity storage\'s delete() method to delete multiple entities. @see https://www.drupal.org/node/3051072', E_USER_DEPRECATED);
   $controller = \Drupal::entityManager()->getStorage($entity_type);
   $entities = $controller->loadMultiple($ids);
   $controller->delete($entities);
@@ -263,22 +213,8 @@ function entity_delete_multiple($entity_type, array $ids) {
  *
  * @return \Drupal\Core\Entity\EntityInterface
  *   A new entity object.
- *
- * @deprecated in drupal:8.0.0 and is removed from drupal:9.0.0. Use
- *   The method overriding Entity::create() for the entity type, e.g.
- *   \Drupal\node\Entity\Node::create() if the entity type is known. If the
- *   entity type is variable, use the entity storage's create() method to
- *   construct a new entity:
- *   @code
- *     \Drupal::entityTypeManager()->getStorage($entity_type)->create($values);
- *   @endcode
- *
- * @see https://www.drupal.org/node/2266845
- * @see \Drupal\Core\Entity\EntityTypeManagerInterface::getStorage()
- * @see \Drupal\Core\Entity\EntityStorageInterface::create()
  */
-function entity_create($entity_type, array $values = []) {
-  @trigger_error('entity_create() is deprecated in Drupal 8.0.0 and will be removed before Drupal 9.0.0. Use the create() method of the entity type class directly or \Drupal::entityTypeManager()->getStorage($entity_type)->create($values) instead. See https://www.drupal.org/node/2266845', E_USER_DEPRECATED);
+function entity_create($entity_type, array $values = array()) {
   return \Drupal::entityManager()
     ->getStorage($entity_type)
     ->create($values);
@@ -287,6 +223,9 @@ function entity_create($entity_type, array $values = []) {
 /**
  * Returns the label of an entity.
  *
+ * This is a wrapper for Drupal\Core\Entity\EntityInterface::label(). This function
+ * should only be used as a callback, e.g. for menu title callbacks.
+ *
  * @param \Drupal\Core\Entity\EntityInterface $entity
  *   The entity for which to generate the label.
  * @param $langcode
@@ -294,17 +233,12 @@ function entity_create($entity_type, array $values = []) {
  *   getting the label. If set to NULL, the entity's default language is
  *   used.
  *
- * @return string|null
+ * @return
  *   The label of the entity, or NULL if there is no label defined.
  *
- * @deprecated in drupal:8.0.0 and is removed from drupal:9.0.0. Use the
- *   entity's label() method.
- *
- * @see https://www.drupal.org/node/2549923
  * @see \Drupal\Core\Entity\EntityInterface::label()
  */
 function entity_page_label(EntityInterface $entity, $langcode = NULL) {
-  @trigger_error('entity_page_label() is deprecated in Drupal 8.0.0 and will be removed before Drupal 9.0.0. Use the entity\'s label() method. See https://www.drupal.org/node/2549923', E_USER_DEPRECATED);
   return $entity->label($langcode);
 }
 
@@ -324,24 +258,11 @@ function entity_page_label(EntityInterface $entity, $langcode = NULL) {
  *
  * @return array
  *   A render array for the entity.
- *
- * @deprecated in drupal:8.0.0 and is removed from drupal:9.0.0.
- *   Use the entity view builder's view() method for creating a render array:
- *   @code
- *     $view_builder = \Drupal::entityTypeManager()
- *       ->getViewBuilder($entity->getEntityTypeId());
- *     return $view_builder->view($entity, $view_mode, $langcode);
- *   @endcode
- *
- * @see https://www.drupal.org/node/3033656
- * @see \Drupal\Core\Entity\EntityTypeManagerInterface::getViewBuilder()
- * @see \Drupal\Core\Entity\EntityViewBuilderInterface::view()
  */
 function entity_view(EntityInterface $entity, $view_mode, $langcode = NULL, $reset = FALSE) {
-  @trigger_error('entity_view() is deprecated in Drupal 8.0.0 and will be removed before Drupal 9.0.0. Use \Drupal::entityTypeManager()->getViewBuilder($entity->getEntityTypeId())->view($entity, $view_mode, $langcode) instead. See https://www.drupal.org/node/3033656', E_USER_DEPRECATED);
   $render_controller = \Drupal::entityManager()->getViewBuilder($entity->getEntityTypeId());
   if ($reset) {
-    $render_controller->resetCache([$entity]);
+    $render_controller->resetCache(array($entity->id()));
   }
   return $render_controller->view($entity, $view_mode, $langcode);
 }
@@ -363,31 +284,17 @@ function entity_view(EntityInterface $entity, $view_mode, $langcode = NULL, $res
  * @return array
  *   A render array for the entities, indexed by the same keys as the
  *   entities array passed in $entities.
- *
- * @deprecated in drupal:8.0.0 and is removed from drupal:9.0.0.
- *   Use the entity view builder's viewMultiple() method for creating a render
- *   array for the provided entities:
- *   @code
- *     $view_builder = \Drupal::entityTypeManager()
- *       ->getViewBuilder($entity->getEntityTypeId());
- *     return $view_builder->viewMultiple($entities, $view_mode, $langcode);
- *   @endcode
- *
- * @see https://www.drupal.org/node/3033656
- * @see \Drupal\Core\Entity\EntityTypeManagerInterface::getViewBuilder()
- * @see \Drupal\Core\Entity\EntityViewBuilderInterface::viewMultiple()
  */
 function entity_view_multiple(array $entities, $view_mode, $langcode = NULL, $reset = FALSE) {
-  @trigger_error('entity_view_multiple() is deprecated in Drupal 8.0.0 and will be removed before Drupal 9.0.0. Use \Drupal::entityTypeManager()->getViewBuilder($entity->getEntityTypeId())->viewMultiple($entities, $view_mode, $langcode) instead. See https://www.drupal.org/node/3033656', E_USER_DEPRECATED);
   $render_controller = \Drupal::entityManager()->getViewBuilder(reset($entities)->getEntityTypeId());
   if ($reset) {
-    $render_controller->resetCache($entities);
+    $render_controller->resetCache(array_keys($entities));
   }
   return $render_controller->viewMultiple($entities, $view_mode, $langcode);
 }
 
 /**
- * Returns the entity view display associated with a bundle and view mode.
+ * Returns the entity view display associated to a bundle and view mode.
  *
  * Use this function when assigning suggested display options for a component
  * in a given view mode. Note that they will only be actually used at render
@@ -423,21 +330,31 @@ function entity_view_multiple(array $entities, $view_mode, $langcode = NULL, $re
  *   this bundle.
  *
  * @return \Drupal\Core\Entity\Display\EntityViewDisplayInterface
- *   The entity view display associated with the view mode.
- *
- * @deprecated in drupal:8.8.0 and is removed from drupal:9.0.0. Use
- *   EntityDisplayRepositoryInterface::getViewDisplay() instead.
- *
- * @see https://www.drupal.org/node/2835616
+ *   The entity view display associated to the view mode.
  */
 function entity_get_display($entity_type, $bundle, $view_mode) {
-  @trigger_error('entity_get_display() is deprecated in drupal:8.8.0. It will be removed before drupal:9.0.0. Use \Drupal::service(\'entity_display.repository\')->getViewDisplay() instead. See https://www.drupal.org/node/2835616', E_USER_DEPRECATED);
-  return \Drupal::service('entity_display.repository')
-    ->getViewDisplay($entity_type, $bundle, $view_mode);
+  // Try loading the display from configuration.
+  $display = entity_load('entity_view_display', $entity_type . '.' . $bundle . '.' . $view_mode);
+
+  // If not found, create a fresh display object. We do not preemptively create
+  // new entity_view_display configuration entries for each existing entity type
+  // and bundle whenever a new view mode becomes available. Instead,
+  // configuration entries are only created when a display object is explicitly
+  // configured and saved.
+  if (!$display) {
+    $display = entity_create('entity_view_display', array(
+      'targetEntityType' => $entity_type,
+      'bundle' => $bundle,
+      'mode' => $view_mode,
+      'status' => TRUE,
+    ));
+  }
+
+  return $display;
 }
 
 /**
- * Returns the entity form display associated with a bundle and form mode.
+ * Returns the entity form display associated to a bundle and form mode.
  *
  * The function reads the entity form display object from the current
  * configuration, or returns a ready-to-use empty one if no configuration entry
@@ -456,7 +373,7 @@ function entity_get_display($entity_type, $bundle, $view_mode) {
  *     'weight' => 1,
  *   ))
  *   ->setComponent('field_image', array(
- *     'region' => 'hidden',
+ *     'type' => 'hidden',
  *   ))
  *   ->save();
  * @endcode
@@ -469,17 +386,25 @@ function entity_get_display($entity_type, $bundle, $view_mode) {
  *   The form mode.
  *
  * @return \Drupal\Core\Entity\Display\EntityFormDisplayInterface
- *   The entity form display associated with the given form mode.
- *
- * @deprecated in drupal:8.8.0 and is removed from drupal:9.0.0. Use
- *   EntityDisplayRepositoryInterface::getFormDisplay() instead.
- *
- * @see https://www.drupal.org/node/2835616
- * @see \Drupal\Core\Entity\EntityStorageInterface::create()
- * @see \Drupal\Core\Entity\EntityStorageInterface::load()
+ *   The entity form display associated to the given form mode.
  */
 function entity_get_form_display($entity_type, $bundle, $form_mode) {
-  @trigger_error('entity_get_form_display() is deprecated in drupal:8.8.0. It will be removed before drupal:9.0.0. Use \Drupal::service(\'entity_display.repository\')->getFormDisplay() instead. See https://www.drupal.org/node/2835616', E_USER_DEPRECATED);
-  return \Drupal::service('entity_display.repository')
-    ->getFormDisplay($entity_type, $bundle, $form_mode);
+  // Try loading the entity from configuration.
+  $entity_form_display = entity_load('entity_form_display', $entity_type . '.' . $bundle . '.' . $form_mode);
+
+  // If not found, create a fresh entity object. We do not preemptively create
+  // new entity form display configuration entries for each existing entity type
+  // and bundle whenever a new form mode becomes available. Instead,
+  // configuration entries are only created when an entity form display is
+  // explicitly configured and saved.
+  if (!$entity_form_display) {
+    $entity_form_display = entity_create('entity_form_display', array(
+      'targetEntityType' => $entity_type,
+      'bundle' => $bundle,
+      'mode' => $form_mode,
+      'status' => TRUE,
+    ));
+  }
+
+  return $entity_form_display;
 }

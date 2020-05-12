@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\comment\Plugin\views\row\Rss.
+ */
+
 namespace Drupal\comment\Plugin\views\row;
 
 use Drupal\views\Plugin\views\row\RssPluginBase;
@@ -40,13 +45,13 @@ class Rss extends RssPluginBase {
   protected $entityTypeId = 'comment';
 
   public function preRender($result) {
-    $cids = [];
+    $cids = array();
 
     foreach ($result as $row) {
       $cids[] = $row->cid;
     }
 
-    $this->comments = $this->entityTypeManager->getStorage('comment')->loadMultiple($cids);
+    $this->comments = $this->entityManager->getStorage('comment')->loadMultiple($cids);
   }
 
   /**
@@ -79,52 +84,54 @@ class Rss extends RssPluginBase {
       return;
     }
 
-    $comment->link = $comment->toUrl('canonical', ['absolute' => TRUE])->toString();
-    $comment->rss_namespaces = [];
-    $comment->rss_elements = [
-      [
+    $item_text = '';
+
+    $comment->link = $comment->url('canonical', array('absolute' => TRUE));
+    $comment->rss_namespaces = array();
+    $comment->rss_elements = array(
+      array(
         'key' => 'pubDate',
         'value' => gmdate('r', $comment->getCreatedTime()),
-      ],
-      [
+      ),
+      array(
         'key' => 'dc:creator',
         'value' => $comment->getAuthorName(),
-      ],
-      [
+      ),
+      array(
         'key' => 'guid',
         'value' => 'comment ' . $comment->id() . ' at ' . $base_url,
-        'attributes' => ['isPermaLink' => 'false'],
-      ],
-    ];
+        'attributes' => array('isPermaLink' => 'false'),
+      ),
+    );
 
     // The comment gets built and modules add to or modify
     // $comment->rss_elements and $comment->rss_namespaces.
-    $build = $this->entityTypeManager->getViewBuilder('comment')->view($comment, 'rss');
+    $build = comment_view($comment, 'rss');
     unset($build['#theme']);
 
     if (!empty($comment->rss_namespaces)) {
       $this->view->style_plugin->namespaces = array_merge($this->view->style_plugin->namespaces, $comment->rss_namespaces);
     }
 
-    $item = new \stdClass();
     if ($view_mode != 'title') {
       // We render comment contents.
-      $item->description = $build;
+      $item_text .= drupal_render_root($build);
     }
+
+    $item = new \stdClass();
+    $item->description = $item_text;
     $item->title = $comment->label();
     $item->link = $comment->link;
-    // Provide a reference so that the render call in
-    // template_preprocess_views_view_row_rss() can still access it.
-    $item->elements = &$comment->rss_elements;
+    $item->elements = $comment->rss_elements;
     $item->cid = $comment->id();
 
-    $build = [
+    $build = array(
       '#theme' => $this->themeFunctions(),
       '#view' => $this->view,
       '#options' => $this->options,
       '#row' => $item,
-    ];
-    return $build;
+    );
+    return drupal_render_root($build);
   }
 
 }

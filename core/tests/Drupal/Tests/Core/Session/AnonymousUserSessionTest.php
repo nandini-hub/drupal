@@ -1,10 +1,19 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Tests\Core\Session\AnonymousUserSessionTest.
+ */
+
 namespace Drupal\Tests\Core\Session;
 
 use Drupal\Tests\UnitTestCase;
 use Drupal\Core\Session\AnonymousUserSession;
-use Drupal\user\RoleInterface;
+  use Drupal\user\RoleInterface;
+  use Symfony\Component\DependencyInjection\ContainerBuilder;
+use Symfony\Component\DependencyInjection\Definition;
+use Symfony\Component\DependencyInjection\Scope;
+use Symfony\Component\HttpFoundation\RequestStack;
 
 /**
  * @coversDefaultClass \Drupal\Core\Session\AnonymousUserSession
@@ -20,8 +29,8 @@ class AnonymousUserSessionTest extends UnitTestCase {
    */
   public function testUserGetRoles() {
     $anonymous_user = new AnonymousUserSession();
-    $this->assertEquals([RoleInterface::ANONYMOUS_ID], $anonymous_user->getRoles());
-    $this->assertEquals([], $anonymous_user->getRoles(TRUE));
+    $this->assertEquals(array(RoleInterface::ANONYMOUS_ID), $anonymous_user->getRoles());
+    $this->assertEquals(array(), $anonymous_user->getRoles(TRUE));
   }
 
 }

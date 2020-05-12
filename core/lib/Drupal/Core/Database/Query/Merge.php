@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\Core\Database\Query\Merge
+ */
+
 namespace Drupal\Core\Database\Query;
 
 use Drupal\Core\Database\Database;
@@ -44,9 +49,6 @@ use Drupal\Core\Database\IntegrityConstraintViolationException;
  * fields() and updateFields().
  */
 class Merge extends Query implements ConditionInterface {
-
-  use QueryConditionTrait;
-
   /**
    * Returned by execute() if an INSERT query has been executed.
    */
@@ -66,8 +68,6 @@ class Merge extends Query implements ConditionInterface {
 
   /**
    * The table or subquery to be used for the condition.
-   *
-   * @var string
    */
   protected $conditionTable;
 
@@ -76,7 +76,7 @@ class Merge extends Query implements ConditionInterface {
    *
    * @var array
    */
-  protected $insertFields = [];
+  protected $insertFields = array();
 
   /**
    * An array of fields which should be set to their database-defined defaults.
@@ -85,21 +85,21 @@ class Merge extends Query implements ConditionInterface {
    *
    * @var array
    */
-  protected $defaultFields = [];
+  protected $defaultFields = array();
 
   /**
    * An array of values to be inserted.
    *
    * @var string
    */
-  protected $insertValues = [];
+  protected $insertValues = array();
 
   /**
    * An array of fields that will be updated.
    *
    * @var array
    */
-  protected $updateFields = [];
+  protected $updateFields = array();
 
   /**
    * Array of fields to update to an expression in case of a duplicate record.
@@ -114,7 +114,7 @@ class Merge extends Query implements ConditionInterface {
    *
    * @var array
    */
-  protected $expressionFields = [];
+  protected $expressionFields = array();
 
   /**
    * Flag indicating whether an UPDATE is necessary.
@@ -133,7 +133,7 @@ class Merge extends Query implements ConditionInterface {
    * @param array $options
    *   Array of database options.
    */
-  public function __construct(Connection $connection, $table, array $options = []) {
+  public function __construct(Connection $connection, $table, array $options = array()) {
     $options['return'] = Database::RETURN_AFFECTED;
     parent::__construct($connection, $options);
     $this->table = $table;
@@ -148,7 +148,7 @@ class Merge extends Query implements ConditionInterface {
    *   The table name or the subquery to be used. Use a Select query object to
    *   pass in a subquery.
    *
-   * @return $this
+   * @return \Drupal\Core\Database\Query\Merge
    *   The called object.
    */
   protected function conditionTable($table) {
@@ -163,7 +163,7 @@ class Merge extends Query implements ConditionInterface {
    *   An associative array of fields to write into the database. The array keys
    *   are the field names and the values are the values to which to set them.
    *
-   * @return $this
+   * @return \Drupal\Core\Database\Query\Merge
    *   The called object.
    */
   public function updateFields(array $fields) {
@@ -176,7 +176,7 @@ class Merge extends Query implements ConditionInterface {
    * Specifies fields to be updated as an expression.
    *
    * Expression fields are cases such as counter = counter + 1. This method
-   * takes precedence over MergeQuery::updateFields() and its wrappers,
+   * takes precedence over MergeQuery::updateFields() and it's wrappers,
    * MergeQuery::key() and MergeQuery::fields().
    *
    * @param $field
@@ -188,14 +188,14 @@ class Merge extends Query implements ConditionInterface {
    *   If specified, this is an array of key/value pairs for named placeholders
    *   corresponding to the expression.
    *
-   * @return $this
+   * @return \Drupal\Core\Database\Query\Merge
    *   The called object.
    */
   public function expression($field, $expression, array $arguments = NULL) {
-    $this->expressionFields[$field] = [
+    $this->expressionFields[$field] = array(
       'expression' => $expression,
       'arguments' => $arguments,
-    ];
+    );
     $this->needsUpdate = TRUE;
     return $this;
   }
@@ -213,10 +213,10 @@ class Merge extends Query implements ConditionInterface {
    *   An array of fields to insert into the database. The values must be
    *   specified in the same order as the $fields array.
    *
-   * @return $this
+   * @return \Drupal\Core\Database\Query\Merge
    *   The called object.
    */
-  public function insertFields(array $fields, array $values = []) {
+  public function insertFields(array $fields, array $values = array()) {
     if ($values) {
       $fields = array_combine($fields, $values);
     }
@@ -240,7 +240,7 @@ class Merge extends Query implements ConditionInterface {
    *   An array of values for which to use the default values
    *   specified in the table definition.
    *
-   * @return $this
+   * @return \Drupal\Core\Database\Query\Merge
    *   The called object.
    */
   public function useDefaults(array $fields) {
@@ -266,10 +266,10 @@ class Merge extends Query implements ConditionInterface {
    *   An array of values to set into the database. The values must be
    *   specified in the same order as the $fields array.
    *
-   * @return $this
+   * @return \Drupal\Core\Database\Query\Merge
    *   The called object.
    */
-  public function fields(array $fields, array $values = []) {
+  public function fields(array $fields, array $values = array()) {
     if ($values) {
       $fields = array_combine($fields, $values);
     }
@@ -302,7 +302,7 @@ class Merge extends Query implements ConditionInterface {
    *
    * @return $this
    */
-  public function keys(array $fields, array $values = []) {
+  public function keys(array $fields, array $values = array()) {
     if ($values) {
       $fields = array_combine($fields, $values);
     }
@@ -331,12 +331,88 @@ class Merge extends Query implements ConditionInterface {
   public function key($field, $value = NULL) {
     // @todo D9: Remove this backwards-compatibility shim.
     if (is_array($field)) {
-      $this->keys($field, isset($value) ? $value : []);
+      $this->keys($field, isset($value) ? $value : array());
     }
     else {
-      $this->keys([$field => $value]);
+      $this->keys(array($field => $value));
     }
     return $this;
+  }
+
+  /**
+   * Implements Drupal\Core\Database\Query\ConditionInterface::condition().
+   */
+  public function condition($field, $value = NULL, $operator = '=') {
+    $this->condition->condition($field, $value, $operator);
+    return $this;
+  }
+
+  /**
+   * Implements Drupal\Core\Database\Query\ConditionInterface::isNull().
+   */
+  public function isNull($field) {
+    $this->condition->isNull($field);
+    return $this;
+  }
+
+  /**
+   * Implements Drupal\Core\Database\Query\ConditionInterface::isNotNull().
+   */
+  public function isNotNull($field) {
+    $this->condition->isNotNull($field);
+    return $this;
+  }
+
+  /**
+   * Implements Drupal\Core\Database\Query\ConditionInterface::exists().
+   */
+  public function exists(SelectInterface $select) {
+    $this->condition->exists($select);
+    return $this;
+  }
+
+  /**
+   * Implements Drupal\Core\Database\Query\ConditionInterface::notExists().
+   */
+  public function notExists(SelectInterface $select) {
+    $this->condition->notExists($select);
+    return $this;
+  }
+
+  /**
+   * Implements Drupal\Core\Database\Query\ConditionInterface::conditions().
+   */
+  public function &conditions() {
+    return $this->condition->conditions();
+  }
+
+  /**
+   * Implements Drupal\Core\Database\Query\ConditionInterface::arguments().
+   */
+  public function arguments() {
+    return $this->condition->arguments();
+  }
+
+  /**
+   * Implements Drupal\Core\Database\Query\ConditionInterface::where().
+   */
+  public function where($snippet, $args = array()) {
+    $this->condition->where($snippet, $args);
+    return $this;
+  }
+
+  /**
+   * Implements Drupal\Core\Database\Query\ConditionInterface::compile().
+   */
+  public function compile(Connection $connection, PlaceholderInterface $queryPlaceholder) {
+    return $this->condition->compile($connection, $queryPlaceholder);
+  }
+
+  /**
+   * Implements Drupal\Core\Database\Query\ConditionInterface::compiled().
+   */
+  public function compiled() {
+    return $this->condition->compiled();
   }
 
   /**
@@ -353,9 +429,9 @@ class Merge extends Query implements ConditionInterface {
 
   public function execute() {
     // Default options for merge queries.
-    $this->queryOptions += [
+    $this->queryOptions += array(
       'throw_exception' => TRUE,
-    ];
+    );
 
     try {
       if (!count($this->condition)) {
@@ -405,5 +481,4 @@ class Merge extends Query implements ConditionInterface {
       }
     }
   }
-
 }

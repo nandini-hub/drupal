@@ -1,8 +1,13 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Cache\ApcuBackendFactory.
+ */
+
 namespace Drupal\Core\Cache;
 
-use Drupal\Core\Site\Settings;
+use \Drupal\Component\Utility\Crypt;
 
 class ApcuBackendFactory implements CacheFactoryInterface {
 
@@ -21,26 +26,16 @@ class ApcuBackendFactory implements CacheFactoryInterface {
   protected $checksumProvider;
 
   /**
-   * The APCU backend class to use.
-   *
-   * @var string
-   */
-  protected $backendClass;
-
-  /**
    * Constructs an ApcuBackendFactory object.
    *
    * @param string $root
    *   The app root.
-   * @param string $site_path
-   *   The site path.
    * @param \Drupal\Core\Cache\CacheTagsChecksumInterface $checksum_provider
    *   The cache tags checksum provider.
    */
-  public function __construct($root, $site_path, CacheTagsChecksumInterface $checksum_provider) {
-    $this->sitePrefix = Settings::getApcuPrefix('apcu_backend', $root, $site_path);
+  public function __construct($root, CacheTagsChecksumInterface $checksum_provider) {
+    $this->sitePrefix = Crypt::hashBase64($root . '/' . conf_path());
     $this->checksumProvider = $checksum_provider;
-    $this->backendClass = 'Drupal\Core\Cache\ApcuBackend';
   }
 
   /**
@@ -53,7 +48,7 @@ class ApcuBackendFactory implements CacheFactoryInterface {
    *   The cache backend object for the specified cache bin.
    */
   public function get($bin) {
-    return new $this->backendClass($bin, $this->sitePrefix, $this->checksumProvider);
+    return new ApcuBackend($bin, $this->sitePrefix, $this->checksumProvider);
   }
 
 }

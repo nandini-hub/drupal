@@ -1,18 +1,18 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\Core\Utility\Token.
+ */
+
 namespace Drupal\Core\Utility;
 
-use Drupal\Component\Render\HtmlEscapedText;
-use Drupal\Component\Render\MarkupInterface;
-use Drupal\Core\Cache\CacheableDependencyInterface;
+use Drupal\Core\Cache\Cache;
 use Drupal\Core\Cache\CacheBackendInterface;
 use Drupal\Core\Cache\CacheTagsInvalidatorInterface;
 use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\Core\Language\LanguageInterface;
 use Drupal\Core\Language\LanguageManagerInterface;
-use Drupal\Core\Render\AttachmentsInterface;
-use Drupal\Core\Render\BubbleableMetadata;
-use Drupal\Core\Render\RendererInterface;
 
 /**
  * Drupal placeholder/token replacement system.
@@ -105,13 +105,6 @@ class Token {
   protected $cacheTagsInvalidator;
 
   /**
-   * The renderer.
-   *
-   * @var \Drupal\Core\Render\RendererInterface
-   */
-  protected $renderer;
-
-  /**
    * Constructs a new class instance.
    *
    * @param \Drupal\Core\Extension\ModuleHandlerInterface $module_handler
@@ -122,24 +115,19 @@ class Token {
    *   The language manager.
    * @param \Drupal\Core\Cache\CacheTagsInvalidatorInterface $cache_tags_invalidator
    *   The cache tags invalidator.
-   * @param \Drupal\Core\Render\RendererInterface $renderer
-   *   The renderer.
    */
-  public function __construct(ModuleHandlerInterface $module_handler, CacheBackendInterface $cache, LanguageManagerInterface $language_manager, CacheTagsInvalidatorInterface $cache_tags_invalidator, RendererInterface $renderer) {
+  public function __construct(ModuleHandlerInterface $module_handler, CacheBackendInterface $cache, LanguageManagerInterface $language_manager, CacheTagsInvalidatorInterface $cache_tags_invalidator) {
     $this->cache = $cache;
     $this->languageManager = $language_manager;
     $this->moduleHandler = $module_handler;
     $this->cacheTagsInvalidator = $cache_tags_invalidator;
-    $this->renderer = $renderer;
   }
 
   /**
    * Replaces all tokens in a given string with appropriate values.
    *
    * @param string $text
-   *   An HTML string containing replaceable tokens. The caller is responsible
-   *   for calling \Drupal\Component\Utility\Html::escape() in case the $text
-   *   was plain text.
+   *   A string potentially containing replaceable tokens.
    * @param array $data
    *   (optional) An array of keyed objects. For simple replacement scenarios
    *   'node', 'user', and others are common keys, with an accompanying node or
@@ -152,74 +140,44 @@ class Token {
    *   - langcode: A language code to be used when generating locale-sensitive
    *     tokens.
    *   - callback: A callback function that will be used to post-process the
-   *     array of token replacements after they are generated.
+   *     array of token replacements after they are generated. For example, a
+   *     module using tokens in a text-only email might provide a callback to
+   *     strip HTML entities from token values before they are inserted into the
+   *     final text.
    *   - clear: A boolean flag indicating that tokens should be removed from the
    *     final text if no replacement value can be generated.
-   * @param \Drupal\Core\Render\BubbleableMetadata|null $bubbleable_metadata
-   *   (optional) An object to which static::generate() and the hooks and
-   *   functions that it invokes will add their required bubbleable metadata.
-   *
-   *   To ensure that the metadata associated with the token replacements gets
-   *   attached to the same render array that contains the token-replaced text,
-   *   callers of this method are encouraged to pass in a BubbleableMetadata
-   *   object and apply it to the corresponding render array. For example:
-   *   @code
-   *     $bubbleable_metadata = new BubbleableMetadata();
-   *     $build['#markup'] = $token_service->replace('Tokens: [node:nid] [current-user:uid]', ['node' => $node], [], $bubbleable_metadata);
-   *     $bubbleable_metadata->applyTo($build);
-   *   @endcode
-   *
-   *   When the caller does not pass in a BubbleableMetadata object, this
-   *   method creates a local one, and applies the collected metadata to the
-   *   Renderer's currently active render context.
+   *   - sanitize: A boolean flag indicating that tokens should be sanitized for
+   *     display to a web browser. Defaults to TRUE. Developers who set this
+   *     option to FALSE assume responsibility for running
+   *     \Drupal\Component\Utility\Xss::filter(),
+   *     \Drupal\Component\Utility\SafeMarkup::checkPlain() or other appropriate
+   *     scrubbing functions before displaying data to users.
    *
    * @return string
-   *   The token result is the entered HTML text with tokens replaced. The
-   *   caller is responsible for choosing the right escaping / sanitization. If
-   *   the result is intended to be used as plain text, using
-   *   PlainTextOutput::renderFromHtml() is recommended. If the result is just
-   *   printed as part of a template relying on Twig autoescaping is possible,
-   *   otherwise for example the result can be put into #markup, in which case
-   *   it would be sanitized by Xss::filterAdmin().
+   *   Text with tokens replaced.
    */
-  public function replace($text, array $data = [], array $options = [], BubbleableMetadata $bubbleable_metadata = NULL) {
+  public function replace($text, array $data = array(), array $options = array()) {
     $text_tokens = $this->scan($text);
     if (empty($text_tokens)) {
       return $text;
     }
 
-    $bubbleable_metadata_is_passed_in = (bool) $bubbleable_metadata;
-    $bubbleable_metadata = $bubbleable_metadata ?: new BubbleableMetadata();
-
-    $replacements = [];
+    $replacements = array();
     foreach ($text_tokens as $type => $tokens) {
-      $replacements += $this->generate($type, $tokens, $data, $options, $bubbleable_metadata);
+      $replacements += $this->generate($type, $tokens, $data, $options);
       if (!empty($options['clear'])) {
         $replacements += array_fill_keys($tokens, '');
       }
     }
 
-    // Escape the tokens, unless they are explicitly markup.
-    foreach ($replacements as $token => $value) {
-      $replacements[$token] = $value instanceof MarkupInterface ? $value : new HtmlEscapedText($value);
-    }
-
     // Optionally alter the list of replacement values.
     if (!empty($options['callback'])) {
       $function = $options['callback'];
-      $function($replacements, $data, $options, $bubbleable_metadata);
+      $function($replacements, $data, $options);
     }
 
     $tokens = array_keys($replacements);
     $values = array_values($replacements);
-
-    // If a local $bubbleable_metadata object was created, apply the metadata
-    // it collected to the renderer's currently active render context.
-    if (!$bubbleable_metadata_is_passed_in && $this->renderer->hasRenderContext()) {
-      $build = [];
-      $bubbleable_metadata->applyTo($build);
-      $this->renderer->render($build);
-    }
 
     return str_replace($tokens, $values, $text);
   }
@@ -251,7 +209,7 @@ class Token {
     // Iterate through the matches, building an associative array containing
     // $tokens grouped by $types, pointing to the version of the token found in
     // the source text. For example, $results['node']['title'] = '[node:title]';
-    $results = [];
+    $results = array();
     for ($i = 0; $i < count($tokens); $i++) {
       $results[$types[$i]][$tokens[$i]] = $matches[0][$i];
     }
@@ -268,23 +226,25 @@ class Token {
    *   An array of tokens to be replaced, keyed by the literal text of the token
    *   as it appeared in the source text.
    * @param array $data
-   *   An array of keyed objects. For simple replacement scenarios: 'node',
-   *   'user', and others are common keys, with an accompanying node or user
-   *   object being the value. Some token types, like 'site', do not require
+   *   (optional) An array of keyed objects. For simple replacement scenarios
+   *   'node', 'user', and others are common keys, with an accompanying node or
+   *   user object being the value. Some token types, like 'site', do not require
    *   any explicit information from $data and can be replaced even if it is
    *   empty.
    * @param array $options
-   *   A keyed array of settings and flags to control the token replacement
-   *   process. Supported options are:
+   *   (optional) A keyed array of settings and flags to control the token
+   *   replacement process. Supported options are:
    *   - langcode: A language code to be used when generating locale-sensitive
    *     tokens.
    *   - callback: A callback function that will be used to post-process the
    *     array of token replacements after they are generated. Can be used when
    *     modules require special formatting of token text, for example URL
    *     encoding or truncation to a specific length.
-   * @param \Drupal\Core\Render\BubbleableMetadata $bubbleable_metadata
-   *   The bubbleable metadata. This is passed to the token replacement
-   *   implementations so that they can attach their metadata.
+   *   - sanitize: A boolean flag indicating that tokens should be sanitized for
+   *     display to a web browser. Developers who set this option to FALSE assume
+   *     responsibility for running \Drupal\Component\Utility\Xss::filter(),
+   *     \Drupal\Component\Utility\SafeMarkup::checkPlain() or other appropriate
+   *     scrubbing functions before displaying data to users.
    *
    * @return array
    *   An associative array of replacement values, keyed by the original 'raw'
@@ -294,23 +254,18 @@ class Token {
    * @see hook_tokens()
    * @see hook_tokens_alter()
    */
-  public function generate($type, array $tokens, array $data, array $options, BubbleableMetadata $bubbleable_metadata) {
-    foreach ($data as $object) {
-      if ($object instanceof CacheableDependencyInterface || $object instanceof AttachmentsInterface) {
-        $bubbleable_metadata->addCacheableDependency($object);
-      }
-    }
-
-    $replacements = $this->moduleHandler->invokeAll('tokens', [$type, $tokens, $data, $options, $bubbleable_metadata]);
+  public function generate($type, array $tokens, array $data = array(), array $options = array()) {
+    $options += array('sanitize' => TRUE);
+    $replacements = $this->moduleHandler->invokeAll('tokens', array($type, $tokens, $data, $options));
 
     // Allow other modules to alter the replacements.
-    $context = [
+    $context = array(
       'type' => $type,
       'tokens' => $tokens,
       'data' => $data,
       'options' => $options,
-    ];
-    $this->moduleHandler->alter('tokens', $replacements, $context, $bubbleable_metadata);
+    );
+    $this->moduleHandler->alter('tokens', $replacements, $context);
 
     return $replacements;
   }
@@ -343,7 +298,7 @@ class Token {
    *   stripped from the key.
    */
   public function findWithPrefix(array $tokens, $prefix, $delimiter = ':') {
-    $results = [];
+    $results = array();
     foreach ($tokens as $token => $raw) {
       $parts = explode($delimiter, $token, 2);
       if (count($parts) == 2 && $parts[0] == $prefix) {
@@ -376,9 +331,9 @@ class Token {
       else {
         $this->tokenInfo = $this->moduleHandler->invokeAll('token_info');
         $this->moduleHandler->alter('token_info', $this->tokenInfo);
-        $this->cache->set($cache_id, $this->tokenInfo, CacheBackendInterface::CACHE_PERMANENT, [
+        $this->cache->set($cache_id, $this->tokenInfo, CacheBackendInterface::CACHE_PERMANENT, array(
           static::TOKEN_INFO_CACHE_TAG,
-        ]);
+        ));
       }
     }
 
@@ -405,5 +360,4 @@ class Token {
     $this->tokenInfo = NULL;
     $this->cacheTagsInvalidator->invalidateTags([static::TOKEN_INFO_CACHE_TAG]);
   }
-
 }

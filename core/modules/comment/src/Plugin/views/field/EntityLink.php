@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\comment\Plugin\views\field\EntityLink.
+ */
+
 namespace Drupal\comment\Plugin\views\field;
 
 use Drupal\Core\Form\FormStateInterface;
@@ -16,7 +21,7 @@ use Drupal\views\ResultRow;
 class EntityLink extends FieldPluginBase {
 
   /**
-   * Stores the result of parent entities build for all rows to reuse it later.
+   * Stores the result of node_view_multiple for all rows to reuse it later.
    *
    * @var array
    */
@@ -27,7 +32,7 @@ class EntityLink extends FieldPluginBase {
    */
   protected function defineOptions() {
     $options = parent::defineOptions();
-    $options['teaser'] = ['default' => FALSE];
+    $options['teaser'] = array('default' => FALSE);
     return $options;
   }
 
@@ -35,12 +40,12 @@ class EntityLink extends FieldPluginBase {
    * {@inheritdoc}
    */
   public function buildOptionsForm(&$form, FormStateInterface $form_state) {
-    $form['teaser'] = [
+    $form['teaser'] = array(
       '#type' => 'checkbox',
       '#title' => $this->t('Show teaser-style link'),
       '#default_value' => $this->options['teaser'],
       '#description' => $this->t('Show the comment link in the form used on standard entity teasers, rather than the full entity form.'),
-    ];
+    );
 
     parent::buildOptionsForm($form, $form_state);
   }
@@ -55,17 +60,13 @@ class EntityLink extends FieldPluginBase {
    */
   public function preRender(&$values) {
     // Render all nodes, so you can grep the comment links.
-    $entities = [];
+    $entities = array();
     foreach ($values as $row) {
       $entity = $row->_entity;
       $entities[$entity->id()] = $entity;
     }
     if ($entities) {
-      $entityTypeId = reset($entities)->getEntityTypeId();
-      $viewMode = $this->options['teaser'] ? 'teaser' : 'full';
-      $this->build = \Drupal::entityTypeManager()
-        ->getViewBuilder($entityTypeId)
-        ->viewMultiple($entities, $viewMode);
+      $this->build = entity_view_multiple($entities, $this->options['teaser'] ? 'teaser' : 'full');
     }
   }
 
@@ -76,7 +77,7 @@ class EntityLink extends FieldPluginBase {
     $entity = $this->getEntity($values);
 
     // Only render the links, if they are defined.
-    return !empty($this->build[$entity->id()]['links']['comment__comment']) ? \Drupal::service('renderer')->render($this->build[$entity->id()]['links']['comment__comment']) : '';
+    return !empty($this->build[$entity->id()]['links']['comment__comment']) ? drupal_render($this->build[$entity->id()]['links']['comment__comment']) : '';
   }
 
 }

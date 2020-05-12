@@ -1,7 +1,13 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\views\Plugin\views\style\Rss.
+ */
+
 namespace Drupal\views\Plugin\views\style;
 
+use Drupal\Component\Utility\SafeMarkup;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Url;
 
@@ -21,12 +27,14 @@ use Drupal\Core\Url;
 class Rss extends StylePluginBase {
 
   /**
-   * {@inheritdoc}
+   * Does the style plugin for itself support to add fields to it's output.
+   *
+   * @var bool
    */
   protected $usesRowPlugin = TRUE;
 
   public function attachTo(array &$build, $display_id, Url $feed_url, $title) {
-    $url_options = [];
+    $url_options = array();
     $input = $this->view->getExposedInput();
     if ($input) {
       $url_options['query'] = $input;
@@ -43,18 +51,18 @@ class Rss extends StylePluginBase {
     ];
 
     // Attach a link to the RSS feed, which is an alternate representation.
-    $build['#attached']['html_head_link'][][] = [
+    $build['#attached']['html_head_link'][][] = array(
       'rel' => 'alternate',
       'type' => 'application/rss+xml',
       'title' => $title,
       'href' => $url,
-    ];
+    );
   }
 
   protected function defineOptions() {
     $options = parent::defineOptions();
 
-    $options['description'] = ['default' => ''];
+    $options['description'] = array('default' => '');
 
     return $options;
   }
@@ -62,23 +70,23 @@ class Rss extends StylePluginBase {
   public function buildOptionsForm(&$form, FormStateInterface $form_state) {
     parent::buildOptionsForm($form, $form_state);
 
-    $form['description'] = [
+    $form['description'] = array(
       '#type' => 'textfield',
       '#title' => $this->t('RSS description'),
       '#default_value' => $this->options['description'],
       '#description' => $this->t('This will appear in the RSS feed itself.'),
       '#maxlength' => 1024,
-    ];
+    );
   }
 
   /**
    * Return an array of additional XHTML elements to add to the channel.
    *
    * @return
-   *   A render array.
+   *   An array that can be passed to format_xml_elements().
    */
   protected function getChannelElements() {
-    return [];
+    return array();
   }
 
   /**
@@ -98,14 +106,14 @@ class Rss extends StylePluginBase {
 
   public function render() {
     if (empty($this->view->rowPlugin)) {
-      trigger_error('Drupal\views\Plugin\views\style\Rss: Missing row plugin', E_WARNING);
-      return [];
+      debug('Drupal\views\Plugin\views\style\Rss: Missing row plugin');
+      return array();
     }
-    $rows = [];
+    $rows = '';
 
     // This will be filled in by the row plugin and is used later on in the
     // theming output.
-    $this->namespaces = ['xmlns:dc' => 'http://purl.org/dc/elements/1.1/'];
+    $this->namespaces = array('xmlns:dc' => 'http://purl.org/dc/elements/1.1/');
 
     // Fetch any additional elements for the channel and merge in their
     // namespaces.
@@ -118,15 +126,15 @@ class Rss extends StylePluginBase {
 
     foreach ($this->view->result as $row_index => $row) {
       $this->view->row_index = $row_index;
-      $rows[] = $this->view->rowPlugin->render($row);
+      $rows .= $this->view->rowPlugin->render($row);
     }
 
-    $build = [
+    $build = array(
       '#theme' => $this->themeFunctions(),
       '#view' => $this->view,
       '#options' => $this->options,
-      '#rows' => $rows,
-    ];
+      '#rows' => SafeMarkup::set($rows),
+    );
     unset($this->view->row_index);
     return $build;
   }

@@ -1,6 +1,13 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\system\Plugin\ImageToolkit\Operation\gd\ScaleAndCrop.
+ */
+
 namespace Drupal\system\Plugin\ImageToolkit\Operation\gd;
+
+use Drupal\Component\Utility\SafeMarkup;
 
 /**
  * Defines GD2 Scale and crop operation.
@@ -19,24 +26,14 @@ class ScaleAndCrop extends GDImageToolkitOperationBase {
    * {@inheritdoc}
    */
   protected function arguments() {
-    return [
-      'x' => [
-        'description' => 'The horizontal offset for the start of the crop, in pixels',
-        'required' => FALSE,
-        'default' => NULL,
-      ],
-      'y' => [
-        'description' => 'The vertical offset for the start the crop, in pixels',
-        'required' => FALSE,
-        'default' => NULL,
-      ],
-      'width' => [
+    return array(
+      'width' => array(
         'description' => 'The target width, in pixels',
-      ],
-      'height' => [
+      ),
+      'height' => array(
         'description' => 'The target height, in pixels',
-      ],
-    ];
+      ),
+    );
   }
 
   /**
@@ -48,23 +45,19 @@ class ScaleAndCrop extends GDImageToolkitOperationBase {
 
     $scaleFactor = max($arguments['width'] / $actualWidth, $arguments['height'] / $actualHeight);
 
-    $arguments['x'] = isset($arguments['x']) ?
-      (int) round($arguments['x']) :
-      (int) round(($actualWidth * $scaleFactor - $arguments['width']) / 2);
-    $arguments['y'] = isset($arguments['y']) ?
-      (int) round($arguments['y']) :
-      (int) round(($actualHeight * $scaleFactor - $arguments['height']) / 2);
-    $arguments['resize'] = [
+    $arguments['x'] = (int) round(($actualWidth * $scaleFactor - $arguments['width']) / 2);
+    $arguments['y'] = (int) round(($actualHeight * $scaleFactor - $arguments['height']) / 2);
+    $arguments['resize'] = array(
       'width' => (int) round($actualWidth * $scaleFactor),
       'height' => (int) round($actualHeight * $scaleFactor),
-    ];
+    );
 
     // Fail when width or height are 0 or negative.
     if ($arguments['width'] <= 0) {
-      throw new \InvalidArgumentException("Invalid width ('{$arguments['width']}') specified for the image 'scale_and_crop' operation");
+      throw new \InvalidArgumentException(SafeMarkup::format("Invalid width (@value) specified for the image 'scale_and_crop' operation", array('@value' => $arguments['width'])));
     }
     if ($arguments['height'] <= 0) {
-      throw new \InvalidArgumentException("Invalid height ('{$arguments['height']}') specified for the image 'scale_and_crop' operation");
+      throw new \InvalidArgumentException(SafeMarkup::format("Invalid height (@value) specified for the image 'scale_and_crop' operation", array('@value' => $arguments['height'])));
     }
 
     return $arguments;
@@ -73,7 +66,7 @@ class ScaleAndCrop extends GDImageToolkitOperationBase {
   /**
    * {@inheritdoc}
    */
-  protected function execute(array $arguments = []) {
+  protected function execute(array $arguments = array()) {
     return $this->getToolkit()->apply('resize', $arguments['resize'])
         && $this->getToolkit()->apply('crop', $arguments);
   }

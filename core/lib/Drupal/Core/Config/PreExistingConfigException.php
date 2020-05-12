@@ -1,8 +1,13 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Config\PreExistingConfigException.
+ */
+
 namespace Drupal\Core\Config;
 
-use Drupal\Component\Render\FormattableMarkup;
+use Drupal\Component\Utility\SafeMarkup;
 
 /**
  * An exception thrown if configuration with the same name already exists.
@@ -53,14 +58,14 @@ class PreExistingConfigException extends ConfigException {
    *   A list of configuration objects that already exist in active
    *   configuration, keyed by config collection.
    *
-   * @return $this
+   * @return \Drupal\Core\Config\PreExistingConfigException
    */
   public static function create($extension, array $config_objects) {
-    $message = new FormattableMarkup('Configuration objects (@config_names) provided by @extension already exist in active configuration',
-      [
+    $message = SafeMarkup::format('Configuration objects (@config_names) provided by @extension already exist in active configuration',
+      array(
         '@config_names' => implode(', ', static::flattenConfigObjects($config_objects)),
-        '@extension' => $extension,
-      ]
+        '@extension' => $extension
+      )
     );
     $e = new static($message);
     $e->configObjects = $config_objects;
@@ -80,7 +85,7 @@ class PreExistingConfigException extends ConfigException {
    *   collection.
    */
   public static function flattenConfigObjects(array $config_objects) {
-    $flat_config_objects = [];
+    $flat_config_objects = array();
     foreach ($config_objects as $collection => $config_names) {
       $config_names = array_map(function ($config_name) use ($collection) {
         if ($collection != StorageInterface::DEFAULT_COLLECTION) {

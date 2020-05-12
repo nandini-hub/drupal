@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Image\Image.
+ */
+
 namespace Drupal\Core\Image;
 
 use Drupal\Core\ImageToolkit\ImageToolkitInterface;
@@ -46,9 +51,9 @@ class Image implements ImageInterface {
    */
   public function __construct(ImageToolkitInterface $toolkit, $source = NULL) {
     $this->toolkit = $toolkit;
+    $this->getToolkit()->setImage($this);
     if ($source) {
       $this->source = $source;
-      $this->getToolkit()->setSource($this->source);
       // Defer image file validity check to the toolkit.
       if ($this->getToolkit()->parseFile()) {
         $this->fileSize = filesize($this->source);
@@ -128,7 +133,8 @@ class Image implements ImageInterface {
       $this->fileSize = filesize($destination);
       $this->source = $destination;
 
-      if (\Drupal::service('file_system')->chmod($destination)) {
+      // @todo Use File utility when https://drupal.org/node/2050759 is in.
+      if ($this->chmod($destination)) {
         return $return;
       }
     }
@@ -138,7 +144,7 @@ class Image implements ImageInterface {
   /**
    * {@inheritdoc}
    */
-  public function apply($operation, array $arguments = []) {
+  public function apply($operation, array $arguments = array()) {
     return $this->getToolkit()->apply($operation, $arguments);
   }
 
@@ -146,56 +152,56 @@ class Image implements ImageInterface {
    * {@inheritdoc}
    */
   public function createNew($width, $height, $extension = 'png', $transparent_color = '#ffffff') {
-    return $this->apply('create_new', ['width' => $width, 'height' => $height, 'extension' => $extension, 'transparent_color' => $transparent_color]);
+    return $this->apply('create_new', array('width' => $width, 'height' => $height, 'extension' => $extension, 'transparent_color' => $transparent_color));
   }
 
   /**
    * {@inheritdoc}
    */
   public function convert($extension) {
-    return $this->apply('convert', ['extension' => $extension]);
+    return $this->apply('convert', array('extension' => $extension));
   }
 
   /**
    * {@inheritdoc}
    */
   public function crop($x, $y, $width, $height = NULL) {
-    return $this->apply('crop', ['x' => $x, 'y' => $y, 'width' => $width, 'height' => $height]);
+    return $this->apply('crop', array('x' => $x, 'y' => $y, 'width' => $width, 'height' => $height));
   }
 
   /**
    * {@inheritdoc}
    */
   public function desaturate() {
-    return $this->apply('desaturate', []);
+    return $this->apply('desaturate', array());
   }
 
   /**
    * {@inheritdoc}
    */
   public function resize($width, $height) {
-    return $this->apply('resize', ['width' => $width, 'height' => $height]);
+    return $this->apply('resize', array('width' => $width, 'height' => $height));
   }
 
   /**
    * {@inheritdoc}
    */
   public function rotate($degrees, $background = NULL) {
-    return $this->apply('rotate', ['degrees' => $degrees, 'background' => $background]);
+    return $this->apply('rotate', array('degrees' => $degrees, 'background' => $background));
   }
 
   /**
    * {@inheritdoc}
    */
   public function scaleAndCrop($width, $height) {
-    return $this->apply('scale_and_crop', ['width' => $width, 'height' => $height]);
+    return $this->apply('scale_and_crop', array('width' => $width, 'height' => $height));
   }
 
   /**
    * {@inheritdoc}
    */
   public function scale($width, $height = NULL, $upscale = FALSE) {
-    return $this->apply('scale', ['width' => $width, 'height' => $height, 'upscale' => $upscale]);
+    return $this->apply('scale', array('width' => $width, 'height' => $height, 'upscale' => $upscale));
   }
 
   /**
@@ -207,18 +213,15 @@ class Image implements ImageInterface {
    *   Integer value for the permissions. Consult PHP chmod() documentation for
    *   more information.
    *
+   * @see drupal_chmod()
+   *
+   * @todo Remove when https://drupal.org/node/2050759 is in.
+   *
    * @return bool
    *   TRUE for success, FALSE in the event of an error.
-   *
-   * @deprecated in drupal:8.0.0 and is removed from drupal:9.0.0.
-   *   Use \Drupal\Core\File\FileSystem::chmod().
-   *
-   * @see \Drupal\Core\File\FileSystemInterface::chmod()
-   * @see https://www.drupal.org/node/2418133
    */
   protected function chmod($uri, $mode = NULL) {
-    @trigger_error('chmod() is deprecated in Drupal 8.0.0 and will be removed before Drupal 9.0.0. Use \Drupal\Core\File\FileSystemInterface::chmod(). See https://www.drupal.org/node/2418133.', E_USER_DEPRECATED);
-    return \Drupal::service('file_system')->chmod($uri, $mode);
+    return drupal_chmod($uri, $mode);
   }
 
 }

@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\menu_test\Theme\TestThemeNegotiator.
+ */
+
 namespace Drupal\menu_test\Theme;
 
 use Drupal\Core\Routing\RouteMatchInterface;
@@ -30,8 +35,8 @@ class TestThemeNegotiator implements ThemeNegotiatorInterface {
       return \Drupal::config('system.theme')->get('admin');
     }
     // Test using a theme that exists, but may or may not be installed.
-    elseif ($argument == 'use-test-theme') {
-      return 'test_theme';
+    elseif ($argument == 'use-stark-theme') {
+      return 'stark';
     }
     // Test using a theme that does not exist.
     elseif ($argument == 'use-fake-theme') {

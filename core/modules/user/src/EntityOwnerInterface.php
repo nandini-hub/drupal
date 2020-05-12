@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\user\EntityOwnerInterface.
+ */
+
 namespace Drupal\user;
 
 /**
@@ -33,9 +38,8 @@ interface EntityOwnerInterface {
   /**
    * Returns the entity owner's user ID.
    *
-   * @return int|null
-   *   The owner user ID, or NULL in case the user ID field has not been set on
-   *   the entity.
+   * @return int
+   *   The owner user ID.
    */
   public function getOwnerId();
 

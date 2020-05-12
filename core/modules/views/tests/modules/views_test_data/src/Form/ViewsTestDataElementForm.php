@@ -1,4 +1,8 @@
 <?php
+/**
+ * @file
+ * Contains \Drupal\views_test_data\Form\ViewsTestDataElementForm.
+ */
 
 namespace Drupal\views_test_data\Form;
 
@@ -7,8 +11,6 @@ use Drupal\Core\Form\FormStateInterface;
 
 /**
  * Simple form page callback to test the view element.
- *
- * @internal
  */
 class ViewsTestDataElementForm extends FormBase {
 
@@ -23,13 +25,13 @@ class ViewsTestDataElementForm extends FormBase {
    * {@inheritdoc}
    */
   public function buildForm(array $form, FormStateInterface $form_state) {
-    $form['view'] = [
+    $form['view'] = array(
       '#type' => 'view',
       '#name' => 'test_view_embed',
       '#display_id' => 'default',
-      '#arguments' => [25],
+      '#arguments' => array(25),
       '#embed' => FALSE,
-    ];
+    );
 
     return $form;
   }

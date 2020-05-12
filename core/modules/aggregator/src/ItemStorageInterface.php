@@ -1,13 +1,19 @@
 <?php
 
+/**
+ * @file
+ * Contains Drupal\aggregator\ItemStorageInterface.
+ */
+
 namespace Drupal\aggregator;
 
-use Drupal\Core\Entity\ContentEntityStorageInterface;
+use Drupal\aggregator\Entity\Item;
+use Drupal\Core\Entity\EntityStorageInterface;
 
 /**
  * Defines an interface for aggregator item entity storage classes.
  */
-interface ItemStorageInterface extends ContentEntityStorageInterface {
+interface ItemStorageInterface extends EntityStorageInterface {
 
   /**
    * Returns the count of the items in a feed.

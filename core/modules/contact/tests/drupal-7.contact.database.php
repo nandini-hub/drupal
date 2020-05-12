@@ -9,26 +9,25 @@
  * the database structure expected in tests altogether.
  */
 
-$connection = \Drupal::database();
 // Update the default category to that it is not selected.
-$connection->update('contact')
-  ->fields(['selected' => '0'])
+db_update('contact')
+  ->fields(array('selected' => '0'))
   ->condition('cid', '1')
   ->execute();
 
 // Add a custom contact category.
-$connection->insert('contact')->fields([
+db_insert('contact')->fields(array(
   'category',
   'recipients',
   'reply',
   'weight',
-  'selected',
-])
-  ->values([
+  'selected'
+))
+->values(array(
   'category' => 'Upgrade test',
-  'recipients' => 'test1@example.com,test2@example.com',
+  'recipients'=> 'test1@example.com,test2@example.com',
   'reply' => 'Test reply',
   'weight' => 1,
   'selected' => 1,
-])
-  ->execute();
+))
+->execute();

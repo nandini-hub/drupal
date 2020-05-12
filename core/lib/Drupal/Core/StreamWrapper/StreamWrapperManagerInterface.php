@@ -1,10 +1,16 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\StreamWrapper\StreamWrapperManagerInterface.
+ */
+
 namespace Drupal\Core\StreamWrapper;
 
 /**
  * Provides a StreamWrapper manager.
  *
+ * @see file_get_stream_wrappers()
  * @see \Drupal\Core\StreamWrapper\StreamWrapperInterface
  */
 interface StreamWrapperManagerInterface {
@@ -33,8 +39,8 @@ interface StreamWrapperManagerInterface {
    * returns only stream wrappers that use local file storage:
    *
    * @code
-   *   $stream_wrapper_manager = \Drupal::service('stream_wrapper_manager');
-   *   $local_stream_wrappers = $stream_wrapper_manager->getWrappers(StreamWrapperInterface::LOCAL);
+   *   $local_stream_wrappers =
+   *   file_get_stream_wrappers(StreamWrapperInterface::LOCAL);
    * @endcode
    *
    * The $filter parameter can only filter to types containing a particular
@@ -44,11 +50,9 @@ interface StreamWrapperManagerInterface {
    * array_diff_key() function can be used to help with this. For example, this
    * returns only stream wrappers that do not use local file storage:
    * @code
-   *   $stream_wrapper_manager = \Drupal::service('stream_wrapper_manager');
-   *   $remote_stream_wrappers = array_diff_key(
-   *     $stream_wrapper_manager->getWrappers(StreamWrapperInterface::ALL),
-   *     $stream_wrapper_manager->getWrappers(StreamWrapperInterface::LOCAL)
-   *   );
+   *   $remote_stream_wrappers =
+   *   array_diff_key(file_get_stream_wrappers(StreamWrapperInterface::ALL),
+   *   file_get_stream_wrappers(StreamWrapperInterface::LOCAL));
    * @endcode
    *
    * @param int $filter
@@ -108,52 +112,35 @@ interface StreamWrapperManagerInterface {
   public function getDescriptions($filter = StreamWrapperInterface::ALL);
 
   /**
-   * Returns a reference to the stream wrapper class responsible for a scheme.
-   *
-   * This helper method returns a stream instance using a scheme. That is, the
-   * passed string does not contain a "://". For example, "public" is a scheme
-   * but "public://" is a URI (stream). This is because the later contains both
-   * a scheme and target despite target being empty.
-   *
-   * Note: the instance URI will be initialized to "scheme://" so that you can
-   * make the customary method calls as if you had retrieved an instance by URI.
+   * Returns a stream wrapper via scheme.
    *
    * @param string $scheme
-   *   If the stream was "public://target", "public" would be the scheme.
+   *   The scheme of the stream wrapper.
    *
    * @return \Drupal\Core\StreamWrapper\StreamWrapperInterface|bool
-   *   Returns a new stream wrapper object appropriate for the given $scheme.
-   *   For example, for the public scheme a stream wrapper object
-   *   (Drupal\Core\StreamWrapper\PublicStream).
-   *   FALSE is returned if no registered handler could be found.
+   *   A stream wrapper object, or false if the scheme is not available.
    */
   public function getViaScheme($scheme);
 
   /**
-   * Returns a reference to the stream wrapper class responsible for a URI.
-   *
-   * The scheme determines the stream wrapper class that should be
-   * used by consulting the stream wrapper registry.
+   * Returns a stream wrapper via URI.
    *
    * @param string $uri
-   *   A stream, referenced as "scheme://target".
+   *   The URI of the stream wrapper.
    *
    * @return \Drupal\Core\StreamWrapper\StreamWrapperInterface|bool
-   *   Returns a new stream wrapper object appropriate for the given URI or
-   *   FALSE if no registered handler could be found. For example, a URI of
-   *   "private://example.txt" would return a new private stream wrapper object
-   *   (Drupal\Core\StreamWrapper\PrivateStream).
+   *   A stream wrapper object, or false if the scheme is not available.
    */
   public function getViaUri($uri);
 
   /**
-   * Returns the stream wrapper class name for a given scheme.
+   * Returns the stream wrapper class.
    *
    * @param string $scheme
-   *   Stream scheme.
+   *   The stream wrapper scheme.
    *
    * @return string|bool
-   *   Return string if a scheme has a registered handler, or FALSE.
+   *   The stream wrapper class, or false if the scheme does not exist.
    */
   public function getClass($scheme);
 
@@ -168,82 +155,5 @@ interface StreamWrapperManagerInterface {
    *   The type of the stream wrapper.
    */
   public function registerWrapper($scheme, $class, $type);
-
-  /**
-   * Returns the part of a URI after the schema.
-   *
-   * @param string $uri
-   *   A stream, referenced as "scheme://target" or "data:target".
-   *
-   * @return string|bool
-   *   A string containing the target (path), or FALSE if none.
-   *   For example, the URI "public://sample/test.txt" would return
-   *   "sample/test.txt".
-   *
-   * @see \Drupal\Core\StreamWrapper\StreamWrapperManagerInterface::getScheme()
-   */
-  public static function getTarget($uri);
-
-  /**
-   * Normalizes a URI by making it syntactically correct.
-   *
-   * A stream is referenced as "scheme://target".
-   *
-   * The following actions are taken:
-   * - Remove trailing slashes from target
-   * - Trim erroneous leading slashes from target. e.g. ":///" becomes "://".
-   *
-   * @param string $uri
-   *   String reference containing the URI to normalize.
-   *
-   * @return string
-   *   The normalized URI.
-   */
-  public function normalizeUri($uri);
-
-  /**
-   * Returns the scheme of a URI (e.g. a stream).
-   *
-   * @param string $uri
-   *   A stream, referenced as "scheme://target" or "data:target".
-   *
-   * @return string|bool
-   *   A string containing the name of the scheme, or FALSE if none. For
-   *   example, the URI "public://example.txt" would return "public".
-   *
-   * @see \Drupal\Core\StreamWrapper\StreamWrapperManagerInterface::getTarget()
-   */
-  public static function getScheme($uri);
-
-  /**
-   * Checks that the scheme of a stream URI is valid.
-   *
-   * Confirms that there is a registered stream handler for the provided scheme
-   * and that it is callable. This is useful if you want to confirm a valid
-   * scheme without creating a new instance of the registered handler.
-   *
-   * @param string $scheme
-   *   A URI scheme, a stream is referenced as "scheme://target".
-   *
-   * @return bool
-   *   Returns TRUE if the string is the name of a validated stream, or FALSE if
-   *   the scheme does not have a registered handler.
-   */
-  public function isValidScheme($scheme);
-
-  /**
-   * Determines whether the URI has a valid scheme for file API operations.
-   *
-   * There must be a scheme and it must be a Drupal-provided scheme like
-   * 'public', 'private', 'temporary', or an extension provided with
-   * hook_stream_wrappers().
-   *
-   * @param string $uri
-   *   The URI to be tested.
-   *
-   * @return bool
-   *   TRUE if the URI is valid.
-   */
-  public function isValidUri($uri);
 
 }

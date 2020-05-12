@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains Drupal\system\Access\DbUpdateAccessCheck.
+ */
+
 namespace Drupal\system\Access;
 
 use Drupal\Core\Routing\Access\AccessInterface;
@@ -18,8 +23,8 @@ class DbUpdateAccessCheck implements AccessInterface {
    * @param \Drupal\Core\Session\AccountInterface $account
    *   The currently logged in account.
    *
-   * @return \Drupal\Core\Access\AccessResultInterface
-   *   The access result.
+   * @return string
+   *   A \Drupal\Core\Access\AccessInterface constant value.
    */
   public function access(AccountInterface $account) {
     // Allow the global variable in settings.php to override the access check.
@@ -34,5 +39,4 @@ class DbUpdateAccessCheck implements AccessInterface {
       return AccessResult::forbidden()->cachePerPermissions();
     }
   }
-
 }

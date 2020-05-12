@@ -1,9 +1,12 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Tests\block\Unit\Plugin\DisplayVariant\BlockPageVariantTest.
+ */
+
 namespace Drupal\Tests\block\Unit\Plugin\DisplayVariant;
 
-use Drupal\Core\Cache\CacheableMetadata;
-use Drupal\Core\DependencyInjection\Container;
 use Drupal\Tests\UnitTestCase;
 
 /**
@@ -15,21 +18,28 @@ class BlockPageVariantTest extends UnitTestCase {
   /**
    * The block repository.
    *
-   * @var \Drupal\block\BlockRepositoryInterface|\PHPUnit\Framework\MockObject\MockObject
+   * @var \Drupal\block\BlockRepositoryInterface|\PHPUnit_Framework_MockObject_MockObject
    */
   protected $blockRepository;
 
   /**
    * The block view builder.
    *
-   * @var \Drupal\Core\Entity\EntityViewBuilderInterface|\PHPUnit\Framework\MockObject\MockObject
+   * @var \Drupal\Core\Entity\EntityViewBuilderInterface|\PHPUnit_Framework_MockObject_MockObject
    */
   protected $blockViewBuilder;
 
   /**
+   * The event dispatcher.
+   *
+   * @var \Symfony\Component\EventDispatcher\EventDispatcherInterface|\PHPUnit_Framework_MockObject_MockObject
+   */
+  protected $dispatcher;
+
+  /**
    * The plugin context handler.
    *
-   * @var \Drupal\Core\Plugin\Context\ContextHandlerInterface|\PHPUnit\Framework\MockObject\MockObject
+   * @var \Drupal\Core\Plugin\Context\ContextHandlerInterface|\PHPUnit_Framework_MockObject_MockObject
    */
   protected $contextHandler;
 
@@ -41,68 +51,52 @@ class BlockPageVariantTest extends UnitTestCase {
    * @param array $definition
    *   The plugin definition array.
    *
-   * @return \Drupal\block\Plugin\DisplayVariant\BlockPageVariant|\PHPUnit\Framework\MockObject\MockObject
+   * @return \Drupal\block\Plugin\DisplayVariant\BlockPageVariant|\PHPUnit_Framework_MockObject_MockObject
    *   A mocked display variant plugin.
    */
-  public function setUpDisplayVariant($configuration = [], $definition = []) {
-
-    $container = new Container();
-    $cache_context_manager = $this->getMockBuilder('Drupal\Core\Cache\CacheContextsManager')
-      ->disableOriginalConstructor()
-      ->setMethods(['assertValidTokens'])
-      ->getMock();
-    $container->set('cache_contexts_manager', $cache_context_manager);
-    $cache_context_manager->expects($this->any())
-      ->method('assertValidTokens')
-      ->willReturn(TRUE);
-    \Drupal::setContainer($container);
-
-    $this->blockRepository = $this->createMock('Drupal\block\BlockRepositoryInterface');
-    $this->blockViewBuilder = $this->createMock('Drupal\Core\Entity\EntityViewBuilderInterface');
-
+  public function setUpDisplayVariant($configuration = array(), $definition = array()) {
+    $this->blockRepository = $this->getMock('Drupal\block\BlockRepositoryInterface');
+    $this->blockViewBuilder = $this->getMock('Drupal\Core\Entity\EntityViewBuilderInterface');
+    $this->dispatcher = $this->getMock('Symfony\Component\EventDispatcher\EventDispatcherInterface');
+    $this->dispatcher->expects($this->any())
+      ->method('dispatch')
+      ->willReturnArgument(1);
     return $this->getMockBuilder('Drupal\block\Plugin\DisplayVariant\BlockPageVariant')
-      ->setConstructorArgs([$configuration, 'test', $definition, $this->blockRepository, $this->blockViewBuilder, ['config:block_list']])
-      ->setMethods(['getRegionNames'])
+      ->setConstructorArgs(array($configuration, 'test', $definition, $this->blockRepository, $this->blockViewBuilder, $this->dispatcher, ['config:block_list']))
+      ->setMethods(array('getRegionNames'))
       ->getMock();
   }
 
   public function providerBuild() {
-    $blocks_config = [
-      'block1' => [
-        // region, is main content block, is messages block, is title block
-        'top', FALSE, FALSE, FALSE,
-      ],
+    $blocks_config = array(
+      'block1' => array(
+        // region, is main content block, is messages block
+        'top', FALSE, FALSE,
+      ),
       // Test multiple blocks in the same region.
-      'block2' => [
-        'bottom', FALSE, FALSE, FALSE,
-      ],
-      'block3' => [
-        'bottom', FALSE, FALSE, FALSE,
-      ],
+      'block2' => array(
+        'bottom', FALSE, FALSE,
+      ),
+      'block3' => array(
+        'bottom', FALSE, FALSE,
+      ),
       // Test a block implementing MainContentBlockPluginInterface.
-      'block4' => [
-        'center', TRUE, FALSE, FALSE,
-      ],
+      'block4' => array(
+        'center', TRUE, FALSE,
+      ),
       // Test a block implementing MessagesBlockPluginInterface.
-      'block5' => [
-        'center', FALSE, TRUE, FALSE,
-      ],
-      // Test a block implementing TitleBlockPluginInterface.
-      'block6' => [
-        'center', FALSE, FALSE, TRUE,
-      ],
-    ];
+      'block5' => array(
+        'center', FALSE, TRUE,
+      ),
+    );
 
     $test_cases = [];
-    $test_cases[] = [$blocks_config, 6,
+    $test_cases[] = [$blocks_config, 5,
       [
         '#cache' => [
           'tags' => [
             'config:block_list',
-            'route',
           ],
-          'contexts' => [],
-          'max-age' => -1,
         ],
         'top' => [
           'block1' => [],
@@ -112,7 +106,6 @@ class BlockPageVariantTest extends UnitTestCase {
         'center' => [
           'block4' => [],
           'block5' => [],
-          'block6' => [],
           '#sorted' => TRUE,
         ],
         'bottom' => [
@@ -123,15 +116,12 @@ class BlockPageVariantTest extends UnitTestCase {
       ],
     ];
     unset($blocks_config['block5']);
-    $test_cases[] = [$blocks_config, 5,
+    $test_cases[] = [$blocks_config, 4,
       [
         '#cache' => [
           'tags' => [
             'config:block_list',
-            'route',
           ],
-          'contexts' => [],
-          'max-age' => -1,
         ],
         'top' => [
           'block1' => [],
@@ -139,7 +129,6 @@ class BlockPageVariantTest extends UnitTestCase {
         ],
         'center' => [
           'block4' => [],
-          'block6' => [],
           '#sorted' => TRUE,
         ],
         'bottom' => [
@@ -153,22 +142,17 @@ class BlockPageVariantTest extends UnitTestCase {
           'messages' => [
             '#weight' => -1000,
             '#type' => 'status_messages',
-            '#include_fallback' => TRUE,
           ],
         ],
       ],
     ];
     unset($blocks_config['block4']);
-    unset($blocks_config['block6']);
     $test_cases[] = [$blocks_config, 3,
       [
         '#cache' => [
           'tags' => [
             'config:block_list',
-            'route',
           ],
-          'contexts' => [],
-          'max-age' => -1,
         ],
         'top' => [
           'block1' => [],
@@ -186,7 +170,6 @@ class BlockPageVariantTest extends UnitTestCase {
           'messages' => [
             '#weight' => -1000,
             '#type' => 'status_messages',
-            '#include_fallback' => TRUE,
           ],
         ],
       ],
@@ -206,29 +189,25 @@ class BlockPageVariantTest extends UnitTestCase {
     $display_variant->setMainContent(['#markup' => 'Hello kittens!']);
 
     $blocks = ['top' => [], 'center' => [], 'bottom' => []];
-    $block_plugin = $this->createMock('Drupal\Core\Block\BlockPluginInterface');
-    $main_content_block_plugin = $this->createMock('Drupal\Core\Block\MainContentBlockPluginInterface');
-    $messages_block_plugin = $this->createMock('Drupal\Core\Block\MessagesBlockPluginInterface');
-    $title_block_plugin = $this->createMock('Drupal\Core\Block\TitleBlockPluginInterface');
+    $block_plugin = $this->getMock('Drupal\Core\Block\BlockPluginInterface');
+    $main_content_block_plugin = $this->getMock('Drupal\Core\Block\MainContentBlockPluginInterface');
+    $messages_block_plugin = $this->getMock('Drupal\Core\Block\MessagesBlockPluginInterface');
     foreach ($blocks_config as $block_id => $block_config) {
-      $block = $this->createMock('Drupal\block\BlockInterface');
+      $block = $this->getMock('Drupal\block\BlockInterface');
       $block->expects($this->atLeastOnce())
         ->method('getPlugin')
-        ->willReturn($block_config[1] ? $main_content_block_plugin : ($block_config[2] ? $messages_block_plugin : ($block_config[3] ? $title_block_plugin : $block_plugin)));
+        ->willReturn($block_config[1] ? $main_content_block_plugin : ($block_config[2] ? $messages_block_plugin : $block_plugin));
       $blocks[$block_config[0]][$block_id] = $block;
     }
+
     $this->blockViewBuilder->expects($this->exactly($visible_block_count))
       ->method('view')
-      ->will($this->returnValue([]));
+      ->will($this->returnValue(array()));
     $this->blockRepository->expects($this->once())
       ->method('getVisibleBlocksPerRegion')
-      ->willReturnCallback(function (&$cacheable_metadata) use ($blocks) {
-        $cacheable_metadata['top'] = (new CacheableMetadata())->addCacheTags(['route']);
-        return $blocks;
-      });
+      ->will($this->returnValue($blocks));
 
-    $value = $display_variant->build();
-    $this->assertSame($expected_render_array, $value);
+    $this->assertSame($expected_render_array, $display_variant->build());
   }
 
   /**
@@ -247,15 +226,12 @@ class BlockPageVariantTest extends UnitTestCase {
         'tags' => [
           'config:block_list',
         ],
-        'contexts' => [],
-        'max-age' => -1,
       ],
       'content' => [
         'system_main' => [],
         'messages' => [
           '#weight' => -1000,
           '#type' => 'status_messages',
-          '#include_fallback' => TRUE,
         ],
       ],
     ];

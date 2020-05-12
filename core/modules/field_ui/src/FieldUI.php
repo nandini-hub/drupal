@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\field_ui\FieldUI.
+ */
+
 namespace Drupal\field_ui;
 
 use Drupal\Component\Utility\UrlHelper;
@@ -23,7 +28,7 @@ class FieldUI {
    *   A URL object.
    */
   public static function getOverviewRouteInfo($entity_type_id, $bundle) {
-    $entity_type = \Drupal::entityTypeManager()->getDefinition($entity_type_id);
+    $entity_type = \Drupal::entityManager()->getDefinition($entity_type_id);
     if ($entity_type->get('field_ui_base_route')) {
       return new Url("entity.{$entity_type_id}.field_ui_fields", static::getRouteBundleParameter($entity_type, $bundle));
     }
@@ -35,21 +40,16 @@ class FieldUI {
    * @param array $destinations
    *   An array of destinations to redirect to.
    *
-   * @return \Drupal\Core\Url|null
+   * @return \Drupal\Core\Url
    *   The next destination to redirect to.
    */
   public static function getNextDestination(array $destinations) {
-    // If there are no valid destinations left, return here.
-    if (empty($destinations)) {
-      return NULL;
-    }
-
     $next_destination = array_shift($destinations);
     if (is_array($next_destination)) {
       $next_destination['options']['query']['destinations'] = $destinations;
-      $next_destination += [
-        'route_parameters' => [],
-      ];
+      $next_destination += array(
+        'route_parameters' => array(),
+      );
       $next_destination = Url::fromRoute($next_destination['route_name'], $next_destination['route_parameters'], $next_destination['options']);
     }
     else {
@@ -59,7 +59,7 @@ class FieldUI {
       }
       // Redirect to any given path within the same domain.
       // @todo Revisit this in https://www.drupal.org/node/2418219.
-      $next_destination = Url::fromUserInput('/' . $options['path'], $options);
+      $next_destination = Url::fromUserInput('/' . $options['path']);
     }
     return $next_destination;
   }
@@ -76,8 +76,7 @@ class FieldUI {
    *   An array that can be used a route parameter.
    */
   public static function getRouteBundleParameter(EntityTypeInterface $entity_type, $bundle) {
-    $bundle_parameter_key = $entity_type->getBundleEntityType() ?: 'bundle';
-    return [$bundle_parameter_key => $bundle];
+    return array($entity_type->getBundleEntityType() => $bundle);
   }
 
 }

@@ -1,8 +1,13 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\menu_link_content\Entity\MenuLinkContent.
+ */
+
 namespace Drupal\menu_link_content\Entity;
 
-use Drupal\Core\Entity\EditorialContentEntityBase;
+use Drupal\Core\Entity\ContentEntityBase;
 use Drupal\Core\Entity\EntityStorageInterface;
 use Drupal\Core\Entity\EntityTypeInterface;
 use Drupal\Core\Field\BaseFieldDefinition;
@@ -18,15 +23,8 @@ use Drupal\menu_link_content\MenuLinkContentInterface;
  * @ContentEntityType(
  *   id = "menu_link_content",
  *   label = @Translation("Custom menu link"),
- *   label_collection = @Translation("Custom menu links"),
- *   label_singular = @Translation("custom menu link"),
- *   label_plural = @Translation("custom menu links"),
- *   label_count = @PluralTranslation(
- *     singular = "@count custom menu link",
- *     plural = "@count custom menu links",
- *   ),
  *   handlers = {
- *     "storage" = "\Drupal\menu_link_content\MenuLinkContentStorage",
+ *     "storage" = "Drupal\Core\Entity\Sql\SqlContentEntityStorage",
  *     "storage_schema" = "Drupal\menu_link_content\MenuLinkContentStorageSchema",
  *     "access" = "Drupal\menu_link_content\MenuLinkContentAccessControlHandler",
  *     "form" = {
@@ -37,34 +35,22 @@ use Drupal\menu_link_content\MenuLinkContentInterface;
  *   admin_permission = "administer menu",
  *   base_table = "menu_link_content",
  *   data_table = "menu_link_content_data",
- *   revision_table = "menu_link_content_revision",
- *   revision_data_table = "menu_link_content_field_revision",
  *   translatable = TRUE,
  *   entity_keys = {
  *     "id" = "id",
- *     "revision" = "revision_id",
  *     "label" = "title",
  *     "langcode" = "langcode",
  *     "uuid" = "uuid",
- *     "bundle" = "bundle",
- *     "published" = "enabled",
- *   },
- *   revision_metadata_keys = {
- *     "revision_user" = "revision_user",
- *     "revision_created" = "revision_created",
- *     "revision_log_message" = "revision_log_message",
+ *     "bundle" = "bundle"
  *   },
  *   links = {
  *     "canonical" = "/admin/structure/menu/item/{menu_link_content}/edit",
  *     "edit-form" = "/admin/structure/menu/item/{menu_link_content}/edit",
  *     "delete-form" = "/admin/structure/menu/item/{menu_link_content}/delete",
- *   },
- *   constraints = {
- *     "MenuTreeHierarchy" = {}
- *   },
+ *   }
  * )
  */
-class MenuLinkContent extends EditorialContentEntityBase implements MenuLinkContentInterface {
+class MenuLinkContent extends ContentEntityBase implements MenuLinkContentInterface {
 
   /**
    * A flag for whether this entity is wrapped in a plugin instance.
@@ -133,9 +119,7 @@ class MenuLinkContent extends EditorialContentEntityBase implements MenuLinkCont
    * {@inheritdoc}
    */
   public function getParentId() {
-    // Cast the parent ID to a string, only an empty string means no parent,
-    // NULL keeps the existing parent.
-    return (string) $this->get('parent')->value;
+    return $this->get('parent')->value;
   }
 
   /**
@@ -148,8 +132,15 @@ class MenuLinkContent extends EditorialContentEntityBase implements MenuLinkCont
   /**
    * {@inheritdoc}
    */
+  public function getChangedTime() {
+    return $this->get('changed')->value;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
   public function getPluginDefinition() {
-    $definition = [];
+    $definition = array();
     $definition['class'] = 'Drupal\menu_link_content\Plugin\Menu\MenuLinkContent';
     $definition['menu_name'] = $this->getMenuName();
 
@@ -171,7 +162,7 @@ class MenuLinkContent extends EditorialContentEntityBase implements MenuLinkCont
     $definition['description'] = $this->getDescription();
     $definition['weight'] = $this->getWeight();
     $definition['id'] = $this->getPluginId();
-    $definition['metadata'] = ['entity_id' => $this->id()];
+    $definition['metadata'] = array('entity_id' => $this->id());
     $definition['form_class'] = '\Drupal\menu_link_content\Form\MenuLinkContentForm';
     $definition['enabled'] = $this->isEnabled() ? 1 : 0;
     $definition['expanded'] = $this->isExpanded() ? 1 : 0;
@@ -202,39 +193,26 @@ class MenuLinkContent extends EditorialContentEntityBase implements MenuLinkCont
       $this->setRequiresRediscovery(FALSE);
     }
   }
-
   /**
    * {@inheritdoc}
    */
   public function postSave(EntityStorageInterface $storage, $update = TRUE) {
     parent::postSave($storage, $update);
 
-    // Don't update the menu tree if a pending revision was saved.
-    if (!$this->isDefaultRevision()) {
-      return;
-    }
-
     /** @var \Drupal\Core\Menu\MenuLinkManagerInterface $menu_link_manager */
     $menu_link_manager = \Drupal::service('plugin.manager.menu.link');
 
     // The menu link can just be updated if there is already an menu link entry
     // on both entity and menu link plugin level.
-    $definition = $this->getPluginDefinition();
-    // Even when $update is FALSE, for top level links it is possible the link
-    // already is in the storage because of the getPluginDefinition() call
-    // above, see https://www.drupal.org/node/2605684#comment-10515450 for the
-    // call chain. Because of this the $update flag is ignored and only the
-    // existence of the definition (equals to being in the tree storage) is
-    // checked.
-    if ($menu_link_manager->getDefinition($this->getPluginId(), FALSE)) {
+    if ($update && $menu_link_manager->getDefinition($this->getPluginId())) {
       // When the entity is saved via a plugin instance, we should not call
       // the menu tree manager to update the definition a second time.
       if (!$this->insidePlugin) {
-        $menu_link_manager->updateDefinition($this->getPluginId(), $definition, FALSE);
+        $menu_link_manager->updateDefinition($this->getPluginId(), $this->getPluginDefinition(), FALSE);
       }
     }
     else {
-      $menu_link_manager->addDefinition($this->getPluginId(), $definition);
+      $menu_link_manager->addDefinition($this->getPluginId(), $this->getPluginDefinition());
     }
   }
 
@@ -250,14 +228,6 @@ class MenuLinkContent extends EditorialContentEntityBase implements MenuLinkCont
     foreach ($entities as $menu_link) {
       /** @var \Drupal\menu_link_content\Entity\MenuLinkContent $menu_link */
       $menu_link_manager->removeDefinition($menu_link->getPluginId(), FALSE);
-
-      // Children get re-attached to the menu link's parent.
-      $parent_plugin_id = $menu_link->getParentId();
-      $children = $storage->loadByProperties(['parent' => $menu_link->getPluginId()]);
-      foreach ($children as $child) {
-        /** @var \Drupal\menu_link_content\Entity\MenuLinkContent $child */
-        $child->set('parent', $parent_plugin_id)->save();
-      }
     }
   }
 
@@ -265,83 +235,81 @@ class MenuLinkContent extends EditorialContentEntityBase implements MenuLinkCont
    * {@inheritdoc}
    */
   public static function baseFieldDefinitions(EntityTypeInterface $entity_type) {
-    /** @var \Drupal\Core\Field\BaseFieldDefinition[] $fields */
-    $fields = parent::baseFieldDefinitions($entity_type);
+    $fields['id'] = BaseFieldDefinition::create('integer')
+      ->setLabel(t('Entity ID'))
+      ->setDescription(t('The entity ID for this menu link content entity.'))
+      ->setReadOnly(TRUE)
+      ->setSetting('unsigned', TRUE);
 
-    // Add the publishing status field.
-    $fields += static::publishedBaseFieldDefinitions($entity_type);
+    $fields['uuid'] = BaseFieldDefinition::create('uuid')
+      ->setLabel(t('UUID'))
+      ->setDescription(t('The content menu link UUID.'))
+      ->setReadOnly(TRUE);
 
-    $fields['id']->setLabel(t('Entity ID'))
-      ->setDescription(t('The entity ID for this menu link content entity.'));
-
-    $fields['uuid']->setDescription(t('The content menu link UUID.'));
-
-    $fields['langcode']->setDescription(t('The menu link language code.'));
-
-    $fields['bundle']
+    $fields['bundle'] = BaseFieldDefinition::create('string')
+      ->setLabel(t('Bundle'))
       ->setDescription(t('The content menu link bundle.'))
       ->setSetting('max_length', EntityTypeInterface::BUNDLE_MAX_LENGTH)
-      ->setSetting('is_ascii', TRUE);
+      ->setReadOnly(TRUE);
 
     $fields['title'] = BaseFieldDefinition::create('string')
       ->setLabel(t('Menu link title'))
       ->setDescription(t('The text to be used for this link in the menu.'))
       ->setRequired(TRUE)
       ->setTranslatable(TRUE)
-      ->setRevisionable(TRUE)
-      ->setSetting('max_length', 255)
-      ->setDisplayOptions('view', [
+      ->setSettings(array(
+        'max_length' => 255,
+      ))
+      ->setDisplayOptions('view', array(
         'label' => 'hidden',
         'type' => 'string',
         'weight' => -5,
-      ])
-      ->setDisplayOptions('form', [
+      ))
+      ->setDisplayOptions('form', array(
         'type' => 'string_textfield',
         'weight' => -5,
-      ])
+      ))
       ->setDisplayConfigurable('form', TRUE);
 
     $fields['description'] = BaseFieldDefinition::create('string')
       ->setLabel(t('Description'))
       ->setDescription(t('Shown when hovering over the menu link.'))
       ->setTranslatable(TRUE)
-      ->setRevisionable(TRUE)
-      ->setSetting('max_length', 255)
-      ->setDisplayOptions('view', [
+      ->setSettings(array(
+        'max_length' => 255,
+      ))
+      ->setDisplayOptions('view', array(
         'label' => 'hidden',
         'type' => 'string',
         'weight' => 0,
-      ])
-      ->setDisplayOptions('form', [
+      ))
+      ->setDisplayOptions('form', array(
         'type' => 'string_textfield',
         'weight' => 0,
-      ]);
+      ));
 
     $fields['menu_name'] = BaseFieldDefinition::create('string')
       ->setLabel(t('Menu name'))
       ->setDescription(t('The menu name. All links with the same menu name (such as "tools") are part of the same menu.'))
-      ->setDefaultValue('tools')
-      ->setSetting('is_ascii', TRUE);
+      ->setDefaultValue('tools');
 
     $fields['link'] = BaseFieldDefinition::create('link')
       ->setLabel(t('Link'))
       ->setDescription(t('The location this menu link points to.'))
-      ->setRevisionable(TRUE)
       ->setRequired(TRUE)
-      ->setSettings([
+      ->setSettings(array(
         'link_type' => LinkItemInterface::LINK_GENERIC,
         'title' => DRUPAL_DISABLED,
-      ])
-      ->setDisplayOptions('form', [
+      ))
+      ->setDisplayOptions('form', array(
         'type' => 'link_default',
         'weight' => -2,
-      ]);
+      ));
 
     $fields['external'] = BaseFieldDefinition::create('boolean')
       ->setLabel(t('External'))
       ->setDescription(t('A flag to indicate if the link points to a full URL starting with a protocol, like http:// (1 = external, 0 = internal).'))
-      ->setDefaultValue(FALSE)
-      ->setRevisionable(TRUE);
+      ->setDefaultValue(FALSE);
 
     $fields['rediscover'] = BaseFieldDefinition::create('boolean')
       ->setLabel(t('Indicates whether the menu link should be rediscovered'))
@@ -351,44 +319,55 @@ class MenuLinkContent extends EditorialContentEntityBase implements MenuLinkCont
       ->setLabel(t('Weight'))
       ->setDescription(t('Link weight among links in the same menu at the same depth. In the menu, the links with high weight will sink and links with a low weight will be positioned nearer the top.'))
       ->setDefaultValue(0)
-      ->setDisplayOptions('view', [
+      ->setDisplayOptions('view', array(
         'label' => 'hidden',
-        'type' => 'number_integer',
+        'type' => 'integer',
         'weight' => 0,
-      ])
-      ->setDisplayOptions('form', [
+      ))
+      ->setDisplayOptions('form', array(
         'type' => 'number',
         'weight' => 20,
-      ]);
+      ));
 
     $fields['expanded'] = BaseFieldDefinition::create('boolean')
       ->setLabel(t('Show as expanded'))
-      ->setDescription(t('If selected and this menu link has children, the menu will always appear expanded. This option may be overridden for the entire menu tree when placing a menu block.'))
+      ->setDescription(t('If selected and this menu link has children, the menu will always appear expanded.'))
       ->setDefaultValue(FALSE)
-      ->setDisplayOptions('view', [
+      ->setDisplayOptions('view', array(
         'label' => 'hidden',
         'type' => 'boolean',
         'weight' => 0,
-      ])
-      ->setDisplayOptions('form', [
-        'settings' => ['display_label' => TRUE],
+      ))
+    ->setDisplayOptions('form', array(
+        'settings' => array('display_label' => TRUE),
         'weight' => 0,
-      ]);
+      ));
 
-    // Override some properties of the published field added by
-    // \Drupal\Core\Entity\EntityPublishedTrait::publishedBaseFieldDefinitions().
-    $fields['enabled']->setLabel(t('Enabled'));
-    $fields['enabled']->setDescription(t('A flag for whether the link should be enabled in menus or hidden.'));
-    $fields['enabled']->setTranslatable(FALSE);
-    $fields['enabled']->setDisplayOptions('view', [
-      'label' => 'hidden',
-      'type' => 'boolean',
-      'weight' => 0,
-    ]);
-    $fields['enabled']->setDisplayOptions('form', [
-      'settings' => ['display_label' => TRUE],
-      'weight' => -1,
-    ]);
+    $fields['enabled'] = BaseFieldDefinition::create('boolean')
+      ->setLabel(t('Enabled'))
+      ->setDescription(t('A flag for whether the link should be enabled in menus or hidden.'))
+      ->setDefaultValue(TRUE)
+      ->setDisplayOptions('view', array(
+        'label' => 'hidden',
+        'type' => 'boolean',
+        'weight' => 0,
+      ))
+      ->setDisplayOptions('form', array(
+        'settings' => array('display_label' => TRUE),
+        'weight' => -1,
+      ));
+
+    $fields['langcode'] = BaseFieldDefinition::create('language')
+      ->setLabel(t('Language'))
+      ->setDescription(t('The menu link language code.'))
+      ->setTranslatable(TRUE)
+      ->setDisplayOptions('view', array(
+        'type' => 'hidden',
+      ))
+      ->setDisplayOptions('form', array(
+        'type' => 'language_select',
+        'weight' => 2,
+      ));
 
     $fields['parent'] = BaseFieldDefinition::create('string')
       ->setLabel(t('Parent plugin ID'))
@@ -396,15 +375,7 @@ class MenuLinkContent extends EditorialContentEntityBase implements MenuLinkCont
 
     $fields['changed'] = BaseFieldDefinition::create('changed')
       ->setLabel(t('Changed'))
-      ->setDescription(t('The time that the menu link was last edited.'))
-      ->setTranslatable(TRUE)
-      ->setRevisionable(TRUE);
-
-    // @todo Keep this field hidden until we have a revision UI for menu links.
-    //   @see https://www.drupal.org/project/drupal/issues/2350939
-    $fields['revision_log_message']->setDisplayOptions('form', [
-      'region' => 'hidden',
-    ]);
+      ->setDescription(t('The time that the menu link was last edited.'));
 
     return $fields;
   }

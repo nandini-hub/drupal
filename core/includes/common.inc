@@ -8,19 +8,32 @@
  * a cached page are instead located in bootstrap.inc.
  */
 
-use Drupal\Component\Gettext\PoItem;
+use Drupal\Component\Serialization\Json;
+use Drupal\Component\Serialization\Yaml;
+use Drupal\Component\Serialization\Exception\InvalidDataTypeException;
 use Drupal\Component\Utility\Bytes;
-use Drupal\Component\Utility\Environment;
+use Drupal\Component\Utility\Crypt;
 use Drupal\Component\Utility\Html;
+use Drupal\Component\Utility\Number;
 use Drupal\Component\Utility\SortArray;
+use Drupal\Component\Utility\SafeMarkup;
+use Drupal\Component\Utility\Tags;
 use Drupal\Component\Utility\UrlHelper;
+use Drupal\Core\Asset\AttachedAssets;
 use Drupal\Core\Cache\Cache;
-use Drupal\Core\Form\FormHelper;
+use Drupal\Core\Language\LanguageInterface;
+use Drupal\Core\Render\Renderer;
+use Drupal\Core\Site\Settings;
+use Drupal\Core\Url;
+use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\Request;
+use Drupal\Core\PhpStorage\PhpStorageFactory;
+use Drupal\Component\Utility\NestedArray;
+use Drupal\Core\Datetime\DrupalDateTime;
+use Drupal\Core\Routing\GeneratorNotInitializedException;
+use Drupal\Core\Template\Attribute;
 use Drupal\Core\Render\Element;
-use Drupal\Core\Render\Element\Link;
-use Drupal\Core\Render\HtmlResponseAttachmentsProcessor;
-use Drupal\Core\Render\Markup;
-use Drupal\Core\StringTranslation\TranslatableMarkup;
+use Drupal\Core\Session\AnonymousUserSession;
 
 /**
  * @defgroup php_wrappers PHP wrapper functions
@@ -47,7 +60,7 @@ use Drupal\Core\StringTranslation\TranslatableMarkup;
  *
  * Correct:
  * @code
- *   $my_substring = mb_substr($original_string, 0, 5);
+ *   $my_substring = Unicode::substr($original_string, 0, 5);
  * @endcode
  *
  * @}
@@ -126,13 +139,70 @@ const JS_THEME = 100;
 /**
  * The delimiter used to split plural strings.
  *
- * @deprecated in drupal:8.0.0 and is removed from drupal:9.0.0.
- *   Use Drupal\Component\Gettext\PoItem::DELIMITER instead.
+ * This is the ETX (End of text) character and is used as a minimal means to
+ * separate singular and plural variants in source and translation text. It
+ * was found to be the most compatible delimiter for the supported databases.
  */
-const LOCALE_PLURAL_DELIMITER = PoItem::DELIMITER;
+const LOCALE_PLURAL_DELIMITER = "\03";
 
 /**
- * Prepares a 'destination' URL query parameter.
+ * Adds output to the HEAD tag of the HTML page.
+ *
+ * This function can be called as long as the headers aren't sent. Pass no
+ * arguments (or NULL for both) to retrieve the currently stored elements.
+ *
+ * @param $data
+ *   A renderable array. If the '#type' key is not set then 'html_tag' will be
+ *   added as the default '#type'.
+ * @param $key
+ *   A unique string key to allow implementations of hook_html_head_alter() to
+ *   identify the element in $data. Required if $data is not NULL.
+ *
+ * @return
+ *   An array of all stored HEAD elements.
+ *
+ * @see \Drupal\Core\Render\Element\HtmlTag::preRenderHtmlTag()
+ *
+ * @deprecated in Drupal 8.0.x, will be removed before Drupal 8.0.0
+ *   Use #attached on render arrays.
+ */
+function _drupal_add_html_head($data = NULL, $key = NULL) {
+  $stored_head = &drupal_static(__FUNCTION__, array());
+
+  if (isset($data) && isset($key)) {
+    if (!isset($data['#type'])) {
+      $data['#type'] = 'html_tag';
+    }
+    $stored_head[$key] = $data;
+  }
+  return $stored_head;
+}
+
+/**
+ * Retrieves output to be displayed in the HEAD tag of the HTML page.
+ *
+ * @param bool $render
+ *   If TRUE render the HEAD elements, otherwise return just the elements.
+ *
+ * @return string|array
+ *   Return the rendered HTML head or the elements itself.
+ *
+ * @deprecated in Drupal 8.0.x, will be removed before Drupal 8.0.0
+ *   Use #attached on render arrays.
+ */
+function drupal_get_html_head($render = TRUE) {
+  $elements = _drupal_add_html_head();
+  \Drupal::moduleHandler()->alter('html_head', $elements);
+  if ($render) {
+    return drupal_render($elements);
+  }
+  else {
+    return $elements;
+  }
+}
+
+/**
+ * Prepares a 'destination' URL query parameter for use with url().
  *
  * Used to direct the user back to the referring page after completing a form.
  * By default the current URL is returned. If a destination exists in the
@@ -147,13 +217,12 @@ const LOCALE_PLURAL_DELIMITER = PoItem::DELIMITER;
  *     If the query parameter isn't present, then the URL of the current
  *     request is returned.
  *
+ * @see \Drupal\Core\EventSubscriber\RedirectResponseSubscriber::checkRedirectUrl()
+ *
  * @ingroup form_api
  *
- * @deprecated in drupal:8.0.0 and is removed from drupal:9.0.0.
+ * @deprecated in Drupal 8.0.x-dev, will be removed before Drupal 9.0.0.
  *   Use the redirect.destination service.
- *
- * @see \Drupal\Core\EventSubscriber\RedirectResponseSubscriber::checkRedirectUrl()
- * @see https://www.drupal.org/node/2448603
  */
 function drupal_get_destination() {
   return \Drupal::destination()->getAsArray();
@@ -174,10 +243,8 @@ function drupal_get_destination() {
  * @return bool
  *   TRUE if the address is in a valid format.
  *
- * @deprecated in drupal:8.0.0 and is removed from drupal:9.0.0.
+ * @deprecated in Drupal 8.0.x-dev, will be removed before Drupal 9.0.0.
  *   Use \Drupal::service('email.validator')->isValid().
- *
- * @see https://www.drupal.org/node/2912661
  */
 function valid_email_address($mail) {
   return \Drupal::service('email.validator')->isValid($mail);
@@ -192,7 +259,7 @@ function valid_email_address($mail) {
  * @{
  * Functions to sanitize values.
  *
- * See https://www.drupal.org/writing-secure-code for information
+ * See http://drupal.org/writing-secure-code for information
  * on writing secure code.
  */
 
@@ -202,7 +269,7 @@ function valid_email_address($mail) {
  * @param $uri
  *   A plain-text URI that might contain dangerous protocols.
  *
- * @return string
+ * @return
  *   A URI stripped of dangerous protocols and encoded for output to an HTML
  *   attribute value. Because it is already encoded, it should not be set as a
  *   value within a $attributes array passed to Drupal\Core\Template\Attribute,
@@ -211,22 +278,11 @@ function valid_email_address($mail) {
  *   Drupal\Core\Template\Attribute, call
  *   \Drupal\Component\Utility\UrlHelper::stripDangerousProtocols() instead.
  *
- * @deprecated in drupal:8.0.0 and is removed from drupal:9.0.0.
- *   Use UrlHelper::stripDangerousProtocols() or UrlHelper::filterBadProtocol()
- *   instead. UrlHelper::stripDangerousProtocols() can be used in conjunction
- *   with \Drupal\Component\Render\FormattableMarkup and an @variable
- *   placeholder which will perform the necessary escaping.
- *   UrlHelper::filterBadProtocol() is functionality equivalent to check_url()
- *   apart from the fact it is protected from double escaping bugs. Note that
- *   this method no longer marks its output as safe.
- *
  * @see \Drupal\Component\Utility\UrlHelper::stripDangerousProtocols()
- * @see \Drupal\Component\Utility\UrlHelper::filterBadProtocol()
- * @see https://www.drupal.org/node/2560027
+ * @see \Drupal\Component\Utility\SafeMarkup::checkPlain()
  */
 function check_url($uri) {
-  @trigger_error(__FUNCTION__ . '() is deprecated in Drupal 8.0.0 and will be removed before Drupal 9.0.0. Use UrlHelper::stripDangerousProtocols() or UrlHelper::filterBadProtocol() instead. See https://www.drupal.org/node/2560027', E_USER_DEPRECATED);
-  return Html::escape(UrlHelper::stripDangerousProtocols($uri));
+  return SafeMarkup::checkPlain(UrlHelper::stripDangerousProtocols($uri));
 }
 
 /**
@@ -240,6 +296,53 @@ function check_url($uri) {
  */
 
 /**
+ * Formats XML elements.
+ *
+ * Note: It is the caller's responsibility to sanitize any input parameters.
+ * This function does not perform sanitization.
+ *
+ * @param $array
+ *   An array where each item represents an element and is either a:
+ *   - (key => value) pair (<key>value</key>)
+ *   - Associative array with fields:
+ *     - 'key': The element name. Element names are not sanitized, so do not
+ *       pass user input.
+ *     - 'value': element contents
+ *     - 'attributes': associative array of element attributes
+ *
+ * In both cases, 'value' can be a simple string, or it can be another array
+ * with the same format as $array itself for nesting.
+ */
+function format_xml_elements($array) {
+  $output = '';
+  foreach ($array as $key => $value) {
+    if (is_numeric($key)) {
+      if ($value['key']) {
+        $output .= ' <' . $value['key'];
+        if (isset($value['attributes']) && is_array($value['attributes'])) {
+          $output .= new Attribute($value['attributes']);
+        }
+
+        if (isset($value['value']) && $value['value'] != '') {
+          $output .= '>' . (is_array($value['value']) ? format_xml_elements($value['value']) : SafeMarkup::checkPlain($value['value'])) . '</' . $value['key'] . ">\n";
+        }
+        else {
+          $output .= " />\n";
+        }
+      }
+    }
+    else {
+      $output .= ' <' . $key . '>' . (is_array($value) ? format_xml_elements($value) : SafeMarkup::checkPlain($value)) . "</$key>\n";
+    }
+  }
+  // @todo This is marking the output string as safe HTML, but we have only
+  //   sanitized the attributes and tag values, not the tag names, and we
+  //   cannot guarantee the assembled markup is safe. Consider a fix in:
+  //   https://www.drupal.org/node/2296885
+  return SafeMarkup::set($output);
+}
+
+/**
  * Generates a string representation for the given byte count.
  *
  * @param $size
@@ -248,49 +351,34 @@ function check_url($uri) {
  *   Optional language code to translate to a language other than what is used
  *   to display the page.
  *
- * @return \Drupal\Core\StringTranslation\TranslatableMarkup
+ * @return
  *   A translated string representation of the size.
  */
 function format_size($size, $langcode = NULL) {
-  $absolute_size = abs($size);
-  if ($absolute_size < Bytes::KILOBYTE) {
-    return \Drupal::translation()->formatPlural($size, '1 byte', '@count bytes', [], ['langcode' => $langcode]);
+  if ($size < Bytes::KILOBYTE) {
+    return \Drupal::translation()->formatPlural($size, '1 byte', '@count bytes', array(), array('langcode' => $langcode));
   }
-  // Create a multiplier to preserve the sign of $size.
-  $sign = $absolute_size / $size;
-  foreach (['KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'] as $unit) {
-    $absolute_size /= Bytes::KILOBYTE;
-    $rounded_size = round($absolute_size, 2);
-    if ($rounded_size < Bytes::KILOBYTE) {
-      break;
+  else {
+    $size = $size / Bytes::KILOBYTE; // Convert bytes to kilobytes.
+    $units = array(
+      t('@size KB', array(), array('langcode' => $langcode)),
+      t('@size MB', array(), array('langcode' => $langcode)),
+      t('@size GB', array(), array('langcode' => $langcode)),
+      t('@size TB', array(), array('langcode' => $langcode)),
+      t('@size PB', array(), array('langcode' => $langcode)),
+      t('@size EB', array(), array('langcode' => $langcode)),
+      t('@size ZB', array(), array('langcode' => $langcode)),
+      t('@size YB', array(), array('langcode' => $langcode)),
+    );
+    foreach ($units as $unit) {
+      if (round($size, 2) >= Bytes::KILOBYTE) {
+        $size = $size / Bytes::KILOBYTE;
+      }
+      else {
+        break;
+      }
     }
-  }
-  $args = ['@size' => $rounded_size * $sign];
-  $options = ['langcode' => $langcode];
-  switch ($unit) {
-    case 'KB':
-      return new TranslatableMarkup('@size KB', $args, $options);
-
-    case 'MB':
-      return new TranslatableMarkup('@size MB', $args, $options);
-
-    case 'GB':
-      return new TranslatableMarkup('@size GB', $args, $options);
-
-    case 'TB':
-      return new TranslatableMarkup('@size TB', $args, $options);
-
-    case 'PB':
-      return new TranslatableMarkup('@size PB', $args, $options);
-
-    case 'EB':
-      return new TranslatableMarkup('@size EB', $args, $options);
-
-    case 'ZB':
-      return new TranslatableMarkup('@size ZB', $args, $options);
-
-    case 'YB':
-      return new TranslatableMarkup('@size YB', $args, $options);
+    return str_replace('@size', round($size, 2), $unit);
   }
 }
 
@@ -323,36 +411,61 @@ function format_size($size, $langcode = NULL) {
  * @return
  *   A translated date string in the requested format.
  *
- * @deprecated in drupal:8.0.0 and is removed from drupal:9.0.0.
- *   Use \Drupal::service('date.formatter')->format().
- *
  * @see \Drupal\Core\Datetime\DateFormatter::format()
- * @see https://www.drupal.org/node/1876852
  */
 function format_date($timestamp, $type = 'medium', $format = '', $timezone = NULL, $langcode = NULL) {
-  @trigger_error("format_date() is deprecated in Drupal 8.0.0 and will be removed before Drupal 9.0.0. Use \Drupal::service('date.formatter')->format() instead. See https://www.drupal.org/node/1876852", E_USER_DEPRECATED);
   return \Drupal::service('date.formatter')->format($timestamp, $type, $format, $timezone, $langcode);
 }
 
 /**
  * Returns an ISO8601 formatted date based on the given date.
  *
- * @param string $date
+ * @param $date
  *   A UNIX timestamp.
  *
  * @return string
  *   An ISO8601 formatted date.
- *
- * @deprecated in drupal:8.7.0 and is removed from drupal:9.0.0. Use
- *   date('c', $date) instead.
- *
- * @see https://www.drupal.org/node/2999991
  */
 function date_iso8601($date) {
-  @trigger_error('date_iso8601() is deprecated in Drupal 8.7.0 and will be removed before Drupal 9.0.0. Use date("c", $date) instead. See https://www.drupal.org/node/2999991.', E_USER_DEPRECATED);
   // The DATE_ISO8601 constant cannot be used here because it does not match
   // date('c') and produces invalid RDF markup.
   return date('c', $date);
+}
+
+/**
+ * Translates a formatted date string.
+ *
+ * Callback for preg_replace_callback() within format_date().
+ */
+function _format_date_callback(array $matches = NULL, $new_langcode = NULL) {
+  // We cache translations to avoid redundant and rather costly calls to t().
+  static $cache, $langcode;
+
+  if (!isset($matches)) {
+    $langcode = $new_langcode;
+    return;
+  }
+
+  $code = $matches[1];
+  $string = $matches[2];
+
+  if (!isset($cache[$langcode][$code][$string])) {
+    $options = array(
+      'langcode' => $langcode,
+    );
+
+    if ($code == 'F') {
+      $options['context'] = 'Long month name';
+    }
+
+    if ($code == '') {
+      $cache[$langcode][$code][$string] = $string;
+    }
+    else {
+      $cache[$langcode][$code][$string] = t($string, array(), $options);
+    }
+  }
+  return $cache[$langcode][$code][$string];
 }
 
 /**
@@ -362,22 +475,21 @@ function date_iso8601($date) {
 /**
  * Formats an attribute string for an HTTP header.
  *
- * @param array $attributes
+ * @param $attributes
  *   An associative array of attributes such as 'rel'.
  *
- * @return string
+ * @return
  *   A ; separated string ready for insertion in a HTTP header. No escaping is
  *   performed for HTML entities, so this string is not safe to be printed.
- *
- * @deprecated in drupal:8.7.0 and is removed from drupal:9.0.0. Use
- *   \Drupal\Core\Render\HtmlResponseAttachmentsProcessor::formatHttpHeaderAttributes()
- *   instead.
- *
- * @see https://www.drupal.org/node/3000051
  */
-function drupal_http_header_attributes(array $attributes = []) {
-  @trigger_error("drupal_http_header_attributes() is deprecated in Drupal 8.7.0 and will be removed before Drupal 9.0.0. Use \Drupal\Core\Render\HtmlResponseAttachmentsProcessor::formatHttpHeaderAttributes() instead. See https://www.drupal.org/node/3000051", E_USER_DEPRECATED);
-  return HtmlResponseAttachmentsProcessor::formatHttpHeaderAttributes($attributes);
+function drupal_http_header_attributes(array $attributes = array()) {
+  foreach ($attributes as $attribute => &$data) {
+    if (is_array($data)) {
+      $data = implode(' ', $data);
+    }
+    $data = $attribute . '="' . $data . '"';
+  }
+  return $attributes ? ' ' . implode('; ', $attributes) : '';
 }
 
 /**
@@ -407,22 +519,22 @@ function drupal_http_header_attributes(array $attributes = []) {
  *   indicates unlimited execution time.
  *
  * @ingroup php_wrappers
- *
- * @deprecated in drupal:8.7.0 and is removed from drupal:9.0.0. Use
- *   \Drupal\Component\Utility\Environment::setTimeLimit() instead.
- *
- * @see https://www.drupal.org/node/3000058
  */
 function drupal_set_time_limit($time_limit) {
-  @trigger_error('drupal_set_time_limit() is deprecated in Drupal 8.7.0 and will be removed before Drupal 9.0.0. Use \Drupal\Component\Utility\Environment::setTimeLimit() instead. See https://www.drupal.org/node/3000058.', E_USER_DEPRECATED);
-  Environment::setTimeLimit($time_limit);
+  if (function_exists('set_time_limit')) {
+    $current = ini_get('max_execution_time');
+    // Do not set time limit if it is currently unlimited.
+    if ($current != 0) {
+      @set_time_limit($time_limit);
+    }
+  }
 }
 
 /**
  * Returns the base URL path (i.e., directory) of the Drupal installation.
  *
- * Function base_path() adds a "/" to the beginning and end of the returned path
- * if the path is not empty. At the very least, this will return "/".
+ * base_path() adds a "/" to the beginning and end of the returned path if the
+ * path is not empty. At the very least, this will return "/".
  *
  * Examples:
  * - http://example.com returns "/" because the path is empty.
@@ -433,12 +545,43 @@ function base_path() {
 }
 
 /**
+ * Adds a LINK tag with a distinct 'rel' attribute to the page's HEAD.
+ *
+ * This function can be called as long the HTML header hasn't been sent, which
+ * on normal pages is up through the preprocess step of _theme('html'). Adding
+ * a link will overwrite a prior link with the exact same 'rel' and 'href'
+ * attributes.
+ *
+ * @param $attributes
+ *   Associative array of element attributes including 'href' and 'rel'.
+ * @param $header
+ *   Optional flag to determine if a HTTP 'Link:' header should be sent.
+ *
+ * @deprecated in Drupal 8.0.x, will be removed before Drupal 8.0.0
+ *   Use #attached on render arrays.
+ */
+function _drupal_add_html_head_link($attributes, $header = FALSE) {
+  $element = array(
+    '#tag' => 'link',
+    '#attributes' => $attributes,
+  );
+  $href = $attributes['href'];
+
+  if ($header) {
+    // Also add a HTTP header "Link:".
+    $href = '<' . SafeMarkup::checkPlain($attributes['href']) . '>;';
+    unset($attributes['href']);
+    $element['#attached']['http_header'][] = array('Link',  $href . drupal_http_header_attributes($attributes), TRUE);
+  }
+
+  _drupal_add_html_head($element, 'html_head_link:' . $attributes['rel'] . ':' . $href);
+}
+
+/**
  * Deletes old cached CSS files.
  *
- * @deprecated in drupal:8.0.0 and is removed from drupal:9.0.0.
+ * @deprecated in Drupal 8.x, will be removed before Drupal 9.0.
  *   Use \Drupal\Core\Asset\AssetCollectionOptimizerInterface::deleteAll().
- *
- * @see https://www.drupal.org/node/2317841
  */
 function drupal_clear_css_cache() {
   \Drupal::service('asset.css.collection_optimizer')->deleteAll();
@@ -453,18 +596,141 @@ function drupal_clear_css_cache() {
  * @see hook_js_alter()
  */
 function drupal_js_defaults($data = NULL) {
-  return [
+  return array(
     'type' => 'file',
     'group' => JS_DEFAULT,
+    'every_page' => FALSE,
     'weight' => 0,
     'scope' => 'header',
     'cache' => TRUE,
     'preprocess' => TRUE,
-    'attributes' => [],
+    'attributes' => array(),
     'version' => NULL,
     'data' => $data,
-    'browsers' => [],
-  ];
+    'browsers' => array(),
+  );
+}
+
+/**
+ * Merges two #attached arrays.
+ *
+ * The values under the 'drupalSettings' key are merged in a special way, to
+ * match the behavior of:
+ *
+ * @code
+ *   jQuery.extend(true, {}, $settings_items[0], $settings_items[1], ...)
+ * @endcode
+ *
+ * This means integer indices are preserved just like string indices are,
+ * rather than re-indexed as is common in PHP array merging.
+ *
+ * Example:
+ * @code
+ * function module1_page_attachments(&$page) {
+ *   $page['a']['#attached']['drupalSettings']['foo'] = ['a', 'b', 'c'];
+ * }
+ * function module2_page_attachments(&$page) {
+ *   $page['#attached']['drupalSettings']['foo'] = ['d'];
+ * }
+ * // When the page is rendered after the above code, and the browser runs the
+ * // resulting <SCRIPT> tags, the value of drupalSettings.foo is
+ * // ['d', 'b', 'c'], not ['a', 'b', 'c', 'd'].
+ * @endcode
+ *
+ * By following jQuery.extend() merge logic rather than common PHP array merge
+ * logic, the following are ensured:
+ * - Attaching JavaScript settings is idempotent: attaching the same settings
+ *   twice does not change the output sent to the browser.
+ * - If pieces of the page are rendered in separate PHP requests and the
+ *   returned settings are merged by JavaScript, the resulting settings are the
+ *   same as if rendered in one PHP request and merged by PHP.
+ *
+ * @param array $a
+ *   An #attached array.
+ * @param array $b
+ *   Another #attached array.
+ *
+ * @return array
+ *   The merged #attached array.
+ *
+ * @deprecated To be removed in Drupal 8.0.x. Use
+ *   \Drupal\Core\Render\Renderer::mergeAttachments() instead.
+ */
+function drupal_merge_attached(array $a, array $b) {
+  return \Drupal::service('renderer')->mergeAttachments($a, $b);
+}
+
+/**
+ * Processes non-asset attachments in a render() structure.
+ *
+ * Libraries, JavaScript settings, feeds, HTML <head> tags and HTML <head> links
+ * are attached to elements using the #attached property. The #attached property
+ * is an associative array, where the keys are the attachment types and the
+ * values are the attached data. For example:
+ *
+ * @code
+ * $build['#attached'] = [
+ *   'library' => ['core/jquery']
+ * ];
+ * $build['#attached']['http_header'] = [
+ *   ['Content-Type', 'application/rss+xml; charset=utf-8'],
+ * ];
+ * @endcode
+ *
+ * The available keys are:
+ * - 'library' (asset libraries)
+ * - 'drupalSettings' (JavaScript settings)
+ * - 'feed' (RSS feeds)
+ * - 'html_head' (tags in HTML <head>)
+ * - 'html_head_link' (<link> tags in HTML <head>)
+ * - 'http_header' (HTTP headers)
+ *
+ * This function processes all non-asset attachments, to apply them to the
+ * current response (that means all keys except 'library' and 'drupalSettings').
+ *
+ * @param array $elements
+ *   The structured array describing the data being rendered.
+ *
+ * @see drupal_render()
+ * @see \Drupal\Core\Asset\AssetResolver
+ *
+ * @throws LogicException
+ *   When attaching something of a non-existing attachment type.
+ */
+function drupal_process_attached(array $elements) {
+  // Asset attachments are handled by \Drupal\Core\Asset\AssetResolver.
+  foreach (array('library', 'drupalSettings') as $type) {
+    unset($elements['#attached'][$type]);
+  }
+
+  // Add additional types of attachments specified in the render() structure.
+  foreach ($elements['#attached'] as $callback => $options) {
+    foreach ($elements['#attached'][$callback] as $args) {
+      // Limit the amount allowed entries.
+      switch ($callback) {
+        case 'html_head':
+          call_user_func_array('_drupal_add_html_head', $args);
+          break;
+        case 'feed':
+          $args = [[
+            'href' => $args[0],
+            'rel' => 'alternate',
+            'title' => $args[1],
+            'type' => 'application/rss+xml',
+          ]];
+          call_user_func_array('_drupal_add_html_head_link', $args);
+          break;
+        case 'html_head_link':
+          call_user_func_array('_drupal_add_html_head_link', $args);
+          break;
+        case 'http_header':
+          call_user_func_array('_drupal_add_http_header', $args);
+          break;
+        default:
+          throw new \LogicException(sprintf('You are not allowed to use %s in #attached', $callback));
+      }
+    }
+  }
 }
 
 /**
@@ -503,7 +769,7 @@ function drupal_js_defaults($data = NULL) {
  *
  * Every condition is a key/value pair, whose key is a jQuery selector that
  * denotes another element on the page, and whose value is an array of
- * conditions, which must be met on that element:
+ * conditions, which must bet met on that element:
  * @code
  * array(
  *   'visible' => array(
@@ -588,15 +854,16 @@ function drupal_js_defaults($data = NULL) {
  * @param $elements
  *   A renderable array element having a #states property as described above.
  *
- * @deprecated in drupal:8.8.0 and is removed from drupal:9.0.0. Use
- *   \Drupal\Core\Form\FormHelper::processStates() instead.
- *
- * @see https://www.drupal.org/node/3000069
- * @see \Drupal\Core\Form\FormHelper::processStates()
+ * @see form_example_states_form()
  */
 function drupal_process_states(&$elements) {
-  @trigger_error('drupal_process_states() is deprecated in drupal:8.8.0 and is removed from drupal:9.0.0. Use \Drupal\Core\Form\FormHelper::processStates() instead. See https://www.drupal.org/node/3000069', E_USER_DEPRECATED);
-  FormHelper::processStates($elements);
+  $elements['#attached']['library'][] = 'core/drupal.states';
+  // Elements of '#type' => 'item' are not actual form input elements, but we
+  // still want to be able to show/hide them. Since there's no actual HTML input
+  // element available, setting #attributes does not make sense, but a wrapper
+  // is available, so setting #wrapper_attributes makes it work.
+  $key = ($elements['#type'] == 'item') ? '#wrapper_attributes' : '#attributes';
+  $elements[$key]['data-drupal-states'] = JSON::encode($elements['#states']);
 }
 
 /**
@@ -619,7 +886,7 @@ function drupal_process_states(&$elements) {
  *     'id' => 'my-module-table',
  *   ),
  * );
- * return \Drupal::service('renderer')->render($table);
+ * return drupal_render($table);
  * @endcode
  *
  * In the theme function for the form, a special class must be added to each
@@ -671,9 +938,9 @@ function drupal_process_states(&$elements) {
  * foreach ($regions as $region) {
  *   drupal_attach_tabledrag('my-module-table', array(
  *     'action' => 'order',
- *     'relationship' => 'sibling',
+ *     'relationship' => sibling',
  *     'group' => 'my-elements-weight',
- *     'subgroup' => 'my-elements-weight-' . $region,
+ *     'subgroup' => my-elements-weight-' . $region,
  *   ));
  * }
  * @endcode
@@ -723,12 +990,12 @@ function drupal_process_states(&$elements) {
  */
 function drupal_attach_tabledrag(&$element, array $options) {
   // Add default values to elements.
-  $options = $options + [
+  $options = $options + array(
     'subgroup' => NULL,
     'source' => NULL,
     'hidden' => TRUE,
-    'limit' => 0,
-  ];
+    'limit' => 0
+  );
 
   $group = $options['group'];
 
@@ -738,14 +1005,14 @@ function drupal_attach_tabledrag(&$element, array $options) {
   // If a subgroup or source isn't set, assume it is the same as the group.
   $target = isset($options['subgroup']) ? $options['subgroup'] : $group;
   $source = isset($options['source']) ? $options['source'] : $target;
-  $element['#attached']['drupalSettings']['tableDrag'][$options['table_id']][$group][$tabledrag_id] = [
+  $element['#attached']['drupalSettings']['tableDrag'][$options['table_id']][$group][$tabledrag_id] = array(
     'target' => $target,
     'source' => $source,
     'relationship' => $options['relationship'],
     'action' => $options['action'],
     'hidden' => $options['hidden'],
     'limit' => $options['limit'],
-  ];
+  );
 
   $element['#attached']['library'][] = 'core/drupal.tabledrag';
 }
@@ -753,10 +1020,8 @@ function drupal_attach_tabledrag(&$element, array $options) {
 /**
  * Deletes old cached JavaScript files and variables.
  *
- * @deprecated in drupal:8.0.0 and is removed from drupal:9.0.0.
+ * @deprecated in Drupal 8.x, will be removed before Drupal 9.0.
  *   Use \Drupal\Core\Asset\AssetCollectionOptimizerInterface::deleteAll().
- *
- * @see https://www.drupal.org/node/2317841
  */
 function drupal_clear_js_cache() {
   \Drupal::service('asset.js.collection_optimizer')->deleteAll();
@@ -765,48 +1030,126 @@ function drupal_clear_js_cache() {
 /**
  * Pre-render callback: Renders a link into #markup.
  *
- * @deprecated in drupal:8.0.0 and is removed from drupal:9.0.0.
- *   Use \Drupal\Core\Render\Element\Link::preRenderLink().
+ * @deprecated Use \Drupal\Core\Render\Element\Link::preRenderLink().
  */
 function drupal_pre_render_link($element) {
-  return Link::preRenderLink($element);
+  return Element\Link::preRenderLink($element);
 }
 
 /**
  * Pre-render callback: Collects child links into a single array.
  *
- * @deprecated in drupal:8.0.0 and is removed from drupal:9.0.0. Use
- *   \Drupal\Core\Render\Element\Link::preRenderLinks() instead.
+ * This function can be added as a pre_render callback for a renderable array,
+ * usually one which will be themed by links.html.twig. It iterates through all
+ * unrendered children of the element, collects any #links properties it finds,
+ * merges them into the parent element's #links array, and prevents those
+ * children from being rendered separately.
  *
- * @see https://www.drupal.org/node/2966725
+ * The purpose of this is to allow links to be logically grouped into related
+ * categories, so that each child group can be rendered as its own list of
+ * links if drupal_render() is called on it, but calling drupal_render() on the
+ * parent element will still produce a single list containing all the remaining
+ * links, regardless of what group they were in.
+ *
+ * A typical example comes from node links, which are stored in a renderable
+ * array similar to this:
+ * @code
+ * $build['links'] = array(
+ *   '#theme' => 'links__node',
+ *   '#pre_render' => array('drupal_pre_render_links'),
+ *   'comment' => array(
+ *     '#theme' => 'links__node__comment',
+ *     '#links' => array(
+ *       // An array of links associated with node comments, suitable for
+ *       // passing in to links.html.twig.
+ *     ),
+ *   ),
+ *   'statistics' => array(
+ *     '#theme' => 'links__node__statistics',
+ *     '#links' => array(
+ *       // An array of links associated with node statistics, suitable for
+ *       // passing in to links.html.twig.
+ *     ),
+ *   ),
+ *   'translation' => array(
+ *     '#theme' => 'links__node__translation',
+ *     '#links' => array(
+ *       // An array of links associated with node translation, suitable for
+ *       // passing in to links.html.twig.
+ *     ),
+ *   ),
+ * );
+ * @endcode
+ *
+ * In this example, the links are grouped by functionality, which can be
+ * helpful to themers who want to display certain kinds of links independently.
+ * For example, adding this code to node.html.twig will result in the comment
+ * links being rendered as a single list:
+ * @code
+ * {{ content.links.comment }}
+ * @endcode
+ *
+ * (where a node's content has been transformed into $content before handing
+ * control to the node.html.twig template).
+ *
+ * The pre_render function defined here allows the above flexibility, but also
+ * allows the following code to be used to render all remaining links into a
+ * single list, regardless of their group:
+ * @code
+ * {{ content.links }}
+ * @endcode
+ *
+ * In the above example, this will result in the statistics and translation
+ * links being rendered together in a single list (but not the comment links,
+ * which were rendered previously on their own).
+ *
+ * Because of the way this function works, the individual properties of each
+ * group (for example, a group-specific #theme property such as
+ * 'links__node__comment' in the example above, or any other property such as
+ * #attributes or #pre_render that is attached to it) are only used when that
+ * group is rendered on its own. When the group is rendered together with other
+ * children, these child-specific properties are ignored, and only the overall
+ * properties of the parent are used.
  */
 function drupal_pre_render_links($element) {
-  @trigger_error('drupal_pre_render_links() is deprecated in Drupal 8.8.0 and will be removed before Drupal 9.0.0. Use \Drupal\Core\Render\Element\Link::preRenderLinks() instead. See https://www.drupal.org/node/2966725', E_USER_DEPRECATED);
-  return Link::preRenderLinks($element);
+  $element += array('#links' => array(), '#attached' => array());
+  foreach (Element::children($element) as $key) {
+    $child = &$element[$key];
+    // If the child has links which have not been printed yet and the user has
+    // access to it, merge its links in to the parent.
+    if (isset($child['#links']) && empty($child['#printed']) && (!isset($child['#access']) || $child['#access'])) {
+      $element['#links'] += $child['#links'];
+      // Mark the child as having been printed already (so that its links
+      // cannot be mistakenly rendered twice).
+      $child['#printed'] = TRUE;
+    }
+    // Merge attachments.
+    if (isset($child['#attached'])) {
+      $element['#attached'] = drupal_merge_attached($element['#attached'], $child['#attached']);
+    }
+  }
+  return $element;
 }
 
 /**
  * Renders final HTML given a structured array tree.
  *
- * @deprecated in drupal:8.0.0 and is removed from drupal:9.0.0. Use
- *   \Drupal\Core\Render\RendererInterface::renderRoot() instead.
+ * @deprecated as of Drupal 8.0.x, will be removed before Drupal 9.0.0. Use the
+ *   'renderer' service instead.
  *
  * @see \Drupal\Core\Render\RendererInterface::renderRoot()
- * @see https://www.drupal.org/node/2912696
  */
 function drupal_render_root(&$elements) {
-  @trigger_error('drupal_render_root() is deprecated in drupal:8.0.0 and is removed from drupal:9.0.0. Use \Drupal\Core\Render\RendererInterface::renderRoot() instead. See https://www.drupal.org/node/2912696', E_USER_DEPRECATED);
   return \Drupal::service('renderer')->renderRoot($elements);
 }
 
 /**
  * Renders HTML given a structured array tree.
  *
- * @deprecated in drupal:8.0.0 and is removed from drupal:9.0.0. Use the
+ * @deprecated as of Drupal 8.0.x, will be removed before Drupal 9.0.0. Use the
  *   'renderer' service instead.
  *
  * @see \Drupal\Core\Render\RendererInterface::render()
- * @see https://www.drupal.org/node/2912696
  */
 function drupal_render(&$elements, $is_recursive_call = FALSE) {
   return \Drupal::service('renderer')->render($elements, $is_recursive_call);
@@ -822,15 +1165,9 @@ function drupal_render(&$elements, $is_recursive_call = FALSE) {
  *   can be passed in to save another run of
  *   \Drupal\Core\Render\Element::children().
  *
- * @return string|\Drupal\Component\Render\MarkupInterface
+ * @return string
  *   The rendered HTML of all children of the element.
- *
- * @deprecated in drupal:8.0.0 and is removed from drupal:9.0.0. Avoid early
- *   rendering when possible or loop through the elements and render them as
- *   they are available.
- *
- * @see \Drupal\Core\Render\RendererInterface::render()
- * @see https://www.drupal.org/node/2912757
+ * @see drupal_render()
  */
 function drupal_render_children(&$element, $children_keys = NULL) {
   if ($children_keys === NULL) {
@@ -839,10 +1176,10 @@ function drupal_render_children(&$element, $children_keys = NULL) {
   $output = '';
   foreach ($children_keys as $key) {
     if (!empty($element[$key])) {
-      $output .= \Drupal::service('renderer')->render($element[$key]);
+      $output .= drupal_render($element[$key]);
     }
   }
-  return Markup::create($output);
+  return SafeMarkup::set($output);
 }
 
 /**
@@ -937,15 +1274,40 @@ function show(&$element) {
 }
 
 /**
+ * Generates a render cache placeholder.
+ *
+ * This can be used to generate placeholders, and hence should also be used by
+ * #post_render_cache callbacks that want to replace the placeholder with the
+ * final markup.
+ *
+ * @param string $callback
+ *   The #post_render_cache callback that will replace the placeholder with its
+ *   eventual markup.
+ * @param array $context
+ *   An array providing context for the #post_render_cache callback. This array
+ *   will be altered to provide a 'token' key/value pair, if not already
+ *   provided, to uniquely identify the generated placeholder.
+ *
+ * @return string
+ *   The generated placeholder HTML.
+ *
+ * @throws \Exception
+ *
+ * @deprecated in Drupal 8.0.x-dev, will be removed before Drupal 9.0.0.
+ *   Use \Drupal::service('renderer')->generateCachePlaceholder().
+ */
+function drupal_render_cache_generate_placeholder($callback, array &$context) {
+  return \Drupal::service('renderer')->generateCachePlaceholder($callback, $context);
+}
+
+/**
  * Retrieves the default properties for the defined element type.
  *
  * @param $type
- *   An element type as defined by an element plugin.
+ *   An element type as defined by hook_element_info().
  *
- * @deprecated in drupal:8.0.0 and is removed from drupal:9.0.0.
+ * @deprecated in Drupal 8.0.0, will be removed before Drupal 9.0.0.
  *   Use \Drupal::service('element_info')->getInfo() instead.
- *
- * @see https://www.drupal.org/node/2235461
  */
 function element_info($type) {
   return \Drupal::service('element_info')->getInfo($type);
@@ -955,17 +1317,15 @@ function element_info($type) {
  * Retrieves a single property for the defined element type.
  *
  * @param $type
- *   An element type as defined by an element plugin.
+ *   An element type as defined by hook_element_info().
  * @param $property_name
  *   The property within the element type that should be returned.
  * @param $default
  *   (Optional) The value to return if the element type does not specify a
  *   value for the property. Defaults to NULL.
  *
- * @deprecated in drupal:8.0.0 and is removed from drupal:9.0.0.
+ * @deprecated in Drupal 8.0.0, will be removed before Drupal 9.0.0.
  *   Use \Drupal::service('element_info')->getInfoProperty() instead.
- *
- * @see https://www.drupal.org/node/2235461
  */
 function element_info_property($type, $property_name, $default = NULL) {
   return \Drupal::service('element_info')->getInfoProperty($type, $property_name, $default);
@@ -1043,40 +1403,51 @@ function drupal_flush_all_caches() {
   // Reset all static caches.
   drupal_static_reset();
 
-  // Invalidate the container.
-  \Drupal::service('kernel')->invalidateContainer();
-
-  // Wipe the Twig PHP Storage cache.
-  \Drupal::service('twig')->invalidate();
+  // Wipe the PHP Storage caches.
+  PhpStorageFactory::get('service_container')->deleteAll();
+  PhpStorageFactory::get('twig')->deleteAll();
 
   // Rebuild module and theme data.
-  $module_data = \Drupal::service('extension.list.module')->reset()->getList();
+  $module_data = system_rebuild_module_data();
   /** @var \Drupal\Core\Extension\ThemeHandlerInterface $theme_handler */
   $theme_handler = \Drupal::service('theme_handler');
   $theme_handler->refreshInfo();
+  // Remove the cache of the active theme's info file information in state.
+  // @see \Drupal\Core\Theme\ThemeInitialization::getActiveByThemeName()
+  $keys = [];
+  foreach ($theme_handler->listInfo() as $theme_name => $theme) {
+    $keys[] = 'theme.active_theme.' . $theme_name;
+  }
+  \Drupal::state()->deleteMultiple($keys);
   // In case the active theme gets requested later in the same request we need
   // to reset the theme manager.
   \Drupal::theme()->resetActiveTheme();
 
+
   // Rebuild and reboot a new kernel. A simple DrupalKernel reboot is not
   // sufficient, since the list of enabled modules might have been adjusted
   // above due to changed code.
-  $files = [];
-  $modules = [];
+  $files = array();
   foreach ($module_data as $name => $extension) {
     if ($extension->status) {
       $files[$name] = $extension;
-      $modules[$name] = $extension->weight;
     }
   }
-  $modules = module_config_sort($modules);
-  \Drupal::service('kernel')->updateModules($modules, $files);
+  \Drupal::service('kernel')->updateModules($module_handler->getModuleList(), $files);
   // New container, new module handler.
   $module_handler = \Drupal::moduleHandler();
 
   // Ensure that all modules that are currently supposed to be enabled are
   // actually loaded.
   $module_handler->loadAll();
+
+  // Rebuild the schema and cache a fully-built schema based on new module data.
+  // This is necessary for any invocation of index.php, because setting cache
+  // table entries requires schema information and that occurs during bootstrap
+  // before any modules are loaded, so if there is no cached schema,
+  // drupal_get_schema() will try to generate one, but with no loaded modules,
+  // it will return nothing.
+  drupal_get_schema(NULL, TRUE);
 
   // Rebuild all information based on new module data.
   $module_handler->invokeAll('rebuild');
@@ -1126,7 +1497,7 @@ function _drupal_flush_css_js() {
  */
 function debug($data, $label = NULL, $print_r = TRUE) {
   // Print $data contents to string.
-  $string = Html::escape($print_r ? print_r($data, TRUE) : var_export($data, TRUE));
+  $string = SafeMarkup::checkPlain($print_r ? print_r($data, TRUE) : var_export($data, TRUE));
 
   // Display values with pre-formatting to increase readability.
   $string = '<pre>' . $string . '</pre>';
@@ -1146,13 +1517,9 @@ function debug($data, $label = NULL, $print_r = TRUE) {
  *   NULL if compatible, otherwise the original dependency version string that
  *   caused the incompatibility.
  *
- * @deprecated in drupal:8.7.0 and is removed from drupal:9.0.0. Use
- *   \Drupal\Core\Extension\Dependency::isCompatible() instead.
- *
- * @see https://www.drupal.org/node/2756875
+ * @see \Drupal\Core\Extension\ModuleHandler::parseDependency()
  */
 function drupal_check_incompatibility($v, $current_version) {
-  @trigger_error(__FUNCTION__ . '() is deprecated. Use \Drupal\Core\Extension\Dependency::isCompatible() instead. See https://www.drupal.org/node/2756875', E_USER_DEPRECATED);
   if (!empty($v['versions'])) {
     foreach ($v['versions'] as $required_version) {
       if ((isset($required_version['op']) && !version_compare($current_version, $required_version['version'], $required_version['op']))) {
@@ -1165,49 +1532,43 @@ function drupal_check_incompatibility($v, $current_version) {
 /**
  * Returns a string of supported archive extensions.
  *
- * @return string
+ * @return
  *   A space-separated string of extensions suitable for use by the file
  *   validation system.
- *
- * @deprecated in drupal:8.8.0 and is removed from drupal:9.0.0. Use
- *   \Drupal\Core\Archiver\ArchiverManager::getExtensions() instead.
- *
- * @see https://www.drupal.org/node/2999951
  */
 function archiver_get_extensions() {
-  @trigger_error('archiver_get_extensions() is deprecated in Drupal 8.8.0 and will be removed in Drupal 9.0.0. Use \Drupal\Core\Archiver\ArchiverManager::getExtensions() instead. See https://www.drupal.org/node/2999951', E_USER_DEPRECATED);
-  return \Drupal::service('plugin.manager.archiver')->getExtensions();
+  $valid_extensions = array();
+  foreach (\Drupal::service('plugin.manager.archiver')->getDefinitions() as $archive) {
+    foreach ($archive['extensions'] as $extension) {
+      foreach (explode('.', $extension) as $part) {
+        if (!in_array($part, $valid_extensions)) {
+          $valid_extensions[] = $part;
+        }
+      }
+    }
+  }
+  return implode(' ', $valid_extensions);
 }
 
 /**
  * Creates the appropriate archiver for the specified file.
  *
- * @param string $file
+ * @param $file
  *   The full path of the archive file. Note that stream wrapper paths are
  *   supported, but not remote ones.
  *
- * @return \Drupal\Core\Archiver\ArchiverInterface|false
- *   A newly created instance of the archiver class appropriate for the
- *   specified file, already bound to that file. If no appropriate archiver
- *   class was found, will return FALSE.
- *
- * @throws \Exception
- *   If a remote stream wrapper path was passed.
- *
- * @deprecated in drupal:8.8.0 and is removed from drupal:9.0.0. Instead,
- *   get plugin.manager.archiver service from container and call getInstance()
- *   method on it. For example $archiver->getInstance(['filepath' => $file]);
- *
- * @see https://www.drupal.org/node/2999951
+ * @return
+ *   A newly created instance of the archiver class appropriate
+ *   for the specified file, already bound to that file.
+ *   If no appropriate archiver class was found, will return FALSE.
  */
 function archiver_get_archiver($file) {
-  @trigger_error('archiver_get_archiver() is deprecated in Drupal 8.8.0 and will be removed in Drupal 9.0.x. Instead, get plugin.manager.archiver service from container and call getInstance() method on it. For example $archiver->getInstance(["filepath" => $file]); See https://www.drupal.org/node/2999951', E_USER_DEPRECATED);
   // Archivers can only work on local paths
-  $filepath = \Drupal::service('file_system')->realpath($file);
+  $filepath = drupal_realpath($file);
   if (!is_file($filepath)) {
-    throw new Exception(t('Archivers can only operate on local files: %file not supported', ['%file' => $file]));
+    throw new Exception(t('Archivers can only operate on local files: %file not supported', array('%file' => $file)));
   }
-  return \Drupal::service('plugin.manager.archiver')->getInstance(['filepath' => $filepath]);
+  return \Drupal::service('plugin.manager.archiver')->getInstance(array('filepath' => $filepath));
 }
 
 /**
@@ -1229,7 +1590,7 @@ function drupal_get_updaters() {
   if (!isset($updaters)) {
     $updaters = \Drupal::moduleHandler()->invokeAll('updater_info');
     \Drupal::moduleHandler()->alter('updater_info', $updaters);
-    uasort($updaters, [SortArray::class, 'sortByWeightElement']);
+    uasort($updaters, array('Drupal\Component\Utility\SortArray', 'sortByWeightElement'));
   }
   return $updaters;
 }
@@ -1249,7 +1610,7 @@ function drupal_get_filetransfer_info() {
   if (!isset($info)) {
     $info = \Drupal::moduleHandler()->invokeAll('filetransfer_info');
     \Drupal::moduleHandler()->alter('filetransfer_info', $info);
-    uasort($info, [SortArray::class, 'sortByWeightElement']);
+    uasort($info, array('Drupal\Component\Utility\SortArray', 'sortByWeightElement'));
   }
   return $info;
 }

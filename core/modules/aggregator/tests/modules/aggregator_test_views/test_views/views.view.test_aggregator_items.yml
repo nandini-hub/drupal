@@ -10,6 +10,7 @@ description: ''
 tag: ''
 base_table: aggregator_item
 base_field: iid
+core: 8.x
 display:
   default:
     display_plugin: default
@@ -20,7 +21,7 @@ display:
       access:
         type: none
       cache:
-        type: tag
+        type: none
       query:
         type: views_query
       exposed_form:
@@ -43,8 +44,7 @@ display:
           table: aggregator_item
           field: title
           id: title
-          plugin_id: field
-          type: aggregator_title
+          plugin_id: aggregator_title_link
           alter:
             alter_text: false
             text: ''
@@ -78,12 +78,7 @@ display:
           table: aggregator_item
           field: timestamp
           id: timestamp
-          type: timestamp
-          settings:
-            date_format: medium
-            custom_date_format: ''
-            timezone: ''
-          plugin_id: field
+          plugin_id: date
           entity_type: aggregator_item
           entity_field: timestamp
         author:
@@ -172,15 +167,7 @@ display:
           entity_type: aggregator_item
           entity_field: description
       filters: {  }
-      sorts:
-        iid:
-          id: iid
-          table: aggregator_item
-          field: iid
-          plugin_id: standard
-          entity_type: aggregator_item
-          entity_field: iid
-          order: 'ASC'
+      sorts: {  }
   feed_1:
     display_plugin: feed
     id: feed_1

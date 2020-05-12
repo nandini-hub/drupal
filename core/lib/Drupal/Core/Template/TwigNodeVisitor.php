@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Template\TwigNodeVisitor.
+ */
+
 namespace Drupal\Core\Template;
 
 /**
@@ -11,19 +16,19 @@ namespace Drupal\Core\Template;
  *
  * @see twig_render
  */
-class TwigNodeVisitor extends \Twig_BaseNodeVisitor {
+class TwigNodeVisitor implements \Twig_NodeVisitorInterface {
 
   /**
    * {@inheritdoc}
    */
-  protected function doEnterNode(\Twig_Node $node, \Twig_Environment $env) {
+  function enterNode(\Twig_NodeInterface $node, \Twig_Environment $env) {
     return $node;
   }
 
   /**
    * {@inheritdoc}
    */
-  protected function doLeaveNode(\Twig_Node $node, \Twig_Environment $env) {
+  function leaveNode(\Twig_NodeInterface $node, \Twig_Environment $env) {
     // We use this to inject a call to render_var -> TwigExtension->renderVar()
     // before anything is printed.
     if ($node instanceof \Twig_Node_Print) {
@@ -33,21 +38,20 @@ class TwigNodeVisitor extends \Twig_BaseNodeVisitor {
         return $node;
       }
       $class = get_class($node);
-      $line = $node->getTemplateLine();
+      $line = $node->getLine();
       return new $class(
-        new \Twig_Node_Expression_Function('render_var', new \Twig_Node([$node->getNode('expr')]), $line),
+        new \Twig_Node_Expression_Function('render_var', new \Twig_Node(array($node->getNode('expr'))), $line),
         $line
       );
     }
     // Change the 'escape' filter to our own 'drupal_escape' filter.
-    elseif ($node instanceof \Twig_Node_Expression_Filter) {
+    else if ($node instanceof \Twig_Node_Expression_Filter) {
       $name = $node->getNode('filter')->getAttribute('value');
       if ('escape' == $name || 'e' == $name) {
-        // Use our own escape filter that is MarkupInterface aware.
+        // Use our own escape filter that is SafeMarkup aware.
         $node->getNode('filter')->setAttribute('value', 'drupal_escape');
 
-        // Store that we have a filter active already that knows
-        // how to deal with render arrays.
+        // Store that we have a filter active already that knows how to deal with render arrays.
         $this->skipRenderVarFunction = TRUE;
       }
     }
@@ -58,7 +62,7 @@ class TwigNodeVisitor extends \Twig_BaseNodeVisitor {
   /**
    * {@inheritdoc}
    */
-  public function getPriority() {
+  function getPriority() {
     // Just above the Optimizer, which is the normal last one.
     return 256;
   }

@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Field\Plugin\Field\FieldFormatter\UriLinkFormatter.
+ */
+
 namespace Drupal\Core\Field\Plugin\Field\FieldFormatter;
 
 use Drupal\Core\Field\FormatterBase;
@@ -22,8 +27,8 @@ class UriLinkFormatter extends FormatterBase {
   /**
    * {@inheritdoc}
    */
-  public function viewElements(FieldItemListInterface $items, $langcode) {
-    $elements = [];
+  public function viewElements(FieldItemListInterface $items) {
+    $elements = array();
 
     foreach ($items as $delta => $item) {
       if (!$item->isEmpty()) {

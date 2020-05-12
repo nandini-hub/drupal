@@ -1,11 +1,14 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Tests\Core\Render\ElementTest.
+ */
+
 namespace Drupal\Tests\Core\Render;
 
-use Drupal\Core\Access\AccessResult;
 use Drupal\Tests\UnitTestCase;
 use Drupal\Core\Render\Element;
-use PHPUnit\Framework\Error\Error;
 
 /**
  * @coversDefaultClass \Drupal\Core\Render\Element
@@ -26,11 +29,11 @@ class ElementTest extends UnitTestCase {
    * Tests the properties() method.
    */
   public function testProperties() {
-    $element = [
+    $element = array(
       '#property1' => 'property1',
       '#property2' => 'property2',
-      'property3' => 'property3',
-    ];
+      'property3' => 'property3'
+    );
 
     $properties = Element::properties($element);
 
@@ -52,63 +55,64 @@ class ElementTest extends UnitTestCase {
    * Tests the children() method.
    */
   public function testChildren() {
-    $element = [
-      'child2' => ['#weight' => 10],
-      'child1' => ['#weight' => 0],
-      'child3' => ['#weight' => 20],
+    $element = array(
+      'child2' => array('#weight' => 10),
+      'child1' => array('#weight' => 0),
+      'child3' => array('#weight' => 20),
       '#property' => 'property',
-    ];
+    );
 
-    $expected = ['child2', 'child1', 'child3'];
+    $expected = array('child2', 'child1', 'child3');
     $element_copy = $element;
     $this->assertSame($expected, Element::children($element_copy));
 
     // If #sorted is already set, no sorting should happen.
     $element_copy = $element;
     $element_copy['#sorted'] = TRUE;
-    $expected = ['child2', 'child1', 'child3'];
+    $expected = array('child2', 'child1', 'child3');
     $this->assertSame($expected, Element::children($element_copy, TRUE));
 
     // Test with weight sorting, #sorted property should be added.
-    $expected = ['child1', 'child2', 'child3'];
+    $expected = array('child1', 'child2', 'child3');
     $element_copy = $element;
     $this->assertSame($expected, Element::children($element_copy, TRUE));
     $this->assertArrayHasKey('#sorted', $element_copy);
     $this->assertTrue($element_copy['#sorted']);
 
     // The order should stay the same if no weights present.
-    $element_no_weight = [
-      'child2' => [],
-      'child1' => [],
-      'child3' => [],
+    $element_no_weight = array(
+      'child2' => array(),
+      'child1' => array(),
+      'child3' => array(),
       '#property' => 'property',
-    ];
+    );
 
-    $expected = ['child2', 'child1', 'child3'];
+    $expected = array('child2', 'child1', 'child3');
     $this->assertSame($expected, Element::children($element_no_weight, TRUE));
 
     // The order of children with same weight should be preserved.
-    $element_mixed_weight = [
-      'child5' => ['#weight' => 10],
-      'child3' => ['#weight' => -10],
-      'child1' => [],
-      'child4' => ['#weight' => 10],
-      'child2' => [],
-    ];
+    $element_mixed_weight = array(
+      'child5' => array('#weight' => 10),
+      'child3' => array('#weight' => -10),
+      'child1' => array(),
+      'child4' => array('#weight' => 10),
+      'child2' => array(),
+    );
 
-    $expected = ['child3', 'child1', 'child2', 'child5', 'child4'];
+    $expected = array('child3', 'child1', 'child2', 'child5', 'child4');
     $this->assertSame($expected, Element::children($element_mixed_weight, TRUE));
   }
 
   /**
    * Tests the children() method with an invalid key.
+   *
+   * @expectedException \PHPUnit_Framework_Error
+   * @expectedExceptionMessage "foo" is an invalid render array key
    */
   public function testInvalidChildren() {
-    $element = [
+    $element = array(
       'foo' => 'bar',
-    ];
-    $this->expectException(Error::class);
-    $this->expectExceptionMessage('"foo" is an invalid render array key');
+    );
     Element::children($element);
   }
 
@@ -116,10 +120,10 @@ class ElementTest extends UnitTestCase {
    * Tests the children() method with an ignored key/value pair.
    */
   public function testIgnoredChildren() {
-    $element = [
+    $element = array(
       'foo' => NULL,
-    ];
-    $this->assertSame([], Element::children($element));
+    );
+    $this->assertSame(array(), Element::children($element));
   }
 
   /**
@@ -142,17 +146,15 @@ class ElementTest extends UnitTestCase {
    * @return array
    */
   public function providerVisibleChildren() {
-    return [
-      [['#property1' => '', '#property2' => []], []],
-      [['#property1' => '', 'child1' => []], ['child1']],
-      [['#property1' => '', 'child1' => [], 'child2' => ['#access' => TRUE]], ['child1', 'child2']],
-      [['#property1' => '', 'child1' => [], 'child2' => ['#access' => FALSE]], ['child1']],
-      'access_result_object_allowed' => [['#property1' => '', 'child1' => [], 'child2' => ['#access' => AccessResult::allowed()]], ['child1', 'child2']],
-      'access_result_object_forbidden' => [['#property1' => '', 'child1' => [], 'child2' => ['#access' => AccessResult::forbidden()]], ['child1']],
-      [['#property1' => '', 'child1' => [], 'child2' => ['#type' => 'textfield']], ['child1', 'child2']],
-      [['#property1' => '', 'child1' => [], 'child2' => ['#type' => 'value']], ['child1']],
-      [['#property1' => '', 'child1' => [], 'child2' => ['#type' => 'hidden']], ['child1']],
-    ];
+    return array(
+      array(array('#property1' => '', '#property2' => array()), array()),
+      array(array('#property1' => '', 'child1' => array()), array('child1')),
+      array(array('#property1' => '', 'child1' => array(), 'child2' => array('#access' => TRUE)), array('child1', 'child2')),
+      array(array('#property1' => '', 'child1' => array(), 'child2' => array('#access' => FALSE)), array('child1')),
+      array(array('#property1' => '', 'child1' => array(), 'child2' => array('#type' => 'textfield')), array('child1', 'child2')),
+      array(array('#property1' => '', 'child1' => array(), 'child2' => array('#type' => 'value')), array('child1')),
+      array(array('#property1' => '', 'child1' => array(), 'child2' => array('#type' => 'hidden')), array('child1')),
+    );
   }
 
   /**
@@ -169,36 +171,12 @@ class ElementTest extends UnitTestCase {
    * Data provider for testSetAttributes().
    */
   public function providerTestSetAttributes() {
-    $base = ['#id' => 'id', '#class' => []];
-    return [
-      [$base, [], $base],
-      [$base, ['id', 'class'], $base + ['#attributes' => ['id' => 'id', 'class' => []]]],
-      [$base + ['#attributes' => ['id' => 'id-not-overwritten']], ['id', 'class'], $base + ['#attributes' => ['id' => 'id-not-overwritten', 'class' => []]]],
-    ];
-  }
-
-  /**
-   * @covers ::isEmpty
-   *
-   * @dataProvider providerTestIsEmpty
-   */
-  public function testIsEmpty(array $element, $expected) {
-    $this->assertSame(Element::isEmpty($element), $expected);
-  }
-
-  public function providerTestIsEmpty() {
-    return [
-      [[], TRUE],
-      [['#cache' => []], TRUE],
-      [['#cache' => ['tags' => ['foo']]], TRUE],
-      [['#cache' => ['contexts' => ['bar']]], TRUE],
-
-      [['#cache' => [], '#markup' => 'llamas are awesome'], FALSE],
-      [['#markup' => 'llamas are the most awesome ever'], FALSE],
-
-      [['#cache' => [], '#any_other_property' => TRUE], FALSE],
-      [['#any_other_property' => TRUE], FALSE],
-    ];
+    $base = array('#id' => 'id', '#class' => array());
+    return array(
+      array($base, array(), $base),
+      array($base, array('id', 'class'), $base + array('#attributes' => array('id' => 'id', 'class' => array()))),
+      array($base + array('#attributes' => array('id' => 'id-not-overwritten')), array('id', 'class'), $base + array('#attributes' => array('id' => 'id-not-overwritten', 'class' => array()))),
+    );
   }
 
 }

@@ -1,7 +1,13 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\views\Plugin\views\field\MachineName.
+ */
+
 namespace Drupal\views\Plugin\views\field;
 
+use Drupal\Component\Utility\SafeMarkup;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\views\ResultRow;
 
@@ -18,9 +24,7 @@ use Drupal\views\ResultRow;
 class MachineName extends FieldPluginBase {
 
   /**
-   * Stores the available options.
-   *
-   * @var array
+   * @var array Stores the available options.
    */
   protected $valueOptions;
 
@@ -38,7 +42,7 @@ class MachineName extends FieldPluginBase {
       }
     }
     else {
-      $this->valueOptions = [];
+      $this->valueOptions = array();
     }
   }
 
@@ -47,7 +51,7 @@ class MachineName extends FieldPluginBase {
    */
   protected function defineOptions() {
     $options = parent::defineOptions();
-    $options['machine_name'] = ['default' => FALSE];
+    $options['machine_name'] = array('default' => FALSE);
 
     return $options;
   }
@@ -58,12 +62,12 @@ class MachineName extends FieldPluginBase {
   public function buildOptionsForm(&$form, FormStateInterface $form_state) {
     parent::buildOptionsForm($form, $form_state);
 
-    $form['machine_name'] = [
+    $form['machine_name'] = array(
       '#title' => $this->t('Output machine name'),
       '#description' => $this->t('Display field as machine name.'),
       '#type' => 'checkbox',
       '#default_value' => !empty($this->options['machine_name']),
-    ];
+    );
   }
 
   /**
@@ -79,7 +83,7 @@ class MachineName extends FieldPluginBase {
   public function render(ResultRow $values) {
     $value = $values->{$this->field_alias};
     if (!empty($this->options['machine_name']) || !isset($this->valueOptions[$value])) {
-      $result = $this->sanitizeValue($value);
+      $result = SafeMarkup::checkPlain($value);
     }
     else {
       $result = $this->valueOptions[$value];

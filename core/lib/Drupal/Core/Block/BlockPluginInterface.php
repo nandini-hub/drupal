@@ -1,13 +1,16 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Block\BlockPluginInterface.
+ */
+
 namespace Drupal\Core\Block;
 
-use Drupal\Component\Plugin\ConfigurablePluginInterface;
 use Drupal\Component\Plugin\DerivativeInspectionInterface;
 use Drupal\Core\Cache\CacheableDependencyInterface;
 use Drupal\Component\Plugin\PluginInspectionInterface;
-use Drupal\Component\Plugin\ConfigurableInterface;
-use Drupal\Component\Plugin\DependentPluginInterface;
+use Drupal\Component\Plugin\ConfigurablePluginInterface;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Plugin\PluginFormInterface;
 use Drupal\Core\Session\AccountInterface;
@@ -22,18 +25,13 @@ use Drupal\Core\Session\AccountInterface;
  *
  * @ingroup block_api
  */
-interface BlockPluginInterface extends ConfigurableInterface, DependentPluginInterface, ConfigurablePluginInterface, PluginFormInterface, PluginInspectionInterface, CacheableDependencyInterface, DerivativeInspectionInterface {
-
-  /**
-   * Indicates the block label (title) should be displayed to end users.
-   */
-  const BLOCK_LABEL_VISIBLE = 'visible';
+interface BlockPluginInterface extends ConfigurablePluginInterface, PluginFormInterface, PluginInspectionInterface, CacheableDependencyInterface, DerivativeInspectionInterface {
 
   /**
    * Returns the user-facing block label.
    *
    * @todo Provide other specific label-related methods in
-   *   https://www.drupal.org/node/2025649.
+   *   https://drupal.org/node/2025649.
    *
    * @return string
    *   The block label.
@@ -65,11 +63,6 @@ interface BlockPluginInterface extends ConfigurableInterface, DependentPluginInt
   /**
    * Builds and returns the renderable array for this block plugin.
    *
-   * If a block should not be rendered because it has no content, then this
-   * method must also ensure to return no content: it must then only return an
-   * empty array, or an empty array with #cache set (with cacheability metadata
-   * indicating the circumstances for it being empty).
-   *
    * @return array
    *   A renderable array representing the content of the block.
    *
@@ -86,7 +79,7 @@ interface BlockPluginInterface extends ConfigurableInterface, DependentPluginInt
    *   The value to set for the provided key.
    *
    * @todo This doesn't belong here. Move this into a new base class in
-   *   https://www.drupal.org/node/1764380.
+   *   http://drupal.org/node/1764380.
    * @todo This does not set a value in \Drupal::config(), so the name is confusing.
    *
    * @see \Drupal\Component\Plugin\PluginBase::$configuration
@@ -104,7 +97,7 @@ interface BlockPluginInterface extends ConfigurableInterface, DependentPluginInt
    * @param \Drupal\Core\Form\FormStateInterface $form_state
    *   The current state of the form.
    *
-   * @return array
+   * @return array $form
    *   The renderable form array representing the entire configuration form.
    */
   public function blockForm($form, FormStateInterface $form_state);

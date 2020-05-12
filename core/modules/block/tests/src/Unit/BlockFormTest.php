@@ -1,11 +1,13 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Tests\block\Unit\BlockFormTest.
+ */
+
 namespace Drupal\Tests\block\Unit;
 
 use Drupal\block\BlockForm;
-use Drupal\block\Entity\Block;
-use Drupal\Core\Block\BlockBase;
-use Drupal\Core\Plugin\PluginFormFactoryInterface;
 use Drupal\Tests\UnitTestCase;
 
 /**
@@ -17,21 +19,28 @@ class BlockFormTest extends UnitTestCase {
   /**
    * The condition plugin manager.
    *
-   * @var \Drupal\Core\Executable\ExecutableManagerInterface|\PHPUnit\Framework\MockObject\MockObject
+   * @var \Drupal\Core\Executable\ExecutableManagerInterface|\PHPUnit_Framework_MockObject_MockObject
    */
   protected $conditionManager;
 
   /**
    * The block storage.
    *
-   * @var \Drupal\Core\Entity\EntityStorageInterface|\PHPUnit\Framework\MockObject\MockObject
+   * @var \Drupal\Core\Entity\EntityStorageInterface|\PHPUnit_Framework_MockObject_MockObject
    */
   protected $storage;
 
   /**
+   * The event dispatcher service.
+   *
+   * @var \Symfony\Component\EventDispatcher\EventDispatcherInterface|\PHPUnit_Framework_MockObject_MockObject
+   */
+  protected $dispatcher;
+
+  /**
    * The language manager service.
    *
-   * @var \Drupal\Core\Language\LanguageManagerInterface|\PHPUnit\Framework\MockObject\MockObject
+   * @var \Drupal\Core\Language\LanguageManagerInterface|\PHPUnit_Framework_MockObject_MockObject
    */
   protected $language;
 
@@ -39,30 +48,16 @@ class BlockFormTest extends UnitTestCase {
   /**
    * The theme handler.
    *
-   * @var \Drupal\Core\Extension\ThemeHandlerInterface|\PHPUnit\Framework\MockObject\MockObject
+   * @var \Drupal\Core\Extension\ThemeHandlerInterface|\PHPUnit_Framework_MockObject_MockObject
    */
   protected $themeHandler;
 
   /**
-   * The entity type manager.
+   * The entity manager.
    *
-   * @var \Drupal\Core\Entity\EntityTypeManagerInterface|\PHPUnit\Framework\MockObject\MockObject
+   * @var \Drupal\Core\Entity\EntityManagerInterface|\PHPUnit_Framework_MockObject_MockObject
    */
-  protected $entityTypeManager;
-
-  /**
-   * The mocked context repository.
-   *
-   * @var \Drupal\Core\Plugin\Context\ContextRepositoryInterface|\PHPUnit\Framework\MockObject\MockObject
-   */
-  protected $contextRepository;
-
-  /**
-   * The plugin form manager.
-   *
-   * @var \Drupal\Core\Plugin\PluginFormFactoryInterface|\Prophecy\Prophecy\ProphecyInterface
-   */
-  protected $pluginFormFactory;
+  protected $entityManager;
 
   /**
    * {@inheritdoc}
@@ -70,44 +65,17 @@ class BlockFormTest extends UnitTestCase {
   protected function setUp() {
     parent::setUp();
 
-    $this->conditionManager = $this->createMock('Drupal\Core\Executable\ExecutableManagerInterface');
-    $this->language = $this->createMock('Drupal\Core\Language\LanguageManagerInterface');
-    $this->contextRepository = $this->createMock('Drupal\Core\Plugin\Context\ContextRepositoryInterface');
+    $this->conditionManager = $this->getMock('Drupal\Core\Executable\ExecutableManagerInterface');
+    $this->language = $this->getMock('Drupal\Core\Language\LanguageManagerInterface');
+    $this->dispatcher = $this->getMock('Symfony\Component\EventDispatcher\EventDispatcherInterface');
 
-    $this->entityTypeManager = $this->createMock('Drupal\Core\Entity\EntityTypeManagerInterface');
-    $this->storage = $this->createMock('Drupal\Core\Config\Entity\ConfigEntityStorageInterface');
-    $this->themeHandler = $this->createMock('Drupal\Core\Extension\ThemeHandlerInterface');
-    $this->entityTypeManager->expects($this->any())
+    $this->entityManager = $this->getMock('Drupal\Core\Entity\EntityManagerInterface');
+    $this->storage = $this->getMock('Drupal\Core\Config\Entity\ConfigEntityStorageInterface');
+    $this->themeHandler = $this->getMock('Drupal\Core\Extension\ThemeHandlerInterface');
+    $this->entityManager->expects($this->any())
       ->method('getStorage')
       ->will($this->returnValue($this->storage));
 
-    $this->pluginFormFactory = $this->prophesize(PluginFormFactoryInterface::class);
-  }
-
-  /**
-   * Mocks a block with a block plugin.
-   *
-   * @param string $machine_name
-   *   The machine name of the block plugin.
-   *
-   * @return \Drupal\block\BlockInterface|\PHPUnit\Framework\MockObject\MockObject
-   *   The mocked block.
-   */
-  protected function getBlockMockWithMachineName($machine_name) {
-    $plugin = $this->getMockBuilder(BlockBase::class)
-      ->disableOriginalConstructor()
-      ->getMock();
-    $plugin->expects($this->any())
-      ->method('getMachineNameSuggestion')
-      ->will($this->returnValue($machine_name));
-
-    $block = $this->getMockBuilder(Block::class)
-      ->disableOriginalConstructor()
-      ->getMock();
-    $block->expects($this->any())
-      ->method('getPlugin')
-      ->will($this->returnValue($plugin));
-    return $block;
   }
 
   /**
@@ -116,27 +84,27 @@ class BlockFormTest extends UnitTestCase {
    * @see \Drupal\block\BlockForm::getUniqueMachineName()
    */
   public function testGetUniqueMachineName() {
-    $blocks = [];
+    $blocks = array();
 
     $blocks['test'] = $this->getBlockMockWithMachineName('test');
     $blocks['other_test'] = $this->getBlockMockWithMachineName('other_test');
     $blocks['other_test_1'] = $this->getBlockMockWithMachineName('other_test');
     $blocks['other_test_2'] = $this->getBlockMockWithMachineName('other_test');
 
-    $query = $this->createMock('Drupal\Core\Entity\Query\QueryInterface');
+    $query = $this->getMock('Drupal\Core\Entity\Query\QueryInterface');
     $query->expects($this->exactly(5))
       ->method('condition')
       ->will($this->returnValue($query));
 
     $query->expects($this->exactly(5))
       ->method('execute')
-      ->will($this->returnValue(['test', 'other_test', 'other_test_1', 'other_test_2']));
+      ->will($this->returnValue(array('test', 'other_test', 'other_test_1', 'other_test_2')));
 
     $this->storage->expects($this->exactly(5))
       ->method('getQuery')
       ->will($this->returnValue($query));
 
-    $block_form_controller = new BlockForm($this->entityTypeManager, $this->conditionManager, $this->contextRepository, $this->language, $this->themeHandler, $this->pluginFormFactory->reveal());
+    $block_form_controller = new BlockForm($this->entityManager, $this->conditionManager, $this->dispatcher, $this->language, $this->themeHandler);
 
     // Ensure that the block with just one other instance gets the next available
     // name suggestion.

@@ -1,7 +1,13 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\user\Plugin\views\field\Roles.
+ */
+
 namespace Drupal\user\Plugin\views\field;
 
+use Drupal\Component\Utility\SafeMarkup;
 use Drupal\Core\Database\Connection;
 use Drupal\views\Plugin\views\display\DisplayPluginBase;
 use Drupal\views\ViewExecutable;
@@ -25,7 +31,7 @@ class Roles extends PrerenderList {
   protected $database;
 
   /**
-   * Constructs a \Drupal\user\Plugin\views\field\Roles object.
+   * Constructs a Drupal\Component\Plugin\PluginBase object.
    *
    * @param array $configuration
    *   A configuration array containing information about the plugin instance.
@@ -50,12 +56,12 @@ class Roles extends PrerenderList {
   }
 
   /**
-   * {@inheritdoc}
+   * Overrides Drupal\views\Plugin\views\field\FieldPluginBase::init().
    */
   public function init(ViewExecutable $view, DisplayPluginBase $display, array &$options = NULL) {
     parent::init($view, $display, $options);
 
-    $this->additional_fields['uid'] = ['table' => 'users_field_data', 'field' => 'uid'];
+    $this->additional_fields['uid'] = array('table' => 'users_field_data', 'field' => 'uid');
   }
 
   public function query() {
@@ -64,8 +70,8 @@ class Roles extends PrerenderList {
   }
 
   public function preRender(&$values) {
-    $uids = [];
-    $this->items = [];
+    $uids = array();
+    $this->items = array();
 
     foreach ($values as $result) {
       $uids[] = $this->getValue($result);
@@ -73,16 +79,16 @@ class Roles extends PrerenderList {
 
     if ($uids) {
       $roles = user_roles();
-      $result = $this->database->query('SELECT u.entity_id as uid, u.roles_target_id as rid FROM {user__roles} u WHERE u.entity_id IN ( :uids[] ) AND u.roles_target_id IN ( :rids[] )', [':uids[]' => $uids, ':rids[]' => array_keys($roles)]);
+      $result = $this->database->query('SELECT u.entity_id as uid, u.roles_target_id as rid FROM {user__roles} u WHERE u.entity_id IN ( :uids[] ) AND u.roles_target_id IN ( :rids[] )', array(':uids[]' => $uids, ':rids[]' => array_keys($roles)));
       foreach ($result as $role) {
-        $this->items[$role->uid][$role->rid]['role'] = $roles[$role->rid]->label();
+        $this->items[$role->uid][$role->rid]['role'] = SafeMarkup::checkPlain($roles[$role->rid]->label());
         $this->items[$role->uid][$role->rid]['rid'] = $role->rid;
       }
       // Sort the roles for each user by role weight.
       $ordered_roles = array_flip(array_keys($roles));
       foreach ($this->items as &$user_roles) {
         // Create an array of rids that the user has in the role weight order.
-        $sorted_keys = array_intersect_key($ordered_roles, $user_roles);
+        $sorted_keys  = array_intersect_key($ordered_roles, $user_roles);
         // Merge with the unsorted array of role information which has the
         // effect of sorting it.
         $user_roles = array_merge($sorted_keys, $user_roles);
@@ -90,19 +96,19 @@ class Roles extends PrerenderList {
     }
   }
 
-  public function render_item($count, $item) {
+  function render_item($count, $item) {
     return $item['role'];
   }
 
   protected function documentSelfTokens(&$tokens) {
-    $tokens['{{ ' . $this->options['id'] . '__role' . ' }}'] = $this->t('The name of the role.');
-    $tokens['{{ ' . $this->options['id'] . '__rid' . ' }}'] = $this->t('The role machine-name of the role.');
+    $tokens['[' . $this->options['id'] . '-role' . ']'] = $this->t('The name of the role.');
+    $tokens['[' . $this->options['id'] . '-rid' . ']'] = $this->t('The role machine-name of the role.');
   }
 
   protected function addSelfTokens(&$tokens, $item) {
     if (!empty($item['role'])) {
-      $tokens['{{ ' . $this->options['id'] . '__role }}'] = $item['role'];
-      $tokens['{{ ' . $this->options['id'] . '__rid }}'] = $item['rid'];
+      $tokens['[' . $this->options['id'] . '-role' . ']'] = $item['role'];
+      $tokens['[' . $this->options['id'] . '-rid' . ']'] = $item['rid'];
     }
   }
 

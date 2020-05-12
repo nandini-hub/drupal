@@ -1,7 +1,13 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\contact\ContactFormListBuilder.
+ */
+
 namespace Drupal\contact;
 
+use Drupal\Component\Utility\SafeMarkup;
 use Drupal\Core\Config\Entity\ConfigEntityListBuilder;
 use Drupal\Core\Entity\EntityInterface;
 
@@ -26,19 +32,14 @@ class ContactFormListBuilder extends ConfigEntityListBuilder {
    * {@inheritdoc}
    */
   public function buildRow(EntityInterface $entity) {
+    $row['form'] = $this->getLabel($entity);
     // Special case the personal form.
     if ($entity->id() == 'personal') {
-      $row['form'] = $entity->label();
       $row['recipients'] = t('Selected user');
       $row['selected'] = t('No');
     }
     else {
-      $row['form'] = $entity->toLink(NULL, 'canonical')->toString();
-      $row['recipients']['data'] = [
-        '#theme' => 'item_list',
-        '#items' => $entity->getRecipients(),
-        '#context' => ['list_style' => 'comma-list'],
-      ];
+      $row['recipients'] = SafeMarkup::checkPlain(implode(', ', $entity->getRecipients()));
       $default_form = \Drupal::config('contact.settings')->get('default_form');
       $row['selected'] = ($default_form == $entity->id() ? t('Yes') : t('No'));
     }

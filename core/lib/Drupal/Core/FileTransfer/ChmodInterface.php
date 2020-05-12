@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\Core\FileTransfer\ChmodInterface.
+ */
+
 namespace Drupal\Core\FileTransfer;
 
 /**

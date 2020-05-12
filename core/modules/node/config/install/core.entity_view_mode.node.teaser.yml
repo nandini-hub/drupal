@@ -1,9 +1,8 @@
-langcode: en
+id: node.teaser
+label: Teaser
 status: true
+cache: true
+targetEntityType: node
 dependencies:
   module:
     - node
-id: node.teaser
-label: Teaser
-targetEntityType: node
-cache: true

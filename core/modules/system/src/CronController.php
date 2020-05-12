@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\system\CronController.
+ */
+
 namespace Drupal\system;
 
 use Drupal\Core\Controller\ControllerBase;
@@ -36,6 +41,7 @@ class CronController extends ControllerBase {
     return new static($container->get('cron'));
   }
 
+
   /**
    * Run Cron once.
    *
@@ -57,10 +63,10 @@ class CronController extends ControllerBase {
    */
   public function runManually() {
     if ($this->cron->run()) {
-      $this->messenger()->addStatus($this->t('Cron ran successfully.'));
+      drupal_set_message($this->t('Cron ran successfully.'));
     }
     else {
-      $this->messenger()->addError($this->t('Cron run failed.'));
+      drupal_set_message($this->t('Cron run failed.'), 'error');
     }
 
     return $this->redirect('system.status');

@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\plugin_test\Plugin\MockBlockManager.
+ */
+
 namespace Drupal\plugin_test\Plugin;
 
 use Drupal\Component\Plugin\PluginManagerBase;
@@ -7,13 +12,11 @@ use Drupal\Component\Plugin\Discovery\StaticDiscovery;
 use Drupal\Component\Plugin\Discovery\DerivativeDiscoveryDecorator;
 use Drupal\Component\Plugin\Factory\ReflectionFactory;
 use Drupal\Core\Plugin\Context\ContextDefinition;
-use Drupal\Core\Plugin\Context\EntityContextDefinition;
 
 /**
  * Defines a plugin manager used by Plugin API derivative unit tests.
  */
 class MockBlockManager extends PluginManagerBase {
-
   public function __construct() {
 
     // Create the object that can be used to return definitions for all the
@@ -36,11 +39,10 @@ class MockBlockManager extends PluginManagerBase {
     // plugins to the system.
 
     // A simple plugin: the user login block.
-    $this->discovery->setDefinition('user_login', [
-      'id' => 'user_login',
+    $this->discovery->setDefinition('user_login', array(
       'label' => t('User login'),
       'class' => 'Drupal\plugin_test\Plugin\plugin_test\mock_block\MockUserLoginBlock',
-    ]);
+    ));
 
     // A plugin that requires derivatives: the menu block plugin. We do not want
     // a generic "Menu" block showing up in the Block administration UI.
@@ -48,17 +50,15 @@ class MockBlockManager extends PluginManagerBase {
     // system and each one's title is user configurable. The
     // MockMenuBlockDeriver class ensures that only derivatives, and not the
     // base plugin, are available to the system.
-    $this->discovery->setDefinition('menu', [
-      'id' => 'menu',
+    $this->discovery->setDefinition('menu', array(
       'class' => 'Drupal\plugin_test\Plugin\plugin_test\mock_block\MockMenuBlock',
       'deriver' => 'Drupal\plugin_test\Plugin\plugin_test\mock_block\MockMenuBlockDeriver',
-    ]);
+    ));
     // A plugin defining itself as a derivative.
-    $this->discovery->setDefinition('menu:foo', [
-      'id' => 'menu',
+    $this->discovery->setDefinition('menu:foo', array(
       'label' => t('Base label'),
       'class' => 'Drupal\plugin_test\Plugin\plugin_test\mock_block\MockMenuBlock',
-    ]);
+    ));
 
     // A block plugin that can optionally be derived: the layout block plugin.
     // A layout is a special kind of block into which other blocks can be
@@ -66,51 +66,46 @@ class MockBlockManager extends PluginManagerBase {
     // administration UI as well as additional user-created custom layouts. The
     // MockLayoutBlockDeriver class ensures that both the base plugin and the
     // derivatives are available to the system.
-    $this->discovery->setDefinition('layout', [
-      'id' => 'layout',
+    $this->discovery->setDefinition('layout', array(
       'label' => t('Layout'),
       'class' => 'Drupal\plugin_test\Plugin\plugin_test\mock_block\MockLayoutBlock',
       'deriver' => 'Drupal\plugin_test\Plugin\plugin_test\mock_block\MockLayoutBlockDeriver',
-    ]);
+    ));
 
     // A block plugin that requires context to function. This block requires a
     // user object in order to return the user name from the getTitle() method.
-    $this->discovery->setDefinition('user_name', [
-      'id' => 'user_name',
+    $this->discovery->setDefinition('user_name', array(
       'label' => t('User name'),
       'class' => 'Drupal\plugin_test\Plugin\plugin_test\mock_block\MockUserNameBlock',
-      'context_definitions' => [
-        'user' => $this->createContextDefinition('entity:user', t('User')),
-      ],
-    ]);
+      'context' => array(
+        'user' => new ContextDefinition('entity:user', t('User')),
+      ),
+    ));
 
     // An optional context version of the previous block plugin.
-    $this->discovery->setDefinition('user_name_optional', [
-      'id' => 'user_name_optional',
+    $this->discovery->setDefinition('user_name_optional', array(
       'label' => t('User name optional'),
       'class' => 'Drupal\plugin_test\Plugin\plugin_test\mock_block\MockUserNameBlock',
-      'context_definitions' => [
-        'user' => $this->createContextDefinition('entity:user', t('User'), FALSE),
-      ],
-    ]);
+      'context' => array(
+        'user' => new ContextDefinition('entity:user', t('User'), FALSE),
+      ),
+    ));
 
     // A block plugin that requires a typed data string context to function.
-    $this->discovery->setDefinition('string_context', [
-      'id' => 'string_context',
+    $this->discovery->setDefinition('string_context', array(
       'label' => t('String typed data'),
       'class' => 'Drupal\plugin_test\Plugin\plugin_test\mock_block\TypedDataStringBlock',
-    ]);
+    ));
 
     // A complex context plugin that requires both a user and node for context.
-    $this->discovery->setDefinition('complex_context', [
-      'id' => 'complex_context',
+    $this->discovery->setDefinition('complex_context', array(
       'label' => t('Complex context'),
       'class' => 'Drupal\plugin_test\Plugin\plugin_test\mock_block\MockComplexContextBlock',
-      'context_definitions' => [
-        'user' => $this->createContextDefinition('entity:user', t('User')),
-        'node' => $this->createContextDefinition('entity:node', t('Node')),
-      ],
-    ]);
+      'context' => array(
+        'user' => new ContextDefinition('entity:user', t('User')),
+        'node' => new ContextDefinition('entity:node', t('Node')),
+      ),
+    ));
 
     // In addition to finding all of the plugins available for a type, a plugin
     // type must also be able to create instances of that plugin. For example, a
@@ -123,29 +118,4 @@ class MockBlockManager extends PluginManagerBase {
     // specified), so we provide it the discovery object.
     $this->factory = new ReflectionFactory($this->discovery);
   }
-
-  /**
-   * Creates a new context definition with a label that is cast to string.
-   *
-   * @param string $data_type
-   *   The required data type.
-   * @param mixed|string|null $label
-   *   The label of this context definition for the UI.
-   * @param bool $required
-   *   Whether the context definition is required.
-   *
-   * @return \Drupal\Core\Plugin\Context\ContextDefinition
-   */
-  protected function createContextDefinition($data_type, $label, $required = TRUE) {
-    // We cast the label to string for testing purposes only, as it may be
-    // a TranslatableMarkup and we will do assertEqual() checks on arrays that
-    // include ContextDefinition objects, and var_export() has problems
-    // printing TranslatableMarkup objects.
-    $class = ContextDefinition::class;
-    if (strpos($data_type, 'entity:') === 0) {
-      $class = EntityContextDefinition::class;
-    }
-    return new $class($data_type, (string) $label, $required);
-  }
-
 }

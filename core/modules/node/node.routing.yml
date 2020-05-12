@@ -2,17 +2,8 @@ node.multiple_delete_confirm:
   path: '/admin/content/node/delete'
   defaults:
     _form: '\Drupal\node\Form\DeleteMultiple'
-    entity_type_id: 'node'
   requirements:
-    _entity_delete_multiple_access: 'node'
-
-entity.node.delete_multiple_form:
-  path: '/admin/content/node/delete'
-  defaults:
-    _form: '\Drupal\node\Form\DeleteMultiple'
-    entity_type_id: 'node'
-  requirements:
-    _entity_delete_multiple_access: 'node'
+    _permission: 'administer nodes'
 
 node.add_page:
   path: '/node/add'
@@ -27,7 +18,7 @@ node.add_page:
 node.add:
   path: '/node/add/{node_type}'
   defaults:
-    _entity_form: 'node.default'
+    _controller: '\Drupal\node\Controller\NodeController::add'
     _title_callback: '\Drupal\node\Controller\NodeController::addPageTitle'
   requirements:
     _node_add_access: 'node:{node_type}'
@@ -35,7 +26,6 @@ node.add:
     _node_operation_route: TRUE
     parameters:
       node_type:
-        type: entity:node_type
         with_config_overrides: TRUE
 
 entity.node.preview:
@@ -57,7 +47,6 @@ entity.node.version_history:
     _controller: '\Drupal\node\Controller\NodeController::revisionOverview'
   requirements:
     _access_node_revision: 'view'
-    node: \d+
   options:
     _node_operation_route: TRUE
 
@@ -68,7 +57,6 @@ entity.node.revision:
     _title_callback: '\Drupal\node\Controller\NodeController::revisionPageTitle'
   requirements:
     _access_node_revision: 'view'
-    node: \d+
 
 node.revision_revert_confirm:
   path: '/node/{node}/revisions/{node_revision}/revert'
@@ -77,18 +65,6 @@ node.revision_revert_confirm:
     _title: 'Revert to earlier revision'
   requirements:
     _access_node_revision: 'update'
-    node: \d+
-  options:
-    _node_operation_route: TRUE
-
-node.revision_revert_translation_confirm:
-  path: '/node/{node}/revisions/{node_revision}/revert/{langcode}'
-  defaults:
-    _form: '\Drupal\node\Form\NodeRevisionRevertTranslationForm'
-    _title: 'Revert to earlier revision of a translation'
-  requirements:
-    _access_node_revision: 'update'
-    node: \d+
   options:
     _node_operation_route: TRUE
 
@@ -99,14 +75,14 @@ node.revision_delete_confirm:
     _title: 'Delete earlier revision'
   requirements:
     _access_node_revision: 'delete'
-    node: \d+
   options:
     _node_operation_route: TRUE
 
 entity.node_type.collection:
   path: '/admin/structure/types'
   defaults:
-    _entity_list: 'node_type'
+    _controller: '\Drupal\Core\Entity\Controller\EntityListController::listing'
+    entity_type: 'node_type'
     _title: 'Content types'
   requirements:
     _permission: 'administer content types'
@@ -123,7 +99,6 @@ entity.node_type.edit_form:
   path: '/admin/structure/types/manage/{node_type}'
   defaults:
     _entity_form: 'node_type.edit'
-    _title_callback: '\Drupal\Core\Entity\Controller\EntityController::title'
   requirements:
     _permission: 'administer content types'
 
@@ -138,6 +113,6 @@ entity.node_type.delete_form:
 node.configure_rebuild_confirm:
   path: '/admin/reports/status/rebuild'
   defaults:
-    _form: '\Drupal\node\Form\RebuildPermissionsForm'
+    _form: 'Drupal\node\Form\RebuildPermissionsForm'
   requirements:
     _permission: 'access administration pages'

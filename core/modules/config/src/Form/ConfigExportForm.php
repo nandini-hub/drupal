@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\config\Form\ConfigExportForm.
+ */
+
 namespace Drupal\config\Form;
 
 use Drupal\Core\Form\FormBase;
@@ -7,8 +12,6 @@ use Drupal\Core\Form\FormStateInterface;
 
 /**
  * Defines the configuration export form.
- *
- * @internal
  */
 class ConfigExportForm extends FormBase {
 
@@ -23,10 +26,13 @@ class ConfigExportForm extends FormBase {
    * {@inheritdoc}
    */
   public function buildForm(array $form, FormStateInterface $form_state) {
-    $form['submit'] = [
+    $form['description'] = array(
+      '#markup' => '<p>' . $this->t('Use the export button below to download your site configuration.') . '</p>',
+    );
+    $form['submit'] = array(
       '#type' => 'submit',
       '#value' => $this->t('Export'),
-    ];
+    );
     return $form;
   }
 

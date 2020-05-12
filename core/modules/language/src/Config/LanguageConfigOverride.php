@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\language\Config\LanguageConfigOverride.
+ */
+
 namespace Drupal\language\Config;
 
 use Drupal\Core\Cache\Cache;
@@ -45,16 +50,13 @@ class LanguageConfigOverride extends StorableConfigBase {
   /**
    * {@inheritdoc}
    */
-  public function save($has_trusted_data = FALSE) {
-    if (!$has_trusted_data) {
-      // @todo Use configuration schema to validate.
-      //   https://www.drupal.org/node/2270399
-      // Perform basic data validation.
-      foreach ($this->data as $key => $value) {
-        $this->validateValue($key, $value);
-      }
+  public function save() {
+    // @todo Use configuration schema to validate.
+    //   https://drupal.org/node/2270399
+    // Perform basic data validation.
+    foreach ($this->data as $key => $value) {
+      $this->validateValue($key, $value);
     }
-
     $this->storage->write($this->name, $this->data);
     // Invalidate the cache tags not only when updating, but also when creating,
     // because a language config override object uses the same cache tag as the
@@ -71,7 +73,7 @@ class LanguageConfigOverride extends StorableConfigBase {
    * {@inheritdoc}
    */
   public function delete() {
-    $this->data = [];
+    $this->data = array();
     $this->storage->delete($this->name);
     Cache::invalidateTags($this->getCacheTags());
     $this->isNew = TRUE;

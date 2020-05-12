@@ -1,9 +1,14 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Tests\Component\Utility\UnicodeTest.
+ */
+
 namespace Drupal\Tests\Component\Utility;
 
+use Drupal\Tests\UnitTestCase;
 use Drupal\Component\Utility\Unicode;
-use PHPUnit\Framework\TestCase;
 
 /**
  * Test unicode handling features implemented in Unicode component.
@@ -12,14 +17,54 @@ use PHPUnit\Framework\TestCase;
  *
  * @coversDefaultClass \Drupal\Component\Utility\Unicode
  */
-class UnicodeTest extends TestCase {
+class UnicodeTest extends UnitTestCase {
 
   /**
-   * @group legacy
-   * @expectedDeprecation \Drupal\Component\Utility\Unicode::setStatus() is deprecated in Drupal 8.6.0 and will be removed before Drupal 9.0.0. In Drupal 9 there will be no way to set the status and in Drupal 8 this ability has been removed because mb_*() functions are supplied using Symfony's polyfill. See https://www.drupal.org/node/2850048.
+   * {@inheritdoc}
+   *
+   * @covers ::check
    */
-  public function testSetStatus() {
-    Unicode::setStatus(Unicode::STATUS_SINGLEBYTE);
+  public function setUp() {
+    // Initialize unicode component.
+    Unicode::check();
+  }
+
+  /**
+   * Getting and settings the multibyte environment status.
+   *
+   * @dataProvider providerTestStatus
+   * @covers ::getStatus
+   * @covers ::setStatus
+   */
+  public function testStatus($value, $expected, $invalid = FALSE) {
+    if ($invalid) {
+      $this->setExpectedException('InvalidArgumentException');
+    }
+    Unicode::setStatus($value);
+    $this->assertEquals($expected, Unicode::getStatus());
+  }
+
+  /**
+   * Data provider for testStatus().
+   *
+   * @see testStatus()
+   *
+   * @return array
+   *   An array containing:
+   *     - The status value to set.
+   *     - The status value to expect after setting the new value.
+   *     - (optional) Boolean indicating invalid status. Defaults to FALSE.
+   */
+  public function providerTestStatus() {
+    return array(
+      array(Unicode::STATUS_SINGLEBYTE, Unicode::STATUS_SINGLEBYTE),
+      array(rand(10, 100), Unicode::STATUS_SINGLEBYTE, TRUE),
+      array(rand(10, 100), Unicode::STATUS_SINGLEBYTE, TRUE),
+      array(Unicode::STATUS_MULTIBYTE, Unicode::STATUS_MULTIBYTE),
+      array(rand(10, 100), Unicode::STATUS_MULTIBYTE, TRUE),
+      array(Unicode::STATUS_ERROR, Unicode::STATUS_ERROR),
+      array(Unicode::STATUS_MULTIBYTE, Unicode::STATUS_MULTIBYTE),
+    );
   }
 
   /**
@@ -43,11 +88,11 @@ class UnicodeTest extends TestCase {
    *   An array containing a string and its encoded value.
    */
   public function providerTestMimeHeader() {
-    return [
-      ['tést.txt', '=?UTF-8?B?dMOpc3QudHh0?='],
+    return array(
+      array('tést.txt', '=?UTF-8?B?dMOpc3QudHh0?='),
       // Simple ASCII characters.
-      ['ASCII', 'ASCII'],
-    ];
+      array('ASCII', 'ASCII'),
+    );
   }
 
   /**
@@ -55,10 +100,11 @@ class UnicodeTest extends TestCase {
    *
    * @dataProvider providerStrtolower
    * @covers ::strtolower
-   * @group legacy
-   * @expectedDeprecation \Drupal\Component\Utility\Unicode::strtolower() is deprecated in Drupal 8.6.0 and will be removed before Drupal 9.0.0. Use mb_strtolower() instead. See https://www.drupal.org/node/2850048.
+   * @covers ::caseFlip
    */
-  public function testStrtolower($text, $expected) {
+  public function testStrtolower($text, $expected, $multibyte = FALSE) {
+    $status = $multibyte ? Unicode::STATUS_MULTIBYTE : Unicode::STATUS_SINGLEBYTE;
+    Unicode::setStatus($status);
     $this->assertEquals($expected, Unicode::strtolower($text));
   }
 
@@ -68,14 +114,22 @@ class UnicodeTest extends TestCase {
    * @see testStrtolower()
    *
    * @return array
-   *   An array containing a string and its lowercase version.
+   *   An array containing a string, its lowercase version and whether it should
+   *   be processed as multibyte.
    */
   public function providerStrtolower() {
-    return [
-      ['tHe QUIcK bRoWn', 'the quick brown'],
-      ['FrançAIS is ÜBER-åwesome', 'français is über-åwesome'],
-      ['ΑΒΓΔΕΖΗΘΙΚΛΜΝΞΟΣὨ', 'αβγδεζηθικλμνξοσὠ'],
-    ];
+    $cases = array(
+      array('tHe QUIcK bRoWn', 'the quick brown'),
+      array('FrançAIS is ÜBER-åwesome', 'français is über-åwesome'),
+    );
+    foreach ($cases as $case) {
+      // Test the same string both in multibyte and singlebyte conditions.
+      array_push($case, TRUE);
+      $cases[] = $case;
+    }
+    // Add a multibyte string.
+    $cases[] = array('ΑΒΓΔΕΖΗΘΙΚΛΜΝΞΟΣὨ', 'αβγδεζηθικλμνξοσὠ', TRUE);
+    return $cases;
   }
 
   /**
@@ -83,10 +137,11 @@ class UnicodeTest extends TestCase {
    *
    * @dataProvider providerStrtoupper
    * @covers ::strtoupper
-   * @group legacy
-   * @expectedDeprecation \Drupal\Component\Utility\Unicode::strtoupper() is deprecated in Drupal 8.6.0 and will be removed before Drupal 9.0.0. Use mb_strtoupper() instead. See https://www.drupal.org/node/2850048.
+   * @covers ::caseFlip
    */
-  public function testStrtoupper($text, $expected) {
+  public function testStrtoupper($text, $expected, $multibyte = FALSE) {
+    $status = $multibyte ? Unicode::STATUS_MULTIBYTE : Unicode::STATUS_SINGLEBYTE;
+    Unicode::setStatus($status);
     $this->assertEquals($expected, Unicode::strtoupper($text));
   }
 
@@ -96,14 +151,22 @@ class UnicodeTest extends TestCase {
    * @see testStrtoupper()
    *
    * @return array
-   *   An array containing a string and its uppercase version.
+   *   An array containing a string, its uppercase version and whether it should
+   *   be processed as multibyte.
    */
   public function providerStrtoupper() {
-    return [
-      ['tHe QUIcK bRoWn', 'THE QUICK BROWN'],
-      ['FrançAIS is ÜBER-åwesome', 'FRANÇAIS IS ÜBER-ÅWESOME'],
-      ['αβγδεζηθικλμνξοσὠ', 'ΑΒΓΔΕΖΗΘΙΚΛΜΝΞΟΣὨ'],
-    ];
+    $cases = array(
+      array('tHe QUIcK bRoWn', 'THE QUICK BROWN'),
+      array('FrançAIS is ÜBER-åwesome', 'FRANÇAIS IS ÜBER-ÅWESOME'),
+    );
+    foreach ($cases as $case) {
+      // Test the same string both in multibyte and singlebyte conditions.
+      array_push($case, TRUE);
+      $cases[] = $case;
+    }
+    // Add a multibyte string.
+    $cases[] = array('αβγδεζηθικλμνξοσὠ', 'ΑΒΓΔΕΖΗΘΙΚΛΜΝΞΟΣὨ', TRUE);
+    return $cases;
   }
 
   /**
@@ -125,14 +188,14 @@ class UnicodeTest extends TestCase {
    *   An array containing a string and its uppercase first version.
    */
   public function providerUcfirst() {
-    return [
-      ['tHe QUIcK bRoWn', 'THe QUIcK bRoWn'],
-      ['françAIS', 'FrançAIS'],
-      ['über', 'Über'],
-      ['åwesome', 'Åwesome'],
+    return array(
+      array('tHe QUIcK bRoWn', 'THe QUIcK bRoWn'),
+      array('françAIS', 'FrançAIS'),
+      array('über', 'Über'),
+      array('åwesome', 'Åwesome'),
       // A multibyte string.
-      ['σion', 'Σion'],
-    ];
+      array('σion', 'Σion'),
+    );
   }
 
   /**
@@ -141,7 +204,9 @@ class UnicodeTest extends TestCase {
    * @dataProvider providerLcfirst
    * @covers ::lcfirst
    */
-  public function testLcfirst($text, $expected) {
+  public function testLcfirst($text, $expected, $multibyte = FALSE) {
+    $status = $multibyte ? Unicode::STATUS_MULTIBYTE : Unicode::STATUS_SINGLEBYTE;
+    Unicode::setStatus($status);
     $this->assertEquals($expected, Unicode::lcfirst($text));
   }
 
@@ -151,17 +216,18 @@ class UnicodeTest extends TestCase {
    * @see testLcfirst()
    *
    * @return array
-   *   An array containing a string and its lowercase version.
+   *   An array containing a string, its lowercase version and whether it should
+   *   be processed as multibyte.
    */
   public function providerLcfirst() {
-    return [
-      ['tHe QUIcK bRoWn', 'tHe QUIcK bRoWn'],
-      ['FrançAIS is ÜBER-åwesome', 'françAIS is ÜBER-åwesome'],
-      ['Über', 'über'],
-      ['Åwesome', 'åwesome'],
+    return array(
+      array('tHe QUIcK bRoWn', 'tHe QUIcK bRoWn'),
+      array('FrançAIS is ÜBER-åwesome', 'françAIS is ÜBER-åwesome'),
+      array('Über', 'über'),
+      array('Åwesome', 'åwesome'),
       // Add a multibyte string.
-      ['ΑΒΓΔΕΖΗΘΙΚΛΜΝΞΟΣὨ', 'αΒΓΔΕΖΗΘΙΚΛΜΝΞΟΣὨ'],
-    ];
+      array('ΑΒΓΔΕΖΗΘΙΚΛΜΝΞΟΣὨ', 'αΒΓΔΕΖΗΘΙΚΛΜΝΞΟΣὨ', TRUE),
+    );
   }
 
   /**
@@ -170,7 +236,9 @@ class UnicodeTest extends TestCase {
    * @dataProvider providerUcwords
    * @covers ::ucwords
    */
-  public function testUcwords($text, $expected) {
+  public function testUcwords($text, $expected, $multibyte = FALSE) {
+    $status = $multibyte ? Unicode::STATUS_MULTIBYTE : Unicode::STATUS_SINGLEBYTE;
+    Unicode::setStatus($status);
     $this->assertEquals($expected, Unicode::ucwords($text));
   }
 
@@ -180,19 +248,20 @@ class UnicodeTest extends TestCase {
    * @see testUcwords()
    *
    * @return array
-   *   An array containing a string and its capitalized version.
+   *   An array containing a string, its capitalized version and whether it should
+   *   be processed as multibyte.
    */
   public function providerUcwords() {
-    return [
-      ['tHe QUIcK bRoWn', 'THe QUIcK BRoWn'],
-      ['françAIS', 'FrançAIS'],
-      ['über', 'Über'],
-      ['åwesome', 'Åwesome'],
+    return array(
+      array('tHe QUIcK bRoWn', 'THe QUIcK BRoWn'),
+      array('françAIS', 'FrançAIS'),
+      array('über', 'Über'),
+      array('åwesome', 'Åwesome'),
       // Make sure we don't mangle extra spaces.
-      ['frànçAIS is  über-åwesome', 'FrànçAIS Is  Über-Åwesome'],
+      array('frànçAIS is  über-åwesome', 'FrànçAIS Is  Über-Åwesome'),
       // Add a multibyte string.
-      ['σion', 'Σion'],
-    ];
+      array('σion', 'Σion', TRUE),
+    );
   }
 
   /**
@@ -200,10 +269,13 @@ class UnicodeTest extends TestCase {
    *
    * @dataProvider providerStrlen
    * @covers ::strlen
-   * @group legacy
-   * @expectedDeprecation \Drupal\Component\Utility\Unicode::strlen() is deprecated in Drupal 8.6.0 and will be removed before Drupal 9.0.0. Use mb_strlen() instead. See https://www.drupal.org/node/2850048.
    */
   public function testStrlen($text, $expected) {
+    // Run through multibyte code path.
+    Unicode::setStatus(Unicode::STATUS_MULTIBYTE);
+    $this->assertEquals($expected, Unicode::strlen($text));
+    // Run through singlebyte code path.
+    Unicode::setStatus(Unicode::STATUS_SINGLEBYTE);
     $this->assertEquals($expected, Unicode::strlen($text));
   }
 
@@ -216,11 +288,10 @@ class UnicodeTest extends TestCase {
    *   An array containing a string and its length.
    */
   public function providerStrlen() {
-    return [
-      ['tHe QUIcK bRoWn', 15],
-      ['ÜBER-åwesome', 12],
-      ['以呂波耳・ほへとち。リヌルヲ。', 15],
-    ];
+    return array(
+      array('tHe QUIcK bRoWn', 15),
+      array('ÜBER-åwesome', 12),
+    );
   }
 
   /**
@@ -228,10 +299,13 @@ class UnicodeTest extends TestCase {
    *
    * @dataProvider providerSubstr
    * @covers ::substr
-   * @group legacy
-   * @expectedDeprecation \Drupal\Component\Utility\Unicode::substr() is deprecated in Drupal 8.6.0 and will be removed before Drupal 9.0.0. Use mb_substr() instead. See https://www.drupal.org/node/2850048.
    */
   public function testSubstr($text, $start, $length, $expected) {
+    // Run through multibyte code path.
+    Unicode::setStatus(Unicode::STATUS_MULTIBYTE);
+    $this->assertEquals($expected, Unicode::substr($text, $start, $length));
+    // Run through singlebyte code path.
+    Unicode::setStatus(Unicode::STATUS_SINGLEBYTE);
     $this->assertEquals($expected, Unicode::substr($text, $start, $length));
   }
 
@@ -248,33 +322,33 @@ class UnicodeTest extends TestCase {
    *     - The expected string result.
    */
   public function providerSubstr() {
-    return [
-      ['frànçAIS is über-åwesome', 0, NULL, 'frànçAIS is über-åwesome'],
-      ['frànçAIS is über-åwesome', 0, 0, ''],
-      ['frànçAIS is über-åwesome', 0, 1, 'f'],
-      ['frànçAIS is über-åwesome', 0, 8, 'frànçAIS'],
-      ['frànçAIS is über-åwesome', 0, 23, 'frànçAIS is über-åwesom'],
-      ['frànçAIS is über-åwesome', 0, 24, 'frànçAIS is über-åwesome'],
-      ['frànçAIS is über-åwesome', 0, 25, 'frànçAIS is über-åwesome'],
-      ['frànçAIS is über-åwesome', 0, 100, 'frànçAIS is über-åwesome'],
-      ['frànçAIS is über-åwesome', 4, 4, 'çAIS'],
-      ['frànçAIS is über-åwesome', 1, 0, ''],
-      ['frànçAIS is über-åwesome', 100, 0, ''],
-      ['frànçAIS is über-åwesome', -4, 2, 'so'],
-      ['frànçAIS is über-åwesome', -4, 3, 'som'],
-      ['frànçAIS is über-åwesome', -4, 4, 'some'],
-      ['frànçAIS is über-åwesome', -4, 5, 'some'],
-      ['frànçAIS is über-åwesome', -7, 10, 'åwesome'],
-      ['frànçAIS is über-åwesome', 5, -10, 'AIS is üb'],
-      ['frànçAIS is über-åwesome', 0, -10, 'frànçAIS is üb'],
-      ['frànçAIS is über-åwesome', 0, -1, 'frànçAIS is über-åwesom'],
-      ['frànçAIS is über-åwesome', -7, -2, 'åweso'],
-      ['frànçAIS is über-åwesome', -7, -6, 'å'],
-      ['frànçAIS is über-åwesome', -7, -7, ''],
-      ['frànçAIS is über-åwesome', -7, -8, ''],
-      ['...', 0, 2, '..'],
-      ['以呂波耳・ほへとち。リヌルヲ。', 1, 3, '呂波耳'],
-    ];
+    return array(
+      array('frànçAIS is über-åwesome', 0, NULL, 'frànçAIS is über-åwesome'),
+      array('frànçAIS is über-åwesome', 0, 0, ''),
+      array('frànçAIS is über-åwesome', 0, 1, 'f'),
+      array('frànçAIS is über-åwesome', 0, 8, 'frànçAIS'),
+      array('frànçAIS is über-åwesome', 0, 23, 'frànçAIS is über-åwesom'),
+      array('frànçAIS is über-åwesome', 0, 24, 'frànçAIS is über-åwesome'),
+      array('frànçAIS is über-åwesome', 0, 25, 'frànçAIS is über-åwesome'),
+      array('frànçAIS is über-åwesome', 0, 100, 'frànçAIS is über-åwesome'),
+      array('frànçAIS is über-åwesome', 4, 4, 'çAIS'),
+      array('frànçAIS is über-åwesome', 1, 0, ''),
+      array('frànçAIS is über-åwesome', 100, 0, ''),
+      array('frànçAIS is über-åwesome', -4, 2, 'so'),
+      array('frànçAIS is über-åwesome', -4, 3, 'som'),
+      array('frànçAIS is über-åwesome', -4, 4, 'some'),
+      array('frànçAIS is über-åwesome', -4, 5, 'some'),
+      array('frànçAIS is über-åwesome', -7, 10, 'åwesome'),
+      array('frànçAIS is über-åwesome', 5, -10, 'AIS is üb'),
+      array('frànçAIS is über-åwesome', 0, -10, 'frànçAIS is üb'),
+      array('frànçAIS is über-åwesome', 0, -1, 'frànçAIS is über-åwesom'),
+      array('frànçAIS is über-åwesome', -7, -2, 'åweso'),
+      array('frànçAIS is über-åwesome', -7, -6, 'å'),
+      array('frànçAIS is über-åwesome', -7, -7, ''),
+      array('frànçAIS is über-åwesome', -7, -8, ''),
+      array('...', 0, 2, '..'),
+      array('以呂波耳・ほへとち。リヌルヲ。', 1, 3, '呂波耳'),
+    );
   }
 
   /**
@@ -301,70 +375,52 @@ class UnicodeTest extends TestCase {
    *     - (optional) Boolean for the $add_ellipsis flag. Defaults to FALSE.
    */
   public function providerTruncate() {
-    $tests = [
-      ['frànçAIS is über-åwesome', 24, 'frànçAIS is über-åwesome'],
-      ['frànçAIS is über-åwesome', 23, 'frànçAIS is über-åwesom'],
-      ['frànçAIS is über-åwesome', 17, 'frànçAIS is über-'],
-      ['以呂波耳・ほへとち。リヌルヲ。', 6, '以呂波耳・ほ'],
-      ['frànçAIS is über-åwesome', 24, 'frànçAIS is über-åwesome', FALSE, TRUE],
-      ['frànçAIS is über-åwesome', 23, 'frànçAIS is über-åweso…', FALSE, TRUE],
-      ['frànçAIS is über-åwesome', 17, 'frànçAIS is über…', FALSE, TRUE],
-      ['123', 1, '…', TRUE, TRUE],
-      ['123', 2, '1…', TRUE, TRUE],
-      ['123', 3, '123', TRUE, TRUE],
-      ['1234', 3, '12…', TRUE, TRUE],
-      ['1234567890', 10, '1234567890', TRUE, TRUE],
-      ['12345678901', 10, '123456789…', TRUE, TRUE],
-      ['12345678901', 11, '12345678901', TRUE, TRUE],
-      ['123456789012', 11, '1234567890…', TRUE, TRUE],
-      ['12345 7890', 10, '12345 7890', TRUE, TRUE],
-      ['12345 7890', 9, '12345…', TRUE, TRUE],
-      ['123 567 90', 10, '123 567 90', TRUE, TRUE],
-      ['123 567 901', 10, '123 567…', TRUE, TRUE],
-      ['Stop. Hammertime.', 17, 'Stop. Hammertime.', TRUE, TRUE],
-      ['Stop. Hammertime.', 16, 'Stop…', TRUE, TRUE],
-      ['frànçAIS is über-åwesome', 24, 'frànçAIS is über-åwesome', TRUE, TRUE],
-      ['frànçAIS is über-åwesome', 23, 'frànçAIS is über…', TRUE, TRUE],
-      ['frànçAIS is über-åwesome', 17, 'frànçAIS is über…', TRUE, TRUE],
-      ['¿Dónde está el niño?', 20, '¿Dónde está el niño?', TRUE, TRUE],
-      ['¿Dónde está el niño?', 19, '¿Dónde está el…', TRUE, TRUE],
-      ['¿Dónde está el niño?', 13, '¿Dónde está…', TRUE, TRUE],
-      ['¿Dónde está el niño?', 10, '¿Dónde…', TRUE, TRUE],
-      ['Help! Help! Help!', 17, 'Help! Help! Help!', TRUE, TRUE],
-      ['Help! Help! Help!', 16, 'Help! Help!…', TRUE, TRUE],
-      ['Help! Help! Help!', 15, 'Help! Help!…', TRUE, TRUE],
-      ['Help! Help! Help!', 14, 'Help! Help!…', TRUE, TRUE],
-      ['Help! Help! Help!', 13, 'Help! Help!…', TRUE, TRUE],
-      ['Help! Help! Help!', 12, 'Help! Help!…', TRUE, TRUE],
-      ['Help! Help! Help!', 11, 'Help! Help…', TRUE, TRUE],
-      ['Help! Help! Help!', 10, 'Help!…', TRUE, TRUE],
-      ['Help! Help! Help!', 9, 'Help!…', TRUE, TRUE],
-      ['Help! Help! Help!', 8, 'Help!…', TRUE, TRUE],
-      ['Help! Help! Help!', 7, 'Help!…', TRUE, TRUE],
-      ['Help! Help! Help!', 6, 'Help!…', TRUE, TRUE],
-      ['Help! Help! Help!', 5, 'Help…', TRUE, TRUE],
-      ['Help! Help! Help!', 4, 'Hel…', TRUE, TRUE],
-      ['Help! Help! Help!', 3, 'He…', TRUE, TRUE],
-      ['Help! Help! Help!', 2, 'H…', TRUE, TRUE],
-    ];
-
-    // Test truncate on text with multiple lines.
-    $multi_line = <<<EOF
-This is a text that spans multiple lines.
-Line 2 goes here.
-EOF;
-    $multi_line_wordsafe = <<<EOF
-This is a text that spans multiple lines.
-Line 2
-EOF;
-    $multi_line_non_wordsafe = <<<EOF
-This is a text that spans multiple lines.
-Line 2 go
-EOF;
-    $tests[] = [$multi_line, 51, $multi_line_wordsafe, TRUE];
-    $tests[] = [$multi_line, 51, $multi_line_non_wordsafe, FALSE];
-
-    return $tests;
+    return array(
+      array('frànçAIS is über-åwesome', 24, 'frànçAIS is über-åwesome'),
+      array('frànçAIS is über-åwesome', 23, 'frànçAIS is über-åwesom'),
+      array('frànçAIS is über-åwesome', 17, 'frànçAIS is über-'),
+      array('以呂波耳・ほへとち。リヌルヲ。', 6, '以呂波耳・ほ'),
+      array('frànçAIS is über-åwesome', 24, 'frànçAIS is über-åwesome', FALSE, TRUE),
+      array('frànçAIS is über-åwesome', 23, 'frànçAIS is über-åweso…', FALSE, TRUE),
+      array('frànçAIS is über-åwesome', 17, 'frànçAIS is über…', FALSE, TRUE),
+      array('123', 1, '…', TRUE, TRUE),
+      array('123', 2, '1…', TRUE, TRUE),
+      array('123', 3, '123', TRUE, TRUE),
+      array('1234', 3, '12…', TRUE, TRUE),
+      array('1234567890', 10, '1234567890', TRUE, TRUE),
+      array('12345678901', 10, '123456789…', TRUE, TRUE),
+      array('12345678901', 11, '12345678901', TRUE, TRUE),
+      array('123456789012', 11, '1234567890…', TRUE, TRUE),
+      array('12345 7890', 10, '12345 7890', TRUE, TRUE),
+      array('12345 7890', 9, '12345…', TRUE, TRUE),
+      array('123 567 90', 10, '123 567 90', TRUE, TRUE),
+      array('123 567 901', 10, '123 567…', TRUE, TRUE),
+      array('Stop. Hammertime.', 17, 'Stop. Hammertime.', TRUE, TRUE),
+      array('Stop. Hammertime.', 16, 'Stop…', TRUE, TRUE),
+      array('frànçAIS is über-åwesome', 24, 'frànçAIS is über-åwesome', TRUE, TRUE),
+      array('frànçAIS is über-åwesome', 23, 'frànçAIS is über…', TRUE, TRUE),
+      array('frànçAIS is über-åwesome', 17, 'frànçAIS is über…', TRUE, TRUE),
+      array('¿Dónde está el niño?', 20, '¿Dónde está el niño?', TRUE, TRUE),
+      array('¿Dónde está el niño?', 19, '¿Dónde está el…', TRUE, TRUE),
+      array('¿Dónde está el niño?', 13, '¿Dónde está…', TRUE, TRUE),
+      array('¿Dónde está el niño?', 10, '¿Dónde…', TRUE, TRUE),
+      array('Help! Help! Help!', 17, 'Help! Help! Help!', TRUE, TRUE),
+      array('Help! Help! Help!', 16, 'Help! Help!…', TRUE, TRUE),
+      array('Help! Help! Help!', 15, 'Help! Help!…', TRUE, TRUE),
+      array('Help! Help! Help!', 14, 'Help! Help!…', TRUE, TRUE),
+      array('Help! Help! Help!', 13, 'Help! Help!…', TRUE, TRUE),
+      array('Help! Help! Help!', 12, 'Help! Help!…', TRUE, TRUE),
+      array('Help! Help! Help!', 11, 'Help! Help…', TRUE, TRUE),
+      array('Help! Help! Help!', 10, 'Help!…', TRUE, TRUE),
+      array('Help! Help! Help!', 9, 'Help!…', TRUE, TRUE),
+      array('Help! Help! Help!', 8, 'Help!…', TRUE, TRUE),
+      array('Help! Help! Help!', 7, 'Help!…', TRUE, TRUE),
+      array('Help! Help! Help!', 6, 'Help!…', TRUE, TRUE),
+      array('Help! Help! Help!', 5, 'Help…', TRUE, TRUE),
+      array('Help! Help! Help!', 4, 'Hel…', TRUE, TRUE),
+      array('Help! Help! Help!', 3, 'He…', TRUE, TRUE),
+      array('Help! Help! Help!', 2, 'H…', TRUE, TRUE),
+    );
   }
 
   /**
@@ -392,14 +448,14 @@ EOF;
    *   self::testTruncateBytes().
    */
   public function providerTestTruncateBytes() {
-    return [
+    return array(
       // String shorter than max length.
-      ['Short string', 42, 'Short string'],
+      array('Short string', 42, 'Short string'),
       // Simple string longer than max length.
-      ['Longer string than previous.', 10, 'Longer str'],
+      array('Longer string than previous.', 10, 'Longer str'),
       // Unicode.
-      ['以呂波耳・ほへとち。リヌルヲ。', 10, '以呂波'],
-    ];
+      array('以呂波耳・ほへとち。リヌルヲ。', 10, '以呂波'),
+    );
   }
 
   /**
@@ -422,23 +478,23 @@ EOF;
   /**
    * Provides data for self::testValidateUtf8().
    *
-   * Invalid UTF-8 examples sourced from http://stackoverflow.com/a/11709412/109119.
-   *
    * @return array
    *   An array of arrays, each containing the parameters for
    *   self::testValidateUtf8().
+   *
+   * Invalid UTF-8 examples sourced from http://stackoverflow.com/a/11709412/109119.
    */
   public function providerTestValidateUtf8() {
-    return [
+    return array(
       // Empty string.
-      ['', TRUE, 'An empty string did not validate.'],
+      array('', TRUE, 'An empty string did not validate.'),
       // Simple text string.
-      ['Simple text.', TRUE, 'A simple ASCII text string did not validate.'],
+      array('Simple text.', TRUE, 'A simple ASCII text string did not validate.'),
       // Invalid UTF-8, overlong 5 byte encoding.
-      [chr(0xF8) . chr(0x80) . chr(0x80) . chr(0x80) . chr(0x80), FALSE, 'Invalid UTF-8 was validated.'],
+      array(chr(0xF8) . chr(0x80) . chr(0x80) . chr(0x80) . chr(0x80), FALSE, 'Invalid UTF-8 was validated.'),
       // High code-point without trailing characters.
-      [chr(0xD0) . chr(0x01), FALSE, 'Invalid UTF-8 was validated.'],
-    ];
+      array(chr(0xD0) . chr(0x01), FALSE, 'Invalid UTF-8 was validated.'),
+    );
   }
 
   /**
@@ -466,50 +522,11 @@ EOF;
    *   self::testConvertUtf8().  }
    */
   public function providerTestConvertToUtf8() {
-    return [
-      [chr(0x97), 'Windows-1252', '—'],
-      [chr(0x99), 'Windows-1252', '™'],
-      [chr(0x80), 'Windows-1252', '€'],
-    ];
-  }
-
-  /**
-   * Tests multibyte strpos.
-   *
-   * @dataProvider providerStrpos
-   * @covers ::strpos
-   * @group legacy
-   * @expectedDeprecation \Drupal\Component\Utility\Unicode::strpos() is deprecated in Drupal 8.6.0 and will be removed before Drupal 9.0.0. Use mb_strpos() instead. See https://www.drupal.org/node/2850048.
-   */
-  public function testStrpos($haystack, $needle, $offset, $expected) {
-    $this->assertEquals($expected, Unicode::strpos($haystack, $needle, $offset));
-  }
-
-  /**
-   * Data provider for testStrpos().
-   *
-   * @see testStrpos()
-   *
-   * @return array
-   *   An array containing:
-   *     - The haystack string to be searched in.
-   *     - The needle string to search for.
-   *     - The offset integer to start at.
-   *     - The expected integer/FALSE result.
-   */
-  public function providerStrpos() {
-    return [
-      ['frànçAIS is über-åwesome', 'frànçAIS is über-åwesome', 0, 0],
-      ['frànçAIS is über-åwesome', 'rànçAIS is über-åwesome', 0, 1],
-      ['frànçAIS is über-åwesome', 'not in string', 0, FALSE],
-      ['frànçAIS is über-åwesome', 'r', 0, 1],
-      ['frànçAIS is über-åwesome', 'nçAIS', 0, 3],
-      ['frànçAIS is über-åwesome', 'nçAIS', 2, 3],
-      ['frànçAIS is über-åwesome', 'nçAIS', 3, 3],
-      ['以呂波耳・ほへとち。リヌルヲ。', '波耳', 0, 2],
-      ['以呂波耳・ほへとち。リヌルヲ。', '波耳', 1, 2],
-      ['以呂波耳・ほへとち。リヌルヲ。', '波耳', 2, 2],
-    ];
+    return array(
+      array(chr(0x97), 'Windows-1252', '—'),
+      array(chr(0x99), 'Windows-1252', '™'),
+      array(chr(0x80), 'Windows-1252', '€'),
+    );
   }
 
 }

@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\language\LanguageNegotiator.
+ */
+
 namespace Drupal\language;
 
 use Drupal\Component\Plugin\PluginManagerInterface;
@@ -38,7 +43,7 @@ class LanguageNegotiator implements LanguageNegotiatorInterface {
   /**
    * The settings instance.
    *
-   * @var \Drupal\Core\Site\Settings
+   * @return \Drupal\Core\Site\Settings
    */
   protected $settings;
 
@@ -52,7 +57,7 @@ class LanguageNegotiator implements LanguageNegotiatorInterface {
   /**
    * The current active user.
    *
-   * @var \Drupal\Core\Session\AccountInterface
+   * @return \Drupal\Core\Session\AccountInterface
    */
   protected $currentUser;
 
@@ -68,13 +73,13 @@ class LanguageNegotiator implements LanguageNegotiatorInterface {
    *
    * @var \Drupal\Core\Language\LanguageInterface[]
    */
-  protected $negotiatedLanguages = [];
+  protected $negotiatedLanguages = array();
 
   /**
    * Constructs a new LanguageNegotiator object.
    *
    * @param \Drupal\language\ConfigurableLanguageManagerInterface $language_manager
-   *   The language manager.
+   *    The language manager.
    * @param \Drupal\Component\Plugin\PluginManagerInterface $negotiator_manager
    *   The language negotiation methods plugin manager
    * @param \Drupal\Core\Config\ConfigFactoryInterface $config_factory
@@ -105,8 +110,8 @@ class LanguageNegotiator implements LanguageNegotiatorInterface {
    * {@inheritdoc}
    */
   public function reset() {
-    $this->negotiatedLanguages = [];
-    $this->methods = [];
+    $this->negotiatedLanguages = array();
+    $this->methods = array();
   }
 
   /**
@@ -150,7 +155,7 @@ class LanguageNegotiator implements LanguageNegotiatorInterface {
       $method_id = static::METHOD_ID;
     }
 
-    return [$method_id => $language];
+    return array($method_id => $language);
   }
 
   /**
@@ -163,7 +168,7 @@ class LanguageNegotiator implements LanguageNegotiatorInterface {
    *   An array of enabled detection methods for the provided language type.
    */
   protected function getEnabledNegotiators($type) {
-    return $this->configFactory->get('language.types')->get('negotiation.' . $type . '.enabled') ?: [];
+    return $this->configFactory->get('language.types')->get('negotiation.' . $type . '.enabled') ?: array();
   }
 
   /**
@@ -207,7 +212,7 @@ class LanguageNegotiator implements LanguageNegotiatorInterface {
    */
   public function getNegotiationMethodInstance($method_id) {
     if (!isset($this->methods[$method_id])) {
-      $instance = $this->negotiatorManager->createInstance($method_id, []);
+      $instance = $this->negotiatorManager->createInstance($method_id, array());
       $instance->setLanguageManager($this->languageManager);
       $instance->setConfig($this->configFactory);
       $instance->setCurrentUser($this->currentUser);
@@ -229,7 +234,7 @@ class LanguageNegotiator implements LanguageNegotiatorInterface {
    */
   public function isNegotiationMethodEnabled($method_id, $type = NULL) {
     $enabled = FALSE;
-    $language_types = !empty($type) ? [$type] : $this->languageManager->getLanguageTypes();
+    $language_types = !empty($type) ? array($type) : $this->languageManager->getLanguageTypes();
 
     foreach ($language_types as $type) {
       $enabled_methods = $this->getEnabledNegotiators($type);
@@ -245,14 +250,11 @@ class LanguageNegotiator implements LanguageNegotiatorInterface {
   /**
    * {@inheritdoc}
    */
-  public function saveConfiguration($type, $enabled_methods) {
+  function saveConfiguration($type, $enabled_methods) {
     // As configurable language types might have changed, we reset the cache.
     $this->languageManager->reset();
     $definitions = $this->getNegotiationMethods();
     $default_types = $this->languageManager->getLanguageTypes();
-
-    // Ensure that the weights are integers.
-    $enabled_methods = array_map('intval', $enabled_methods);
 
     // Order the language negotiation method list by weight.
     asort($enabled_methods);
@@ -271,16 +273,16 @@ class LanguageNegotiator implements LanguageNegotiatorInterface {
         unset($enabled_methods[$method_id]);
       }
     }
-    $this->configFactory->getEditable('language.types')->set('negotiation.' . $type . '.enabled', $enabled_methods)->save(TRUE);
+    $this->configFactory->getEditable('language.types')->set('negotiation.' . $type . '.enabled', $enabled_methods)->save();
   }
 
   /**
    * {@inheritdoc}
    */
-  public function purgeConfiguration() {
+  function purgeConfiguration() {
     // Ensure that we are getting the defined language negotiation information.
-    // An invocation of \Drupal\Core\Extension\ModuleInstaller::install() or
-    // \Drupal\Core\Extension\ModuleInstaller::uninstall() could invalidate the
+    // An invocation of \Drupal\Core\Extension\ModuleHandler::install() or
+    // \Drupal\Core\Extension\ModuleHandler::uninstall() could invalidate the
     // cached information.
     $this->negotiatorManager->clearCachedDefinitions();
     $this->languageManager->reset();
@@ -292,15 +294,15 @@ class LanguageNegotiator implements LanguageNegotiatorInterface {
   /**
    * {@inheritdoc}
    */
-  public function updateConfiguration(array $types) {
+  function updateConfiguration(array $types) {
     // Ensure that we are getting the defined language negotiation information.
-    // An invocation of \Drupal\Core\Extension\ModuleInstaller::install() or
-    // \Drupal\Core\Extension\ModuleInstaller::uninstall() could invalidate the
+    // An invocation of \Drupal\Core\Extension\ModuleHandler::install() or
+    // \Drupal\Core\Extension\ModuleHandler::uninstall() could invalidate the
     // cached information.
     $this->negotiatorManager->clearCachedDefinitions();
     $this->languageManager->reset();
 
-    $language_types = [];
+    $language_types = array();
     $language_types_info = $this->languageManager->getDefinedLanguageTypesInfo();
     $method_definitions = $this->getNegotiationMethods();
 
@@ -319,7 +321,7 @@ class LanguageNegotiator implements LanguageNegotiatorInterface {
           // default language negotiation settings, we use the values
           // negotiated for the interface language which, should always be
           // available.
-          $method_weights = [LanguageNegotiationUI::METHOD_ID];
+          $method_weights = array(LanguageNegotiationUI::METHOD_ID);
           $method_weights = array_flip($method_weights);
           $this->saveConfiguration($type, $method_weights);
         }
@@ -333,7 +335,7 @@ class LanguageNegotiator implements LanguageNegotiatorInterface {
         // If the language type is locked we can just store its default language
         // negotiation settings if it has some, since it is not configurable.
         if ($has_default_settings) {
-          $method_weights = [];
+          $method_weights = array();
           // Default settings are in $info['fixed'].
 
           foreach ($info['fixed'] as $weight => $method_id) {
@@ -354,10 +356,10 @@ class LanguageNegotiator implements LanguageNegotiatorInterface {
     }
 
     // Store the language type configuration.
-    $config = [
+    $config = array(
       'configurable' => array_keys(array_filter($language_types)),
       'all' => array_keys($language_types),
-    ];
+    );
     $this->languageManager->saveLanguageTypesConfiguration($config);
   }
 

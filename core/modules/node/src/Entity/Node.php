@@ -1,14 +1,20 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\node\Entity\Node.
+ */
+
 namespace Drupal\node\Entity;
 
-use Drupal\Core\Entity\EditorialContentEntityBase;
+use Drupal\Core\Entity\ContentEntityBase;
 use Drupal\Core\Entity\EntityStorageInterface;
 use Drupal\Core\Entity\EntityTypeInterface;
 use Drupal\Core\Field\BaseFieldDefinition;
+use Drupal\Core\Language\LanguageInterface;
 use Drupal\Core\Session\AccountInterface;
 use Drupal\node\NodeInterface;
-use Drupal\user\EntityOwnerTrait;
+use Drupal\user\UserInterface;
 
 /**
  * Defines the node entity class.
@@ -16,13 +22,6 @@ use Drupal\user\EntityOwnerTrait;
  * @ContentEntityType(
  *   id = "node",
  *   label = @Translation("Content"),
- *   label_collection = @Translation("Content"),
- *   label_singular = @Translation("content item"),
- *   label_plural = @Translation("content items"),
- *   label_count = @PluralTranslation(
- *     singular = "@count content item",
- *     plural = "@count content items"
- *   ),
  *   bundle_label = @Translation("Content type"),
  *   handlers = {
  *     "storage" = "Drupal\node\NodeStorage",
@@ -33,8 +32,7 @@ use Drupal\user\EntityOwnerTrait;
  *     "form" = {
  *       "default" = "Drupal\node\NodeForm",
  *       "delete" = "Drupal\node\Form\NodeDeleteForm",
- *       "edit" = "Drupal\node\NodeForm",
- *       "delete-multiple-confirm" = "Drupal\node\Form\DeleteMultiple"
+ *       "edit" = "Drupal\node\NodeForm"
  *     },
  *     "route_provider" = {
  *       "html" = "Drupal\node\Entity\NodeRouteProvider",
@@ -46,7 +44,6 @@ use Drupal\user\EntityOwnerTrait;
  *   data_table = "node_field_data",
  *   revision_table = "node_revision",
  *   revision_data_table = "node_field_revision",
- *   show_revision_ui = TRUE,
  *   translatable = TRUE,
  *   list_cache_contexts = { "user.node_grants:view" },
  *   entity_keys = {
@@ -55,16 +52,7 @@ use Drupal\user\EntityOwnerTrait;
  *     "bundle" = "type",
  *     "label" = "title",
  *     "langcode" = "langcode",
- *     "uuid" = "uuid",
- *     "status" = "status",
- *     "published" = "status",
- *     "uid" = "uid",
- *     "owner" = "uid",
- *   },
- *   revision_metadata_keys = {
- *     "revision_user" = "revision_uid",
- *     "revision_created" = "revision_timestamp",
- *     "revision_log_message" = "revision_log"
+ *     "uuid" = "uuid"
  *   },
  *   bundle_entity_type = "node_type",
  *   field_ui_base_route = "entity.node_type.edit_form",
@@ -73,28 +61,13 @@ use Drupal\user\EntityOwnerTrait;
  *   links = {
  *     "canonical" = "/node/{node}",
  *     "delete-form" = "/node/{node}/delete",
- *     "delete-multiple-form" = "/admin/content/node/delete",
  *     "edit-form" = "/node/{node}/edit",
  *     "version-history" = "/node/{node}/revisions",
  *     "revision" = "/node/{node}/revisions/{node_revision}/view",
- *     "create" = "/node",
  *   }
  * )
  */
-class Node extends EditorialContentEntityBase implements NodeInterface {
-
-  use EntityOwnerTrait;
-
-  /**
-   * Whether the node is being previewed or not.
-   *
-   * The variable is set to public as it will give a considerable performance
-   * improvement. See https://www.drupal.org/node/2498919.
-   *
-   * @var true|null
-   *   TRUE if the node is being previewed and NULL if it is not.
-   */
-  public $in_preview = NULL;
+class Node extends ContentEntityBase implements NodeInterface {
 
   /**
    * {@inheritdoc}
@@ -102,19 +75,14 @@ class Node extends EditorialContentEntityBase implements NodeInterface {
   public function preSave(EntityStorageInterface $storage) {
     parent::preSave($storage);
 
-    foreach (array_keys($this->getTranslationLanguages()) as $langcode) {
-      $translation = $this->getTranslation($langcode);
-
-      // If no owner has been set explicitly, make the anonymous user the owner.
-      if (!$translation->getOwner()) {
-        $translation->setOwnerId(0);
-      }
+    // If no owner has been set explicitly, make the current user the owner.
+    if (!$this->getOwner()) {
+      $this->setOwnerId(\Drupal::currentUser()->id());
     }
-
     // If no revision author has been set explicitly, make the node owner the
     // revision author.
-    if (!$this->getRevisionUser()) {
-      $this->setRevisionUserId($this->getOwnerId());
+    if (!$this->getRevisionAuthor()) {
+      $this->setRevisionAuthorId($this->getOwnerId());
     }
   }
 
@@ -143,10 +111,7 @@ class Node extends EditorialContentEntityBase implements NodeInterface {
     // default revision. There's no need to delete existing records if the node
     // is new.
     if ($this->isDefaultRevision()) {
-      /** @var \Drupal\node\NodeAccessControlHandlerInterface $access_control_handler */
-      $access_control_handler = \Drupal::entityTypeManager()->getAccessControlHandler('node');
-      $grants = $access_control_handler->acquireGrants($this);
-      \Drupal::service('node.grant_storage')->write($this, $grants, NULL, $update);
+      \Drupal::entityManager()->getAccessControlHandler('node')->writeGrants($this, $update);
     }
 
     // Reindex the node when it is updated. The node is automatically indexed
@@ -163,11 +128,9 @@ class Node extends EditorialContentEntityBase implements NodeInterface {
     parent::preDelete($storage, $entities);
 
     // Ensure that all nodes deleted are removed from the search index.
-    if (\Drupal::hasService('search.index')) {
-      /** @var \Drupal\search\SearchIndexInterface $search_index */
-      $search_index = \Drupal::service('search.index');
+    if (\Drupal::moduleHandler()->moduleExists('search')) {
       foreach ($entities as $entity) {
-        $search_index->clear('node_search', $entity->nid->value);
+        search_index_clear('node_search', $entity->nid->value);
       }
     }
   }
@@ -191,9 +154,35 @@ class Node extends EditorialContentEntityBase implements NodeInterface {
    * {@inheritdoc}
    */
   public function access($operation = 'view', AccountInterface $account = NULL, $return_as_object = FALSE) {
-    // This override exists to set the operation to the default value "view".
-    return parent::access($operation, $account, $return_as_object);
+    if ($operation == 'create') {
+      return parent::access($operation, $account, $return_as_object);
+    }
+
+    return \Drupal::entityManager()
+      ->getAccessControlHandler($this->entityTypeId)
+      ->access($this, $operation, $this->prepareLangcode(), $account, $return_as_object);
   }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function prepareLangcode() {
+    $langcode = $this->language()->getId();
+    // If the Language module is enabled, try to use the language from content
+    // negotiation.
+    if (\Drupal::moduleHandler()->moduleExists('language')) {
+      // Load languages the node exists in.
+      $node_translations = $this->getTranslationLanguages();
+      // Load the language from content negotiation.
+      $content_negotiation_langcode = \Drupal::languageManager()->getCurrentLanguage(LanguageInterface::TYPE_CONTENT)->getId();
+      // If there is a translation available, use it.
+      if (isset($node_translations[$content_negotiation_langcode])) {
+        $langcode = $content_negotiation_langcode;
+      }
+    }
+    return $langcode;
+  }
+
 
   /**
    * {@inheritdoc}
@@ -217,12 +206,20 @@ class Node extends EditorialContentEntityBase implements NodeInterface {
     return $this->get('created')->value;
   }
 
+
   /**
    * {@inheritdoc}
    */
   public function setCreatedTime($timestamp) {
     $this->set('created', $timestamp);
     return $this;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getChangedTime() {
+    return $this->get('changed')->value;
   }
 
   /**
@@ -236,7 +233,7 @@ class Node extends EditorialContentEntityBase implements NodeInterface {
    * {@inheritdoc}
    */
   public function setPromoted($promoted) {
-    $this->set('promote', $promoted ? NodeInterface::PROMOTED : NodeInterface::NOT_PROMOTED);
+    $this->set('promote', $promoted ? NODE_PROMOTED : NODE_NOT_PROMOTED);
     return $this;
   }
 
@@ -251,7 +248,66 @@ class Node extends EditorialContentEntityBase implements NodeInterface {
    * {@inheritdoc}
    */
   public function setSticky($sticky) {
-    $this->set('sticky', $sticky ? NodeInterface::STICKY : NodeInterface::NOT_STICKY);
+    $this->set('sticky', $sticky ? NODE_STICKY : NODE_NOT_STICKY);
+    return $this;
+  }
+  /**
+   * {@inheritdoc}
+   */
+  public function isPublished() {
+    return (bool) $this->get('status')->value;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function setPublished($published) {
+    $this->set('status', $published ? NODE_PUBLISHED : NODE_NOT_PUBLISHED);
+    return $this;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getOwner() {
+    return $this->get('uid')->entity;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getOwnerId() {
+    return $this->get('uid')->target_id;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function setOwnerId($uid) {
+    $this->set('uid', $uid);
+    return $this;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function setOwner(UserInterface $account) {
+    $this->set('uid', $account->id());
+    return $this;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getRevisionCreationTime() {
+    return $this->get('revision_timestamp')->value;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function setRevisionCreationTime($timestamp) {
+    $this->set('revision_timestamp', $timestamp);
     return $this;
   }
 
@@ -259,86 +315,120 @@ class Node extends EditorialContentEntityBase implements NodeInterface {
    * {@inheritdoc}
    */
   public function getRevisionAuthor() {
-    @trigger_error(__NAMESPACE__ . '\Node::getRevisionAuthor is deprecated in drupal:8.2.0 and is removed from drupal:9.0.0. Use \Drupal\Core\Entity\RevisionLogInterface::getRevisionUser() instead. See https://www.drupal.org/node/3069750', E_USER_DEPRECATED);
-    return $this->getRevisionUser();
+    return $this->get('revision_uid')->entity;
   }
 
   /**
    * {@inheritdoc}
    */
   public function setRevisionAuthorId($uid) {
-    @trigger_error(__NAMESPACE__ . '\Node::setRevisionAuthorId is deprecated in drupal:8.2.0 and is removed from drupal:9.0.0. Use \Drupal\Core\Entity\RevisionLogInterface::setRevisionUserId() instead. See https://www.drupal.org/node/3069750', E_USER_DEPRECATED);
-    return $this->setRevisionUserId($uid);
+    $this->set('revision_uid', $uid);
+    return $this;
   }
 
   /**
    * {@inheritdoc}
    */
   public static function baseFieldDefinitions(EntityTypeInterface $entity_type) {
-    $fields = parent::baseFieldDefinitions($entity_type);
-    $fields += static::ownerBaseFieldDefinitions($entity_type);
+    $fields['nid'] = BaseFieldDefinition::create('integer')
+      ->setLabel(t('Node ID'))
+      ->setDescription(t('The node ID.'))
+      ->setReadOnly(TRUE)
+      ->setSetting('unsigned', TRUE);
+
+    $fields['uuid'] = BaseFieldDefinition::create('uuid')
+      ->setLabel(t('UUID'))
+      ->setDescription(t('The node UUID.'))
+      ->setReadOnly(TRUE);
+
+    $fields['vid'] = BaseFieldDefinition::create('integer')
+      ->setLabel(t('Revision ID'))
+      ->setDescription(t('The node revision ID.'))
+      ->setReadOnly(TRUE)
+      ->setSetting('unsigned', TRUE);
+
+    $fields['type'] = BaseFieldDefinition::create('entity_reference')
+      ->setLabel(t('Type'))
+      ->setDescription(t('The node type.'))
+      ->setSetting('target_type', 'node_type')
+      ->setReadOnly(TRUE);
+
+    $fields['langcode'] = BaseFieldDefinition::create('language')
+      ->setLabel(t('Language'))
+      ->setDescription(t('The node language code.'))
+      ->setTranslatable(TRUE)
+      ->setRevisionable(TRUE)
+      ->setDisplayOptions('view', array(
+        'type' => 'hidden',
+      ))
+      ->setDisplayOptions('form', array(
+        'type' => 'language_select',
+        'weight' => 2,
+      ));
 
     $fields['title'] = BaseFieldDefinition::create('string')
       ->setLabel(t('Title'))
       ->setRequired(TRUE)
       ->setTranslatable(TRUE)
       ->setRevisionable(TRUE)
+      ->setDefaultValue('')
       ->setSetting('max_length', 255)
-      ->setDisplayOptions('view', [
+      ->setDisplayOptions('view', array(
         'label' => 'hidden',
         'type' => 'string',
         'weight' => -5,
-      ])
-      ->setDisplayOptions('form', [
+      ))
+      ->setDisplayOptions('form', array(
         'type' => 'string_textfield',
         'weight' => -5,
-      ])
+      ))
       ->setDisplayConfigurable('form', TRUE);
 
-    $fields['uid']
+    $fields['uid'] = BaseFieldDefinition::create('entity_reference')
       ->setLabel(t('Authored by'))
       ->setDescription(t('The username of the content author.'))
       ->setRevisionable(TRUE)
-      ->setDisplayOptions('view', [
+      ->setSetting('target_type', 'user')
+      ->setSetting('handler', 'default')
+      ->setDefaultValueCallback('Drupal\node\Entity\Node::getCurrentUserId')
+      ->setTranslatable(TRUE)
+      ->setDisplayOptions('view', array(
         'label' => 'hidden',
         'type' => 'author',
         'weight' => 0,
-      ])
-      ->setDisplayOptions('form', [
+      ))
+      ->setDisplayOptions('form', array(
         'type' => 'entity_reference_autocomplete',
         'weight' => 5,
-        'settings' => [
+        'settings' => array(
           'match_operator' => 'CONTAINS',
           'size' => '60',
           'placeholder' => '',
-        ],
-      ])
+        ),
+      ))
       ->setDisplayConfigurable('form', TRUE);
 
-    $fields['status']
-      ->setDisplayOptions('form', [
-        'type' => 'boolean_checkbox',
-        'settings' => [
-          'display_label' => TRUE,
-        ],
-        'weight' => 120,
-      ])
-      ->setDisplayConfigurable('form', TRUE);
+    $fields['status'] = BaseFieldDefinition::create('boolean')
+      ->setLabel(t('Publishing status'))
+      ->setDescription(t('A boolean indicating whether the node is published.'))
+      ->setRevisionable(TRUE)
+      ->setTranslatable(TRUE)
+      ->setDefaultValue(TRUE);
 
     $fields['created'] = BaseFieldDefinition::create('created')
       ->setLabel(t('Authored on'))
       ->setDescription(t('The time that the node was created.'))
       ->setRevisionable(TRUE)
       ->setTranslatable(TRUE)
-      ->setDisplayOptions('view', [
+      ->setDisplayOptions('view', array(
         'label' => 'hidden',
         'type' => 'timestamp',
         'weight' => 0,
-      ])
-      ->setDisplayOptions('form', [
+      ))
+      ->setDisplayOptions('form', array(
         'type' => 'datetime_timestamp',
         'weight' => 10,
-      ])
+      ))
       ->setDisplayConfigurable('form', TRUE);
 
     $fields['changed'] = BaseFieldDefinition::create('changed')
@@ -352,13 +442,13 @@ class Node extends EditorialContentEntityBase implements NodeInterface {
       ->setRevisionable(TRUE)
       ->setTranslatable(TRUE)
       ->setDefaultValue(TRUE)
-      ->setDisplayOptions('form', [
+      ->setDisplayOptions('form', array(
         'type' => 'boolean_checkbox',
-        'settings' => [
+        'settings' => array(
           'display_label' => TRUE,
-        ],
+        ),
         'weight' => 15,
-      ])
+      ))
       ->setDisplayConfigurable('form', TRUE);
 
     $fields['sticky'] = BaseFieldDefinition::create('boolean')
@@ -366,14 +456,40 @@ class Node extends EditorialContentEntityBase implements NodeInterface {
       ->setRevisionable(TRUE)
       ->setTranslatable(TRUE)
       ->setDefaultValue(FALSE)
-      ->setDisplayOptions('form', [
+      ->setDisplayOptions('form', array(
         'type' => 'boolean_checkbox',
-        'settings' => [
+        'settings' => array(
           'display_label' => TRUE,
-        ],
+        ),
         'weight' => 16,
-      ])
+      ))
       ->setDisplayConfigurable('form', TRUE);
+
+    $fields['revision_timestamp'] = BaseFieldDefinition::create('created')
+      ->setLabel(t('Revision timestamp'))
+      ->setDescription(t('The time that the current revision was created.'))
+      ->setQueryable(FALSE)
+      ->setRevisionable(TRUE);
+
+    $fields['revision_uid'] = BaseFieldDefinition::create('entity_reference')
+      ->setLabel(t('Revision user ID'))
+      ->setDescription(t('The user ID of the author of the current revision.'))
+      ->setSetting('target_type', 'user')
+      ->setQueryable(FALSE)
+      ->setRevisionable(TRUE);
+
+    $fields['revision_log'] = BaseFieldDefinition::create('string_long')
+      ->setLabel(t('Revision log message'))
+      ->setDescription(t('Briefly describe the changes you have made.'))
+      ->setRevisionable(TRUE)
+      ->setTranslatable(TRUE)
+      ->setDisplayOptions('form', array(
+        'type' => 'string_textarea',
+        'weight' => 25,
+        'settings' => array(
+          'rows' => 4,
+        ),
+      ));
 
     return $fields;
   }
@@ -383,15 +499,11 @@ class Node extends EditorialContentEntityBase implements NodeInterface {
    *
    * @see ::baseFieldDefinitions()
    *
-   * @deprecated The ::getCurrentUserId method is deprecated in 8.6.x and will
-   *   be removed before 9.0.0.
-   *
    * @return array
    *   An array of default values.
    */
   public static function getCurrentUserId() {
-    @trigger_error('The ::getCurrentUserId method is deprecated in 8.6.x and will be removed before 9.0.0.', E_USER_DEPRECATED);
-    return [\Drupal::currentUser()->id()];
+    return array(\Drupal::currentUser()->id());
   }
 
 }

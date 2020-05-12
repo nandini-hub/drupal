@@ -1,14 +1,18 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\node\NodeTypeInterface.
+ */
+
 namespace Drupal\node;
 
 use Drupal\Core\Config\Entity\ConfigEntityInterface;
-use Drupal\Core\Entity\RevisionableEntityBundleInterface;
 
 /**
  * Provides an interface defining a node type entity.
  */
-interface NodeTypeInterface extends ConfigEntityInterface, RevisionableEntityBundleInterface {
+interface NodeTypeInterface extends ConfigEntityInterface {
 
   /**
    * Determines whether the node type is locked.
@@ -19,29 +23,23 @@ interface NodeTypeInterface extends ConfigEntityInterface, RevisionableEntityBun
   public function isLocked();
 
   /**
-   * Gets whether a new revision should be created by default.
+   * Returns whether a new revision should be created by default.
    *
    * @return bool
    *   TRUE if a new revision should be created by default.
-   *
-   * @deprecated in drupal:8.3.0 and is removed from drupal:9.0.0. Use
-   *   Drupal\Core\Entity\RevisionableEntityBundleInterface::shouldCreateNewRevision()
-   *   instead.
-   *
-   * @see https://www.drupal.org/node/3067365
    */
   public function isNewRevision();
 
   /**
-   * Sets whether a new revision should be created by default.
+   * Set whether a new revision should be created by default.
    *
-   * @param bool $new_revision
+   * @param bool $new_revision_
    *   TRUE if a new revision should be created by default.
    */
   public function setNewRevision($new_revision);
 
   /**
-   * Gets whether 'Submitted by' information should be shown.
+   * Returns whether 'Submitted by' information should be shown.
    *
    * @return bool
    *   TRUE if the submitted by information should be shown.
@@ -49,15 +47,15 @@ interface NodeTypeInterface extends ConfigEntityInterface, RevisionableEntityBun
   public function displaySubmitted();
 
   /**
-   * Sets whether 'Submitted by' information should be shown.
+   * Set whether 'Submitted by' information should be shown.
    *
    * @param bool $display_submitted
    *   TRUE if the submitted by information should be shown.
    */
-  public function setDisplaySubmitted($display_submitted);
+  public function setDisplaySubmitted($display_submtited);
 
   /**
-   * Gets the preview mode.
+   * Returns the preview mode.
    *
    * @return int
    *   DRUPAL_DISABLED, DRUPAL_OPTIONAL or DRUPAL_REQUIRED.
@@ -73,7 +71,7 @@ interface NodeTypeInterface extends ConfigEntityInterface, RevisionableEntityBun
   public function setPreviewMode($preview_mode);
 
   /**
-   * Gets the help information.
+   * Returns the help information.
    *
    * @return string
    *   The help information of this node type.
@@ -81,11 +79,10 @@ interface NodeTypeInterface extends ConfigEntityInterface, RevisionableEntityBun
   public function getHelp();
 
   /**
-   * Gets the description.
+   * Returns the description.
    *
    * @return string
    *   The description of this node type.
    */
   public function getDescription();
-
 }

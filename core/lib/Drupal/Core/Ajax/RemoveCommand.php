@@ -1,6 +1,13 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\Core\Ajax\RemoveCommand.
+ */
+
 namespace Drupal\Core\Ajax;
+
+use Drupal\Core\Ajax\CommandInterface;
 
 /**
  * AJAX command for calling the jQuery remove() method.
@@ -16,7 +23,7 @@ namespace Drupal\Core\Ajax;
  *
  * @ingroup ajax
  */
-class RemoveCommand implements CommandInterface {
+class RemoveCommand Implements CommandInterface {
 
   /**
    * The CSS selector for the element(s) to be removed.
@@ -29,6 +36,7 @@ class RemoveCommand implements CommandInterface {
    * Constructs a RemoveCommand object.
    *
    * @param string $selector
+   *
    */
   public function __construct($selector) {
     $this->selector = $selector;
@@ -38,10 +46,10 @@ class RemoveCommand implements CommandInterface {
    * Implements Drupal\Core\Ajax\CommandInterface:render().
    */
   public function render() {
-    return [
+    return array(
       'command' => 'remove',
       'selector' => $this->selector,
-    ];
+    );
   }
 
 }

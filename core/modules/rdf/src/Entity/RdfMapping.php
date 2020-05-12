@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\rdf\Entity\RdfMapping.
+ */
+
 namespace Drupal\rdf\Entity;
 
 use Drupal\Core\Config\Entity\ConfigEntityBase;
@@ -12,23 +17,9 @@ use Drupal\rdf\RdfMappingInterface;
  * @ConfigEntityType(
  *   id = "rdf_mapping",
  *   label = @Translation("RDF mapping"),
- *   label_singular = @Translation("RDF mapping item"),
- *   label_plural = @Translation("RDF mappings items"),
- *   label_count = @PluralTranslation(
- *     singular = "@count RDF mapping item",
- *     plural = "@count RDF mapping items",
- *   ),
  *   config_prefix = "mapping",
  *   entity_keys = {
  *     "id" = "id"
- *   },
- *   admin_permission = "administer site configuration",
- *   config_export = {
- *     "id",
- *     "targetEntityType",
- *     "bundle",
- *     "types",
- *     "fieldMappings",
  *   }
  * )
  */
@@ -60,20 +51,20 @@ class RdfMapping extends ConfigEntityBase implements RdfMappingInterface {
    *
    * @var array
    */
-  protected $types = [];
+  protected $types = array();
 
   /**
    * The mappings for fields on this bundle.
    *
    * @var array
    */
-  protected $fieldMappings = [];
+  protected $fieldMappings = array();
 
   /**
    * {@inheritdoc}
    */
   public function getPreparedBundleMapping() {
-    return ['types' => $this->types];
+    return array('types' => $this->types);
   }
 
   /**
@@ -81,9 +72,9 @@ class RdfMapping extends ConfigEntityBase implements RdfMappingInterface {
    */
   public function getBundleMapping() {
     if (!empty($this->types)) {
-      return ['types' => $this->types];
+      return array('types' => $this->types);
     }
-    return [];
+    return array();
   }
 
   /**
@@ -101,16 +92,16 @@ class RdfMapping extends ConfigEntityBase implements RdfMappingInterface {
    * {@inheritdoc}
    */
   public function getPreparedFieldMapping($field_name) {
-    $field_mapping = [
+    $field_mapping = array(
       'properties' => NULL,
       'datatype' => NULL,
       'datatype_callback' => NULL,
       'mapping_type' => NULL,
-    ];
+    );
     if (isset($this->fieldMappings[$field_name])) {
       $field_mapping = array_merge($field_mapping, $this->fieldMappings[$field_name]);
     }
-    return empty($field_mapping['properties']) ? [] : $field_mapping;
+    return empty($field_mapping['properties']) ? array() : $field_mapping;
   }
 
   /**
@@ -120,13 +111,13 @@ class RdfMapping extends ConfigEntityBase implements RdfMappingInterface {
     if (isset($this->fieldMappings[$field_name])) {
       return $this->fieldMappings[$field_name];
     }
-    return [];
+    return array();
   }
 
   /**
    * {@inheritdoc}
    */
-  public function setFieldMapping($field_name, array $mapping = []) {
+  public function setFieldMapping($field_name, array $mapping = array()) {
     $this->fieldMappings[$field_name] = $mapping;
     return $this;
   }
@@ -143,14 +134,16 @@ class RdfMapping extends ConfigEntityBase implements RdfMappingInterface {
    */
   public function calculateDependencies() {
     parent::calculateDependencies();
-
-    // Create dependency on the bundle.
-    $entity_type = \Drupal::entityTypeManager()->getDefinition($this->targetEntityType);
+    $entity_type = \Drupal::entityManager()->getDefinition($this->targetEntityType);
     $this->addDependency('module', $entity_type->getProvider());
-    $bundle_config_dependency = $entity_type->getBundleConfigDependency($this->bundle);
-    $this->addDependency($bundle_config_dependency['type'], $bundle_config_dependency['name']);
-
-    return $this;
+    $bundle_entity_type_id = $entity_type->getBundleEntityType();
+    if ($bundle_entity_type_id != 'bundle') {
+      // If the target entity type uses entities to manage its bundles then
+      // depend on the bundle entity.
+      $bundle_entity = \Drupal::entityManager()->getStorage($bundle_entity_type_id)->load($this->bundle);
+      $this->addDependency('config', $bundle_entity->getConfigDependencyName());
+    }
+    return $this->dependencies;
   }
 
   /**
@@ -159,8 +152,8 @@ class RdfMapping extends ConfigEntityBase implements RdfMappingInterface {
   public function postSave(EntityStorageInterface $storage, $update = TRUE) {
     parent::postSave($storage, $update);
 
-    if (\Drupal::entityTypeManager()->hasHandler($this->targetEntityType, 'view_builder')) {
-      \Drupal::entityTypeManager()->getViewBuilder($this->targetEntityType)->resetCache();
+    if (\Drupal::entityManager()->hasHandler($this->targetEntityType, 'view_builder')) {
+      \Drupal::entityManager()->getViewBuilder($this->targetEntityType)->resetCache();
     }
   }
 

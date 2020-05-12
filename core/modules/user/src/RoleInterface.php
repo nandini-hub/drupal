@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\user\Entity\RoleInterface.
+ */
+
 namespace Drupal\user;
 
 use Drupal\Core\Config\Entity\ConfigEntityInterface;
@@ -13,12 +18,12 @@ use Drupal\Core\Session\AccountInterface;
 interface RoleInterface extends ConfigEntityInterface {
 
   /**
-   * Role ID for anonymous users; should match the 'role' entity ID.
+   * Role ID for anonymous users; should match what's in the "role" table.
    */
   const ANONYMOUS_ID = AccountInterface::ANONYMOUS_ROLE;
 
   /**
-   * Role ID for authenticated users; should match the 'role' entity ID.
+   * Role ID for authenticated users; should match what's in the "role" table.
    */
   const AUTHENTICATED_ID = AccountInterface::AUTHENTICATED_ROLE;
 
@@ -73,9 +78,9 @@ interface RoleInterface extends ConfigEntityInterface {
    * Sets the role to be an admin role.
    *
    * @param bool $is_admin
-   *   TRUE if the role should be an admin role.
+   *   TRUE, if the role should be an admin role.
    *
-   * @return $this
+   * return $this
    */
   public function setIsAdmin($is_admin);
 

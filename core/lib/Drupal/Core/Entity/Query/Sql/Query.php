@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Entity\Query\Sql\Query.
+ */
+
 namespace Drupal\Core\Entity\Query\Sql;
 
 use Drupal\Core\Database\Connection;
@@ -22,13 +27,6 @@ class Query extends QueryBase implements QueryInterface {
   protected $sqlQuery;
 
   /**
-   * The Tables object for this query.
-   *
-   * @var \Drupal\Core\Entity\Query\Sql\TablesInterface
-   */
-  protected $tables;
-
-  /**
    * An array of fields keyed by the field alias.
    *
    * Each entry correlates to the arguments of
@@ -38,7 +36,7 @@ class Query extends QueryBase implements QueryInterface {
    *
    * @var array
    */
-  protected $sqlFields = [];
+  protected $sqlFields = array();
 
   /**
    * An array of strings added as to the group by, keyed by the string to avoid
@@ -46,12 +44,19 @@ class Query extends QueryBase implements QueryInterface {
    *
    * @var array
    */
-  protected $sqlGroupBy = [];
+  protected $sqlGroupBy = array();
 
   /**
    * @var \Drupal\Core\Database\Connection
    */
   protected $connection;
+
+  /**
+   * Stores the entity manager used by the query.
+   *
+   * @var \Drupal\Core\Entity\EntityManagerInterface
+   */
+  protected $entityManager;
 
   /**
    * Constructs a query object.
@@ -71,8 +76,9 @@ class Query extends QueryBase implements QueryInterface {
     $this->connection = $connection;
   }
 
+
   /**
-   * {@inheritdoc}
+   * Implements \Drupal\Core\Entity\Query\QueryInterface::execute().
    */
   public function execute() {
     return $this
@@ -86,11 +92,11 @@ class Query extends QueryBase implements QueryInterface {
   /**
    * Prepares the basic query with proper metadata/tags and base fields.
    *
-   * @return $this
-   *   Returns the called object.
-   *
    * @throws \Drupal\Core\Entity\Query\QueryException
-   *   Thrown if the base table does not exist.
+   *   Thrown if the base table does not exists.
+   *
+   * @return \Drupal\Core\Entity\Query\Sql\Query
+   *   Returns the called object.
    */
   protected function prepare() {
     if ($this->allRevisions) {
@@ -107,35 +113,24 @@ class Query extends QueryBase implements QueryInterface {
     if ($this->entityType->getDataTable()) {
       $simple_query = FALSE;
     }
-    $this->sqlQuery = $this->connection->select($base_table, 'base_table', ['conjunction' => $this->conjunction]);
-    // Reset the tables structure, as it might have been built for a previous
-    // execution of this query.
-    $this->tables = NULL;
+    $this->sqlQuery = $this->connection->select($base_table, 'base_table', array('conjunction' => $this->conjunction));
     $this->sqlQuery->addMetaData('entity_type', $this->entityTypeId);
     $id_field = $this->entityType->getKey('id');
     // Add the key field for fetchAllKeyed().
     if (!$revision_field = $this->entityType->getKey('revision')) {
       // When there is no revision support, the key field is the entity key.
-      $this->sqlFields["base_table.$id_field"] = ['base_table', $id_field];
+      $this->sqlFields["base_table.$id_field"] = array('base_table', $id_field);
       // Now add the value column for fetchAllKeyed(). This is always the
       // entity id.
-      $this->sqlFields["base_table.$id_field" . '_1'] = ['base_table', $id_field];
+      $this->sqlFields["base_table.$id_field" . '_1'] = array('base_table', $id_field);
     }
     else {
       // When there is revision support, the key field is the revision key.
-      $this->sqlFields["base_table.$revision_field"] = ['base_table', $revision_field];
+      $this->sqlFields["base_table.$revision_field"] = array('base_table', $revision_field);
       // Now add the value column for fetchAllKeyed(). This is always the
       // entity id.
-      $this->sqlFields["base_table.$id_field"] = ['base_table', $id_field];
+      $this->sqlFields["base_table.$id_field"] = array('base_table', $id_field);
     }
-
-    // Add a self-join to the base revision table if we're querying only the
-    // latest revisions.
-    if ($this->latestRevision && $revision_field) {
-      $this->sqlQuery->leftJoin($base_table, 'base_table_2', "base_table.$id_field = base_table_2.$id_field AND base_table.$revision_field < base_table_2.$revision_field");
-      $this->sqlQuery->isNull("base_table_2.$id_field");
-    }
-
     if ($this->accessCheck) {
       $this->sqlQuery->addTag($this->entityTypeId . '_access');
     }
@@ -165,7 +160,7 @@ class Query extends QueryBase implements QueryInterface {
   /**
    * Compiles the conditions.
    *
-   * @return $this
+   * @return \Drupal\Core\Entity\Query\Sql\Query
    *   Returns the called object.
    */
   protected function compile() {
@@ -176,17 +171,17 @@ class Query extends QueryBase implements QueryInterface {
   /**
    * Adds the sort to the build query.
    *
-   * @return $this
+   * @return \Drupal\Core\Entity\Query\Sql\Query
    *   Returns the called object.
    */
   protected function addSort() {
     if ($this->count) {
-      $this->sort = [];
+      $this->sort = array();
     }
     // Gather the SQL field aliases first to make sure every field table
     // necessary is added. This might change whether the query is simple or
     // not. See below for more on simple queries.
-    $sort = [];
+    $sort = array();
     if ($this->sort) {
       foreach ($this->sort as $key => $data) {
         $sort[$key] = $this->getSqlField($data['field'], $data['langcode']);
@@ -234,7 +229,7 @@ class Query extends QueryBase implements QueryInterface {
   /**
    * Finish the query by adding fields, GROUP BY and range.
    *
-   * @return $this
+   * @return \Drupal\Core\Entity\Query\Sql\Query
    *   Returns the called object.
    */
   protected function finish() {
@@ -242,7 +237,7 @@ class Query extends QueryBase implements QueryInterface {
     if ($this->range) {
       $this->sqlQuery->range($this->range['start'], $this->range['length']);
     }
-    foreach ($this->sqlGroupBy as $field) {
+   foreach ($this->sqlGroupBy as $field) {
       $this->sqlQuery->groupBy($field);
     }
     foreach ($this->sqlFields as $field) {
@@ -293,7 +288,7 @@ class Query extends QueryBase implements QueryInterface {
   }
 
   /**
-   * Determines whether the query requires GROUP BY and ORDER BY MIN/MAX.
+   * Returns whether the query requires GROUP BY and ORDER BY MIN/MAX.
    *
    * @return bool
    */
@@ -308,8 +303,8 @@ class Query extends QueryBase implements QueryInterface {
    */
   public function __clone() {
     parent::__clone();
-    $this->sqlFields = [];
-    $this->sqlGroupBy = [];
+    $this->sqlFields = array();
+    $this->sqlGroupBy = array();
   }
 
   /**

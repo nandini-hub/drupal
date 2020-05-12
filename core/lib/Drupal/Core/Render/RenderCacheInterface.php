@@ -1,13 +1,17 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Render\RenderCacheInterface.
+ */
+
 namespace Drupal\Core\Render;
 
 /**
  * Defines an interface for caching rendered render arrays.
  *
- * @internal
- *
  * @see sec_caching
+ *
  * @see \Drupal\Core\Render\RendererInterface
  */
 interface RenderCacheInterface {
@@ -38,7 +42,7 @@ interface RenderCacheInterface {
    * @param array $elements
    *   A renderable array.
    *
-   * @return array|false
+   * @return array
    *   A renderable array, with the original element and all its children pre-
    *   rendered, or FALSE if no cached copy of the element is available.
    *
@@ -64,7 +68,7 @@ interface RenderCacheInterface {
    *   this array.
    *
    * @return bool|null
-   *   Returns FALSE if no cache item could be created, NULL otherwise.
+   *  Returns FALSE if no cache item could be created, NULL otherwise.
    *
    * @see ::get()
    */

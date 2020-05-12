@@ -9,9 +9,9 @@ use Drupal\Component\Diff\Engine\DiffEngine;
  * @todo document
  * @subpackage DifferenceEngine
  *
- * Copied from https://www.drupal.org/project/diff which was based PHP diff
- * engine for phpwiki. (Taken from phpwiki-1.3.3) The original code in phpwiki
- * was copyright (C) 2000, 2001 Geoffrey T. Dairiki <dairiki@dairiki.org> and
+ * Copied from https://drupal.org/project/diff which was based PHP diff engine
+ * for phpwiki. (Taken from phpwiki-1.3.3) The original code in phpwiki was
+ * copyright (C) 2000, 2001 Geoffrey T. Dairiki <dairiki@dairiki.org> and
  * licensed under GPL.
  */
 class Diff {
@@ -27,11 +27,9 @@ class Diff {
    * Constructor.
    * Computes diff between sequences of strings.
    *
-   * @param array $from_lines
-   *   An array of strings.
-   *   (Typically these are lines from a file.)
-   * @param array $to_lines
-   *   An array of strings.
+   * @param $from_lines array An array of strings.
+   *      (Typically these are lines from a file.)
+   * @param $to_lines array An array of strings.
    */
   public function __construct($from_lines, $to_lines) {
     $eng = new DiffEngine();
@@ -46,12 +44,12 @@ class Diff {
    *
    *  $diff = new Diff($lines1, $lines2);
    *  $rev = $diff->reverse();
-   * @return object
-   *   A Diff object representing the inverse of the original diff.
+   * @return object A Diff object representing the inverse of the
+   *          original diff.
    */
   public function reverse() {
     $rev = $this;
-    $rev->edits = [];
+    $rev->edits = array();
     foreach ($this->edits as $edit) {
       $rev->edits[] = $edit->reverse();
     }
@@ -90,7 +88,7 @@ class Diff {
   }
 
   /**
-   * Gets the original set of lines.
+   * Get the original set of lines.
    *
    * This reconstructs the $from_lines parameter passed to the
    * constructor.
@@ -98,7 +96,7 @@ class Diff {
    * @return array The original sequence of strings.
    */
   public function orig() {
-    $lines = [];
+    $lines = array();
 
     foreach ($this->edits as $edit) {
       if ($edit->orig) {
@@ -109,7 +107,7 @@ class Diff {
   }
 
   /**
-   * Gets the closing set of lines.
+   * Get the closing set of lines.
    *
    * This reconstructs the $to_lines parameter passed to the
    * constructor.
@@ -117,7 +115,7 @@ class Diff {
    * @return array The sequence of strings.
    */
   public function closing() {
-    $lines = [];
+    $lines = array();
 
     foreach ($this->edits as $edit) {
       if ($edit->closing) {
@@ -148,6 +146,7 @@ class Diff {
       trigger_error("Reversed closing doesn't match", E_USER_ERROR);
     }
 
+
     $prevtype = 'none';
     foreach ($this->edits as $edit) {
       if ( $prevtype == $edit->type ) {
@@ -169,5 +168,5 @@ class Diff {
   public function getEdits() {
     return $this->edits;
   }
-
 }
+

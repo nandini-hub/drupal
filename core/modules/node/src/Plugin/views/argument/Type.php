@@ -1,7 +1,13 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\node\Plugin\views\argument\Type.
+ */
+
 namespace Drupal\node\Plugin\views\argument;
 
+use Drupal\Component\Utility\SafeMarkup;
 use Drupal\Core\Entity\EntityStorageInterface;
 use Drupal\views\Plugin\views\argument\StringArgument;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -14,7 +20,7 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
 class Type extends StringArgument {
 
   /**
-   * NodeType storage handler.
+   * NodeType storage controller.
    *
    * @var \Drupal\Core\Entity\EntityStorageInterface
    */
@@ -29,7 +35,7 @@ class Type extends StringArgument {
    *   The plugin_id for the plugin instance.
    * @param mixed $plugin_definition
    *   The plugin implementation definition.
-   * @param \Drupal\Core\Entity\EntityStorageInterface $node_type_storage
+   * @param \Drupal\Core\Entity\EntityStorageInterface $storage
    *   The entity storage class.
    */
   public function __construct(array $configuration, $plugin_id, $plugin_definition, EntityStorageInterface $node_type_storage) {
@@ -42,12 +48,12 @@ class Type extends StringArgument {
    * {@inheritdoc}
    */
   public static function create(ContainerInterface $container, array $configuration, $plugin_id, $plugin_definition) {
-    $entity_type_manager = $container->get('entity_type.manager');
+    $entity_manager = $container->get('entity.manager');
     return new static(
       $configuration,
       $plugin_id,
       $plugin_definition,
-      $entity_type_manager->getStorage('node_type')
+      $entity_manager->getStorage('node_type')
     );
   }
 
@@ -63,14 +69,14 @@ class Type extends StringArgument {
    * Override the behavior of title(). Get the user friendly version of the
    * node type.
    */
-  public function title() {
+  function title() {
     return $this->node_type($this->argument);
   }
 
-  public function node_type($type_name) {
+  function node_type($type_name) {
     $type = $this->nodeTypeStorage->load($type_name);
     $output = $type ? $type->label() : $this->t('Unknown content type');
-    return $output;
+    return SafeMarkup::checkPlain($output);
   }
 
 }

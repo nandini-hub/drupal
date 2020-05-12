@@ -1,11 +1,14 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Tests\Core\File\FileSystemTest.
+ */
+
 namespace Drupal\Tests\Core\File;
 
-use Drupal\Core\File\Exception\FileException;
 use Drupal\Core\File\FileSystem;
 use Drupal\Core\Site\Settings;
-use Drupal\Core\StreamWrapper\StreamWrapperManagerInterface;
 use Drupal\Tests\UnitTestCase;
 use org\bovigo\vfs\vfsStream;
 
@@ -17,23 +20,16 @@ use org\bovigo\vfs\vfsStream;
 class FileSystemTest extends UnitTestCase {
 
   /**
-   * @var \Drupal\Core\File\FileSystemInterface
+   * @var \Drupal\Core\File\FileSystem
    */
   protected $fileSystem;
 
   /**
    * The file logger channel.
    *
-   * @var \Psr\Log\LoggerInterface|\PHPUnit\Framework\MockObject\MockObject
+   * @var \Psr\Log\LoggerInterface|\PHPUnit_Framework_MockObject_MockObject
    */
   protected $logger;
-
-  /**
-   * The stream wrapper manager.
-   *
-   * @var \Drupal\Core\StreamWrapper\StreamWrapperInterface|\PHPUnit\Framework\MockObject\MockObject
-   */
-  protected $streamWrapperManager;
 
   /**
    * {@inheritdoc}
@@ -42,9 +38,9 @@ class FileSystemTest extends UnitTestCase {
     parent::setUp();
 
     $settings = new Settings([]);
-    $this->streamWrapperManager = $this->createMock(StreamWrapperManagerInterface::class);
-    $this->logger = $this->createMock('Psr\Log\LoggerInterface');
-    $this->fileSystem = new FileSystem($this->streamWrapperManager, $settings, $this->logger);
+    $stream_wrapper_manager = $this->getMock('Drupal\Core\StreamWrapper\StreamWrapperManagerInterface');
+    $this->logger = $this->getMock('Psr\Log\LoggerInterface');
+    $this->fileSystem = new FileSystem($stream_wrapper_manager, $settings, $this->logger);
   }
 
   /**
@@ -93,8 +89,12 @@ class FileSystemTest extends UnitTestCase {
     vfsStream::create(['test.txt' => 'asdf']);
     $uri = 'vfs://dir/test.txt';
 
-    $this->streamWrapperManager->expects($this->once())
-      ->method('isValidUri')
+    $this->fileSystem = $this->getMockBuilder('Drupal\Core\File\FileSystem')
+      ->disableOriginalConstructor()
+      ->setMethods(['validScheme'])
+      ->getMock();
+    $this->fileSystem->expects($this->once())
+      ->method('validScheme')
       ->willReturn(TRUE);
 
     $this->assertFileExists($uri);
@@ -124,7 +124,33 @@ class FileSystemTest extends UnitTestCase {
     $data[] = [
       'public://dir/test.txt',
       'test',
-      '.txt',
+      '.txt'
+    ];
+    return $data;
+  }
+
+  /**
+   * @covers ::uriScheme
+   *
+   * @dataProvider providerTestUriScheme
+   */
+  public function testUriScheme($uri, $expected) {
+    $this->assertSame($expected, $this->fileSystem->uriScheme($uri));
+  }
+
+  public function providerTestUriScheme() {
+    $data = [];
+    $data[] = [
+      'public://filename',
+      'public',
+    ];
+    $data[] = [
+      'public://extra://',
+      'public',
+    ];
+    $data[] = [
+      'invalid',
+      FALSE,
     ];
     return $data;
   }
@@ -152,19 +178,6 @@ class FileSystemTest extends UnitTestCase {
       $expected_mode = $expected_mode | $expected_mode >> 3 | $expected_mode >> 6;
     }
     $this->assertSame($expected_mode, $actual_mode, $message);
-  }
-
-  /**
-   * Tests that invalid UTF-8 results in an exception.
-   *
-   * @covers ::createFilename
-   */
-  public function testInvalidUTF8() {
-    vfsStream::setup('dir');
-    $filename = "a\xFFsdf\x80€" . '.txt';
-    $this->expectException(FileException::class);
-    $this->expectExceptionMessage("Invalid filename '$filename'");
-    $this->fileSystem->createFilename($filename, 'vfs://dir');
   }
 
 }

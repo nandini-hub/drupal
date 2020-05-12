@@ -1,7 +1,13 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\image_test\Plugin\ImageToolkit\TestToolkit.
+ */
+
 namespace Drupal\image_test\Plugin\ImageToolkit;
 
+use Drupal\Component\Utility\Unicode;
 use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\ImageToolkit\ImageToolkitBase;
@@ -91,14 +97,14 @@ class TestToolkit extends ImageToolkitBase {
    */
   public function buildConfigurationForm(array $form, FormStateInterface $form_state) {
     $this->logCall('settings', func_get_args());
-    $form['test_parameter'] = [
+    $form['test_parameter'] = array(
       '#type' => 'number',
       '#title' => $this->t('Test toolkit parameter'),
       '#description' => $this->t('A toolkit parameter for testing purposes.'),
       '#min' => 0,
       '#max' => 100,
       '#default_value' => $this->configFactory->getEditable('system.image.test_toolkit')->get('test_parameter', FALSE),
-    ];
+    );
     return $form;
   }
 
@@ -116,7 +122,7 @@ class TestToolkit extends ImageToolkitBase {
    */
   public function submitConfigurationForm(array &$form, FormStateInterface $form_state) {
     $this->configFactory->getEditable('system.image.test_toolkit')
-      ->set('test_parameter', $form_state->getValue(['test', 'test_parameter']))
+      ->set('test_parameter', $form_state->getValue(array('test', 'test_parameter')))
       ->save();
   }
 
@@ -132,7 +138,7 @@ class TestToolkit extends ImageToolkitBase {
    */
   public function parseFile() {
     $this->logCall('parseFile', func_get_args());
-    $data = @getimagesize($this->getSource());
+    $data = @getimagesize($this->getImage()->getSource());
     if ($data && in_array($data[2], static::supportedTypes())) {
       $this->setType($data[2]);
       $this->width = $data[0];
@@ -160,11 +166,11 @@ class TestToolkit extends ImageToolkitBase {
    * @param array $args
    *   Values passed to hook.
    *
-   * @see \Drupal\Tests\system\Functional\Image\ToolkitTestBase::imageTestReset()
-   * @see \Drupal\Tests\system\Functional\Image\ToolkitTestBase::imageTestGetAllCalls()
+   * @see \Drupal\system\Tests\Image\ToolkitTestBase::imageTestReset()
+   * @see \Drupal\system\Tests\Image\ToolkitTestBase::imageTestGetAllCalls()
    */
   protected function logCall($op, $args) {
-    $results = $this->state->get('image_test.results') ?: [];
+    $results = $this->state->get('image_test.results') ?: array();
     $results[$op][] = $args;
     // A call to apply is also logged under its operation name whereby the
     // array of arguments are logged as separate arguments, this because at the
@@ -235,9 +241,9 @@ class TestToolkit extends ImageToolkitBase {
    * {@inheritdoc}
    */
   public static function getSupportedExtensions() {
-    $extensions = [];
+    $extensions = array();
     foreach (static::supportedTypes() as $image_type) {
-      $extensions[] = mb_strtolower(image_type_to_extension($image_type, FALSE));
+      $extensions[] = Unicode::strtolower(image_type_to_extension($image_type, FALSE));
     }
     return $extensions;
   }
@@ -250,13 +256,13 @@ class TestToolkit extends ImageToolkitBase {
    *   IMAGETYPE_* constant (e.g. IMAGETYPE_JPEG, IMAGETYPE_PNG, etc.).
    */
   protected static function supportedTypes() {
-    return [IMAGETYPE_PNG, IMAGETYPE_JPEG, IMAGETYPE_GIF];
+    return array(IMAGETYPE_PNG, IMAGETYPE_JPEG, IMAGETYPE_GIF);
   }
 
   /**
    * {@inheritdoc}
    */
-  public function apply($operation, array $arguments = []) {
+  public function apply($operation, array $arguments = array()) {
     $this->logCall('apply', func_get_args());
     return TRUE;
   }

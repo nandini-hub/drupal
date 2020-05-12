@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Tests\Core\EventSubscriber\PathRootsSubscriberTest.
+ */
+
 namespace Drupal\Tests\Core\EventSubscriber;
 
 use Drupal\Core\EventSubscriber\PathRootsSubscriber;
@@ -17,7 +22,7 @@ class PathRootsSubscriberTest extends UnitTestCase {
   /**
    * The mocked state.
    *
-   * @var \Drupal\Core\State\StateInterface|\PHPUnit\Framework\MockObject\MockObject
+   * @var \Drupal\Core\State\StateInterface|\PHPUnit_Framework_MockObject_MockObject
    */
   protected $state;
 
@@ -32,7 +37,7 @@ class PathRootsSubscriberTest extends UnitTestCase {
    * {@inheritdoc}
    */
   protected function setUp() {
-    $this->state = $this->createMock('Drupal\Core\State\StateInterface');
+    $this->state = $this->getMock('Drupal\Core\State\StateInterface');
     $this->pathRootsSubscriber = new PathRootsSubscriber($this->state);
   }
 
@@ -43,11 +48,6 @@ class PathRootsSubscriberTest extends UnitTestCase {
    * @covers ::onRouteFinished
    */
   public function testSubscribing() {
-
-    // Ensure that onRouteFinished can be called without throwing notices
-    // when no path roots got set.
-    $this->pathRootsSubscriber->onRouteFinished();
-
     $route_collection = new RouteCollection();
     $route_collection->add('test_route1', new Route('/test/bar'));
     $route_collection->add('test_route2', new Route('/test/baz'));
@@ -66,7 +66,7 @@ class PathRootsSubscriberTest extends UnitTestCase {
 
     $this->state->expects($this->once())
       ->method('set')
-      ->with('router.path_roots', ['test', 'test2', 'test1']);
+      ->with('router.path_roots', array('test', 'test2', 'test1'));
 
     $this->pathRootsSubscriber->onRouteFinished();
   }

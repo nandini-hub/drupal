@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\entity_test\FieldStorageDefinition.
+ */
+
 namespace Drupal\entity_test;
 
 use Drupal\Core\Field\BaseFieldDefinition;
@@ -11,7 +16,7 @@ use Drupal\Core\Field\BaseFieldDefinition;
  * implement FieldDefinitionInterface.
  *
  * @todo Provide and make use of a proper FieldStorageDefinition class instead:
- *   https://www.drupal.org/node/2280639.
+ *   https://drupal.org/node/2280639.
  */
 class FieldStorageDefinition extends BaseFieldDefinition {
 

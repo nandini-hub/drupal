@@ -1,20 +1,24 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Entity\EntityInterface.
+ */
+
 namespace Drupal\Core\Entity;
 
 use Drupal\Core\Access\AccessibleInterface;
 use Drupal\Core\Cache\CacheableDependencyInterface;
-use Drupal\Core\Cache\RefinableCacheableDependencyInterface;
 
 /**
  * Defines a common interface for all entity objects.
  *
  * @ingroup entity_api
  */
-interface EntityInterface extends AccessibleInterface, CacheableDependencyInterface, RefinableCacheableDependencyInterface {
+interface EntityInterface extends AccessibleInterface, CacheableDependencyInterface {
 
   /**
-   * Gets the entity UUID (Universally Unique Identifier).
+   * Returns the entity UUID (Universally Unique Identifier).
    *
    * The UUID is guaranteed to be unique and can be used to identify an entity
    * across multiple systems.
@@ -25,7 +29,7 @@ interface EntityInterface extends AccessibleInterface, CacheableDependencyInterf
   public function uuid();
 
   /**
-   * Gets the identifier.
+   * Returns the identifier.
    *
    * @return string|int|null
    *   The entity identifier, or NULL if the object does not yet have an
@@ -34,7 +38,7 @@ interface EntityInterface extends AccessibleInterface, CacheableDependencyInterf
   public function id();
 
   /**
-   * Gets the language of the entity.
+   * Returns the language of the entity.
    *
    * @return \Drupal\Core\Language\LanguageInterface
    *   The language object.
@@ -42,7 +46,7 @@ interface EntityInterface extends AccessibleInterface, CacheableDependencyInterf
   public function language();
 
   /**
-   * Determines whether the entity is new.
+   * Returns whether the entity is new.
    *
    * Usually an entity is new if no ID exists for it yet. However, entities may
    * be enforced to be new with existing IDs too.
@@ -71,7 +75,7 @@ interface EntityInterface extends AccessibleInterface, CacheableDependencyInterf
   public function enforceIsNew($value = TRUE);
 
   /**
-   * Gets the ID of the type of the entity.
+   * Returns the ID of the type of the entity.
    *
    * @return string
    *   The entity type ID.
@@ -79,7 +83,7 @@ interface EntityInterface extends AccessibleInterface, CacheableDependencyInterf
   public function getEntityTypeId();
 
   /**
-   * Gets the bundle of the entity.
+   * Returns the bundle of the entity.
    *
    * @return string
    *   The bundle of the entity. Defaults to the entity type ID if the entity
@@ -88,7 +92,7 @@ interface EntityInterface extends AccessibleInterface, CacheableDependencyInterf
   public function bundle();
 
   /**
-   * Gets the label of the entity.
+   * Returns the label of the entity.
    *
    * @return string|null
    *   The label of the entity, or NULL if there is no label defined.
@@ -96,30 +100,7 @@ interface EntityInterface extends AccessibleInterface, CacheableDependencyInterf
   public function label();
 
   /**
-   * Gets the URL object for the entity.
-   *
-   * @param string $rel
-   *   The link relationship type, for example: canonical or edit-form.
-   * @param array $options
-   *   See \Drupal\Core\Routing\UrlGeneratorInterface::generateFromRoute() for
-   *   the available options.
-   *
-   * @return \Drupal\Core\Url
-   *   The URL object.
-   *
-   * @deprecated in drupal:8.0.0 and is removed from drupal:9.0.0.
-   *   Use \Drupal\Core\Entity\EntityInterface::toUrl() instead.
-   *
-   * @see https://www.drupal.org/node/2614344
-   * @see \Drupal\Core\Entity\EntityInterface::toUrl
-   */
-  public function urlInfo($rel = 'canonical', array $options = []);
-
-  /**
-   * Gets the URL object for the entity.
-   *
-   * The entity must have an id already. Content entities usually get their IDs
-   * by saving them.
+   * Returns the URI elements of the entity.
    *
    * URI templates might be set in the links array in an annotation, for
    * example:
@@ -146,15 +127,11 @@ interface EntityInterface extends AccessibleInterface, CacheableDependencyInterf
    *   the available options.
    *
    * @return \Drupal\Core\Url
-   *   The URL object.
-   *
-   * @throws \Drupal\Core\Entity\EntityMalformedException
-   * @throws \Drupal\Core\Entity\Exception\UndefinedLinkTemplateException
    */
-  public function toUrl($rel = 'canonical', array $options = []);
+  public function urlInfo($rel = 'canonical', array $options = array());
 
   /**
-   * Gets the public URL for this entity.
+   * Returns the public URL for this entity.
    *
    * @param string $rel
    *   The link relationship type, for example: canonical or edit-form.
@@ -164,37 +141,8 @@ interface EntityInterface extends AccessibleInterface, CacheableDependencyInterf
    *
    * @return string
    *   The URL for this entity.
-   *
-   * @deprecated in drupal:8.0.0 and is removed from drupal:9.0.0.
-   *   Please use toUrl() instead.
-   *
-   * @see https://www.drupal.org/node/2614344
-   * @see \Drupal\Core\Entity\EntityInterface::toUrl
    */
-  public function url($rel = 'canonical', $options = []);
-
-  /**
-   * Deprecated way of generating a link to the entity. See toLink().
-   *
-   * @param string|null $text
-   *   (optional) The link text for the anchor tag as a translated string.
-   *   If NULL, it will use the entity's label. Defaults to NULL.
-   * @param string $rel
-   *   (optional) The link relationship type. Defaults to 'canonical'.
-   * @param array $options
-   *   See \Drupal\Core\Routing\UrlGeneratorInterface::generateFromRoute() for
-   *   the available options.
-   *
-   * @return string
-   *   An HTML string containing a link to the entity.
-   *
-   * @deprecated in drupal:8.0.0 and is removed from drupal:9.0.0.
-   *   Use \Drupal\Core\EntityInterface::toLink()->toString() instead.
-   *
-   * @see https://www.drupal.org/node/2614344
-   * @see \Drupal\Core\Entity\EntityInterface::toLink()
-   */
-  public function link($text = NULL, $rel = 'canonical', array $options = []);
+  public function url($rel = 'canonical', $options = array());
 
   /**
    * Generates the HTML for a link to this entity.
@@ -208,13 +156,27 @@ interface EntityInterface extends AccessibleInterface, CacheableDependencyInterf
    *   See \Drupal\Core\Routing\UrlGeneratorInterface::generateFromRoute() for
    *   the available options.
    *
-   * @return \Drupal\Core\Link
-   *   A Link to the entity.
-   *
-   * @throws \Drupal\Core\Entity\EntityMalformedException
-   * @throws \Drupal\Core\Entity\Exception\UndefinedLinkTemplateException
+   * @return string
+   *   An HTML string containing a link to the entity.
    */
-  public function toLink($text = NULL, $rel = 'canonical', array $options = []);
+  public function link($text = NULL, $rel = 'canonical', array $options = []);
+
+  /**
+   * Returns the internal path for this entity.
+   *
+   * self::url() will return the full path including any prefixes, fragments, or
+   * query strings. This path does not include those.
+   *
+   * @param string $rel
+   *   The link relationship type, for example: canonical or edit-form.
+   *
+   * @return string
+   *   The internal path for this entity.
+   *
+   * @deprecated in Drupal 8.x-dev, will be removed before Drupal 8.0.0. Use
+   *    static::urlInfo() instead.
+   */
+  public function getSystemPath($rel = 'canonical');
 
   /**
    * Indicates if a link template exists for a given key.
@@ -228,7 +190,7 @@ interface EntityInterface extends AccessibleInterface, CacheableDependencyInterf
   public function hasLinkTemplate($key);
 
   /**
-   * Gets a list of URI relationships supported by this entity.
+   * Returns a list of URI relationships supported by this entity.
    *
    * @return string[]
    *   An array of link relationships supported by this entity.
@@ -241,7 +203,7 @@ interface EntityInterface extends AccessibleInterface, CacheableDependencyInterf
    * @param mixed $id
    *   The id of the entity to load.
    *
-   * @return static|null
+   * @return static
    *   The entity object or NULL if there is no entity with the given ID.
    */
   public static function load($id);
@@ -267,7 +229,7 @@ interface EntityInterface extends AccessibleInterface, CacheableDependencyInterf
    * @return static
    *   The entity object.
    */
-  public static function create(array $values = []);
+  public static function create(array $values = array());
 
   /**
    * Saves an entity permanently.
@@ -294,22 +256,10 @@ interface EntityInterface extends AccessibleInterface, CacheableDependencyInterf
   /**
    * Acts on an entity before the presave hook is invoked.
    *
-   * Used before the entity is saved and before invoking the presave hook. Note
-   * that in case of translatable content entities this callback is only fired
-   * on their current translation. It is up to the developer to iterate
-   * over all translations if needed. This is different from its counterpart in
-   * the Field API, FieldItemListInterface::preSave(), which is fired on all
-   * field translations automatically.
-   * @todo Adjust existing implementations and the documentation according to
-   *   https://www.drupal.org/node/2577609 to have a consistent API.
+   * Used before the entity is saved and before invoking the presave hook.
    *
    * @param \Drupal\Core\Entity\EntityStorageInterface $storage
    *   The entity storage object.
-   *
-   * @see \Drupal\Core\Field\FieldItemListInterface::preSave()
-   *
-   * @throws \Exception
-   *   When there is a problem that should prevent saving the entity.
    */
   public function preSave(EntityStorageInterface $storage);
 
@@ -317,9 +267,7 @@ interface EntityInterface extends AccessibleInterface, CacheableDependencyInterf
    * Acts on a saved entity before the insert or update hook is invoked.
    *
    * Used after the entity is saved, but before invoking the insert or update
-   * hook. Note that in case of translatable content entities this callback is
-   * only fired on their current translation. It is up to the developer to
-   * iterate over all translations if needed.
+   * hook.
    *
    * @param \Drupal\Core\Entity\EntityStorageInterface $storage
    *   The entity storage object.
@@ -342,17 +290,10 @@ interface EntityInterface extends AccessibleInterface, CacheableDependencyInterf
   public static function preCreate(EntityStorageInterface $storage, array &$values);
 
   /**
-   * Acts on a created entity before hooks are invoked.
-   *
-   * Used after the entity is created, but before saving the entity and before
-   * any of the presave hooks are invoked.
-   *
-   * See the @link entity_crud Entity CRUD topic @endlink for more information.
+   * Acts on an entity after it is created but before hooks are invoked.
    *
    * @param \Drupal\Core\Entity\EntityStorageInterface $storage
    *   The entity storage object.
-   *
-   * @see \Drupal\Core\Entity\EntityInterface::create()
    */
   public function postCreate(EntityStorageInterface $storage);
 
@@ -400,7 +341,7 @@ interface EntityInterface extends AccessibleInterface, CacheableDependencyInterf
   public function createDuplicate();
 
   /**
-   * Gets the entity type definition.
+   * Returns the entity type definition.
    *
    * @return \Drupal\Core\Entity\EntityTypeInterface
    *   The entity type definition.
@@ -408,7 +349,7 @@ interface EntityInterface extends AccessibleInterface, CacheableDependencyInterf
   public function getEntityType();
 
   /**
-   * Gets a list of entities referenced by this entity.
+   * Returns a list of entities referenced by this entity.
    *
    * @return \Drupal\Core\Entity\EntityInterface[]
    *   An array of entities.
@@ -416,26 +357,13 @@ interface EntityInterface extends AccessibleInterface, CacheableDependencyInterf
   public function referencedEntities();
 
   /**
-   * Gets the original ID.
+   * Returns the original ID.
    *
    * @return int|string|null
    *   The original ID, or NULL if no ID was set or for entity types that do not
    *   support renames.
    */
   public function getOriginalId();
-
-  /**
-   * Returns the cache tags that should be used to invalidate caches.
-   *
-   * This will not return additional cache tags added through addCacheTags().
-   *
-   * @return string[]
-   *   Set of cache tags.
-   *
-   * @see \Drupal\Core\Cache\RefinableCacheableDependencyInterface::addCacheTags()
-   * @see \Drupal\Core\Cache\CacheableDependencyInterface::getCacheTags()
-   */
-  public function getCacheTagsToInvalidate();
 
   /**
    * Sets the original ID.
@@ -449,7 +377,7 @@ interface EntityInterface extends AccessibleInterface, CacheableDependencyInterf
   public function setOriginalId($id);
 
   /**
-   * Gets an array of all property values.
+   * Returns an array of all property values.
    *
    * @return mixed[]
    *   An array of property values, keyed by property name.
@@ -457,7 +385,7 @@ interface EntityInterface extends AccessibleInterface, CacheableDependencyInterf
   public function toArray();
 
   /**
-   * Gets a typed data object for this entity object.
+   * Returns a typed data object for this entity object.
    *
    * The returned typed data object wraps this entity and allows dealing with
    * entities based on the generic typed data API.

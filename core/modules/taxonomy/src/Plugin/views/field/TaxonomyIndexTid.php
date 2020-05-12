@@ -1,11 +1,18 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\taxonomy\Plugin\views\field\TaxonomyIndexTid.
+ */
+
 namespace Drupal\taxonomy\Plugin\views\field;
 
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\views\ViewExecutable;
 use Drupal\views\Plugin\views\display\DisplayPluginBase;
 use Drupal\views\Plugin\views\field\PrerenderList;
+use Drupal\Component\Utility\SafeMarkup;
+use Drupal\taxonomy\Entity\Vocabulary;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Drupal\taxonomy\VocabularyStorageInterface;
 
@@ -21,7 +28,7 @@ class TaxonomyIndexTid extends PrerenderList {
   /**
    * The vocabulary storage.
    *
-   * @var \Drupal\taxonomy\VocabularyStorageInterface
+   * @var \Drupal\taxonomy\VocabularyStorageInterface.
    */
   protected $vocabularyStorage;
 
@@ -50,31 +57,31 @@ class TaxonomyIndexTid extends PrerenderList {
       $configuration,
       $plugin_id,
       $plugin_definition,
-      $container->get('entity_type.manager')->getStorage('taxonomy_vocabulary')
+      $container->get('entity.manager')->getStorage('taxonomy_vocabulary')
     );
   }
 
   /**
-   * {@inheritdoc}
+   * Overrides \Drupal\views\Plugin\views\field\PrerenderList::init().
    */
   public function init(ViewExecutable $view, DisplayPluginBase $display, array &$options = NULL) {
     parent::init($view, $display, $options);
 
     // @todo: Wouldn't it be possible to use $this->base_table and no if here?
     if ($view->storage->get('base_table') == 'node_field_revision') {
-      $this->additional_fields['nid'] = ['table' => 'node_field_revision', 'field' => 'nid'];
+      $this->additional_fields['nid'] = array('table' => 'node_field_revision', 'field' => 'nid');
     }
     else {
-      $this->additional_fields['nid'] = ['table' => 'node_field_data', 'field' => 'nid'];
+      $this->additional_fields['nid'] = array('table' => 'node_field_data', 'field' => 'nid');
     }
   }
 
   protected function defineOptions() {
     $options = parent::defineOptions();
 
-    $options['link_to_taxonomy'] = ['default' => TRUE];
-    $options['limit'] = ['default' => FALSE];
-    $options['vids'] = ['default' => []];
+    $options['link_to_taxonomy'] = array('default' => TRUE);
+    $options['limit'] = array('default' => FALSE);
+    $options['vids'] = array('default' => array());
 
     return $options;
   }
@@ -83,36 +90,36 @@ class TaxonomyIndexTid extends PrerenderList {
    * Provide "link to term" option.
    */
   public function buildOptionsForm(&$form, FormStateInterface $form_state) {
-    $form['link_to_taxonomy'] = [
+    $form['link_to_taxonomy'] = array(
       '#title' => $this->t('Link this field to its term page'),
       '#type' => 'checkbox',
       '#default_value' => !empty($this->options['link_to_taxonomy']),
-    ];
+    );
 
-    $form['limit'] = [
+    $form['limit'] = array(
       '#type' => 'checkbox',
       '#title' => $this->t('Limit terms by vocabulary'),
       '#default_value' => $this->options['limit'],
-    ];
+    );
 
-    $options = [];
+    $options = array();
     $vocabularies = $this->vocabularyStorage->loadMultiple();
     foreach ($vocabularies as $voc) {
       $options[$voc->id()] = $voc->label();
     }
 
-    $form['vids'] = [
+    $form['vids'] = array(
       '#type' => 'checkboxes',
       '#title' => $this->t('Vocabularies'),
       '#options' => $options,
       '#default_value' => $this->options['vids'],
-      '#states' => [
-        'visible' => [
-          ':input[name="options[limit]"]' => ['checked' => TRUE],
-        ],
-      ],
+      '#states' => array(
+        'visible' => array(
+          ':input[name="options[limit]"]' => array('checked' => TRUE),
+        ),
+      ),
 
-    ];
+    );
 
     parent::buildOptionsForm($form, $form_state);
   }
@@ -127,7 +134,7 @@ class TaxonomyIndexTid extends PrerenderList {
   public function preRender(&$values) {
     $vocabularies = $this->vocabularyStorage->loadMultiple();
     $this->field_alias = $this->aliases['nid'];
-    $nids = [];
+    $nids = array();
     foreach ($values as $result) {
       if (!empty($result->{$this->aliases['nid']})) {
         $nids[] = $result->{$this->aliases['nid']};
@@ -137,16 +144,16 @@ class TaxonomyIndexTid extends PrerenderList {
     if ($nids) {
       $vocabs = array_filter($this->options['vids']);
       if (empty($this->options['limit'])) {
-        $vocabs = [];
+        $vocabs = array();
       }
-      $result = \Drupal::entityTypeManager()->getStorage('taxonomy_term')->getNodeTerms($nids, $vocabs);
+      $result = \Drupal::entityManager()->getStorage('taxonomy_term')->getNodeTerms($nids, $vocabs);
 
       foreach ($result as $node_nid => $data) {
         foreach ($data as $tid => $term) {
-          $this->items[$node_nid][$tid]['name'] = \Drupal::service('entity.repository')->getTranslationFromContext($term)->label();
+          $this->items[$node_nid][$tid]['name'] = \Drupal::entityManager()->getTranslationFromContext($term)->label();
           $this->items[$node_nid][$tid]['tid'] = $tid;
-          $this->items[$node_nid][$tid]['vocabulary_vid'] = $term->bundle();
-          $this->items[$node_nid][$tid]['vocabulary'] = $vocabularies[$term->bundle()]->label();
+          $this->items[$node_nid][$tid]['vocabulary_vid'] = $term->getVocabularyId();
+          $this->items[$node_nid][$tid]['vocabulary'] = SafeMarkup::checkPlain($vocabularies[$term->getVocabularyId()]->label());
 
           if (!empty($this->options['link_to_taxonomy'])) {
             $this->items[$node_nid][$tid]['make_link'] = TRUE;
@@ -157,20 +164,21 @@ class TaxonomyIndexTid extends PrerenderList {
     }
   }
 
-  public function render_item($count, $item) {
+  function render_item($count, $item) {
     return $item['name'];
   }
 
   protected function documentSelfTokens(&$tokens) {
-    $tokens['{{ ' . $this->options['id'] . '__tid' . ' }}'] = $this->t('The taxonomy term ID for the term.');
-    $tokens['{{ ' . $this->options['id'] . '__name' . ' }}'] = $this->t('The taxonomy term name for the term.');
-    $tokens['{{ ' . $this->options['id'] . '__vocabulary_vid' . ' }}'] = $this->t('The machine name for the vocabulary the term belongs to.');
-    $tokens['{{ ' . $this->options['id'] . '__vocabulary' . ' }}'] = $this->t('The name for the vocabulary the term belongs to.');
+    $tokens['[' . $this->options['id'] . '-tid' . ']'] = $this->t('The taxonomy term ID for the term.');
+    $tokens['[' . $this->options['id'] . '-name' . ']'] = $this->t('The taxonomy term name for the term.');
+    $tokens['[' . $this->options['id'] . '-vocabulary-vid' . ']'] = $this->t('The machine name for the vocabulary the term belongs to.');
+    $tokens['[' . $this->options['id'] . '-vocabulary' . ']'] = $this->t('The name for the vocabulary the term belongs to.');
   }
 
   protected function addSelfTokens(&$tokens, $item) {
-    foreach (['tid', 'name', 'vocabulary_vid', 'vocabulary'] as $token) {
-      $tokens['{{ ' . $this->options['id'] . '__' . $token . ' }}'] = isset($item[$token]) ? $item[$token] : '';
+    foreach (array('tid', 'name', 'vocabulary_vid', 'vocabulary') as $token) {
+      // Replace _ with - for the vocabulary vid.
+      $tokens['[' . $this->options['id'] . '-' . str_replace('_', '-', $token) . ']'] = isset($item[$token]) ? $item[$token] : '';
     }
   }
 

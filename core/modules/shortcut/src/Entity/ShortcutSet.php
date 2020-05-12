@@ -1,8 +1,13 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\shortcut\Entity\ShortcutSet.
+ */
+
 namespace Drupal\shortcut\Entity;
 
-use Drupal\Core\Config\Entity\ConfigEntityBundleBase;
+use Drupal\Core\Config\Entity\ConfigEntityBase;
 use Drupal\Core\Entity\EntityStorageInterface;
 use Drupal\shortcut\ShortcutSetInterface;
 
@@ -12,13 +17,6 @@ use Drupal\shortcut\ShortcutSetInterface;
  * @ConfigEntityType(
  *   id = "shortcut_set",
  *   label = @Translation("Shortcut set"),
- *   label_collection = @Translation("Shortcut sets"),
- *   label_singular = @Translation("shortcut set"),
- *   label_plural = @Translation("shortcut sets"),
- *   label_count = @PluralTranslation(
- *     singular = "@count shortcut set",
- *     plural = "@count shortcut sets",
- *   ),
  *   handlers = {
  *     "storage" = "Drupal\shortcut\ShortcutSetStorage",
  *     "access" = "Drupal\shortcut\ShortcutSetAccessControlHandler",
@@ -42,14 +40,10 @@ use Drupal\shortcut\ShortcutSetInterface;
  *     "delete-form" = "/admin/config/user-interface/shortcut/manage/{shortcut_set}/delete",
  *     "edit-form" = "/admin/config/user-interface/shortcut/manage/{shortcut_set}",
  *     "collection" = "/admin/config/user-interface/shortcut",
- *   },
- *   config_export = {
- *     "id",
- *     "label",
  *   }
  * )
  */
-class ShortcutSet extends ConfigEntityBundleBase implements ShortcutSetInterface {
+class ShortcutSet extends ConfigEntityBase implements ShortcutSetInterface {
 
   /**
    * The machine name for the configuration entity.
@@ -100,7 +94,7 @@ class ShortcutSet extends ConfigEntityBundleBase implements ShortcutSetInterface
         ->condition('shortcut_set', $entity->id(), '=')
         ->execute();
 
-      $controller = \Drupal::entityTypeManager()->getStorage('shortcut');
+      $controller = \Drupal::entityManager()->getStorage('shortcut');
       $entities = $controller->loadMultiple($shortcut_ids);
       $controller->delete($entities);
     }
@@ -123,8 +117,8 @@ class ShortcutSet extends ConfigEntityBundleBase implements ShortcutSetInterface
    * {@inheritdoc}
    */
   public function getShortcuts() {
-    $shortcuts = \Drupal::entityTypeManager()->getStorage('shortcut')->loadByProperties(['shortcut_set' => $this->id()]);
-    uasort($shortcuts, ['\Drupal\shortcut\Entity\Shortcut', 'sort']);
+    $shortcuts = \Drupal::entityManager()->getStorage('shortcut')->loadByProperties(array('shortcut_set' => $this->id()));
+    uasort($shortcuts, array('\Drupal\shortcut\Entity\Shortcut', 'sort'));
     return $shortcuts;
   }
 

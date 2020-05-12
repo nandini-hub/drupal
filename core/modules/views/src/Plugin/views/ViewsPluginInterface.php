@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\views\Plugin\views\ViewsPluginInterface.
+ */
+
 namespace Drupal\views\Plugin\views;
 
 use Drupal\Component\Plugin\DerivativeInspectionInterface;
@@ -113,12 +118,12 @@ interface ViewsPluginInterface extends PluginInspectionInterface, DerivativeInsp
    * @return array
    *   An array of available token replacement info or tokens, grouped by type.
    */
-  public function getAvailableGlobalTokens($prepared = FALSE, array $types = []);
+  public function getAvailableGlobalTokens($prepared = FALSE, array $types = array());
 
   /**
    * Flattens the structure of form elements.
    *
-   * If a form element has #flatten = TRUE, then all of its children get moved
+   * If a form element has #flatten = TRUE, then all of it's children get moved
    * to the same level as the element itself. So $form['to_be_flattened'][$key]
    * becomes $form[$key], and $form['to_be_flattened'] gets unset.
    *
@@ -141,7 +146,7 @@ interface ViewsPluginInterface extends PluginInspectionInterface, DerivativeInsp
    * @return string
    *   The tokenized string.
    */
-  public function globalTokenReplace($string = '', array $options = []);
+  public function globalTokenReplace($string = '', array $options = array());
 
   /**
    * Clears a plugin.

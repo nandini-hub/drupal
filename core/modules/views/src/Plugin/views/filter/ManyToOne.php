@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\views\Plugin\views\filter\ManyToOne.
+ */
+
 namespace Drupal\views\Plugin\views\filter;
 
 use Drupal\Core\Form\FormStateInterface;
@@ -26,10 +31,10 @@ class ManyToOne extends InOperator {
    *
    * Stores the Helper object which handles the many_to_one complexity.
    */
-  public $helper = NULL;
+  var $helper = NULL;
 
   /**
-   * {@inheritdoc}
+   * Overrides \Drupal\views\Plugin\views\filter\InOperator::init().
    */
   public function init(ViewExecutable $view, DisplayPluginBase $display, array &$options = NULL) {
     parent::init($view, $display, $options);
@@ -41,7 +46,7 @@ class ManyToOne extends InOperator {
     $options = parent::defineOptions();
 
     $options['operator']['default'] = 'or';
-    $options['value']['default'] = [];
+    $options['value']['default'] = array();
 
     if (isset($this->helper)) {
       $this->helper->defineOptions($options);
@@ -54,56 +59,55 @@ class ManyToOne extends InOperator {
     return $options;
   }
 
-  public function operators() {
-    $operators = [
-      'or' => [
+  function operators() {
+    $operators = array(
+      'or' => array(
         'title' => $this->t('Is one of'),
         'short' => $this->t('or'),
         'short_single' => $this->t('='),
         'method' => 'opHelper',
         'values' => 1,
         'ensure_my_table' => 'helper',
-      ],
-      'and' => [
+      ),
+      'and' => array(
         'title' => $this->t('Is all of'),
         'short' => $this->t('and'),
         'short_single' => $this->t('='),
         'method' => 'opHelper',
         'values' => 1,
         'ensure_my_table' => 'helper',
-      ],
-      'not' => [
+      ),
+      'not' => array(
         'title' => $this->t('Is none of'),
         'short' => $this->t('not'),
         'short_single' => $this->t('<>'),
         'method' => 'opHelper',
         'values' => 1,
         'ensure_my_table' => 'helper',
-      ],
-    ];
+      ),
+    );
     // if the definition allows for the empty operator, add it.
     if (!empty($this->definition['allow empty'])) {
-      $operators += [
-        'empty' => [
+      $operators += array(
+        'empty' => array(
           'title' => $this->t('Is empty (NULL)'),
           'method' => 'opEmpty',
           'short' => $this->t('empty'),
           'values' => 0,
-        ],
-        'not empty' => [
+        ),
+        'not empty' => array(
           'title' => $this->t('Is not empty (NOT NULL)'),
           'method' => 'opEmpty',
           'short' => $this->t('not empty'),
           'values' => 0,
-        ],
-      ];
+        ),
+      );
     }
 
     return $operators;
   }
 
   protected $valueFormType = 'select';
-
   protected function valueForm(&$form, FormStateInterface $form_state) {
     parent::valueForm($form, $form_state);
 
@@ -130,9 +134,6 @@ class ManyToOne extends InOperator {
     if (empty($this->value)) {
       return;
     }
-    // Form API returns unchecked options in the form of option_id => 0. This
-    // breaks the generated query for "is all of" filters so we remove them.
-    $this->value = array_filter($this->value, 'static::arrayFilterZero');
     $this->helper->addFilter();
   }
 

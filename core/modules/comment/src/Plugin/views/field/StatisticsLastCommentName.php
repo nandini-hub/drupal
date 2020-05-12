@@ -1,8 +1,12 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\comment\Plugin\views\field\StatisticsLastCommentName.
+ */
+
 namespace Drupal\comment\Plugin\views\field;
 
-use Drupal\user\Entity\User;
 use Drupal\views\Plugin\views\field\FieldPluginBase;
 use Drupal\views\ResultRow;
 
@@ -23,19 +27,19 @@ class StatisticsLastCommentName extends FieldPluginBase {
     // have to join in a specially related user table.
     $this->ensureMyTable();
     // join 'users' to this table via vid
-    $definition = [
+    $definition = array(
       'table' => 'users_field_data',
       'field' => 'uid',
       'left_table' => 'comment_entity_statistics',
       'left_field' => 'last_comment_uid',
-      'extra' => [
-        [
+      'extra' => array(
+        array(
           'field' => 'uid',
           'operator' => '!=',
-          'value' => '0',
-        ],
-      ],
-    ];
+          'value' => '0'
+        )
+      )
+    );
     $join = \Drupal::service('plugin.manager.views.join')->createInstance('standard', $definition);
 
     // nes_user alias so this can work with the sort handler, below.
@@ -53,7 +57,7 @@ class StatisticsLastCommentName extends FieldPluginBase {
   protected function defineOptions() {
     $options = parent::defineOptions();
 
-    $options['link_to_user'] = ['default' => TRUE];
+    $options['link_to_user'] = array('default' => TRUE);
 
     return $options;
   }
@@ -63,14 +67,14 @@ class StatisticsLastCommentName extends FieldPluginBase {
    */
   public function render(ResultRow $values) {
     if (!empty($this->options['link_to_user'])) {
-      $account = User::create();
+      $account = entity_create('user');
       $account->name = $this->getValue($values);
       $account->uid = $values->{$this->uid};
-      $username = [
+      $username = array(
         '#theme' => 'username',
         '#account' => $account,
-      ];
-      return \Drupal::service('renderer')->render($username);
+      );
+      return drupal_render($username);
     }
     else {
       return $this->sanitizeValue($this->getValue($values));

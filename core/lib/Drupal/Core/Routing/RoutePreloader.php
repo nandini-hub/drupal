@@ -1,9 +1,12 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Routing\RoutePreloader.
+ */
+
 namespace Drupal\Core\Routing;
 
-use Drupal\Core\Cache\Cache;
-use Drupal\Core\Cache\CacheBackendInterface;
 use Drupal\Core\State\StateInterface;
 use Symfony\Component\EventDispatcher\Event;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
@@ -38,14 +41,7 @@ class RoutePreloader implements EventSubscriberInterface {
    *
    * @var array
    */
-  protected $nonAdminRoutesOnRebuild = [];
-
-  /**
-   * The cache backend used to skip the state loading.
-   *
-   * @var \Drupal\Core\Cache\CacheBackendInterface
-   */
-  protected $cache;
+  protected $nonAdminRoutesOnRebuild = array();
 
   /**
    * Constructs a new RoutePreloader.
@@ -54,12 +50,10 @@ class RoutePreloader implements EventSubscriberInterface {
    *   The route provider.
    * @param \Drupal\Core\State\StateInterface $state
    *   The state key value store.
-   * @param \Drupal\Core\Cache\CacheBackendInterface $cache
    */
-  public function __construct(RouteProviderInterface $route_provider, StateInterface $state, CacheBackendInterface $cache) {
+  public function __construct(RouteProviderInterface $route_provider, StateInterface $state) {
     $this->routeProvider = $route_provider;
     $this->state = $state;
-    $this->cache = $cache;
   }
 
   /**
@@ -71,19 +65,7 @@ class RoutePreloader implements EventSubscriberInterface {
   public function onRequest(KernelEvent $event) {
     // Only preload on normal HTML pages, as they will display menu links.
     if ($this->routeProvider instanceof PreloadableRouteProviderInterface && $event->getRequest()->getRequestFormat() == 'html') {
-
-      // Ensure that the state query is cached to skip the database query, if
-      // possible.
-      $key = 'routing.non_admin_routes';
-      if ($cache = $this->cache->get($key)) {
-        $routes = $cache->data;
-      }
-      else {
-        $routes = $this->state->get($key, []);
-        $this->cache->set($key, $routes, Cache::PERMANENT, ['routes']);
-      }
-
-      if ($routes) {
+      if ($routes = $this->state->get('routing.non_admin_routes', [])) {
         // Preload all the non-admin routes at once.
         $this->routeProvider->preLoadRoutes($routes);
       }
@@ -114,7 +96,7 @@ class RoutePreloader implements EventSubscriberInterface {
    */
   public function onFinishedRoutes(Event $event) {
     $this->state->set('routing.non_admin_routes', $this->nonAdminRoutesOnRebuild);
-    $this->nonAdminRoutesOnRebuild = [];
+    $this->nonAdminRoutesOnRebuild = array();
   }
 
   /**
@@ -122,11 +104,11 @@ class RoutePreloader implements EventSubscriberInterface {
    */
   public static function getSubscribedEvents() {
     // Set a really low priority to catch as many as possible routes.
-    $events[RoutingEvents::ALTER] = ['onAlterRoutes', -1024];
-    $events[RoutingEvents::FINISHED] = ['onFinishedRoutes'];
+    $events[RoutingEvents::ALTER] = array('onAlterRoutes', -1024);
+    $events[RoutingEvents::FINISHED] = array('onFinishedRoutes');
     // Load the routes before the controller is executed (which happens after
     // the kernel request event).
-    $events[KernelEvents::REQUEST][] = ['onRequest'];
+    $events[KernelEvents::REQUEST][] = array('onRequest');
     return $events;
   }
 

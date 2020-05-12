@@ -1,7 +1,14 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\entity_test\EntityTestViewBuilder.
+ */
+
 namespace Drupal\entity_test;
 
+use Drupal\Component\Utility\SafeMarkup;
+use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Entity\EntityViewBuilder;
 
 /**
@@ -14,22 +21,31 @@ class EntityTestViewBuilder extends EntityViewBuilder {
   /**
    * {@inheritdoc}
    */
-  public function buildComponents(array &$build, array $entities, array $displays, $view_mode) {
-    parent::buildComponents($build, $entities, $displays, $view_mode);
+  protected function getBuildDefaults(EntityInterface $entity, $view_mode, $langcode) {
+    $build = parent::getBuildDefaults($entity, $view_mode, $langcode);
+    unset($build['#theme']);
+    return $build;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function buildComponents(array &$build, array $entities, array $displays, $view_mode, $langcode = NULL) {
+    parent::buildComponents($build, $entities, $displays, $view_mode, $langcode);
 
     foreach ($entities as $id => $entity) {
-      $build[$id]['label'] = [
+      $build[$id]['label'] = array(
         '#weight' => -100,
-        '#plain_text' => $entity->label(),
-      ];
-      $build[$id]['separator'] = [
+        '#markup' => SafeMarkup::checkPlain($entity->label()),
+      );
+      $build[$id]['separator'] = array(
         '#weight' => -150,
         '#markup' => ' | ',
-      ];
-      $build[$id]['view_mode'] = [
+      );
+      $build[$id]['view_mode'] = array(
         '#weight' => -200,
-        '#plain_text' => $view_mode,
-      ];
+        '#markup' => SafeMarkup::checkPlain($view_mode),
+      );
     }
   }
 

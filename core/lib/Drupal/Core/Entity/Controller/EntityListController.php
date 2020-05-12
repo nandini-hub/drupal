@@ -1,8 +1,14 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Entity\Controller\EntityListController.
+ */
+
 namespace Drupal\Core\Entity\Controller;
 
 use Drupal\Core\Controller\ControllerBase;
+use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
  * Defines a generic controller to list entities.
@@ -16,11 +22,11 @@ class EntityListController extends ControllerBase {
    *   The entity type to render.
    *
    * @return array
-   *   A render array as expected by
-   *   \Drupal\Core\Render\RendererInterface::render().
+   *   A render array as expected by drupal_render().
    */
   public function listing($entity_type) {
-    return $this->entityTypeManager()->getListBuilder($entity_type)->render();
+    return $this->entityManager()->getListBuilder($entity_type)->render();
   }
 
 }
+

@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\aggregator\AggregatorFeedViewsData.
+ */
+
 namespace Drupal\aggregator;
 
 use Drupal\views\EntityViewsData;
@@ -15,12 +20,12 @@ class AggregatorFeedViewsData extends EntityViewsData {
   public function getViewsData() {
     $data = parent::getViewsData();
 
-    $data['aggregator_feed']['table']['join'] = [
-      'aggregator_item' => [
+    $data['aggregator_feed']['table']['join'] = array(
+      'aggregator_item' => array(
         'left_field' => 'fid',
         'field' => 'fid',
-      ],
-    ];
+      ),
+    );
 
     $data['aggregator_feed']['fid']['help'] = $this->t('The unique ID of the aggregator feed.');
     $data['aggregator_feed']['fid']['argument']['id'] = 'aggregator_fid';
@@ -30,8 +35,7 @@ class AggregatorFeedViewsData extends EntityViewsData {
     $data['aggregator_feed']['fid']['filter']['id'] = 'numeric';
 
     $data['aggregator_feed']['title']['help'] = $this->t('The title of the aggregator feed.');
-    $data['aggregator_feed']['title']['field']['default_formatter'] = 'aggregator_title';
-
+    $data['aggregator_feed']['title']['field']['id'] = 'aggregator_title_link';
     $data['aggregator_feed']['argument']['id'] = 'string';
 
     $data['aggregator_feed']['url']['help'] = $this->t('The fully-qualified URL of the feed.');

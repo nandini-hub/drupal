@@ -1,9 +1,13 @@
 <?php
 
+/**
+ * @file
+ * Contains Drupal\Core\Config\InstallStorage.
+ */
+
 namespace Drupal\Core\Config;
 
 use Drupal\Core\Extension\ExtensionDiscovery;
-use Drupal\Core\Extension\Extension;
 
 /**
  * Storage used by the Drupal installer.
@@ -58,7 +62,8 @@ class InstallStorage extends FileStorage {
    *   default collection.
    */
   public function __construct($directory = self::CONFIG_INSTALL_DIRECTORY, $collection = StorageInterface::DEFAULT_COLLECTION) {
-    parent::__construct($directory, $collection);
+    $this->directory = $directory;
+    $this->collection = $collection;
   }
 
   /**
@@ -74,9 +79,9 @@ class InstallStorage extends FileStorage {
    *   The path to the configuration file.
    *
    * @todo Improve this when figuring out how we want to handle configuration in
-   *   installation profiles. For instance, a config object actually has to be
-   *   searched in the profile first (whereas the profile is never the owner);
-   *   only afterwards check for a corresponding module or theme.
+   *   installation profiles. E.g., a config object actually has to be searched
+   *   in the profile first (whereas the profile is never the owner), only
+   *   afterwards check for a corresponding module or theme.
    */
   public function getFilePath($name) {
     $folders = $this->getAllFolders();
@@ -85,7 +90,9 @@ class InstallStorage extends FileStorage {
     }
     // If any code in the early installer requests a configuration object that
     // does not exist anywhere as default config, then that must be mistake.
-    throw new StorageException("Missing configuration file: $name");
+    throw new StorageException(format_string('Missing configuration file: @name', array(
+      '@name' => $name,
+    )));
   }
 
   /**
@@ -123,7 +130,7 @@ class InstallStorage extends FileStorage {
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\Config\StorageInterface::listAll().
    */
   public function listAll($prefix = '') {
     $names = array_keys($this->getAllFolders());
@@ -131,9 +138,9 @@ class InstallStorage extends FileStorage {
       return $names;
     }
     else {
-      $return = [];
+      $return = array();
       foreach ($names as $index => $name) {
-        if (strpos($name, $prefix) === 0) {
+        if (strpos($name, $prefix) === 0 ) {
           $return[$index] = $names[$index];
         }
       }
@@ -149,26 +156,15 @@ class InstallStorage extends FileStorage {
    */
   protected function getAllFolders() {
     if (!isset($this->folders)) {
-      $this->folders = [];
-      $this->folders += $this->getCoreNames();
-      // Perform an ExtensionDiscovery scan as we cannot use drupal_get_path()
-      // yet because the system module may not yet be enabled during install.
-      // @todo Remove as part of https://www.drupal.org/node/2186491
-      $listing = new ExtensionDiscovery(\Drupal::root());
-      if ($profile = \Drupal::installProfile()) {
-        $profile_list = $listing->scan('profile');
-        if (isset($profile_list[$profile])) {
-          // Prime the drupal_get_filename() static cache with the profile info
-          // file location so we can use drupal_get_path() on the active profile
-          // during the module scan.
-          // @todo Remove as part of https://www.drupal.org/node/2186491
-          drupal_get_filename('profile', $profile, $profile_list[$profile]->getPathname());
-          $this->folders += $this->getComponentNames([$profile_list[$profile]]);
-        }
+      $this->folders = array();
+      $this->folders += $this->getComponentNames('core', array('core'));
+      // @todo Refactor getComponentNames() to use the extension list directly.
+      if ($profile = drupal_get_profile()) {
+        $this->folders += $this->getComponentNames('profile', array($profile));
       }
-      // @todo Remove as part of https://www.drupal.org/node/2186491
-      $this->folders += $this->getComponentNames($listing->scan('module'));
-      $this->folders += $this->getComponentNames($listing->scan('theme'));
+      $listing = new ExtensionDiscovery(DRUPAL_ROOT);
+      $this->folders += $this->getComponentNames('module', array_keys($listing->scan('module')));
+      $this->folders += $this->getComponentNames('theme', array_keys($listing->scan('theme')));
     }
     return $this->folders;
   }
@@ -176,58 +172,23 @@ class InstallStorage extends FileStorage {
   /**
    * Get all configuration names and folders for a list of modules or themes.
    *
-   * @param \Drupal\Core\Extension\Extension[] $list
-   *   An associative array of Extension objects, keyed by extension name.
+   * @param string $type
+   *   Type of components: 'module' | 'theme' | 'profile'
+   * @param array $list
+   *   Array of theme or module names.
    *
    * @return array
    *   Folders indexed by configuration name.
    */
-  public function getComponentNames(array $list) {
+  public function getComponentNames($type, array $list) {
     $extension = '.' . $this->getFileExtension();
-    $pattern = '/' . preg_quote($extension, '/') . '$/';
-    $folders = [];
-    foreach ($list as $extension_object) {
-      // We don't have to use ExtensionDiscovery here because our list of
-      // extensions was already obtained through an ExtensionDiscovery scan.
-      $directory = $this->getComponentFolder($extension_object);
-      if (is_dir($directory)) {
-        // glob() directly calls into libc glob(), which is not aware of PHP
-        // stream wrappers. Same for \GlobIterator (which additionally requires
-        // an absolute realpath() on Windows).
-        // @see https://github.com/mikey179/vfsStream/issues/2
-        $files = scandir($directory);
-
+    $folders = array();
+    foreach ($list as $name) {
+      $directory = $this->getComponentFolder($type, $name);
+      if (file_exists($directory)) {
+        $files = new \GlobIterator(DRUPAL_ROOT . '/' . $directory . '/*' . $extension);
         foreach ($files as $file) {
-          if ($file[0] !== '.' && preg_match($pattern, $file)) {
-            $folders[basename($file, $extension)] = $directory;
-          }
-        }
-      }
-    }
-    return $folders;
-  }
-
-  /**
-   * Get all configuration names and folders for Drupal core.
-   *
-   * @return array
-   *   Folders indexed by configuration name.
-   */
-  public function getCoreNames() {
-    $extension = '.' . $this->getFileExtension();
-    $pattern = '/' . preg_quote($extension, '/') . '$/';
-    $folders = [];
-    $directory = $this->getCoreFolder();
-    if (is_dir($directory)) {
-      // glob() directly calls into libc glob(), which is not aware of PHP
-      // stream wrappers. Same for \GlobIterator (which additionally requires an
-      // absolute realpath() on Windows).
-      // @see https://github.com/mikey179/vfsStream/issues/2
-      $files = scandir($directory);
-
-      foreach ($files as $file) {
-        if ($file[0] !== '.' && preg_match($pattern, $file)) {
-          $folders[basename($file, $extension)] = $directory;
+          $folders[$file->getBasename($extension)] = $directory;
         }
       }
     }
@@ -237,24 +198,16 @@ class InstallStorage extends FileStorage {
   /**
    * Get folder inside each component that contains the files.
    *
-   * @param \Drupal\Core\Extension\Extension $extension
-   *   The Extension object for the component.
+   * @param string $type
+   *   Component type: 'module' | 'theme' | 'profile'
+   * @param string $name
+   *   Component name.
    *
    * @return string
    *   The configuration folder name for this component.
    */
-  protected function getComponentFolder(Extension $extension) {
-    return $extension->getPath() . '/' . $this->getCollectionDirectory();
-  }
-
-  /**
-   * Get folder inside Drupal core that contains the files.
-   *
-   * @return string
-   *   The configuration folder name for core.
-   */
-  protected function getCoreFolder() {
-    return drupal_get_path('core', 'core') . '/' . $this->getCollectionDirectory();
+  protected function getComponentFolder($type, $name) {
+    return drupal_get_path($type, $name) . '/' . $this->getCollectionDirectory();
   }
 
   /**

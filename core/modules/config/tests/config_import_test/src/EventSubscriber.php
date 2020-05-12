@@ -1,11 +1,15 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\config_import_test\EventSubscriber.
+ */
+
 namespace Drupal\config_import_test;
 
 use Drupal\Core\Config\ConfigCrudEvent;
 use Drupal\Core\Config\ConfigEvents;
 use Drupal\Core\Config\ConfigImporterEvent;
-use Drupal\Core\Config\Importer\MissingContentEvent;
 use Drupal\Core\State\StateInterface;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 
@@ -48,39 +52,6 @@ class EventSubscriber implements EventSubscriberInterface {
   }
 
   /**
-   * Handles the missing content event.
-   *
-   * @param \Drupal\Core\Config\Importer\MissingContentEvent $event
-   *   The missing content event.
-   */
-  public function onConfigImporterMissingContentOne(MissingContentEvent $event) {
-    if ($this->state->get('config_import_test.config_import_missing_content', FALSE) && $this->state->get('config_import_test.config_import_missing_content_one', FALSE) === FALSE) {
-      $missing = $event->getMissingContent();
-      $uuid = key($missing);
-      $this->state->set('config_import_test.config_import_missing_content_one', key($missing));
-      $event->resolveMissingContent($uuid);
-      // Stopping propagation ensures that onConfigImporterMissingContentTwo
-      // will be fired on the next batch step.
-      $event->stopPropagation();
-    }
-  }
-
-  /**
-   * Handles the missing content event.
-   *
-   * @param \Drupal\Core\Config\Importer\MissingContentEvent $event
-   *   The missing content event.
-   */
-  public function onConfigImporterMissingContentTwo(MissingContentEvent $event) {
-    if ($this->state->get('config_import_test.config_import_missing_content', FALSE) && $this->state->get('config_import_test.config_import_missing_content_two', FALSE) === FALSE) {
-      $missing = $event->getMissingContent();
-      $uuid = key($missing);
-      $this->state->set('config_import_test.config_import_missing_content_two', key($missing));
-      $event->resolveMissingContent($uuid);
-    }
-  }
-
-  /**
    * Reacts to a config save and records information in state for testing.
    *
    * @param \Drupal\Core\Config\ConfigCrudEvent $event
@@ -88,14 +59,14 @@ class EventSubscriber implements EventSubscriberInterface {
   public function onConfigSave(ConfigCrudEvent $event) {
     $config = $event->getConfig();
     if ($config->getName() == 'action.settings') {
-      $values = $this->state->get('ConfigImportUITest.action.settings.recursion_limit', []);
+      $values = $this->state->get('ConfigImportUITest.action.settings.recursion_limit', array());
       $values[] = $config->get('recursion_limit');
       $this->state->set('ConfigImportUITest.action.settings.recursion_limit', $values);
     }
 
     if ($config->getName() == 'core.extension') {
-      $installed = $this->state->get('ConfigImportUITest.core.extension.modules_installed', []);
-      $uninstalled = $this->state->get('ConfigImportUITest.core.extension.modules_uninstalled', []);
+      $installed = $this->state->get('ConfigImportUITest.core.extension.modules_installed', array());
+      $uninstalled = $this->state->get('ConfigImportUITest.core.extension.modules_uninstalled', array());
       $original = $config->getOriginal('module');
       $data = $config->get('module');
       $install = array_diff_key($data, $original);
@@ -131,11 +102,10 @@ class EventSubscriber implements EventSubscriberInterface {
    * @return array
    *   An array of event listener definitions.
    */
-  public static function getSubscribedEvents() {
-    $events[ConfigEvents::SAVE][] = ['onConfigSave', 40];
-    $events[ConfigEvents::DELETE][] = ['onConfigDelete', 40];
-    $events[ConfigEvents::IMPORT_VALIDATE] = ['onConfigImporterValidate'];
-    $events[ConfigEvents::IMPORT_MISSING_CONTENT] = [['onConfigImporterMissingContentOne'], ['onConfigImporterMissingContentTwo', -100]];
+  static function getSubscribedEvents() {
+    $events[ConfigEvents::SAVE][] = array('onConfigSave', 40);
+    $events[ConfigEvents::DELETE][] = array('onConfigDelete', 40);
+    $events[ConfigEvents::IMPORT_VALIDATE] = array('onConfigImporterValidate');
     return $events;
   }
 

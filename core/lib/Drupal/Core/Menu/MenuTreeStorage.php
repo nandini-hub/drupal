@@ -1,16 +1,22 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Menu\MenuTreeStorage.
+ */
+
 namespace Drupal\Core\Menu;
 
 use Drupal\Component\Plugin\Exception\PluginException;
+use Drupal\Component\Utility\SafeMarkup;
 use Drupal\Component\Utility\UrlHelper;
 use Drupal\Core\Cache\Cache;
 use Drupal\Core\Cache\CacheBackendInterface;
 use Drupal\Core\Cache\CacheTagsInvalidatorInterface;
 use Drupal\Core\Database\Connection;
 use Drupal\Core\Database\Database;
-use Drupal\Core\Database\DatabaseException;
 use Drupal\Core\Database\Query\SelectInterface;
+use Drupal\Core\Database\SchemaObjectExistsException;
 
 /**
  * Provides a menu tree storage using the database.
@@ -55,7 +61,7 @@ class MenuTreeStorage implements MenuTreeStorageInterface {
    *
    * @var array
    */
-  protected $options = [];
+  protected $options = array();
 
   /**
    * Stores definitions that have already been loaded for better performance.
@@ -64,7 +70,7 @@ class MenuTreeStorage implements MenuTreeStorageInterface {
    *
    * @var array
    */
-  protected $definitions = [];
+  protected $definitions = array();
 
   /**
    * List of serialized fields.
@@ -83,12 +89,14 @@ class MenuTreeStorage implements MenuTreeStorageInterface {
    *
    * @var array
    */
-  protected $definitionFields = [
+  protected $definitionFields = array(
     'menu_name',
     'route_name',
     'route_parameters',
     'url',
     'title',
+    'title_arguments',
+    'title_context',
     'description',
     'parent',
     'weight',
@@ -100,7 +108,7 @@ class MenuTreeStorage implements MenuTreeStorageInterface {
     'class',
     'form_class',
     'id',
-  ];
+  );
 
   /**
    * Constructs a new \Drupal\Core\Menu\MenuTreeStorage.
@@ -116,7 +124,7 @@ class MenuTreeStorage implements MenuTreeStorageInterface {
    * @param array $options
    *   (optional) Any additional database connection options to use in queries.
    */
-  public function __construct(Connection $connection, CacheBackendInterface $menu_cache_backend, CacheTagsInvalidatorInterface $cache_tags_invalidator, $table, array $options = []) {
+  public function __construct(Connection $connection, CacheBackendInterface $menu_cache_backend, CacheTagsInvalidatorInterface $cache_tags_invalidator, $table, array $options = array()) {
     $this->connection = $connection;
     $this->menuCacheBackend = $menu_cache_backend;
     $this->cacheTagsInvalidator = $cache_tags_invalidator;
@@ -135,16 +143,16 @@ class MenuTreeStorage implements MenuTreeStorageInterface {
    * {@inheritdoc}
    */
   public function resetDefinitions() {
-    $this->definitions = [];
+    $this->definitions = array();
   }
 
   /**
    * {@inheritdoc}
    */
   public function rebuild(array $definitions) {
-    $links = [];
-    $children = [];
-    $top_links = [];
+    $links = array();
+    $children = array();
+    $top_links = array();
     // Fetch the list of existing menus, in case some are not longer populated
     // after the rebuild.
     $before_menus = $this->getMenuNames();
@@ -152,9 +160,6 @@ class MenuTreeStorage implements MenuTreeStorageInterface {
       foreach ($definitions as $id => $link) {
         // Flag this link as discovered, i.e. saved via rebuild().
         $link['discovered'] = 1;
-        // Note: The parent we set here might be just stored in the {menu_tree}
-        // table, so it will not end up in $top_links. Therefore the later loop
-        // on the orphan links, will handle those cases.
         if (!empty($link['parent'])) {
           $children[$link['parent']][$id] = $id;
         }
@@ -172,18 +177,8 @@ class MenuTreeStorage implements MenuTreeStorageInterface {
     // Handle any children we didn't find starting from top-level links.
     foreach ($children as $orphan_links) {
       foreach ($orphan_links as $id) {
-        // Check for a parent that is not loaded above since only internal links
-        // are loaded above.
-        $parent = $this->loadFull($links[$id]['parent']);
-        // If there is a parent add it to the links to be used in
-        // ::saveRecursive().
-        if ($parent) {
-          $links[$links[$id]['parent']] = $parent;
-        }
-        else {
-          // Force it to the top level.
-          $links[$id]['parent'] = '';
-        }
+        // Force it to the top level.
+        $links[$id]['parent'] = '';
         $this->saveRecursive($id, $children, $links);
       }
     }
@@ -214,7 +209,7 @@ class MenuTreeStorage implements MenuTreeStorageInterface {
     $loaded = $this->loadFullMultiple($ids);
     foreach ($loaded as $id => $link) {
       if ($link['has_children']) {
-        $children = $this->loadByProperties(['parent' => $id]);
+        $children = $this->loadByProperties(array('parent' => $id));
         foreach ($children as $child) {
           $child['parent'] = $link['parent'];
           $this->save($child);
@@ -282,44 +277,27 @@ class MenuTreeStorage implements MenuTreeStorageInterface {
    *   depth.
    */
   protected function doSave(array $link) {
-    $affected_menus = [];
-
-    // Get the existing definition if it exists. This does not use
-    // self::loadFull() to avoid the unserialization of fields with 'serialize'
-    // equal to TRUE as defined in self::schemaDefinition(). The makes $original
-    // easier to compare with the return value of self::preSave().
-    $query = $this->connection->select($this->table, $this->options);
-    $query->fields($this->table);
-    $query->condition('id', $link['id']);
-    $original = $this->safeExecuteSelect($query)->fetchAssoc();
-
-    if ($original) {
-      $link['mlid'] = $original['mlid'];
-      $link['has_children'] = $original['has_children'];
-      $affected_menus[$original['menu_name']] = $original['menu_name'];
-      $fields = $this->preSave($link, $original);
-      // If $link matches the $original data then exit early as there are no
-      // changes to make. Use array_diff_assoc() to check if they match because:
-      // - Some of the data types of the values are not the same. The values
-      //   in $original are all strings because they have come from database but
-      //   $fields contains typed values.
-      // - MenuTreeStorage::preSave() removes the 'mlid' from $fields.
-      // - The order of the keys in $original and $fields is different.
-      if (array_diff_assoc($fields, $original) == [] && array_diff_assoc($original, $fields) == ['mlid' => $link['mlid']]) {
-        return $affected_menus;
-      }
-    }
+    $original = $this->loadFull($link['id']);
+    // @todo Should we just return here if the link values match the original
+    //   values completely?
+    //   https://www.drupal.org/node/2302137
+    $affected_menus = array();
 
     $transaction = $this->connection->startTransaction();
     try {
-      if (!$original) {
-        // Generate a new mlid.
-        $options = ['return' => Database::RETURN_INSERT_ID] + $this->options;
-        $link['mlid'] = $this->connection->insert($this->table, $options)
-          ->fields(['id' => $link['id'], 'menu_name' => $link['menu_name']])
-          ->execute();
-        $fields = $this->preSave($link, []);
+      if ($original) {
+        $link['mlid'] = $original['mlid'];
+        $link['has_children'] = $original['has_children'];
+        $affected_menus[$original['menu_name']] = $original['menu_name'];
       }
+      else {
+        // Generate a new mlid.
+        $options = array('return' => Database::RETURN_INSERT_ID) + $this->options;
+        $link['mlid'] = $this->connection->insert($this->table, $options)
+          ->fields(array('id' => $link['id'], 'menu_name' => $link['menu_name']))
+          ->execute();
+      }
+      $fields = $this->preSave($link, $original);
       // We may be moving the link to a new menu.
       $affected_menus[$fields['menu_name']] = $fields['menu_name'];
       $query = $this->connection->update($this->table, $this->options);
@@ -332,7 +310,7 @@ class MenuTreeStorage implements MenuTreeStorageInterface {
       $this->updateParentalStatus($link);
     }
     catch (\Exception $e) {
-      $transaction->rollBack();
+      $transaction->rollback();
       throw $e;
     }
     return $affected_menus;
@@ -389,9 +367,7 @@ class MenuTreeStorage implements MenuTreeStorageInterface {
     $fields['route_param_key'] = $fields['route_parameters'] ? UrlHelper::buildQuery($fields['route_parameters']) : '';
 
     foreach ($this->serializedFields() as $name) {
-      if (isset($fields[$name])) {
-        $fields[$name] = serialize($fields[$name]);
-      }
+      $fields[$name] = serialize($fields[$name]);
     }
     $this->setParents($fields, $parent, $original);
 
@@ -418,7 +394,7 @@ class MenuTreeStorage implements MenuTreeStorageInterface {
     // It's possible the link is already deleted.
     if ($item) {
       $parent = $item['parent'];
-      $children = $this->loadByProperties(['parent' => $id]);
+      $children = $this->loadByProperties(array('parent' => $id));
       foreach ($children as $child) {
         $child['parent'] = $parent;
         $this->save($child);
@@ -500,7 +476,7 @@ class MenuTreeStorage implements MenuTreeStorageInterface {
         $limit = $this->maxDepth() - 1;
       }
       if ($parent['depth'] > $limit) {
-        throw new PluginException("The link with ID {$fields['id']} or its children exceeded the maximum depth of {$this->maxDepth()}");
+        throw new PluginException(SafeMarkup::format('The link with ID @id or its children exceeded the maximum depth of @depth', array('@id' => $fields['id'], '@depth' => $this->maxDepth())));
       }
       $fields['depth'] = $parent['depth'] + 1;
       $i = 1;
@@ -529,18 +505,18 @@ class MenuTreeStorage implements MenuTreeStorageInterface {
   protected function moveChildren($fields, $original) {
     $query = $this->connection->update($this->table, $this->options);
 
-    $query->fields(['menu_name' => $fields['menu_name']]);
+    $query->fields(array('menu_name' => $fields['menu_name']));
 
-    $expressions = [];
+    $expressions = array();
     for ($i = 1; $i <= $fields['depth']; $i++) {
-      $expressions[] = ["p$i", ":p_$i", [":p_$i" => $fields["p$i"]]];
+      $expressions[] = array("p$i", ":p_$i", array(":p_$i" => $fields["p$i"]));
     }
     $j = $original['depth'] + 1;
     while ($i <= $this->maxDepth() && $j <= $this->maxDepth()) {
-      $expressions[] = ['p' . $i++, 'p' . $j++, []];
+      $expressions[] = array('p' . $i++, 'p' . $j++, array());
     }
     while ($i <= $this->maxDepth()) {
-      $expressions[] = ['p' . $i++, 0, []];
+      $expressions[] = array('p' . $i++, 0, array());
     }
 
     $shift = $fields['depth'] - $original['depth'];
@@ -555,7 +531,7 @@ class MenuTreeStorage implements MenuTreeStorageInterface {
       $query->expression($expression[0], $expression[1], $expression[2]);
     }
 
-    $query->expression('depth', 'depth + :depth', [':depth' => $shift]);
+    $query->expression('depth', 'depth + :depth', array(':depth' => $shift));
     $query->condition('menu_name', $original['menu_name']);
 
     for ($i = 1; $i <= $this->maxDepth() && $original["p$i"]; $i++) {
@@ -586,7 +562,7 @@ class MenuTreeStorage implements MenuTreeStorageInterface {
     }
 
     // If we have a parent link ID, try to use that.
-    $candidates = [];
+    $candidates = array();
     if (isset($link['parent'])) {
       $candidates[] = $link['parent'];
     }
@@ -624,7 +600,7 @@ class MenuTreeStorage implements MenuTreeStorageInterface {
 
       $parent_has_children = ((bool) $query->execute()->fetchField()) ? 1 : 0;
       $this->connection->update($this->table, $this->options)
-        ->fields(['has_children' => $parent_has_children])
+        ->fields(array('has_children' => $parent_has_children))
         ->condition('id', $link['parent'])
         ->execute();
     }
@@ -643,9 +619,7 @@ class MenuTreeStorage implements MenuTreeStorageInterface {
    */
   protected function prepareLink(array $link, $intersect = FALSE) {
     foreach ($this->serializedFields() as $name) {
-      if (isset($link[$name])) {
-        $link[$name] = unserialize($link[$name]);
-      }
+      $link[$name] = unserialize($link[$name]);
     }
     if ($intersect) {
       $link = array_intersect_key($link, array_flip($this->definitionFields()));
@@ -663,7 +637,7 @@ class MenuTreeStorage implements MenuTreeStorageInterface {
     foreach ($properties as $name => $value) {
       if (!in_array($name, $this->definitionFields(), TRUE)) {
         $fields = implode(', ', $this->definitionFields());
-        throw new \InvalidArgumentException("An invalid property name, $name was specified. Allowed property names are: $fields.");
+        throw new \InvalidArgumentException(SafeMarkup::format('An invalid property name, @name was specified. Allowed property names are: @fields.', array('@name' => $name, '@fields' => $fields)));
       }
       $query->condition($name, $value);
     }
@@ -677,7 +651,7 @@ class MenuTreeStorage implements MenuTreeStorageInterface {
   /**
    * {@inheritdoc}
    */
-  public function loadByRoute($route_name, array $route_parameters = [], $menu_name = NULL) {
+  public function loadByRoute($route_name, array $route_parameters = array(), $menu_name = NULL) {
     // Sort the route parameters so that the query string will be the same.
     asort($route_parameters);
     // Since this will be urlencoded, it's safe to store and match against a
@@ -728,7 +702,7 @@ class MenuTreeStorage implements MenuTreeStorageInterface {
     if (isset($this->definitions[$id])) {
       return $this->definitions[$id];
     }
-    $loaded = $this->loadMultiple([$id]);
+    $loaded = $this->loadMultiple(array($id));
     return isset($loaded[$id]) ? $loaded[$id] : FALSE;
   }
 
@@ -742,8 +716,8 @@ class MenuTreeStorage implements MenuTreeStorageInterface {
    *   The loaded menu link definition or an empty array if not be found.
    */
   protected function loadFull($id) {
-    $loaded = $this->loadFullMultiple([$id]);
-    return isset($loaded[$id]) ? $loaded[$id] : [];
+    $loaded = $this->loadFullMultiple(array($id));
+    return isset($loaded[$id]) ? $loaded[$id] : array();
   }
 
   /**
@@ -762,9 +736,7 @@ class MenuTreeStorage implements MenuTreeStorageInterface {
     $loaded = $this->safeExecuteSelect($query)->fetchAllAssoc('id', \PDO::FETCH_ASSOC);
     foreach ($loaded as &$link) {
       foreach ($this->serializedFields() as $name) {
-        if (isset($link[$name])) {
-          $link[$name] = unserialize($link[$name]);
-        }
+        $link[$name] = unserialize($link[$name]);
       }
     }
     return $loaded;
@@ -778,20 +750,20 @@ class MenuTreeStorage implements MenuTreeStorageInterface {
     // @todo Consider making this dynamic based on static::MAX_DEPTH or from the
     //   schema if that is generated using static::MAX_DEPTH.
     //   https://www.drupal.org/node/2302043
-    $subquery->fields($this->table, ['p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7', 'p8', 'p9']);
+    $subquery->fields($this->table, array('p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7', 'p8', 'p9'));
     $subquery->condition('id', $id);
     $result = current($subquery->execute()->fetchAll(\PDO::FETCH_ASSOC));
     $ids = array_filter($result);
     if ($ids) {
       $query = $this->connection->select($this->table, $this->options);
-      $query->fields($this->table, ['id']);
+      $query->fields($this->table, array('id'));
       $query->orderBy('depth', 'DESC');
       $query->condition('mlid', $ids, 'IN');
       // @todo Cache this result in memory if we find it is being used more
       //   than once per page load. https://www.drupal.org/node/2302185
       return $this->safeExecuteSelect($query)->fetchAllKeyed(0, 0);
     }
-    return [];
+    return array();
   }
 
   /**
@@ -802,7 +774,7 @@ class MenuTreeStorage implements MenuTreeStorageInterface {
     //   expanded links? https://www.drupal.org/node/2302187
     do {
       $query = $this->connection->select($this->table, $this->options);
-      $query->fields($this->table, ['id']);
+      $query->fields($this->table, array('id'));
       $query->condition('menu_name', $menu_name);
       $query->condition('expanded', 1);
       $query->condition('has_children', 1);
@@ -845,6 +817,10 @@ class MenuTreeStorage implements MenuTreeStorageInterface {
    * {@inheritdoc}
    */
   public function loadTreeData($menu_name, MenuTreeParameters $parameters) {
+    // Build the cache ID; sort 'expanded' and 'conditions' to prevent duplicate
+    // cache items.
+    sort($parameters->expandedParents);
+    asort($parameters->conditions);
     $tree_cid = "tree-data:$menu_name:" . serialize($parameters);
     $cache = $this->menuCacheBackend->get($tree_cid);
     if ($cache && isset($cache->data)) {
@@ -856,7 +832,7 @@ class MenuTreeStorage implements MenuTreeStorageInterface {
     else {
       $links = $this->loadLinks($menu_name, $parameters);
       $data['tree'] = $this->doBuildTreeData($links, $parameters->activeTrail, $parameters->minDepth);
-      $data['definitions'] = [];
+      $data['definitions'] = array();
       $data['route_names'] = $this->collectRoutesAndDefinitions($data['tree'], $data['definitions']);
       $this->menuCacheBackend->set($tree_cid, $data, Cache::PERMANENT, ['config:system.menu.' . $menu_name]);
       // The definitions were already added to $this->definitions in
@@ -893,7 +869,7 @@ class MenuTreeStorage implements MenuTreeStorageInterface {
 
       // If the custom root does not exist, we cannot load the links below it.
       if (!$root) {
-        return [];
+        return array();
       }
 
       // When specifying a custom root, we only want to find links whose
@@ -951,19 +927,15 @@ class MenuTreeStorage implements MenuTreeStorageInterface {
     if (!empty($parameters->conditions)) {
       // Only allow conditions that are testing definition fields.
       $parameters->conditions = array_intersect_key($parameters->conditions, array_flip($this->definitionFields()));
-      $serialized_fields = $this->serializedFields();
       foreach ($parameters->conditions as $column => $value) {
-        if (is_array($value)) {
-          $operator = $value[1];
-          $value = $value[0];
+        if (!is_array($value)) {
+          $query->condition($column, $value);
         }
         else {
-          $operator = '=';
+          $operator = $value[1];
+          $value = $value[0];
+          $query->condition($column, $value, $operator);
         }
-        if (in_array($column, $serialized_fields)) {
-          $value = serialize($value);
-        }
-        $query->condition($column, $value, $operator);
       }
     }
 
@@ -999,7 +971,7 @@ class MenuTreeStorage implements MenuTreeStorageInterface {
    *   The collected route names.
    */
   protected function doCollectRoutesAndDefinitions(array $tree, array &$definitions) {
-    $route_names = [];
+    $route_names = array();
     foreach (array_keys($tree) as $id) {
       $definitions[$id] = $this->definitions[$id];
       if (!empty($definition['route_name'])) {
@@ -1016,7 +988,7 @@ class MenuTreeStorage implements MenuTreeStorageInterface {
    * {@inheritdoc}
    */
   public function loadSubtreeData($id, $max_relative_depth = NULL) {
-    $tree = [];
+    $tree = array();
     $root = $this->loadFull($id);
     if (!$root) {
       return $tree;
@@ -1064,10 +1036,10 @@ class MenuTreeStorage implements MenuTreeStorageInterface {
   public function getAllChildIds($id) {
     $root = $this->loadFull($id);
     if (!$root) {
-      return [];
+      return array();
     }
     $query = $this->connection->select($this->table, $this->options);
-    $query->fields($this->table, ['id']);
+    $query->fields($this->table, array('id'));
     $query->condition('menu_name', $root['menu_name']);
     for ($i = 1; $i <= $root['depth']; $i++) {
       $query->condition("p$i", $root["p$i"]);
@@ -1093,7 +1065,7 @@ class MenuTreeStorage implements MenuTreeStorageInterface {
   /**
    * Prepares the data for calling $this->treeDataRecursive().
    */
-  protected function doBuildTreeData(array $links, array $parents = [], $depth = 1) {
+  protected function doBuildTreeData(array $links, array $parents = array(), $depth = 1) {
     // Reverse the array so we can use the more efficient array_pop() function.
     $links = array_reverse($links);
     return $this->treeDataRecursive($links, $parents, $depth);
@@ -1110,6 +1082,7 @@ class MenuTreeStorage implements MenuTreeStorageInterface {
    *   is an associative array of information about the menu link, containing
    *   the fields from the $this->table. This array must be ordered
    *   depth-first. MenuTreeStorage::loadTreeData() includes a sample query.
+   *
    * @param array $parents
    *   An array of the menu link ID values that are in the path from the current
    *   page to the root of the menu tree.
@@ -1122,17 +1095,17 @@ class MenuTreeStorage implements MenuTreeStorageInterface {
    * @see \Drupal\Core\Menu\MenuTreeStorage::loadTreeData()
    */
   protected function treeDataRecursive(array &$links, array $parents, $depth) {
-    $tree = [];
+    $tree = array();
     while ($tree_link_definition = array_pop($links)) {
-      $tree[$tree_link_definition['id']] = [
+      $tree[$tree_link_definition['id']] = array(
         'definition' => $this->prepareLink($tree_link_definition, TRUE),
         'has_children' => $tree_link_definition['has_children'],
         // We need to determine if we're on the path to root so we can later
         // build the correct active trail.
         'in_active_trail' => in_array($tree_link_definition['id'], $parents),
-        'subtree' => [],
+        'subtree' => array(),
         'depth' => $tree_link_definition['depth'],
-      ];
+      );
       // Look ahead to the next link, but leave it on the array so it's
       // available to other recursive function calls if we return or build a
       // sub-tree.
@@ -1168,7 +1141,7 @@ class MenuTreeStorage implements MenuTreeStorageInterface {
         return TRUE;
       }
     }
-    catch (DatabaseException $e) {
+    catch (SchemaObjectExistsException $e) {
       // If another process has already created the config table, attempting to
       // recreate it will throw an exception. In this case just catch the
       // exception and do nothing.
@@ -1213,215 +1186,225 @@ class MenuTreeStorage implements MenuTreeStorageInterface {
    *
    * @return array
    *   The schema API definition for the SQL storage table.
-   *
-   * @internal
    */
   protected static function schemaDefinition() {
-    $schema = [
+    $schema = array(
       'description' => 'Contains the menu tree hierarchy.',
-      'fields' => [
-        'menu_name' => [
+      'fields' => array(
+        'menu_name' => array(
           'description' => "The menu name. All links with the same menu name (such as 'tools') are part of the same menu.",
-          'type' => 'varchar_ascii',
+          'type' => 'varchar',
           'length' => 32,
           'not null' => TRUE,
           'default' => '',
-        ],
-        'mlid' => [
+        ),
+        'mlid' => array(
           'description' => 'The menu link ID (mlid) is the integer primary key.',
           'type' => 'serial',
           'unsigned' => TRUE,
           'not null' => TRUE,
-        ],
-        'id' => [
+        ),
+        'id' => array(
           'description' => 'Unique machine name: the plugin ID.',
-          'type' => 'varchar_ascii',
+          'type' => 'varchar',
           'length' => 255,
           'not null' => TRUE,
-        ],
-        'parent' => [
+        ),
+        'parent' => array(
           'description' => 'The plugin ID for the parent of this link.',
-          'type' => 'varchar_ascii',
+          'type' => 'varchar',
           'length' => 255,
           'not null' => TRUE,
           'default' => '',
-        ],
-        'route_name' => [
+        ),
+        'route_name' => array(
           'description' => 'The machine name of a defined Symfony Route this menu item represents.',
-          'type' => 'varchar_ascii',
+          'type' => 'varchar',
           'length' => 255,
-        ],
-        'route_param_key' => [
+        ),
+        'route_param_key' => array(
           'description' => 'An encoded string of route parameters for loading by route.',
           'type' => 'varchar',
           'length' => 255,
-        ],
-        'route_parameters' => [
+        ),
+        'route_parameters' => array(
           'description' => 'Serialized array of route parameters of this menu link.',
           'type' => 'blob',
           'size' => 'big',
           'not null' => FALSE,
           'serialize' => TRUE,
-        ],
-        'url' => [
+        ),
+        'url' => array(
           'description' => 'The external path this link points to (when not using a route).',
           'type' => 'varchar',
           'length' => 255,
           'not null' => TRUE,
           'default' => '',
-        ],
-        'title' => [
-          'description' => 'The serialized title for the link. May be a TranslatableMarkup.',
+        ),
+        'title' => array(
+          'description' => 'The text displayed for the link.',
+          'type' => 'varchar',
+          'length' => 255,
+          'not null' => TRUE,
+          'default' => '',
+        ),
+        'title_arguments' => array(
+          'description' => 'A serialized array of arguments to be passed to t() (if this plugin uses it).',
           'type' => 'blob',
           'size' => 'big',
           'not null' => FALSE,
           'serialize' => TRUE,
-        ],
-        'description' => [
-          'description' => 'The serialized description of this link - used for admin pages and title attribute. May be a TranslatableMarkup.',
-          'type' => 'blob',
-          'size' => 'big',
+        ),
+        'title_context' => array(
+          'description' => 'The translation context for the link title.',
+          'type' => 'varchar',
+          'length' => 255,
+          'not null' => TRUE,
+          'default' => '',
+        ),
+        'description' => array(
+          'description' => 'The description of this link - used for admin pages and title attribute.',
+          'type' => 'text',
           'not null' => FALSE,
-          'serialize' => TRUE,
-        ],
-        'class' => [
+        ),
+        'class' => array(
           'description' => 'The class for this link plugin.',
           'type' => 'text',
           'not null' => FALSE,
-        ],
-        'options' => [
+        ),
+        'options' => array(
           'description' => 'A serialized array of URL options, such as a query string or HTML attributes.',
           'type' => 'blob',
           'size' => 'big',
           'not null' => FALSE,
           'serialize' => TRUE,
-        ],
-        'provider' => [
+        ),
+        'provider' => array(
           'description' => 'The name of the module that generated this link.',
-          'type' => 'varchar_ascii',
+          'type' => 'varchar',
           'length' => DRUPAL_EXTENSION_NAME_MAX_LENGTH,
           'not null' => TRUE,
           'default' => 'system',
-        ],
-        'enabled' => [
+        ),
+        'enabled' => array(
           'description' => 'A flag for whether the link should be rendered in menus. (0 = a disabled menu item that may be shown on admin screens, 1 = a normal, visible link)',
           'type' => 'int',
           'not null' => TRUE,
           'default' => 1,
           'size' => 'small',
-        ],
-        'discovered' => [
+        ),
+        'discovered' => array(
           'description' => 'A flag for whether the link was discovered, so can be purged on rebuild',
           'type' => 'int',
           'not null' => TRUE,
           'default' => 0,
           'size' => 'small',
-        ],
-        'expanded' => [
+        ),
+        'expanded' => array(
           'description' => 'Flag for whether this link should be rendered as expanded in menus - expanded links always have their child links displayed, instead of only when the link is in the active trail (1 = expanded, 0 = not expanded)',
           'type' => 'int',
           'not null' => TRUE,
           'default' => 0,
           'size' => 'small',
-        ],
-        'weight' => [
+        ),
+        'weight' => array(
           'description' => 'Link weight among links in the same menu at the same depth.',
           'type' => 'int',
           'not null' => TRUE,
           'default' => 0,
-        ],
-        'metadata' => [
+        ),
+        'metadata' => array(
           'description' => 'A serialized array of data that may be used by the plugin instance.',
           'type' => 'blob',
           'size' => 'big',
           'not null' => FALSE,
           'serialize' => TRUE,
-        ],
-        'has_children' => [
+        ),
+        'has_children' => array(
           'description' => 'Flag indicating whether any enabled links have this link as a parent (1 = enabled children exist, 0 = no enabled children).',
           'type' => 'int',
           'not null' => TRUE,
           'default' => 0,
           'size' => 'small',
-        ],
-        'depth' => [
+        ),
+        'depth' => array(
           'description' => 'The depth relative to the top level. A link with empty parent will have depth == 1.',
           'type' => 'int',
           'not null' => TRUE,
           'default' => 0,
           'size' => 'small',
-        ],
-        'p1' => [
+        ),
+        'p1' => array(
           'description' => 'The first mlid in the materialized path. If N = depth, then pN must equal the mlid. If depth > 1 then p(N-1) must equal the parent link mlid. All pX where X > depth must equal zero. The columns p1 .. p9 are also called the parents.',
           'type' => 'int',
           'unsigned' => TRUE,
           'not null' => TRUE,
           'default' => 0,
-        ],
-        'p2' => [
+        ),
+        'p2' => array(
           'description' => 'The second mlid in the materialized path. See p1.',
           'type' => 'int',
           'unsigned' => TRUE,
           'not null' => TRUE,
           'default' => 0,
-        ],
-        'p3' => [
+        ),
+        'p3' => array(
           'description' => 'The third mlid in the materialized path. See p1.',
           'type' => 'int',
           'unsigned' => TRUE,
           'not null' => TRUE,
           'default' => 0,
-        ],
-        'p4' => [
+        ),
+        'p4' => array(
           'description' => 'The fourth mlid in the materialized path. See p1.',
           'type' => 'int',
           'unsigned' => TRUE,
           'not null' => TRUE,
           'default' => 0,
-        ],
-        'p5' => [
+        ),
+        'p5' => array(
           'description' => 'The fifth mlid in the materialized path. See p1.',
           'type' => 'int',
           'unsigned' => TRUE,
           'not null' => TRUE,
           'default' => 0,
-        ],
-        'p6' => [
+        ),
+        'p6' => array(
           'description' => 'The sixth mlid in the materialized path. See p1.',
           'type' => 'int',
           'unsigned' => TRUE,
           'not null' => TRUE,
           'default' => 0,
-        ],
-        'p7' => [
+        ),
+        'p7' => array(
           'description' => 'The seventh mlid in the materialized path. See p1.',
           'type' => 'int',
           'unsigned' => TRUE,
           'not null' => TRUE,
           'default' => 0,
-        ],
-        'p8' => [
+        ),
+        'p8' => array(
           'description' => 'The eighth mlid in the materialized path. See p1.',
           'type' => 'int',
           'unsigned' => TRUE,
           'not null' => TRUE,
           'default' => 0,
-        ],
-        'p9' => [
+        ),
+        'p9' => array(
           'description' => 'The ninth mlid in the materialized path. See p1.',
           'type' => 'int',
           'unsigned' => TRUE,
           'not null' => TRUE,
           'default' => 0,
-        ],
-        'form_class' => [
+        ),
+        'form_class' => array(
           'description' => 'meh',
           'type' => 'varchar',
           'length' => 255,
-        ],
-      ],
-      'indexes' => [
-        'menu_parents' => [
+        ),
+      ),
+      'indexes' => array(
+        'menu_parents' => array(
           'menu_name',
           'p1',
           'p2',
@@ -1432,24 +1415,24 @@ class MenuTreeStorage implements MenuTreeStorageInterface {
           'p7',
           'p8',
           'p9',
-        ],
+        ),
         // @todo Test this index for effectiveness.
         //   https://www.drupal.org/node/2302197
-        'menu_parent_expand_child' => [
+        'menu_parent_expand_child' => array(
           'menu_name', 'expanded',
           'has_children',
-          ['parent', 16],
-        ],
-        'route_values' => [
-          ['route_name', 32],
-          ['route_param_key', 16],
-        ],
-      ],
-      'primary key' => ['mlid'],
-      'unique keys' => [
-        'id' => ['id'],
-      ],
-    ];
+          array('parent', 16),
+        ),
+        'route_values' => array(
+          array('route_name', 32),
+          array('route_param_key', 16),
+        ),
+      ),
+      'primary key' => array('mlid'),
+      'unique keys' => array(
+        'id' => array('id'),
+      ),
+    );
 
     return $schema;
   }
@@ -1474,7 +1457,7 @@ class MenuTreeStorage implements MenuTreeStorageInterface {
       $result = $query->execute()->fetchCol();
     }
     else {
-      $result = [];
+      $result = array();
     }
     return $result;
   }

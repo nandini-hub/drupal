@@ -1,8 +1,15 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\comment\CommentManagerInterface.
+ */
+
 namespace Drupal\comment;
 
 use Drupal\Core\Entity\EntityInterface;
+use Drupal\Core\Session\AccountInterface;
+use Drupal\comment\Plugin\Field\FieldType\CommentItemInterface;
 
 /**
  * Comment manager contains common functions to manage comment fields.
@@ -31,6 +38,8 @@ interface CommentManagerInterface {
    *   - type: The field type.
    *   - bundles: The bundles in which the field appears, as an array with entity
    *     types as keys and the array of bundle names as values.
+   *
+   * @see \Drupal\Core\Entity\EntityManagerInterface::getFieldMap()
    */
   public function getFields($entity_type_id);
 

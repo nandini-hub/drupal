@@ -5,6 +5,3 @@ block.settings.test_block_instantiation:
     display_message:
       type: string
       label: 'Message text'
-
-condition.plugin.baloney_spam:
-  type: condition.plugin

@@ -15,13 +15,14 @@ description: ''
 tag: default
 base_table: comment_field_data
 base_field: nid
+core: 8.0-dev
 display:
   default:
     display_options:
       access:
         type: test_static
       cache:
-        type: tag
+        type: none
       exposed_form:
         type: basic
       fields:

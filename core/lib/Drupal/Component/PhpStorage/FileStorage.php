@@ -1,8 +1,11 @@
 <?php
 
-namespace Drupal\Component\PhpStorage;
+/**
+ * @file
+ * Contains \Drupal\Component\PhpStorage\FileStorage.
+ */
 
-use Drupal\Component\FileSecurity\FileSecurity;
+namespace Drupal\Component\PhpStorage;
 
 /**
  * Stores the code as regular PHP files.
@@ -30,14 +33,14 @@ class FileStorage implements PhpStorageInterface {
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Component\PhpStorage\PhpStorageInterface::exists().
    */
   public function exists($name) {
     return file_exists($this->getFullPath($name));
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Component\PhpStorage\PhpStorageInterface::load().
    */
   public function load($name) {
     // The FALSE returned on failure is enough for the caller to handle this,
@@ -46,12 +49,17 @@ class FileStorage implements PhpStorageInterface {
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Component\PhpStorage\PhpStorageInterface::save().
    */
   public function save($name, $code) {
     $path = $this->getFullPath($name);
     $directory = dirname($path);
-    $this->ensureDirectory($directory);
+    if ($this->ensureDirectory($directory)) {
+      $htaccess_path =  $directory . '/.htaccess';
+      if (!file_exists($htaccess_path) && file_put_contents($htaccess_path, static::htaccessLines())) {
+        @chmod($htaccess_path, 0444);
+      }
+    }
     return (bool) file_put_contents($path, $code);
   }
 
@@ -66,15 +74,43 @@ class FileStorage implements PhpStorageInterface {
    * @return string
    *   The desired contents of the .htaccess file.
    *
-   * @deprecated in drupal:8.8.0 and is removed from drupal:9.0.0. Instead use
-   *   \Drupal\Component\FileSecurity\FileSecurity.
-   *
-   * @see https://www.drupal.org/node/3075098
-   * @see file_save_htaccess()
+   * @see file_create_htaccess()
    */
   public static function htaccessLines($private = TRUE) {
-    @trigger_error("htaccessLines() is deprecated in drupal:8.8.0 and is removed from drupal:9.0.0. Use \Drupal\Component\FileSecurity\FileSecurity::htaccessLines() instead. See https://www.drupal.org/node/3075098", E_USER_DEPRECATED);
-    return FileSecurity::htaccessLines($private);
+    $lines = <<<EOF
+# Turn off all options we don't need.
+Options None
+Options +FollowSymLinks
+
+# Set the catch-all handler to prevent scripts from being executed.
+SetHandler Drupal_Security_Do_Not_Remove_See_SA_2006_006
+<Files *>
+  # Override the handler again if we're run later in the evaluation list.
+  SetHandler Drupal_Security_Do_Not_Remove_See_SA_2013_003
+</Files>
+
+# If we know how to do it safely, disable the PHP engine entirely.
+<IfModule mod_php5.c>
+  php_flag engine off
+</IfModule>
+EOF;
+
+    if ($private) {
+      $lines = <<<EOF
+# Deny all requests from Apache 2.4+.
+<IfModule mod_authz_core.c>
+  Require all denied
+</IfModule>
+
+# Deny all requests from Apache 2.0-2.2.
+<IfModule !mod_authz_core.c>
+  Deny from all
+</IfModule>
+EOF
+      . $lines;
+    }
+
+    return $lines;
   }
 
   /**
@@ -90,10 +126,16 @@ class FileStorage implements PhpStorageInterface {
    *   The directory path.
    * @param int $mode
    *   The mode, permissions, the directory should have.
+   *
+   * @return bool
+   *   TRUE if the directory exists or has been created, FALSE otherwise.
    */
   protected function ensureDirectory($directory, $mode = 0777) {
     if ($this->createDirectory($directory, $mode)) {
-      FileSecurity::writeHtaccess($directory);
+      $htaccess_path =  $directory . '/.htaccess';
+      if (!file_exists($htaccess_path) && file_put_contents($htaccess_path, static::htaccessLines())) {
+        @chmod($htaccess_path, 0444);
+      }
     }
   }
 
@@ -110,46 +152,38 @@ class FileStorage implements PhpStorageInterface {
    *   The directory path.
    * @param int $mode
    *   The mode, permissions, the directory should have.
+   * @param bool $is_backwards_recursive
+   *   Internal use only.
    *
    * @return bool
    *   TRUE if the directory exists or has been created, FALSE otherwise.
    */
-  protected function createDirectory($directory, $mode = 0777) {
+  protected function createDirectory($directory, $mode = 0777, $is_backwards_recursive = FALSE) {
     // If the directory exists already, there's nothing to do.
     if (is_dir($directory)) {
       return TRUE;
     }
-
-    // If the parent directory doesn't exist, try to create it.
-    $parent_exists = is_dir($parent = dirname($directory));
-    if (!$parent_exists) {
-      $parent_exists = $this->createDirectory($parent, $mode);
-    }
-
-    // If parent exists, try to create the directory and ensure to set its
-    // permissions, because mkdir() obeys the umask of the current process.
-    if ($parent_exists) {
-      // We hide warnings and ignore the return because there may have been a
-      // race getting here and the directory could already exist.
-      @mkdir($directory);
-      // Only try to chmod() if the subdirectory could be created.
-      if (is_dir($directory)) {
-        // Avoid writing permissions if possible.
-        if (fileperms($directory) !== $mode) {
-          return chmod($directory, $mode);
-        }
-        return TRUE;
+    // Otherwise, try to create the directory and ensure to set its permissions,
+    // because mkdir() obeys the umask of the current process.
+    if (is_dir($parent = dirname($directory))) {
+      // If the parent directory exists, then the backwards recursion must end,
+      // regardless of whether the subdirectory could be created.
+      if ($status = mkdir($directory)) {
+        // Only try to chmod() if the subdirectory could be created.
+        $status = chmod($directory, $mode);
       }
-      else {
-        // Something failed and the directory doesn't exist.
-        trigger_error('mkdir(): Permission Denied', E_USER_WARNING);
-      }
+      return $is_backwards_recursive ? TRUE : $status;
     }
-    return FALSE;
+    // If the parent directory and the requested directory does not exist and
+    // could not be created above, walk the requested directory path back up
+    // until an existing directory is hit, and from there, recursively create
+    // the sub-directories. Only if that recursion succeeds, create the final,
+    // originally requested subdirectory.
+    return $this->createDirectory($parent, $mode, TRUE) && mkdir($directory) && chmod($directory, $mode);
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Component\PhpStorage\PhpStorageInterface::delete().
    */
   public function delete($name) {
     $path = $this->getFullPath($name);
@@ -167,14 +201,14 @@ class FileStorage implements PhpStorageInterface {
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Component\PhpStorage\PhpStorageInterface::writeable().
    */
   public function writeable() {
     return TRUE;
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Component\PhpStorage\PhpStorageInterface::deleteAll().
    */
   public function deleteAll() {
     return $this->unlink($this->directory);
@@ -190,7 +224,7 @@ class FileStorage implements PhpStorageInterface {
    * @param string $path
    *   A string containing either a file or directory path.
    *
-   * @return bool
+   * @return boolean
    *   TRUE for success or if path does not exist, FALSE in the event of an
    *   error.
    */
@@ -218,7 +252,7 @@ class FileStorage implements PhpStorageInterface {
    * {@inheritdoc}
    */
   public function listAll() {
-    $names = [];
+    $names = array();
     if (file_exists($this->directory)) {
       foreach (new \DirectoryIterator($this->directory) as $fileinfo) {
         if (!$fileinfo->isDot()) {
@@ -230,12 +264,6 @@ class FileStorage implements PhpStorageInterface {
       }
     }
     return $names;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function garbageCollection() {
   }
 
 }

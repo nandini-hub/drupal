@@ -1,7 +1,13 @@
 <?php
 
+/**
+ * @file
+ * Contains Drupal\user\Entity\Role.
+ */
+
 namespace Drupal\user\Entity;
 
+use Drupal\Core\Cache\Cache;
 use Drupal\Core\Config\Entity\ConfigEntityBase;
 use Drupal\Core\Entity\EntityStorageInterface;
 use Drupal\user\RoleInterface;
@@ -12,13 +18,6 @@ use Drupal\user\RoleInterface;
  * @ConfigEntityType(
  *   id = "user_role",
  *   label = @Translation("Role"),
- *   label_collection = @Translation("Roles"),
- *   label_singular = @Translation("role"),
- *   label_plural = @Translation("roles"),
- *   label_count = @PluralTranslation(
- *     singular = "@count role",
- *     plural = "@count roles",
- *   ),
  *   handlers = {
  *     "storage" = "Drupal\user\RoleStorage",
  *     "access" = "Drupal\user\RoleAccessControlHandler",
@@ -41,13 +40,6 @@ use Drupal\user\RoleInterface;
  *     "edit-form" = "/admin/people/roles/manage/{user_role}",
  *     "edit-permissions-form" = "/admin/people/permissions/{user_role}",
  *     "collection" = "/admin/people/roles",
- *   },
- *   config_export = {
- *     "id",
- *     "label",
- *     "weight",
- *     "is_admin",
- *     "permissions",
  *   }
  * )
  */
@@ -79,7 +71,7 @@ class Role extends ConfigEntityBase implements RoleInterface {
    *
    * @var array
    */
-  protected $permissions = [];
+  protected $permissions = array();
 
   /**
    * An indicator whether the role has all permissions.
@@ -143,7 +135,7 @@ class Role extends ConfigEntityBase implements RoleInterface {
     if ($this->isAdmin()) {
       return $this;
     }
-    $this->permissions = array_diff($this->permissions, [$permission]);
+    $this->permissions = array_diff($this->permissions, array($permission));
     return $this;
   }
 
@@ -180,17 +172,21 @@ class Role extends ConfigEntityBase implements RoleInterface {
 
     if (!isset($this->weight) && ($roles = $storage->loadMultiple())) {
       // Set a role weight to make this new role last.
-      $max = array_reduce($roles, function ($max, $role) {
+      $max = array_reduce($roles, function($max, $role) {
         return $max > $role->weight ? $max : $role->weight;
       });
       $this->weight = $max + 1;
     }
+  }
 
-    if (!$this->isSyncing()) {
-      // Permissions are always ordered alphabetically to avoid conflicts in the
-      // exported configuration.
-      sort($this->permissions);
-    }
+  /**
+   * {@inheritdoc}
+   */
+  public function postSave(EntityStorageInterface $storage, $update = TRUE) {
+    parent::postSave($storage, $update);
+
+    // Clear render cache.
+    entity_render_cache_clear();
   }
 
 }

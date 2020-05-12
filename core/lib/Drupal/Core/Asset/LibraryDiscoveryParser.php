@@ -1,16 +1,19 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Asset\LibraryDiscoveryParser.
+ */
+
 namespace Drupal\Core\Asset;
 
 use Drupal\Core\Asset\Exception\IncompleteLibraryDefinitionException;
-use Drupal\Core\Asset\Exception\InvalidLibrariesOverrideSpecificationException;
 use Drupal\Core\Asset\Exception\InvalidLibraryFileException;
 use Drupal\Core\Asset\Exception\LibraryDefinitionMissingLicenseException;
 use Drupal\Core\Extension\ModuleHandlerInterface;
-use Drupal\Core\Serialization\Yaml;
-use Drupal\Core\StreamWrapper\StreamWrapperManagerInterface;
 use Drupal\Core\Theme\ThemeManagerInterface;
 use Drupal\Component\Serialization\Exception\InvalidDataTypeException;
+use Drupal\Component\Serialization\Yaml;
 use Drupal\Component\Utility\NestedArray;
 
 /**
@@ -40,33 +43,17 @@ class LibraryDiscoveryParser {
   protected $root;
 
   /**
-   * The stream wrapper manager.
-   *
-   * @var \Drupal\Core\StreamWrapper\StreamWrapperManagerInterface
-   */
-  protected $streamWrapperManager;
-
-  /**
    * Constructs a new LibraryDiscoveryParser instance.
    *
    * @param string $root
    *   The app root.
    * @param \Drupal\Core\Extension\ModuleHandlerInterface $module_handler
    *   The module handler.
-   * @param \Drupal\Core\Theme\ThemeManagerInterface $theme_manager
-   *   The theme manager.
-   * @param \Drupal\Core\StreamWrapper\StreamWrapperManagerInterface $stream_wrapper_manager
-   *   The stream wrapper manager.
    */
-  public function __construct($root, ModuleHandlerInterface $module_handler, ThemeManagerInterface $theme_manager, StreamWrapperManagerInterface $stream_wrapper_manager = NULL) {
+  public function __construct($root, ModuleHandlerInterface $module_handler, ThemeManagerInterface $theme_manager) {
     $this->root = $root;
     $this->moduleHandler = $module_handler;
     $this->themeManager = $theme_manager;
-    if (!$stream_wrapper_manager) {
-      @trigger_error('Calling LibraryDiscoveryParser::__construct() without the $stream_wrapper_manager argument is deprecated in drupal:8.8.0. The $stream_wrapper_manager argument will be required in drupal:9.0.0. See https://www.drupal.org/node/3035273', E_USER_DEPRECATED);
-      $stream_wrapper_manager = \Drupal::service('stream_wrapper_manager');
-    }
-    $this->streamWrapperManager = $stream_wrapper_manager;
   }
 
   /**
@@ -84,6 +71,8 @@ class LibraryDiscoveryParser {
    *   Thrown when a js file defines a positive weight.
    */
   public function buildByExtension($extension) {
+    $libraries = array();
+
     if ($extension === 'core') {
       $path = 'core';
       $extension_type = 'core';
@@ -99,13 +88,12 @@ class LibraryDiscoveryParser {
     }
 
     $libraries = $this->parseLibraryInfo($extension, $path);
-    $libraries = $this->applyLibrariesOverride($libraries, $extension);
 
     foreach ($libraries as $id => &$library) {
-      if (!isset($library['js']) && !isset($library['css']) && !isset($library['drupalSettings']) && !isset($library['dependencies'])) {
+      if (!isset($library['js']) && !isset($library['css']) && !isset($library['drupalSettings'])) {
         throw new IncompleteLibraryDefinitionException(sprintf("Incomplete library definition for definition '%s' in extension '%s'", $id, $extension));
       }
-      $library += ['dependencies' => [], 'js' => [], 'css' => []];
+      $library += array('dependencies' => array(), 'js' => array(), 'css' => array());
 
       if (isset($library['header']) && !is_bool($library['header'])) {
         throw new \LogicException(sprintf("The 'header' key in the library definition '%s' in extension '%s' is invalid: it must be a boolean.", $id, $extension));
@@ -117,7 +105,7 @@ class LibraryDiscoveryParser {
           $library['version'] = \Drupal::VERSION;
         }
         // Remove 'v' prefix from external library versions.
-        elseif (is_string($library['version']) && $library['version'][0] === 'v') {
+        elseif ($library['version'][0] === 'v') {
           $library['version'] = substr($library['version'], 1);
         }
       }
@@ -129,30 +117,26 @@ class LibraryDiscoveryParser {
 
       // Assign Drupal's license to libraries that don't have license info.
       if (!isset($library['license'])) {
-        $library['license'] = [
+        $library['license'] = array(
           'name' => 'GNU-GPL-2.0-or-later',
-          'url' => 'https://www.drupal.org/licensing/faq',
+          'url' => 'https://drupal.org/licensing/faq',
           'gpl-compatible' => TRUE,
-        ];
+        );
       }
 
-      foreach (['js', 'css'] as $type) {
+      foreach (array('js', 'css') as $type) {
         // Prepare (flatten) the SMACSS-categorized definitions.
         // @todo After Asset(ic) changes, retain the definitions as-is and
         //   properly resolve dependencies for all (css) libraries per category,
         //   and only once prior to rendering out an HTML page.
         if ($type == 'css' && !empty($library[$type])) {
-          assert(static::validateCssLibrary($library[$type]) < 2, 'CSS files should be specified as key/value pairs, where the values are configuration options. See https://www.drupal.org/node/2274843.');
-          assert(static::validateCssLibrary($library[$type]) === 0, 'CSS must be nested under a category. See https://www.drupal.org/node/2274843.');
           foreach ($library[$type] as $category => $files) {
-            $category_weight = 'CSS_' . strtoupper($category);
-            assert(defined($category_weight), 'Invalid CSS category: ' . $category . '. See https://www.drupal.org/node/2274843.');
             foreach ($files as $source => $options) {
               if (!isset($options['weight'])) {
                 $options['weight'] = 0;
               }
               // Apply the corresponding weight defined by CSS_* constants.
-              $options['weight'] += constant($category_weight);
+              $options['weight'] += constant('CSS_' . strtoupper($category));
               $library[$type][$source] = $options;
             }
             unset($library[$type][$category]);
@@ -162,7 +146,7 @@ class LibraryDiscoveryParser {
           unset($library[$type][$source]);
           // Allow to omit the options hashmap in YAML declarations.
           if (!is_array($options)) {
-            $options = [];
+            $options = array();
           }
           if ($type == 'js' && isset($options['weight']) && $options['weight'] > 0) {
             throw new \UnexpectedValueException("The $extension/$id library defines a positive weight for '$source'. Only negative weights are allowed (but should be avoided). Instead of a positive weight, specify accurate dependencies for this library.");
@@ -198,14 +182,7 @@ class LibraryDiscoveryParser {
               }
             }
             // A stream wrapper URI (e.g., public://generated_js/example.js).
-            elseif ($this->streamWrapperManager->isValidUri($source)) {
-              $options['data'] = $source;
-            }
-            // A regular URI (e.g., http://example.com/example.js) without
-            // 'external' explicitly specified, which may happen if, e.g.
-            // libraries-override is used.
-            elseif ($this->isValidUri($source)) {
-              $options['type'] = 'external';
+            elseif ($this->fileValidUri($source)) {
               $options['data'] = $source;
             }
             // By default, file paths are relative to the registering extension.
@@ -236,13 +213,13 @@ class LibraryDiscoveryParser {
   }
 
   /**
-   * Parses a given library file and allows modules and themes to alter it.
+   * Parses a given library file and allows module to alter it.
    *
    * This method sets the parsed information onto the library property.
    *
    * Library information is parsed from *.libraries.yml files; see
-   * editor.libraries.yml for an example. Every library must have at least one
-   * js or css entry. Each entry starts with a machine name and defines the
+   * editor.library.yml for an example. Every library must have at least one js
+   * or css entry. Each entry starts with a machine name and defines the
    * following elements:
    * - js: A list of JavaScript files to include. Each file is keyed by the file
    *   path. An item can have several attributes (like HTML
@@ -337,70 +314,6 @@ class LibraryDiscoveryParser {
   }
 
   /**
-   * Apply libraries overrides specified for the current active theme.
-   *
-   * @param array $libraries
-   *   The libraries definitions.
-   * @param string $extension
-   *   The extension in which these libraries are defined.
-   *
-   * @return array
-   *   The modified libraries definitions.
-   */
-  protected function applyLibrariesOverride($libraries, $extension) {
-    $active_theme = $this->themeManager->getActiveTheme();
-    // ActiveTheme::getLibrariesOverride() returns libraries-overrides for the
-    // current theme as well as all its base themes.
-    $all_libraries_overrides = $active_theme->getLibrariesOverride();
-    foreach ($all_libraries_overrides as $theme_path => $libraries_overrides) {
-      foreach ($libraries as $library_name => $library) {
-        // Process libraries overrides.
-        if (isset($libraries_overrides["$extension/$library_name"])) {
-          // Active theme defines an override for this library.
-          $override_definition = $libraries_overrides["$extension/$library_name"];
-          if (is_string($override_definition) || $override_definition === FALSE) {
-            // A string or boolean definition implies an override (or removal)
-            // for the whole library. Use the override key to specify that this
-            // library will be overridden when it is called.
-            // @see \Drupal\Core\Asset\LibraryDiscovery::getLibraryByName()
-            if ($override_definition) {
-              $libraries[$library_name]['override'] = $override_definition;
-            }
-            else {
-              $libraries[$library_name]['override'] = FALSE;
-            }
-          }
-          elseif (is_array($override_definition)) {
-            // An array definition implies an override for an asset within this
-            // library.
-            foreach ($override_definition as $sub_key => $value) {
-              // Throw an exception if the asset is not properly specified.
-              if (!is_array($value)) {
-                throw new InvalidLibrariesOverrideSpecificationException(sprintf('Library asset %s is not correctly specified. It should be in the form "extension/library_name/sub_key/path/to/asset.js".', "$extension/$library_name/$sub_key"));
-              }
-              if ($sub_key === 'drupalSettings') {
-                // drupalSettings may not be overridden.
-                throw new InvalidLibrariesOverrideSpecificationException(sprintf('drupalSettings may not be overridden in libraries-override. Trying to override %s. Use hook_library_info_alter() instead.', "$extension/$library_name/$sub_key"));
-              }
-              elseif ($sub_key === 'css') {
-                // SMACSS category should be incorporated into the asset name.
-                foreach ($value as $category => $overrides) {
-                  $this->setOverrideValue($libraries[$library_name], [$sub_key, $category], $overrides, $theme_path);
-                }
-              }
-              else {
-                $this->setOverrideValue($libraries[$library_name], [$sub_key], $value, $theme_path);
-              }
-            }
-          }
-        }
-      }
-    }
-
-    return $libraries;
-  }
-
-  /**
    * Wraps drupal_get_path().
    */
   protected function drupalGetPath($type, $name) {
@@ -408,108 +321,10 @@ class LibraryDiscoveryParser {
   }
 
   /**
-   * Wraps \Drupal\Core\StreamWrapper\StreamWrapperManagerInterface::isValidUri().
-   *
-   * @deprecated in drupal:8.8.0 and is removed from drupal:9.0.0. Use
-   *   \Drupal\Core\StreamWrapper\StreamWrapperManagerInterface::isValidUri()
-   *   instead.
+   * Wraps file_valid_uri().
    */
   protected function fileValidUri($source) {
-    @trigger_error('fileValidUri() is deprecated in Drupal 8.8.0 and will be removed before Drupal 9.0.0. Use \Drupal\Core\StreamWrapper\StreamWrapperManagerInterface::isValidUri() instead. See https://www.drupal.org/node/3035273', E_USER_DEPRECATED);
-    return $this->streamWrapperManager->isValidUri($source);
-  }
-
-  /**
-   * Determines if the supplied string is a valid URI.
-   */
-  protected function isValidUri($string) {
-    return count(explode('://', $string)) === 2;
-  }
-
-  /**
-   * Overrides the specified library asset.
-   *
-   * @param array $library
-   *   The containing library definition.
-   * @param array $sub_key
-   *   An array containing the sub-keys specifying the library asset, e.g.
-   *   @code['js']@endcode or @code['css', 'component']@endcode
-   * @param array $overrides
-   *   Specifies the overrides, this is an array where the key is the asset to
-   *   be overridden while the value is overriding asset.
-   */
-  protected function setOverrideValue(array &$library, array $sub_key, array $overrides, $theme_path) {
-    foreach ($overrides as $original => $replacement) {
-      // Get the attributes of the asset to be overridden. If the key does
-      // not exist, then throw an exception.
-      $key_exists = NULL;
-      $parents = array_merge($sub_key, [$original]);
-      // Save the attributes of the library asset to be overridden.
-      $attributes = NestedArray::getValue($library, $parents, $key_exists);
-      if ($key_exists) {
-        // Remove asset to be overridden.
-        NestedArray::unsetValue($library, $parents);
-        // No need to replace if FALSE is specified, since that is a removal.
-        if ($replacement) {
-          // Ensure the replacement path is relative to drupal root.
-          $replacement = $this->resolveThemeAssetPath($theme_path, $replacement);
-          $new_parents = array_merge($sub_key, [$replacement]);
-          // Replace with an override if specified.
-          NestedArray::setValue($library, $new_parents, $attributes);
-        }
-      }
-    }
-  }
-
-  /**
-   * Ensures that a full path is returned for an overriding theme asset.
-   *
-   * @param string $theme_path
-   *   The theme or base theme.
-   * @param string $overriding_asset
-   *   The overriding library asset.
-   *
-   * @return string
-   *   A fully resolved theme asset path relative to the Drupal directory.
-   */
-  protected function resolveThemeAssetPath($theme_path, $overriding_asset) {
-    if ($overriding_asset[0] !== '/' && !$this->isValidUri($overriding_asset)) {
-      // The destination is not an absolute path and it's not a URI (e.g.
-      // public://generated_js/example.js or http://example.com/js/my_js.js), so
-      // it's relative to the theme.
-      return '/' . $theme_path . '/' . $overriding_asset;
-    }
-    return $overriding_asset;
-  }
-
-  /**
-   * Validates CSS library structure.
-   *
-   * @param array $library
-   *   The library definition array.
-   *
-   * @return int
-   *   Returns based on validity:
-   *     - 0 if the library definition is valid
-   *     - 1 if the library definition has improper nesting
-   *     - 2 if the library definition specifies files as an array
-   */
-  public static function validateCssLibrary($library) {
-    $categories = [];
-    // Verify options first and return early if invalid.
-    foreach ($library as $category => $files) {
-      if (!is_array($files)) {
-        return 2;
-      }
-      $categories[] = $category;
-      foreach ($files as $source => $options) {
-        if (!is_array($options)) {
-          return 1;
-        }
-      }
-    }
-
-    return 0;
+    return file_valid_uri($source);
   }
 
 }

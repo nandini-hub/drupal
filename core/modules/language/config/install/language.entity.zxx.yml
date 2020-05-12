@@ -1,8 +1,7 @@
-langcode: en
-status: true
-dependencies: {  }
 id: zxx
 label: 'Not applicable'
-direction: ltr
-weight: 3
+direction: 'ltr'
+weight: 2
 locked: true
+status: true
+langcode: en

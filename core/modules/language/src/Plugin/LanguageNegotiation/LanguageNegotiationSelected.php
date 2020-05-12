@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\language\Plugin\LanguageNegotiation\LanguageNegotiationSelected.
+ */
+
 namespace Drupal\language\Plugin\LanguageNegotiation;
 
 use Drupal\language\LanguageNegotiationMethodBase;
@@ -8,7 +13,7 @@ use Symfony\Component\HttpFoundation\Request;
 /**
  * Class for identifying language from a selected language.
  *
- * @LanguageNegotiation(
+ * @Plugin(
  *   id = Drupal\language\Plugin\LanguageNegotiation\LanguageNegotiationSelected::METHOD_ID,
  *   weight = 12,
  *   name = @Translation("Selected language"),

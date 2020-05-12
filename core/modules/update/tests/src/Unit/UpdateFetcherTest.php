@@ -1,9 +1,18 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Tests\update\Unit\UpdateFetcherTest.
+ */
+
 namespace Drupal\Tests\update\Unit;
 
 use Drupal\Tests\UnitTestCase;
 use Drupal\update\UpdateFetcher;
+
+if (!defined('DRUPAL_CORE_COMPATIBILITY')) {
+  define('DRUPAL_CORE_COMPATIBILITY', '8.x');
+}
 
 /**
  * Tests update functionality unrelated to the database.
@@ -23,8 +32,10 @@ class UpdateFetcherTest extends UnitTestCase {
    * {@inheritdoc}
    */
   protected function setUp() {
-    $config_factory = $this->getConfigFactoryStub(['update.settings' => ['fetch_url' => 'http://www.example.com']]);
-    $http_client_mock = $this->createMock('\GuzzleHttp\ClientInterface');
+    $config_factory = $this->getConfigFactoryStub(array('update.settings' => array('fetch_url' => 'http://www.example.com')));
+    $http_client_mock = $this->getMockBuilder('Drupal\Core\Http\Client')
+      ->disableOriginalConstructor()
+      ->getMock();
     $this->updateFetcher = new UpdateFetcher($config_factory, $http_client_mock);
   }
 
@@ -32,8 +43,7 @@ class UpdateFetcherTest extends UnitTestCase {
    * Tests that buildFetchUrl() builds the URL correctly.
    *
    * @param array $project
-   *   A keyed array of project information matching results from
-   *   \Drupal\update\UpdateManager::getProjects().
+   *   A keyed array of project information matching results from update_get_projects().
    * @param string $site_key
    *   A string to mimic an anonymous site key hash.
    * @param string $expected
@@ -58,41 +68,41 @@ class UpdateFetcherTest extends UnitTestCase {
    *   - 'expected' - The expected url from UpdateFetcher::buildFetchUrl().
    */
   public function providerTestUpdateBuildFetchUrl() {
-    $data = [];
+    $data = array();
 
     // First test that we didn't break the trivial case.
     $project['name'] = 'update_test';
     $project['project_type'] = '';
     $project['info']['version'] = '';
     $project['info']['project status url'] = 'http://www.example.com';
-    $project['includes'] = ['module1' => 'Module 1', 'module2' => 'Module 2'];
+    $project['includes'] = array('module1' => 'Module 1', 'module2' => 'Module 2');
     $site_key = '';
-    $expected = "http://www.example.com/{$project['name']}/current";
+    $expected = 'http://www.example.com/' . $project['name'] . '/' . DRUPAL_CORE_COMPATIBILITY;
 
-    $data[] = [$project, $site_key, $expected];
+    $data[] = array($project, $site_key, $expected);
 
     // For disabled projects it shouldn't add the site key either.
     $site_key = 'site_key';
     $project['project_type'] = 'disabled';
-    $expected = "http://www.example.com/{$project['name']}/current";
+    $expected = 'http://www.example.com/' . $project['name'] . '/' . DRUPAL_CORE_COMPATIBILITY;
 
-    $data[] = [$project, $site_key, $expected];
+    $data[] = array($project, $site_key, $expected);
 
     // For enabled projects, test adding the site key.
     $project['project_type'] = '';
-    $expected = "http://www.example.com/{$project['name']}/current";
+    $expected = 'http://www.example.com/' . $project['name'] . '/' . DRUPAL_CORE_COMPATIBILITY;
     $expected .= '?site_key=site_key';
     $expected .= '&list=' . rawurlencode('module1,module2');
 
-    $data[] = [$project, $site_key, $expected];
+    $data[] = array($project, $site_key, $expected);
 
     // Test when the URL contains a question mark.
     $project['info']['project status url'] = 'http://www.example.com/?project=';
-    $expected = "http://www.example.com/?project=/{$project['name']}/current";
+    $expected = 'http://www.example.com/?project=/' . $project['name'] . '/' . DRUPAL_CORE_COMPATIBILITY;
     $expected .= '&site_key=site_key';
     $expected .= '&list=' . rawurlencode('module1,module2');
 
-    $data[] = [$project, $site_key, $expected];
+    $data[] = array($project, $site_key, $expected);
 
     return $data;
   }

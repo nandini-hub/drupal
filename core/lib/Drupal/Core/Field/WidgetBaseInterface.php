@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Field\WidgetBaseInterface.
+ */
+
 namespace Drupal\Core\Field;
 
 use Drupal\Core\Form\FormStateInterface;
@@ -57,8 +62,8 @@ interface WidgetBaseInterface extends PluginSettingsInterface {
    *
    * @param \Drupal\Core\Field\FieldItemListInterface $items
    *   The field values.
-   * @param \Symfony\Component\Validator\ConstraintViolationListInterface $violations
-   *   A list of constraint violations to flag.
+   * @param \Symfony\Component\Validator\ConstraintViolationListInterface|\Symfony\Component\Validator\ConstraintViolationInterface[] $violations
+   *   The constraint violations that were detected.
    * @param array $form
    *   The form structure where field elements are attached to. This might be a
    *   full form structure, or a sub-element of a larger form.
@@ -70,7 +75,7 @@ interface WidgetBaseInterface extends PluginSettingsInterface {
   /**
    * Retrieves processing information about the widget from $form_state.
    *
-   * This method is static so that it can be used in static Form API callbacks.
+   * This method is static so that is can be used in static Form API callbacks.
    *
    * @param array $parents
    *   The array of #parents where the field lives in the form.
@@ -90,7 +95,7 @@ interface WidgetBaseInterface extends PluginSettingsInterface {
   /**
    * Stores processing information about the widget in $form_state.
    *
-   * This method is static so that it can be used in static Form API #callbacks.
+   * This method is static so that is can be used in static Form API #callbacks.
    *
    * @param array $parents
    *   The array of #parents where the widget lives in the form.

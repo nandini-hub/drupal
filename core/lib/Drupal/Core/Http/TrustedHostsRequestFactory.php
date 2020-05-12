@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains Drupal\Core\Http\TrustedHostsRequestFactory.
+ */
+
 namespace Drupal\Core\Http;
 
 use Symfony\Component\HttpFoundation\Request;
@@ -44,7 +49,7 @@ class TrustedHostsRequestFactory {
    * @param array $request
    *   (optional) An array of request variables.
    * @param array $attributes
-   *   (optional) An array of attributes.
+   *   (optioanl) An array of attributes.
    * @param array $cookies
    *   (optional) The request cookies ($_COOKIE).
    * @param array $files
@@ -56,8 +61,8 @@ class TrustedHostsRequestFactory {
    *
    * @return \Symfony\Component\HttpFoundation\Request
    *   A new request object.
-   */
-  public function createRequest(array $query = [], array $request = [], array $attributes = [], array $cookies = [], array $files = [], array $server = [], $content = NULL) {
+   **/
+  public function createRequest(array $query = array(), array $request = array(), array $attributes = array(), array $cookies = array(), array $files = array(), array $server = array(), $content = null) {
     if (empty($server['HTTP_HOST']) || ($server['HTTP_HOST'] === 'localhost' && $this->host !== 'localhost')) {
       $server['HTTP_HOST'] = $this->host;
     }

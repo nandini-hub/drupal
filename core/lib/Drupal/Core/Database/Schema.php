@@ -1,26 +1,22 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\Core\Database\Schema
+ */
+
 namespace Drupal\Core\Database;
 
+use Drupal\Core\Database\SchemaObjectExistsException;
 use Drupal\Core\Database\Query\Condition;
 use Drupal\Core\Database\Query\PlaceholderInterface;
 
-/**
- * Provides a base implementation for Database Schema.
- */
 abstract class Schema implements PlaceholderInterface {
 
-  /**
-   * The database connection.
-   *
-   * @var \Drupal\Core\Database\Connection
-   */
   protected $connection;
 
   /**
    * The placeholder counter.
-   *
-   * @var int
    */
   protected $placeholder = 0;
 
@@ -32,15 +28,11 @@ abstract class Schema implements PlaceholderInterface {
    * method.
    *
    * @see DatabaseSchema::getPrefixInfo()
-   *
-   * @var string
    */
   protected $defaultSchema = 'public';
 
   /**
    * A unique identifier for this query object.
-   *
-   * @var string
    */
   protected $uniqueIdentifier;
 
@@ -57,14 +49,14 @@ abstract class Schema implements PlaceholderInterface {
   }
 
   /**
-   * {@inheritdoc}
+   * Implements PlaceHolderInterface::uniqueIdentifier().
    */
   public function uniqueIdentifier() {
     return $this->uniqueIdentifier;
   }
 
   /**
-   * {@inheritdoc}
+   * Implements PlaceHolderInterface::nextPlaceholder().
    */
   public function nextPlaceholder() {
     return $this->placeholder++;
@@ -83,10 +75,10 @@ abstract class Schema implements PlaceholderInterface {
    *   A keyed array with information about the schema, table name and prefix.
    */
   protected function getPrefixInfo($table = 'default', $add_prefix = TRUE) {
-    $info = [
+    $info = array(
       'schema' => $this->defaultSchema,
       'prefix' => $this->connection->tablePrefix($table),
-    ];
+    );
     if ($add_prefix) {
       $table = $info['prefix'] . $table;
     }
@@ -111,7 +103,7 @@ abstract class Schema implements PlaceholderInterface {
    *
    * This prevents using {} around non-table names like indexes and keys.
    */
-  public function prefixNonTable($table) {
+  function prefixNonTable($table) {
     $args = func_get_args();
     $info = $this->getPrefixInfo($table);
     $args[0] = $info['table'];
@@ -171,69 +163,32 @@ abstract class Schema implements PlaceholderInterface {
     $condition->compile($this->connection, $this);
     // Normally, we would heartily discourage the use of string
     // concatenation for conditionals like this however, we
-    // couldn't use \Drupal::database()->select() here because it would prefix
+    // couldn't use db_select() here because it would prefix
     // information_schema.tables and the query would fail.
     // Don't use {} around information_schema.tables table.
     return (bool) $this->connection->query("SELECT 1 FROM information_schema.tables WHERE " . (string) $condition, $condition->arguments())->fetchField();
   }
 
   /**
-   * Finds all tables that are like the specified base table name.
+   * Find all tables that are like the specified base table name.
    *
-   * @param string $table_expression
-   *   An SQL expression, for example "cache_%" (without the quotes).
+   * @param $table_expression
+   *   An SQL expression, for example "simpletest%" (without the quotes).
+   *   BEWARE: this is not prefixed, the caller should take care of that.
    *
-   * @return array
-   *   Both the keys and the values are the matching tables.
+   * @return
+   *   Array, both the keys and the values are the matching tables.
    */
   public function findTables($table_expression) {
-    // Load all the tables up front in order to take into account per-table
-    // prefixes. The actual matching is done at the bottom of the method.
-    $condition = $this->buildTableNameCondition('%', 'LIKE');
-    $condition->compile($this->connection, $this);
+    $condition = $this->buildTableNameCondition($table_expression, 'LIKE', FALSE);
 
-    $individually_prefixed_tables = $this->connection->getUnprefixedTablesMap();
-    $default_prefix = $this->connection->tablePrefix();
-    $default_prefix_length = strlen($default_prefix);
-    $tables = [];
+    $condition->compile($this->connection, $this);
     // Normally, we would heartily discourage the use of string
     // concatenation for conditionals like this however, we
-    // couldn't use \Drupal::database()->select() here because it would prefix
+    // couldn't use db_select() here because it would prefix
     // information_schema.tables and the query would fail.
     // Don't use {} around information_schema.tables table.
-    $results = $this->connection->query("SELECT table_name as table_name FROM information_schema.tables WHERE " . (string) $condition, $condition->arguments());
-    foreach ($results as $table) {
-      // Take into account tables that have an individual prefix.
-      if (isset($individually_prefixed_tables[$table->table_name])) {
-        $prefix_length = strlen($this->connection->tablePrefix($individually_prefixed_tables[$table->table_name]));
-      }
-      elseif ($default_prefix && substr($table->table_name, 0, $default_prefix_length) !== $default_prefix) {
-        // This table name does not start the default prefix, which means that
-        // it is not managed by Drupal so it should be excluded from the result.
-        continue;
-      }
-      else {
-        $prefix_length = $default_prefix_length;
-      }
-
-      // Remove the prefix from the returned tables.
-      $unprefixed_table_name = substr($table->table_name, $prefix_length);
-
-      // The pattern can match a table which is the same as the prefix. That
-      // will become an empty string when we remove the prefix, which will
-      // probably surprise the caller, besides not being a prefixed table. So
-      // remove it.
-      if (!empty($unprefixed_table_name)) {
-        $tables[$unprefixed_table_name] = $unprefixed_table_name;
-      }
-    }
-
-    // Convert the table expression from its SQL LIKE syntax to a regular
-    // expression and escape the delimiter that will be used for matching.
-    $table_expression = str_replace(['%', '_'], ['.*?', '.'], preg_quote($table_expression, '/'));
-    $tables = preg_grep('/^' . $table_expression . '$/i', $tables);
-
-    return $tables;
+    return $this->connection->query("SELECT table_name FROM information_schema.tables WHERE " . (string) $condition, $condition->arguments())->fetchAllKeyed(0, 0);
   }
 
   /**
@@ -241,7 +196,7 @@ abstract class Schema implements PlaceholderInterface {
    *
    * @param $table
    *   The name of the table in drupal (no prefixing).
-   * @param $column
+   * @param $name
    *   The name of the column.
    *
    * @return
@@ -253,7 +208,7 @@ abstract class Schema implements PlaceholderInterface {
     $condition->compile($this->connection, $this);
     // Normally, we would heartily discourage the use of string
     // concatenation for conditionals like this however, we
-    // couldn't use \Drupal::database()->select() here because it would prefix
+    // couldn't use db_select() here because it would prefix
     // information_schema.tables and the query would fail.
     // Don't use {} around information_schema.columns table.
     return (bool) $this->connection->query("SELECT 1 FROM information_schema.columns WHERE " . (string) $condition, $condition->arguments())->fetchField();
@@ -311,14 +266,12 @@ abstract class Schema implements PlaceholderInterface {
    *   created field will be set to the value of the key in all rows.
    *   This is most useful for creating NOT NULL columns with no default
    *   value in existing tables.
-   *   Alternatively, the 'initial_form_field' key may be used, which will
-   *   auto-populate the new field with values from the specified field.
    * @param $keys_new
    *   (optional) Keys and indexes specification to be created on the
    *   table along with adding the field. The format is the same as a
    *   table specification but without the 'fields' element. If you are
    *   adding a type 'serial' field, you MUST specify at least one key
-   *   or index including it in this array. See ::changeField() for more
+   *   or index including it in this array. See db_change_field() for more
    *   explanation why.
    *
    * @throws \Drupal\Core\Database\SchemaObjectDoesNotExistException
@@ -326,7 +279,7 @@ abstract class Schema implements PlaceholderInterface {
    * @throws \Drupal\Core\Database\SchemaObjectExistsException
    *   If the specified table already has a field by that name.
    */
-  abstract public function addField($table, $field, $spec, $keys_new = []);
+  abstract public function addField($table, $field, $spec, $keys_new = array());
 
   /**
    * Drop a field.
@@ -354,11 +307,6 @@ abstract class Schema implements PlaceholderInterface {
    *
    * @throws \Drupal\Core\Database\SchemaObjectDoesNotExistException
    *   If the specified table or field doesn't exist.
-   *
-   * @deprecated in drupal:8.7.0 and is removed from drupal:9.0.0. Instead,
-   *   call ::changeField() passing a full field specification.
-   *
-   * @see ::changeField()
    */
   abstract public function fieldSetDefault($table, $field, $default);
 
@@ -372,11 +320,6 @@ abstract class Schema implements PlaceholderInterface {
    *
    * @throws \Drupal\Core\Database\SchemaObjectDoesNotExistException
    *   If the specified table or field doesn't exist.
-   *
-   * @deprecated in drupal:8.7.0 and is removed from drupal:9.0.0. Instead,
-   *   call ::changeField() passing a full field specification.
-   *
-   * @see ::changeField()
    */
   abstract public function fieldSetNoDefault($table, $field);
 
@@ -419,26 +362,6 @@ abstract class Schema implements PlaceholderInterface {
    *   primary key on this table to begin with.
    */
   abstract public function dropPrimaryKey($table);
-
-  /**
-   * Finds the primary key columns of a table, from the database.
-   *
-   * @param string $table
-   *   The name of the table.
-   *
-   * @return string[]|false
-   *   A simple array with the names of the columns composing the table's
-   *   primary key, or FALSE if the table does not exist.
-   *
-   * @throws \RuntimeException
-   *   If the driver does not override this method.
-   */
-  protected function findPrimaryKeyColumns($table) {
-    if (!$this->tableExists($table)) {
-      return FALSE;
-    }
-    throw new \RuntimeException("The '" . $this->connection->driver() . "' database driver does not implement " . __METHOD__);
-  }
 
   /**
    * Add a unique key.
@@ -487,51 +410,13 @@ abstract class Schema implements PlaceholderInterface {
    *   @code
    *     $fields = ['foo', ['bar', 4]];
    *   @endcode
-   * @param array $spec
-   *   The table specification for the table to be altered. This is used in
-   *   order to be able to ensure that the index length is not too long.
-   *   This schema definition can usually be obtained through hook_schema(), or
-   *   in case the table was created by the Entity API, through the schema
-   *   handler listed in the entity class definition. For reference, see
-   *   SqlContentEntityStorageSchema::getDedicatedTableSchema() and
-   *   SqlContentEntityStorageSchema::getSharedTableFieldSchema().
-   *
-   *   In order to prevent human error, it is recommended to pass in the
-   *   complete table specification. However, in the edge case of the complete
-   *   table specification not being available, we can pass in a partial table
-   *   definition containing only the fields that apply to the index:
-   *   @code
-   *   $spec = [
-   *     // Example partial specification for a table:
-   *     'fields' => [
-   *       'example_field' => [
-   *         'description' => 'An example field',
-   *         'type' => 'varchar',
-   *         'length' => 32,
-   *         'not null' => TRUE,
-   *         'default' => '',
-   *       ],
-   *     ],
-   *     'indexes' => [
-   *       'table_example_field' => ['example_field'],
-   *     ],
-   *   ];
-   *   @endcode
-   *   Note that the above is a partial table definition and that we would
-   *   usually pass a complete table definition as obtained through
-   *   hook_schema() instead.
-   *
-   * @see schemaapi
-   * @see hook_schema()
    *
    * @throws \Drupal\Core\Database\SchemaObjectDoesNotExistException
    *   If the specified table doesn't exist.
    * @throws \Drupal\Core\Database\SchemaObjectExistsException
    *   If the specified table already has an index by that name.
-   *
-   * @todo remove the $spec argument whenever schema introspection is added.
    */
-  abstract public function addIndex($table, $name, $fields, array $spec);
+  abstract public function addIndex($table, $name, $fields);
 
   /**
    * Drop an index.
@@ -548,38 +433,15 @@ abstract class Schema implements PlaceholderInterface {
   abstract public function dropIndex($table, $name);
 
   /**
-   * Finds the columns for the primary key, unique keys and indexes of a table.
-   *
-   * @param string $table
-   *   The name of the table.
-   *
-   * @return array
-   *   A schema array with the following keys: 'primary key', 'unique keys' and
-   *   'indexes', and values as arrays of database columns.
-   *
-   * @throws \Drupal\Core\Database\SchemaObjectDoesNotExistException
-   *   If the specified table doesn't exist.
-   * @throws \RuntimeException
-   *   If the driver does not implement this method.
-   */
-  protected function introspectIndexSchema($table) {
-    if (!$this->tableExists($table)) {
-      throw new SchemaObjectDoesNotExistException("The table $table doesn't exist.");
-    }
-    throw new \RuntimeException("The '{$this->connection->driver()}' database driver does not implement " . __METHOD__);
-  }
-
-  /**
    * Change a field definition.
    *
    * IMPORTANT NOTE: To maintain database portability, you have to explicitly
    * recreate all indices and primary keys that are using the changed field.
    *
    * That means that you have to drop all affected keys and indexes with
-   * Schema::dropPrimaryKey(), Schema::dropUniqueKey(), or Schema::dropIndex()
-   * before calling ::changeField().
+   * db_drop_{primary_key,unique_key,index}() before calling db_change_field().
    * To recreate the keys and indices, pass the key definitions as the
-   * optional $keys_new argument directly to ::changeField().
+   * optional $keys_new argument directly to db_change_field().
    *
    * For example, suppose you have:
    * @code
@@ -593,8 +455,8 @@ abstract class Schema implements PlaceholderInterface {
    * and you want to change foo.bar to be type serial, leaving it as the
    * primary key. The correct sequence is:
    * @code
-   * $injected_database->schema()->dropPrimaryKey('foo');
-   * $injected_database->schema()->changeField('foo', 'bar', 'bar',
+   * db_drop_primary_key('foo');
+   * db_change_field('foo', 'bar', 'bar',
    *   array('type' => 'serial', 'not null' => TRUE),
    *   array('primary key' => array('bar')));
    * @endcode
@@ -607,15 +469,15 @@ abstract class Schema implements PlaceholderInterface {
    *
    * On MySQL, all type 'serial' fields must be part of at least one key
    * or index as soon as they are created. You cannot use
-   * Schema::addPrimaryKey, Schema::addUniqueKey(), or Schema::addIndex()
-   * for this purpose because the ALTER TABLE command will fail to add
-   * the column without a key or index specification.
-   * The solution is to use the optional $keys_new argument to create the key
-   * or index at the same time as field.
+   * db_add_{primary_key,unique_key,index}() for this purpose because
+   * the ALTER TABLE command will fail to add the column without a key
+   * or index specification. The solution is to use the optional
+   * $keys_new argument to create the key or index at the same time as
+   * field.
    *
-   * You could use Schema::addPrimaryKey, Schema::addUniqueKey(), or
-   * Schema::addIndex() in all cases unless you are converting a field to
-   * be type serial. You can use the $keys_new argument in all cases.
+   * You could use db_add_{primary_key,unique_key,index}() in all cases
+   * unless you are converting a field to be type serial. You can use
+   * the $keys_new argument in all cases.
    *
    * @param $table
    *   Name of the table.
@@ -635,7 +497,7 @@ abstract class Schema implements PlaceholderInterface {
    * @throws \Drupal\Core\Database\SchemaObjectExistsException
    *   If the specified destination field already exists.
    */
-  abstract public function changeField($table, $field, $field_new, $spec, $keys_new = []);
+  abstract public function changeField($table, $field, $field_new, $spec, $keys_new = array());
 
   /**
    * Create a new table from a Drupal table definition.
@@ -650,7 +512,7 @@ abstract class Schema implements PlaceholderInterface {
    */
   public function createTable($name, $table) {
     if ($this->tableExists($name)) {
-      throw new SchemaObjectExistsException(t('Table @name already exists.', ['@name' => $name]));
+      throw new SchemaObjectExistsException(t('Table @name already exists.', array('@name' => $name)));
     }
     $statements = $this->createTableSql($name, $table);
     foreach ($statements as $statement) {
@@ -671,7 +533,7 @@ abstract class Schema implements PlaceholderInterface {
    *   An array of field names.
    */
   public function fieldNames($fields) {
-    $return = [];
+    $return = array();
     foreach ($fields as $field) {
       if (is_array($field)) {
         $return[] = $field[0];
@@ -695,8 +557,6 @@ abstract class Schema implements PlaceholderInterface {
    *   The prepared comment.
    */
   public function prepareComment($comment, $length = NULL) {
-    // Remove semicolons to avoid triggering multi-statement check.
-    $comment = strtr($comment, [';' => '.']);
     return $this->connection->quote($comment);
   }
 
@@ -716,26 +576,4 @@ abstract class Schema implements PlaceholderInterface {
     }
     return is_string($value) ? $this->connection->quote($value) : $value;
   }
-
-  /**
-   * Ensures that all the primary key fields are correctly defined.
-   *
-   * @param array $primary_key
-   *   An array containing the fields that will form the primary key of a table.
-   * @param array $fields
-   *   An array containing the field specifications of the table, as per the
-   *   schema data structure format.
-   *
-   * @throws \Drupal\Core\Database\SchemaException
-   *   Thrown if any primary key field specification does not exist or if they
-   *   do not define 'not null' as TRUE.
-   */
-  protected function ensureNotNullPrimaryKey(array $primary_key, array $fields) {
-    foreach (array_intersect($primary_key, array_keys($fields)) as $field_name) {
-      if (!isset($fields[$field_name]['not null']) || $fields[$field_name]['not null'] !== TRUE) {
-        throw new SchemaException("The '$field_name' field specification does not define 'not null' as TRUE.");
-      }
-    }
-  }
-
 }

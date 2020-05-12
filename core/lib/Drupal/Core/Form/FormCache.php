@@ -1,14 +1,19 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Form\FormCache.
+ */
+
 namespace Drupal\Core\Form;
 
 use Drupal\Component\Utility\Crypt;
+use Drupal\Component\Utility\SafeMarkup;
 use Drupal\Core\Access\CsrfTokenGenerator;
 use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\Core\KeyValueStore\KeyValueExpirableFactoryInterface;
 use Drupal\Core\PageCache\RequestPolicyInterface;
 use Drupal\Core\Session\AccountInterface;
-use Drupal\Core\Site\Settings;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\HttpFoundation\RequestStack;
 
@@ -157,13 +162,21 @@ class FormCache implements FormCacheInterface {
       $build_info += ['files' => []];
       foreach ($build_info['files'] as $file) {
         if (is_array($file)) {
-          $file += ['type' => 'inc', 'name' => $file['module']];
+          $file += array('type' => 'inc', 'name' => $file['module']);
           $this->moduleHandler->loadInclude($file['module'], $file['type'], $file['name']);
         }
         elseif (file_exists($file)) {
           require_once $this->root . '/' . $file;
         }
       }
+      // Retrieve the list of previously known safe strings and store it for
+      // this request.
+      // @todo Ensure we are not storing an excessively large string list
+      //   in: https://www.drupal.org/node/2295823
+      $build_info += ['safe_strings' => []];
+      SafeMarkup::setMultiple($build_info['safe_strings']);
+      unset($build_info['safe_strings']);
+      $form_state->setBuildInfo($build_info);
     }
   }
 
@@ -171,8 +184,8 @@ class FormCache implements FormCacheInterface {
    * {@inheritdoc}
    */
   public function setCache($form_build_id, $form, FormStateInterface $form_state) {
-    // Cache forms for 6 hours by default.
-    $expire = Settings::get('form_cache_expiration', 21600);
+    // 6 hours cache life time for forms should be plenty.
+    $expire = 21600;
 
     // Ensure that the form build_id embedded in the form structure is the same
     // as the one passed in as a parameter. This is an additional safety measure
@@ -192,6 +205,11 @@ class FormCache implements FormCacheInterface {
       unset($form['#build_id_old']);
       $this->keyValueExpirableFactory->get('form')->setWithExpire($form_build_id, $form, $expire);
     }
+
+    // Store the known list of safe strings for form re-use.
+    // @todo Ensure we are not storing an excessively large string list in:
+    //   https://www.drupal.org/node/2295823
+    $form_state->addBuildInfo('safe_strings', SafeMarkup::getAll());
 
     if ($data = $form_state->getCacheableArray()) {
       $this->keyValueExpirableFactory->get('form_state')->setWithExpire($form_build_id, $data, $expire);

@@ -1,6 +1,13 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\Core\Ajax\InsertCommand.
+ */
+
 namespace Drupal\Core\Ajax;
+
+use Drupal\Core\Ajax\CommandInterface;
 
 /**
  * Generic AJAX command for inserting content.
@@ -38,7 +45,7 @@ class InsertCommand implements CommandInterface, CommandWithAttachedAssetsInterf
   protected $content;
 
   /**
-   * A settings array to be passed to any attached JavaScript behavior.
+   * A settings array to be passed to any any attached JavaScript behavior.
    *
    * @var array
    */
@@ -66,13 +73,13 @@ class InsertCommand implements CommandInterface, CommandWithAttachedAssetsInterf
    */
   public function render() {
 
-    return [
+    return array(
       'command' => 'insert',
       'method' => NULL,
       'selector' => $this->selector,
       'data' => $this->getRenderedContent(),
       'settings' => $this->settings,
-    ];
+    );
   }
 
 }

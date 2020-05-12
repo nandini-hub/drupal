@@ -1,6 +1,13 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\views\Annotation\ViewsPager.
+ */
+
 namespace Drupal\views\Annotation;
+
+use Drupal\views\Annotation\ViewsPluginAnnotationBase;
 
 /**
  * Defines a Plugin annotation object for views pager plugins.
@@ -50,7 +57,7 @@ class ViewsPager extends ViewsPluginAnnotationBase {
   /**
    * The theme function used to render the pager's output.
    *
-   * @var string
+   * @return string
    */
   public $theme;
 

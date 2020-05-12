@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Tests\serialization\Unit\EntityResolver\ChainEntityResolverTest.
+ */
+
 namespace Drupal\Tests\serialization\Unit\EntityResolver;
 
 use Drupal\Tests\UnitTestCase;
@@ -14,7 +19,7 @@ class ChainEntityResolverTest extends UnitTestCase {
   /**
    * A mocked normalizer.
    *
-   * @var \Symfony\Component\Serializer\Normalizer\NormalizerInterface|\PHPUnit\Framework\MockObject\MockObject
+   * @var \Symfony\Component\Serializer\Normalizer\NormalizerInterface|\PHPUnit_Framework_MockObject_MockObject
    */
   protected $testNormalizer;
 
@@ -36,7 +41,7 @@ class ChainEntityResolverTest extends UnitTestCase {
    * {@inheritdoc}
    */
   protected function setUp() {
-    $this->testNormalizer = $this->createMock('Symfony\Component\Serializer\Normalizer\NormalizerInterface');
+    $this->testNormalizer = $this->getMock('Symfony\Component\Serializer\Normalizer\NormalizerInterface');
     $this->testData = new \stdClass();
   }
 
@@ -47,10 +52,10 @@ class ChainEntityResolverTest extends UnitTestCase {
    * @covers ::resolve
    */
   public function testResolverWithNoneResolved() {
-    $resolvers = [
+    $resolvers = array(
       $this->createEntityResolverMock(),
       $this->createEntityResolverMock(),
-    ];
+    );
 
     $resolver = new ChainEntityResolver($resolvers);
 
@@ -78,10 +83,10 @@ class ChainEntityResolverTest extends UnitTestCase {
    * @covers ::resolve
    */
   public function testResolverWithFirstResolved() {
-    $resolvers = [
+    $resolvers = array(
       $this->createEntityResolverMock(10),
       $this->createEntityResolverMock(NULL, FALSE),
-    ];
+    );
 
     $resolver = new ChainEntityResolver($resolvers);
 
@@ -95,10 +100,10 @@ class ChainEntityResolverTest extends UnitTestCase {
    * @covers ::resolve
    */
   public function testResolverWithLastResolved() {
-    $resolvers = [
+    $resolvers = array(
       $this->createEntityResolverMock(),
       $this->createEntityResolverMock(10),
-    ];
+    );
 
     $resolver = new ChainEntityResolver($resolvers);
 
@@ -112,10 +117,10 @@ class ChainEntityResolverTest extends UnitTestCase {
    * @covers ::resolve
    */
   public function testResolverWithResolvedToZero() {
-    $resolvers = [
+    $resolvers = array(
       $this->createEntityResolverMock(0),
       $this->createEntityResolverMock(NULL, FALSE),
-    ];
+    );
 
     $resolver = new ChainEntityResolver($resolvers);
 
@@ -127,14 +132,15 @@ class ChainEntityResolverTest extends UnitTestCase {
    *
    * @param null|int $return
    *   Whether the mocked resolve method should return TRUE or FALSE.
+   *
    * @param bool $called
    *   Whether or not the resolve method is expected to be called.
    *
-   * @return \Drupal\serialization\EntityResolver\EntityResolverInterface|\PHPUnit\Framework\MockObject\MockObject
+   * @return \Drupal\serialization\EntityResolver\EntityResolverInterface|\PHPUnit_Framework_MockObject_MockObject
    *   The mocked entity resolver.
    */
   protected function createEntityResolverMock($return = NULL, $called = TRUE) {
-    $mock = $this->createMock('Drupal\serialization\EntityResolver\EntityResolverInterface');
+    $mock = $this->getMock('Drupal\serialization\EntityResolver\EntityResolverInterface');
 
     if ($called) {
       $mock->expects($this->once())

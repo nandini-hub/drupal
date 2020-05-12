@@ -1,11 +1,16 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\views\Plugin\views\query\QueryPluginBase.
+ */
+
 namespace Drupal\views\Plugin\views\query;
 
-use Drupal\Core\Cache\Cache;
-use Drupal\Core\Cache\CacheableDependencyInterface;
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\views\Plugin\CacheablePluginInterface;
 use Drupal\views\Plugin\views\PluginBase;
+use Drupal\views\Plugin\views\display\DisplayPluginBase;
 use Drupal\views\ViewExecutable;
 use Drupal\views\Views;
 
@@ -31,14 +36,14 @@ use Drupal\views\Views;
 /**
  * Base plugin class for Views queries.
  */
-abstract class QueryPluginBase extends PluginBase implements CacheableDependencyInterface {
+abstract class QueryPluginBase extends PluginBase implements CacheablePluginInterface {
 
   /**
    * A pager plugin that should be provided by the display.
    *
    * @var views_plugin_pager
    */
-  public $pager = NULL;
+  var $pager = NULL;
 
   /**
    * Stores the limit of items that should be requested in the query.
@@ -54,7 +59,7 @@ abstract class QueryPluginBase extends PluginBase implements CacheableDependency
    * @param $get_count
    *   Provide a countquery if this is true, otherwise provide a normal query.
    */
-  public function query($get_count = FALSE) {}
+  public function query($get_count = FALSE) { }
 
   /**
    * Let modules modify the query just prior to finalizing it.
@@ -62,7 +67,7 @@ abstract class QueryPluginBase extends PluginBase implements CacheableDependency
    * @param view $view
    *   The view which is executed.
    */
-  public function alter(ViewExecutable $view) {}
+  function alter(ViewExecutable $view) {  }
 
   /**
    * Builds the necessary info to execute the query.
@@ -70,7 +75,7 @@ abstract class QueryPluginBase extends PluginBase implements CacheableDependency
    * @param view $view
    *   The view which is executed.
    */
-  public function build(ViewExecutable $view) {}
+  function build(ViewExecutable $view) { }
 
   /**
    * Executes the query and fills the associated view object with according
@@ -85,7 +90,7 @@ abstract class QueryPluginBase extends PluginBase implements CacheableDependency
    * @param view $view
    *   The view which is executed.
    */
-  public function execute(ViewExecutable $view) {}
+  function execute(ViewExecutable $view) {  }
 
   /**
    * Add a signature to the query, if such a thing is feasible.
@@ -96,18 +101,18 @@ abstract class QueryPluginBase extends PluginBase implements CacheableDependency
    * @param view $view
    *   The view which is executed.
    */
-  public function addSignature(ViewExecutable $view) {}
+  public function addSignature(ViewExecutable $view) { }
 
   /**
    * Get aggregation info for group by queries.
    *
    * If NULL, aggregation is not allowed.
    */
-  public function getAggregationInfo() {}
+  public function getAggregationInfo() { }
 
-  public function validateOptionsForm(&$form, FormStateInterface $form_state) {}
+  public function validateOptionsForm(&$form, FormStateInterface $form_state) { }
 
-  public function submitOptionsForm(&$form, FormStateInterface $form_state) {}
+  public function submitOptionsForm(&$form, FormStateInterface $form_state) { }
 
   public function summaryTitle() {
     return $this->t('Settings');
@@ -160,7 +165,7 @@ abstract class QueryPluginBase extends PluginBase implements CacheableDependency
    * @param $where
    *   'where' or 'having'.
    *
-   * @return
+   * @return $group
    *   The group ID generated.
    */
   public function setWhereGroup($type = 'AND', $group = NULL, $where = 'where') {
@@ -173,7 +178,7 @@ abstract class QueryPluginBase extends PluginBase implements CacheableDependency
 
     // Create an empty group
     if (empty($groups[$group])) {
-      $groups[$group] = ['conditions' => [], 'args' => []];
+      $groups[$group] = array('conditions' => array(), 'args' => array());
     }
 
     $groups[$group]['type'] = strtoupper($type);
@@ -199,35 +204,29 @@ abstract class QueryPluginBase extends PluginBase implements CacheableDependency
    *
    * Query plugins that don't support entities can leave the method empty.
    */
-  public function loadEntities(&$results) {}
+  function loadEntities(&$results) {}
 
   /**
    * Returns a Unix timestamp to database native timestamp expression.
    *
    * @param string $field
    *   The query field that will be used in the expression.
-   * @param bool $string_date
-   *   For certain databases, date format functions vary depending on string or
-   *   numeric storage.
-   * @param bool $calculate_offset
-   *   If set to TRUE, the timezone offset will be included in the returned
-   *   field.
    *
    * @return string
    *   An expression representing a timestamp with time zone.
    */
-  public function getDateField($field, $string_date = FALSE, $calculate_offset = TRUE) {
+  public function getDateField($field) {
     return $field;
   }
 
   /**
-   * Set the database to the current user timezone.
+   * Set the database to the current user timezone,
    *
    * @return string
-   *   The current timezone as returned by date_default_timezone_get().
+   *   The current timezone as returned by drupal_get_user_timezone().
    */
   public function setupTimezone() {
-    return date_default_timezone_get();
+    return drupal_get_user_timezone();
   }
 
   /**
@@ -237,15 +236,12 @@ abstract class QueryPluginBase extends PluginBase implements CacheableDependency
    *   An appropriate query expression pointing to the date field.
    * @param string $format
    *   A format string for the result, like 'Y-m-d H:i:s'.
-   * @param bool $string_date
-   *   For certain databases, date format functions vary depending on string or
-   *   numeric storage.
    *
    * @return string
    *   A string representing the field formatted as a date in the format
    *   specified by $format.
    */
-  public function getDateFormat($field, $format, $string_date = FALSE) {
+  public function getDateFormat($field, $format) {
     return $field;
   }
 
@@ -267,19 +263,19 @@ abstract class QueryPluginBase extends PluginBase implements CacheableDependency
    */
   public function getEntityTableInfo() {
     // Start with the base table.
-    $entity_tables = [];
+    $entity_tables = array();
     $views_data = Views::viewsData();
     $base_table = $this->view->storage->get('base_table');
     $base_table_data = $views_data->get($base_table);
 
     if (isset($base_table_data['table']['entity type'])) {
-      $entity_tables[$base_table_data['table']['entity type']] = [
+      $entity_tables[$base_table_data['table']['entity type']] = array(
         'base' => $base_table,
         'alias' => $base_table,
         'relationship_id' => 'none',
         'entity_type' => $base_table_data['table']['entity type'],
         'revision' => $base_table_data['table']['entity revision'],
-      ];
+      );
 
       // Include the entity provider.
       if (!empty($base_table_data['table']['provider'])) {
@@ -291,21 +287,13 @@ abstract class QueryPluginBase extends PluginBase implements CacheableDependency
     foreach ((array) $this->view->relationship as $relationship_id => $relationship) {
       $table_data = $views_data->get($relationship->definition['base']);
       if (isset($table_data['table']['entity type'])) {
-
-        // If this is not one of the entity base tables, skip it.
-        $entity_type = \Drupal::entityTypeManager()->getDefinition($table_data['table']['entity type']);
-        $entity_base_tables = [$entity_type->getBaseTable(), $entity_type->getDataTable(), $entity_type->getRevisionTable(), $entity_type->getRevisionDataTable()];
-        if (!in_array($relationship->definition['base'], $entity_base_tables)) {
-          continue;
-        }
-
-        $entity_tables[$relationship_id . '__' . $relationship->tableAlias] = [
+        $entity_tables[$relationship_id . '__' . $relationship->tableAlias] = array(
           'base' => $relationship->definition['base'],
           'relationship_id' => $relationship_id,
           'alias' => $relationship->alias,
           'entity_type' => $table_data['table']['entity type'],
           'revision' => $table_data['table']['entity revision'],
-        ];
+        );
 
         // Include the entity provider.
         if (!empty($table_data['table']['provider'])) {
@@ -316,7 +304,7 @@ abstract class QueryPluginBase extends PluginBase implements CacheableDependency
 
     // Determine which of the tables are revision tables.
     foreach ($entity_tables as $table_alias => $table) {
-      $entity_type = \Drupal::entityTypeManager()->getDefinition($table['entity_type']);
+      $entity_type = \Drupal::entityManager()->getDefinition($table['entity_type']);
       if ($entity_type->getRevisionTable() == $table['base']) {
         $entity_tables[$table_alias]['revision'] = TRUE;
       }
@@ -328,8 +316,9 @@ abstract class QueryPluginBase extends PluginBase implements CacheableDependency
   /**
    * {@inheritdoc}
    */
-  public function getCacheMaxAge() {
-    return Cache::PERMANENT;
+  public function isCacheable() {
+    // This plugin can't really determine that.
+    return TRUE;
   }
 
   /**
@@ -339,7 +328,7 @@ abstract class QueryPluginBase extends PluginBase implements CacheableDependency
     $contexts = [];
     if (($views_data = Views::viewsData()->get($this->view->storage->get('base_table'))) && !empty($views_data['table']['entity type'])) {
       $entity_type_id = $views_data['table']['entity type'];
-      $entity_type = \Drupal::entityTypeManager()->getDefinition($entity_type_id);
+      $entity_type = \Drupal::entityManager()->getDefinition($entity_type_id);
       $contexts = $entity_type->getListCacheContexts();
     }
     return $contexts;
@@ -350,36 +339,6 @@ abstract class QueryPluginBase extends PluginBase implements CacheableDependency
    */
   public function getCacheTags() {
     return [];
-  }
-
-  /**
-   * Applies a timezone offset to the given field.
-   *
-   * @param string &$field
-   *   The date field, in string format.
-   * @param int $offset
-   *   The timezone offset to apply to the field.
-   */
-  public function setFieldTimezoneOffset(&$field, $offset) {
-    // No-op. Timezone offsets are implementation-specific and should implement
-    // this method as needed.
-  }
-
-  /**
-   * Get the timezone offset in seconds.
-   *
-   * @return int
-   *   The offset, in seconds, for the timezone being used.
-   */
-  public function getTimezoneOffset() {
-    $timezone = $this->setupTimezone();
-    $offset = 0;
-    if ($timezone) {
-      $dtz = new \DateTimeZone($timezone);
-      $dt = new \DateTime('now', $dtz);
-      $offset = $dtz->getOffset($dt);
-    }
-    return $offset;
   }
 
 }

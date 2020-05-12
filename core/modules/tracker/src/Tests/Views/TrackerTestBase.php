@@ -1,20 +1,19 @@
 <?php
 
-namespace Drupal\tracker\Tests\Views;
+/**
+ * @file
+ * Contains \Drupal\tracker\Tests\Views\TrackerTestBase.
+ */
 
-@trigger_error(__NAMESPACE__ . '\TrackerTestBase is deprecated in Drupal 8.4.0 and will be removed before Drupal 9.0.0. Instead, use \Drupal\Tests\tracker\Functional\Views\TrackerTestBase', E_USER_DEPRECATED);
+namespace Drupal\tracker\Tests\Views;
 
 use Drupal\comment\Tests\CommentTestTrait;
 use Drupal\Core\Language\LanguageInterface;
 use Drupal\views\Tests\ViewTestBase;
 use Drupal\views\Tests\ViewTestData;
-use Drupal\comment\Entity\Comment;
 
 /**
  * Base class for all tracker tests.
- *
- * @deprecated in drupal:8.?.? and is removed from drupal:9.0.0.
- *   Use \Drupal\Tests\tracker\Functional\Views\TrackerTestBase instead.
  */
 abstract class TrackerTestBase extends ViewTestBase {
 
@@ -25,7 +24,7 @@ abstract class TrackerTestBase extends ViewTestBase {
    *
    * @var array
    */
-  public static $modules = ['comment', 'tracker', 'tracker_test_views'];
+  public static $modules = array('comment', 'tracker', 'tracker_test_views');
 
   /**
    * The node used for testing.
@@ -41,33 +40,33 @@ abstract class TrackerTestBase extends ViewTestBase {
    */
   protected $comment;
 
-  protected function setUp($import_test_views = TRUE) {
-    parent::setUp($import_test_views);
+  protected function setUp() {
+    parent::setUp();
 
-    ViewTestData::createTestViews(get_class($this), ['tracker_test_views']);
+    ViewTestData::createTestViews(get_class($this), array('tracker_test_views'));
 
-    $this->drupalCreateContentType(['type' => 'page', 'name' => 'Basic page']);
+    $this->drupalCreateContentType(array('type' => 'page', 'name' => 'Basic page'));
     // Add a comment field.
     $this->addDefaultCommentField('node', 'page');
 
-    $permissions = ['access comments', 'create page content', 'post comments', 'skip comment approval'];
+    $permissions = array('access comments', 'create page content', 'post comments', 'skip comment approval');
     $account = $this->drupalCreateUser($permissions);
 
     $this->drupalLogin($account);
 
-    $this->node = $this->drupalCreateNode([
+    $this->node = $this->drupalCreateNode(array(
       'title' => $this->randomMachineName(8),
       'uid' => $account->id(),
       'status' => 1,
-    ]);
+    ));
 
-    $this->comment = Comment::create([
+    $this->comment = entity_create('comment', array(
       'entity_id' => $this->node->id(),
       'entity_type' => 'node',
       'field_name' => 'comment',
       'subject' => $this->randomMachineName(),
       'comment_body[' . LanguageInterface::LANGCODE_NOT_SPECIFIED . '][0][value]' => $this->randomMachineName(20),
-    ]);
+    ));
 
   }
 

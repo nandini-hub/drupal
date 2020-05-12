@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Config\ConfigManagerInterface.
+ */
+
 namespace Drupal\Core\Config;
 
 /**
@@ -34,26 +39,14 @@ interface ConfigManagerInterface {
    *
    * @return \Drupal\Core\Entity\EntityManagerInterface
    *   The entity manager.
-   *
-   * @deprecated in drupal:8.7.0 and is removed from drupal:9.0.0. Use
-   *   \Drupal\Core\Config\ConfigManagerInterface::getEntityTypeManager()
-   *   instead.
    */
   public function getEntityManager();
-
-  /**
-   * Gets the entity type manager.
-   *
-   * @return \Drupal\Core\Entity\EntityTypeManagerInterface
-   *   The entity type manager.
-   */
-  public function getEntityTypeManager();
 
   /**
    * Gets the config factory.
    *
    * @return \Drupal\Core\Config\ConfigFactoryInterface
-   *   The config factory.
+   *   The entity manager.
    */
   public function getConfigFactory();
 
@@ -169,21 +162,22 @@ interface ConfigManagerInterface {
   public function getConfigEntitiesToChangeOnDependencyRemoval($type, array $names, $dry_run = TRUE);
 
   /**
+   * Determines if the provided collection supports configuration entities.
+   *
+   * @param string $collection
+   *   The collection to check.
+   *
+   * @return bool
+   *   TRUE if the collection support configuration entities, FALSE if not.
+   */
+  public function supportsConfigurationEntities($collection);
+
+  /**
    * Gets available collection information using the event system.
    *
    * @return \Drupal\Core\Config\ConfigCollectionInfo
    *   The object which contains information about the available collections.
    */
   public function getConfigCollectionInfo();
-
-  /**
-   * Finds missing content dependencies declared in configuration entities.
-   *
-   * @return array
-   *   A list of missing content dependencies. The array is keyed by UUID. Each
-   *   value is an array with the following keys: 'entity_type', 'bundle' and
-   *   'uuid'.
-   */
-  public function findMissingContentDependencies();
 
 }

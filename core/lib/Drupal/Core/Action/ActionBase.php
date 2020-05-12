@@ -1,8 +1,14 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Action\ActionBase.
+ */
+
 namespace Drupal\Core\Action;
 
 use Drupal\Core\Plugin\PluginBase;
+use Drupal\Core\Action\ActionInterface;
 
 /**
  * Provides a base implementation for an Action plugin.

@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains Drupal\locale\LocalProjectStorageInterface.
+ */
+
 namespace Drupal\locale;
 
 /**
@@ -98,5 +103,4 @@ interface LocaleProjectStorageInterface {
    *   The number of saved items.
    */
   public function countProjects();
-
 }

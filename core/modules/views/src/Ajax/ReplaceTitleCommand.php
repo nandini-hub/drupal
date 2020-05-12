@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\views\Ajax\ReplaceTitleCommand.
+ */
+
 namespace Drupal\views\Ajax;
 
 use Drupal\Core\Ajax\CommandInterface;
@@ -29,13 +34,13 @@ class ReplaceTitleCommand implements CommandInterface {
   }
 
   /**
-   * {@inheritdoc}
+   * Implements \Drupal\Core\Ajax\CommandInterface::render().
    */
   public function render() {
-    return [
+    return array(
       'command' => 'viewsReplaceTitle',
       'selector' => $this->title,
-    ];
+    );
   }
 
 }

@@ -1,11 +1,15 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Url.
+ */
+
 namespace Drupal\Core;
 
-use Drupal\Component\Utility\NestedArray;
+use Drupal\Component\Utility\SafeMarkup;
 use Drupal\Component\Utility\UrlHelper;
 use Drupal\Core\DependencyInjection\DependencySerializationTrait;
-use Drupal\Core\Security\TrustedCallbackInterface;
 use Drupal\Core\Routing\RouteMatchInterface;
 use Drupal\Core\Routing\UrlGeneratorInterface;
 use Drupal\Core\Session\AccountInterface;
@@ -15,16 +19,8 @@ use Symfony\Component\HttpFoundation\Request;
 
 /**
  * Defines an object that holds information about a URL.
- *
- * In most cases, these should be created with the following methods:
- * - \Drupal\Core\Url::fromRoute()
- * - \Drupal\Core\Url::fromRouteMatch()
- * - \Drupal\Core\Url::fromUri()
- * - \Drupal\Core\Url::fromUserInput()
- *
- * @see \Drupal\Core\Entity\EntityBase::toUrl()
  */
-class Url implements TrustedCallbackInterface {
+class Url {
   use DependencySerializationTrait;
 
   /**
@@ -60,16 +56,14 @@ class Url implements TrustedCallbackInterface {
    *
    * @var array
    */
-  protected $routeParameters = [];
+  protected $routeParameters = array();
 
   /**
    * The URL options.
    *
-   * See \Drupal\Core\Url::fromUri() for details on the options.
-   *
    * @var array
    */
-  protected $options = [];
+  protected $options = array();
 
   /**
    * Indicates whether this object contains an external URL.
@@ -95,7 +89,7 @@ class Url implements TrustedCallbackInterface {
   protected $uri;
 
   /**
-   * Stores the internal path, if already requested by getInternalPath().
+   * Stores the internal path, if already requested by getInternalPath
    *
    * @var string
    */
@@ -113,7 +107,21 @@ class Url implements TrustedCallbackInterface {
    * @param array $route_parameters
    *   (optional) An associative array of parameter names and values.
    * @param array $options
-   *   See \Drupal\Core\Url::fromUri() for details.
+   *   (optional) An associative array of additional options, with the following
+   *   elements:
+   *   - 'query': An array of query key/value-pairs (without any URL-encoding)
+   *     to append to the URL. Merged with the parameters array.
+   *   - 'fragment': A fragment identifier (named anchor) to append to the URL.
+   *     Do not include the leading '#' character.
+   *   - 'absolute': Defaults to FALSE. Whether to force the output to be an
+   *     absolute link (beginning with http:). Useful for links that will be
+   *     displayed outside the site, such as in an RSS feed.
+   *   - 'language': An optional language object used to look up the alias
+   *     for the URL. If $options['language'] is omitted, it defaults to the
+   *     current language for the language type LanguageInterface::TYPE_URL.
+   *   - 'https': Whether this URL should point to a secure location. If not
+   *     defined, the current scheme is used, so the user stays on HTTP or HTTPS
+   *     respectively. TRUE enforces HTTPS and FALSE enforces HTTP.
    *
    * @see static::fromRoute()
    * @see static::fromUri()
@@ -121,7 +129,7 @@ class Url implements TrustedCallbackInterface {
    * @todo Update this documentation for non-routed URIs in
    *   https://www.drupal.org/node/2346787
    */
-  public function __construct($route_name, $route_parameters = [], $options = []) {
+  public function __construct($route_name, $route_parameters = array(), $options = array()) {
     $this->routeName = $route_name;
     $this->routeParameters = $route_parameters;
     $this->options = $options;
@@ -139,15 +147,29 @@ class Url implements TrustedCallbackInterface {
    * @param array $route_parameters
    *   (optional) An associative array of route parameter names and values.
    * @param array $options
-   *   See \Drupal\Core\Url::fromUri() for details.
+   *   (optional) An associative array of additional URL options, with the
+   *   following elements:
+   *   - 'query': An array of query key/value-pairs (without any URL-encoding)
+   *     to append to the URL. Merged with the parameters array.
+   *   - 'fragment': A fragment identifier (named anchor) to append to the URL.
+   *     Do not include the leading '#' character.
+   *   - 'absolute': Defaults to FALSE. Whether to force the output to be an
+   *     absolute link (beginning with http:). Useful for links that will be
+   *     displayed outside the site, such as in an RSS feed.
+   *   - 'language': An optional language object used to look up the alias
+   *     for the URL. If $options['language'] is omitted, it defaults to the
+   *     current language for the language type LanguageInterface::TYPE_URL.
+   *   - 'https': Whether this URL should point to a secure location. If not
+   *     defined, the current scheme is used, so the user stays on HTTP or HTTPS
+   *     respectively. TRUE enforces HTTPS and FALSE enforces HTTP.
    *
-   * @return static
+   * @return \Drupal\Core\Url
    *   A new Url object for a routed (internal to Drupal) URL.
    *
    * @see \Drupal\Core\Url::fromUserInput()
    * @see \Drupal\Core\Url::fromUri()
    */
-  public static function fromRoute($route_name, $route_parameters = [], $options = []) {
+  public static function fromRoute($route_name, $route_parameters = array(), $options = array()) {
     return new static($route_name, $route_parameters, $options);
   }
 
@@ -157,7 +179,7 @@ class Url implements TrustedCallbackInterface {
    * @param \Drupal\Core\Routing\RouteMatchInterface $route_match
    *   The route match.
    *
-   * @return static
+   * @return $this
    */
   public static function fromRouteMatch(RouteMatchInterface $route_match) {
     if ($route_match->getRouteObject()) {
@@ -210,7 +232,7 @@ class Url implements TrustedCallbackInterface {
     // because these are URI reserved characters that a scheme name may not
     // start with.
     if ((strpos($user_input, '/') !== 0) && (strpos($user_input, '#') !== 0) && (strpos($user_input, '?') !== 0)) {
-      throw new \InvalidArgumentException("The user-entered string '$user_input' must begin with a '/', '?', or '#'.");
+      throw new \InvalidArgumentException(SafeMarkup::format("The user-entered string @user_input must begin with a '/', '?', or '#'.", ['@user_input' => $user_input]));
     }
 
     // fromUri() requires an absolute URI, so prepend the appropriate scheme
@@ -238,10 +260,7 @@ class Url implements TrustedCallbackInterface {
    *   that are known not to be handled by the Drupal routing system (such as
    *   static files), use base: for the scheme to get a link relative to the
    *   Drupal base path (like the <base> HTML element). For a link to an entity
-   *   you may use entity:{entity_type}/{entity_id} URIs. The internal: scheme
-   *   should be avoided except when processing actual user input that may or
-   *   may not correspond to a Drupal route. Normally use Url::fromRoute() for
-   *   code linking to any any Drupal page.
+   *   you may use entity:{entity_type}/{entity_id} URIs.
    * @param array $options
    *   (optional) An associative array of additional URL options, with the
    *   following elements:
@@ -252,9 +271,6 @@ class Url implements TrustedCallbackInterface {
    *   - 'absolute': Defaults to FALSE. Whether to force the output to be an
    *     absolute link (beginning with http:). Useful for links that will be
    *     displayed outside the site, such as in an RSS feed.
-   *   - 'attributes': An associative array of HTML attributes that will be
-   *     added to the anchor tag if you use the \Drupal\Core\Link class to make
-   *     the link.
    *   - 'language': An optional language object used to look up the alias
    *     for the URL. If $options['language'] is omitted, it defaults to the
    *     current language for the language type LanguageInterface::TYPE_URL.
@@ -262,9 +278,14 @@ class Url implements TrustedCallbackInterface {
    *     defined, the current scheme is used, so the user stays on HTTP or HTTPS
    *     respectively. TRUE enforces HTTPS and FALSE enforces HTTP.
    *
-   * @return static
-   *   A new Url object with properties depending on the URI scheme. Call the
-   *   access() method on this to do access checking.
+   * Note: the internal: scheme should be avoided except when processing actual
+   * user input that may or may not correspond to a Drupal route. Normally use
+   * Url::fromRoute() for code linking to any any Drupal page.
+   *
+   * You can call access() on the returned object to do access checking.
+   *
+   * @return \Drupal\Core\Url
+   *   A new Url object with properties depending on the URI scheme.
    *
    * @throws \InvalidArgumentException
    *   Thrown when the passed in path has no scheme.
@@ -273,21 +294,12 @@ class Url implements TrustedCallbackInterface {
    * @see \Drupal\Core\Url::fromUserInput()
    */
   public static function fromUri($uri, $options = []) {
-    // parse_url() incorrectly parses base:number/... as hostname:port/...
-    // and not the scheme. Prevent that by prefixing the path with a slash.
-    if (preg_match('/^base:\d/', $uri)) {
-      $uri = str_replace('base:', 'base:/', $uri);
-    }
     $uri_parts = parse_url($uri);
     if ($uri_parts === FALSE) {
-      throw new \InvalidArgumentException("The URI '$uri' is malformed.");
+      throw new \InvalidArgumentException(SafeMarkup::format('The URI "@uri" is malformed.', ['@uri' => $uri]));
     }
-    // We support protocol-relative URLs.
-    if (strpos($uri, '//') === 0) {
-      $uri_parts['scheme'] = '';
-    }
-    elseif (empty($uri_parts['scheme'])) {
-      throw new \InvalidArgumentException("The URI '$uri' is invalid. You must use a valid URI scheme.");
+    if (empty($uri_parts['scheme'])) {
+      throw new \InvalidArgumentException(SafeMarkup::format('The URI "@uri" is invalid. You must use a valid URI scheme.', ['@uri' => $uri]));
     }
     $uri_parts += ['path' => ''];
     // Discard empty fragment in $options for consistency with parse_url().
@@ -319,7 +331,7 @@ class Url implements TrustedCallbackInterface {
       $url = static::fromRouteUri($uri_parts, $uri_options, $uri);
     }
     else {
-      $url = new static($uri, [], $options);
+      $url = new static($uri, array(), $options);
       if ($uri_parts['scheme'] !== 'base') {
         $url->external = TRUE;
         $url->setOption('external', TRUE);
@@ -337,11 +349,11 @@ class Url implements TrustedCallbackInterface {
    *   Parts from an URI of the form entity:{entity_type}/{entity_id} as from
    *   parse_url().
    * @param array $options
-   *   An array of options, see \Drupal\Core\Url::fromUri() for details.
+   *   An array of options, see static::fromUri() for details.
    * @param string $uri
    *   The original entered URI.
    *
-   * @return static
+   * @return \Drupal\Core\Url
    *   A new Url object for an entity's canonical route.
    *
    * @throws \InvalidArgumentException
@@ -350,7 +362,7 @@ class Url implements TrustedCallbackInterface {
   protected static function fromEntityUri(array $uri_parts, array $options, $uri) {
     list($entity_type_id, $entity_id) = explode('/', $uri_parts['path'], 2);
     if ($uri_parts['scheme'] != 'entity' || $entity_id === '') {
-      throw new \InvalidArgumentException("The entity URI '$uri' is invalid. You must specify the entity id in the URL. e.g., entity:node/1 for loading the canonical path to node entity with id 1.");
+      throw new \InvalidArgumentException(SafeMarkup::format('The entity URI "@uri" is invalid. You must specify the entity id in the URL. e.g., entity:node/1 for loading the canonical path to node entity with id 1.', ['@uri' => $uri]));
     }
 
     return new static("entity.$entity_type_id.canonical", [$entity_type_id => $entity_id], $options);
@@ -389,9 +401,9 @@ class Url implements TrustedCallbackInterface {
    * @param array $uri_parts
    *   Parts from an URI of the form internal:{path} as from parse_url().
    * @param array $options
-   *   An array of options, see \Drupal\Core\Url::fromUri() for details.
+   *   An array of options, see static::fromUri() for details.
    *
-   * @return static
+   * @return \Drupal\Core\Url
    *   A new Url object for a 'internal:' URI.
    *
    * @throws \InvalidArgumentException
@@ -410,14 +422,10 @@ class Url implements TrustedCallbackInterface {
     }
     else {
       if ($uri_parts['path'][0] !== '/') {
-        throw new \InvalidArgumentException("The internal path component '{$uri_parts['path']}' is invalid. Its path component must have a leading slash, e.g. internal:/foo.");
+        throw new \InvalidArgumentException(SafeMarkup::format('The internal path component "@path" is invalid. Its path component must have a leading slash, e.g. internal:/foo.', ['@path' => $uri_parts['path']]));
       }
       // Remove the leading slash.
       $uri_parts['path'] = substr($uri_parts['path'], 1);
-
-      if (UrlHelper::isExternal($uri_parts['path'])) {
-        throw new \InvalidArgumentException("The internal path component '{$uri_parts['path']}' is external. You are not allowed to specify an external URL together with internal:/.");
-      }
     }
 
     $url = \Drupal::pathValidator()
@@ -436,11 +444,11 @@ class Url implements TrustedCallbackInterface {
    *   from parse_url(), where the path is the route name optionally followed by
    *   a ";" followed by route parameters in key=value format with & separators.
    * @param array $options
-   *   An array of options, see \Drupal\Core\Url::fromUri() for details.
+   *   An array of options, see static::fromUri() for details.
    * @param string $uri
    *   The original passed in URI.
    *
-   * @return static
+   * @return \Drupal\Core\Url
    *   A new Url object for a 'route:' URI.
    *
    * @throws \InvalidArgumentException
@@ -450,7 +458,7 @@ class Url implements TrustedCallbackInterface {
     $route_parts = explode(';', $uri_parts['path'], 2);
     $route_name = $route_parts[0];
     if ($route_name === '') {
-      throw new \InvalidArgumentException("The route URI '$uri' is invalid. You must have a route name in the URI. e.g., route:system.admin");
+      throw new \InvalidArgumentException(SafeMarkup::format('The route URI "@uri" is invalid. You must have a route name in the URI. e.g., route:system.admin', ['@uri' => $uri]));
     }
     $route_parameters = [];
     if (!empty($route_parts[1])) {
@@ -503,12 +511,11 @@ class Url implements TrustedCallbackInterface {
     $this->uri = $this->routeName;
     // Set empty route name and parameters.
     $this->routeName = NULL;
-    $this->routeParameters = [];
-    return $this;
+    $this->routeParameters = array();
   }
 
   /**
-   * Generates a URI string that represents the data in the Url object.
+   * Generates a URI string that represents tha data in the Url object.
    *
    * The URI will typically have the scheme of route: even if the object was
    * constructed using an entity: or internal: scheme. A internal: URI that
@@ -627,8 +634,6 @@ class Url implements TrustedCallbackInterface {
    * Returns the URL options.
    *
    * @return array
-   *   The array of options. See \Drupal\Core\Url::fromUri() for details on what
-   *   it contains.
    */
   public function getOptions() {
     return $this->options;
@@ -636,8 +641,6 @@ class Url implements TrustedCallbackInterface {
 
   /**
    * Gets a specific option.
-   *
-   * See \Drupal\Core\Url::fromUri() for details on the options.
    *
    * @param string $name
    *   The name of the option.
@@ -657,8 +660,7 @@ class Url implements TrustedCallbackInterface {
    * Sets the URL options.
    *
    * @param array $options
-   *   The array of options. See \Drupal\Core\Url::fromUri() for details on what
-   *   it contains.
+   *   The array of options.
    *
    * @return $this
    */
@@ -670,8 +672,6 @@ class Url implements TrustedCallbackInterface {
   /**
    * Sets a specific option.
    *
-   * See \Drupal\Core\Url::fromUri() for details on the options.
-   *
    * @param string $name
    *   The name of the option.
    * @param mixed $value
@@ -681,23 +681,6 @@ class Url implements TrustedCallbackInterface {
    */
   public function setOption($name, $value) {
     $this->options[$name] = $value;
-    return $this;
-  }
-
-  /**
-   * Merges the URL options with any currently set.
-   *
-   * In the case of conflict with existing options, the new options will replace
-   * the existing options.
-   *
-   * @param array $options
-   *   The array of options. See \Drupal\Core\Url::fromUri() for details on what
-   *   it contains.
-   *
-   * @return $this
-   */
-  public function mergeOptions($options) {
-    $this->options = NestedArray::mergeDeep($this->options, $options);
     return $this;
   }
 
@@ -745,21 +728,15 @@ class Url implements TrustedCallbackInterface {
    * http://example.com/node/1 depending on the options array, plus any
    * specified query string or fragment.
    *
-   * @param bool $collect_bubbleable_metadata
-   *   (optional) Defaults to FALSE. When TRUE, both the generated URL and its
-   *   associated bubbleable metadata are returned.
-   *
-   * @return string|\Drupal\Core\GeneratedUrl
+   * @return string
    *   A string URL.
-   *   When $collect_bubbleable_metadata is TRUE, a GeneratedUrl object is
-   *   returned, containing the generated URL plus bubbleable metadata.
    */
-  public function toString($collect_bubbleable_metadata = FALSE) {
+  public function toString() {
     if ($this->unrouted) {
-      return $this->unroutedUrlAssembler()->assemble($this->getUri(), $this->getOptions(), $collect_bubbleable_metadata);
+      return $this->unroutedUrlAssembler()->assemble($this->getUri(), $this->getOptions());
     }
 
-    return $this->urlGenerator()->generateFromRoute($this->getRouteName(), $this->getRouteParameters(), $this->getOptions(), $collect_bubbleable_metadata);
+    return $this->urlGenerator()->generateFromRoute($this->getRouteName(), $this->getRouteParameters(), $this->getOptions());
   }
 
   /**
@@ -789,6 +766,9 @@ class Url implements TrustedCallbackInterface {
    *
    * @throws \UnexpectedValueException.
    *   If this is a URI with no corresponding system path.
+   *
+   * @deprecated in Drupal 8.x-dev, will be removed before Drupal 8.0.
+   *   System paths should not be used - use route names and parameters.
    */
   public function getInternalPath() {
     if ($this->unrouted) {
@@ -872,7 +852,7 @@ class Url implements TrustedCallbackInterface {
   /**
    * Sets the URL generator.
    *
-   * @param \Drupal\Core\Routing\UrlGeneratorInterface $url_generator
+   * @param \Drupal\Core\Routing\UrlGeneratorInterface
    *   (optional) The URL generator, specify NULL to reset it.
    *
    * @return $this
@@ -886,7 +866,7 @@ class Url implements TrustedCallbackInterface {
   /**
    * Sets the unrouted URL assembler.
    *
-   * @param \Drupal\Core\Utility\UnroutedUrlAssemblerInterface $url_assembler
+   * @param \Drupal\Core\Utility\UnroutedUrlAssemblerInterface
    *   The unrouted URL assembler.
    *
    * @return $this
@@ -894,13 +874,6 @@ class Url implements TrustedCallbackInterface {
   public function setUnroutedUrlAssembler(UnroutedUrlAssemblerInterface $url_assembler) {
     $this->urlAssembler = $url_assembler;
     return $this;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public static function trustedCallbacks() {
-    return ['renderAccess'];
   }
 
 }

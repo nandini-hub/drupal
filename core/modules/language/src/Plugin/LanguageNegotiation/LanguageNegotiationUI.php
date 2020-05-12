@@ -1,14 +1,19 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\language\Plugin\LanguageNegotiation\LanguageNegotiationUI.
+ */
+
 namespace Drupal\language\Plugin\LanguageNegotiation;
 
 use Drupal\language\LanguageNegotiationMethodBase;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
- * Identifies the language from the interface text language selected for page.
+ * Class for identifying the language from the current interface language.
  *
- * @LanguageNegotiation(
+ * @Plugin(
  *   id = Drupal\language\Plugin\LanguageNegotiation\LanguageNegotiationUI::METHOD_ID,
  *   types = {Drupal\Core\Language\LanguageInterface::TYPE_CONTENT},
  *   weight = 9,

@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\aggregator\Plugin\Block\AggregatorFeedBlock.
+ */
+
 namespace Drupal\aggregator\Plugin\Block;
 
 use Drupal\aggregator\FeedStorageInterface;
@@ -7,6 +12,7 @@ use Drupal\aggregator\ItemStorageInterface;
 use Drupal\Core\Access\AccessResult;
 use Drupal\Core\Block\BlockBase;
 use Drupal\Core\Cache\Cache;
+use Drupal\Core\Entity\Query\QueryInterface;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Drupal\Core\Session\AccountInterface;
@@ -38,6 +44,13 @@ class AggregatorFeedBlock extends BlockBase implements ContainerFactoryPluginInt
   protected $itemStorage;
 
   /**
+   * The entity query object for feed items.
+   *
+   * @var \Drupal\Core\Entity\Query\QueryInterface
+   */
+  protected $itemQuery;
+
+  /**
    * Constructs an AggregatorFeedBlock object.
    *
    * @param array $configuration
@@ -50,12 +63,16 @@ class AggregatorFeedBlock extends BlockBase implements ContainerFactoryPluginInt
    *   The entity storage for feeds.
    * @param \Drupal\aggregator\ItemStorageInterface $item_storage
    *   The entity storage for feed items.
+   * @param \Drupal\Core\Entity\Query\QueryInterface $item_query
+   *   The entity query object for feed items.
    */
-  public function __construct(array $configuration, $plugin_id, $plugin_definition, FeedStorageInterface $feed_storage, ItemStorageInterface $item_storage) {
+  public function __construct(array $configuration, $plugin_id, $plugin_definition, FeedStorageInterface $feed_storage, ItemStorageInterface $item_storage, QueryInterface $item_query) {
     parent::__construct($configuration, $plugin_id, $plugin_definition);
     $this->feedStorage = $feed_storage;
     $this->itemStorage = $item_storage;
+    $this->itemQuery = $item_query;
   }
+
 
   /**
    * {@inheritdoc}
@@ -65,20 +82,22 @@ class AggregatorFeedBlock extends BlockBase implements ContainerFactoryPluginInt
       $configuration,
       $plugin_id,
       $plugin_definition,
-      $container->get('entity_type.manager')->getStorage('aggregator_feed'),
-      $container->get('entity_type.manager')->getStorage('aggregator_item')
+      $container->get('entity.manager')->getStorage('aggregator_feed'),
+      $container->get('entity.manager')->getStorage('aggregator_item'),
+      $container->get('entity.query')->get('aggregator_item')
     );
   }
+
 
   /**
    * {@inheritdoc}
    */
   public function defaultConfiguration() {
     // By default, the block will contain 10 feed items.
-    return [
+    return array(
       'block_count' => 10,
       'feed' => NULL,
-    ];
+    );
   }
 
   /**
@@ -94,23 +113,23 @@ class AggregatorFeedBlock extends BlockBase implements ContainerFactoryPluginInt
    */
   public function blockForm($form, FormStateInterface $form_state) {
     $feeds = $this->feedStorage->loadMultiple();
-    $options = [];
+    $options = array();
     foreach ($feeds as $feed) {
       $options[$feed->id()] = $feed->label();
     }
-    $form['feed'] = [
+    $form['feed'] = array(
       '#type' => 'select',
       '#title' => $this->t('Select the feed that should be displayed'),
       '#default_value' => $this->configuration['feed'],
       '#options' => $options,
-    ];
+    );
     $range = range(2, 20);
-    $form['block_count'] = [
+    $form['block_count'] = array(
       '#type' => 'select',
       '#title' => $this->t('Number of news items in block'),
       '#default_value' => $this->configuration['block_count'],
       '#options' => array_combine($range, $range),
-    ];
+    );
     return $form;
   }
 
@@ -128,34 +147,39 @@ class AggregatorFeedBlock extends BlockBase implements ContainerFactoryPluginInt
   public function build() {
     // Load the selected feed.
     if ($feed = $this->feedStorage->load($this->configuration['feed'])) {
-      $result = $this->itemStorage->getQuery()
+      $result = $this->itemQuery
         ->condition('fid', $feed->id())
         ->range(0, $this->configuration['block_count'])
         ->sort('timestamp', 'DESC')
         ->sort('iid', 'DESC')
         ->execute();
 
-      if ($result) {
-        // Only display the block if there are items to show.
-        $items = $this->itemStorage->loadMultiple($result);
+      $items = $this->itemStorage->loadMultiple($result);
 
-        $build['list'] = [
+      $more_link = array(
+        '#type' => 'more_link',
+        '#url' => $feed->urlInfo(),
+        '#attributes' => array('title' => $this->t("View this feed's recent news.")),
+      );
+      $read_more = drupal_render($more_link);
+      $rendered_items = array();
+      foreach ($items as $item) {
+        $aggregator_block_item = array(
+          '#type' => 'link',
+          '#url' => $item->urlInfo(),
+          '#title' => $item->label(),
+        );
+        $rendered_items[] = drupal_render($aggregator_block_item);
+      }
+      // Only display the block if there are items to show.
+      if (count($rendered_items) > 0) {
+        $item_list = array(
           '#theme' => 'item_list',
-          '#items' => [],
-        ];
-        foreach ($items as $item) {
-          $build['list']['#items'][$item->id()] = [
-            '#type' => 'link',
-            '#url' => $item->toUrl(),
-            '#title' => $item->label(),
-          ];
-        }
-        $build['more_link'] = [
-          '#type' => 'more_link',
-          '#url' => $feed->toUrl(),
-          '#attributes' => ['title' => $this->t("View this feed's recent news.")],
-        ];
-        return $build;
+          '#items' => $rendered_items,
+        );
+        return array(
+          '#children' => drupal_render($item_list) . $read_more,
+        );
       }
     }
   }
@@ -165,10 +189,8 @@ class AggregatorFeedBlock extends BlockBase implements ContainerFactoryPluginInt
    */
   public function getCacheTags() {
     $cache_tags = parent::getCacheTags();
-    if ($feed = $this->feedStorage->load($this->configuration['feed'])) {
-      $cache_tags = Cache::mergeTags($cache_tags, $feed->getCacheTags());
-    }
-    return $cache_tags;
+    $feed = $this->feedStorage->load($this->configuration['feed']);
+    return Cache::mergeTags($cache_tags, $feed->getCacheTags());
   }
 
 }

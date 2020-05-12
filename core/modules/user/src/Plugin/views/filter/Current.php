@@ -1,8 +1,12 @@
 <?php
 
+/**
+ * @file
+ * Definition of views_handler_filter_user_current.
+ */
+
 namespace Drupal\user\Plugin\views\filter;
 
-use Drupal\Core\Database\Query\Condition;
 use Drupal\views\Plugin\views\display\DisplayPluginBase;
 use Drupal\views\ViewExecutable;
 use Drupal\views\Plugin\views\filter\BooleanOperator;
@@ -17,7 +21,7 @@ use Drupal\views\Plugin\views\filter\BooleanOperator;
 class Current extends BooleanOperator {
 
   /**
-   * {@inheritdoc}
+   * Overrides Drupal\views\Plugin\views\filter\BooleanOperator::init().
    */
   public function init(ViewExecutable $view, DisplayPluginBase $display, array &$options = NULL) {
     parent::init($view, $display, $options);
@@ -29,7 +33,7 @@ class Current extends BooleanOperator {
     $this->ensureMyTable();
 
     $field = $this->tableAlias . '.' . $this->realField . ' ';
-    $or = new Condition('OR');
+    $or = db_or();
 
     if (empty($this->value)) {
       $or->condition($field, '***CURRENT_USER***', '<>');

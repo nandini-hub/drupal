@@ -12,6 +12,7 @@ description: ''
 tag: ''
 base_table: comment_field_data
 base_field: cid
+core: 8.x
 display:
   default:
     display_plugin: default
@@ -22,7 +23,7 @@ display:
       access:
         type: perm
       cache:
-        type: tag
+        type: none
       query:
         type: views_query
       exposed_form:
@@ -71,8 +72,3 @@ display:
     position: null
     display_options:
       path: test-comment-rss
-      defaults:
-        row: false
-      row:
-        type: comment_rss
-        options: {}

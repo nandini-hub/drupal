@@ -1,16 +1,19 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\user\AccountForm.
+ */
+
 namespace Drupal\user;
 
-use Drupal\Component\Datetime\TimeInterface;
+use Drupal\Component\Utility\Unicode;
 use Drupal\Core\Entity\ContentEntityForm;
-use Drupal\Core\Entity\EntityConstraintViolationListInterface;
-use Drupal\Core\Entity\EntityRepositoryInterface;
-use Drupal\Core\Entity\EntityTypeBundleInfoInterface;
+use Drupal\Core\Entity\EntityManagerInterface;
+use Drupal\Core\Entity\Query\QueryFactory;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Language\LanguageInterface;
 use Drupal\Core\Language\LanguageManagerInterface;
-use Drupal\Core\Security\TrustedCallbackInterface;
 use Drupal\Core\Url;
 use Drupal\language\ConfigurableLanguageManagerInterface;
 use Drupal\user\Plugin\LanguageNegotiation\LanguageNegotiationUser;
@@ -20,7 +23,7 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
 /**
  * Form controller for the user account forms.
  */
-abstract class AccountForm extends ContentEntityForm implements TrustedCallbackInterface {
+abstract class AccountForm extends ContentEntityForm {
 
   /**
    * The language manager.
@@ -30,20 +33,26 @@ abstract class AccountForm extends ContentEntityForm implements TrustedCallbackI
   protected $languageManager;
 
   /**
+   * The entity query factory service.
+   *
+   * @var \Drupal\Core\Entity\Query\QueryFactory
+   */
+  protected $entityQuery;
+
+  /**
    * Constructs a new EntityForm object.
    *
-   * @param \Drupal\Core\Entity\EntityRepositoryInterface $entity_repository
-   *   The entity repository.
+   * @param \Drupal\Core\Entity\EntityManagerInterface $entity_manager
+   *   The entity manager.
    * @param \Drupal\Core\Language\LanguageManagerInterface $language_manager
    *   The language manager.
-   * @param \Drupal\Core\Entity\EntityTypeBundleInfoInterface $entity_type_bundle_info
-   *   The entity type bundle service.
-   * @param \Drupal\Component\Datetime\TimeInterface $time
-   *   The time service.
+   * @param \Drupal\Core\Entity\Query\QueryFactory
+   *   The entity query factory.
    */
-  public function __construct(EntityRepositoryInterface $entity_repository, LanguageManagerInterface $language_manager, EntityTypeBundleInfoInterface $entity_type_bundle_info = NULL, TimeInterface $time = NULL) {
-    parent::__construct($entity_repository, $entity_type_bundle_info, $time);
+  public function __construct(EntityManagerInterface $entity_manager, LanguageManagerInterface $language_manager, QueryFactory $entity_query) {
+    parent::__construct($entity_manager);
     $this->languageManager = $language_manager;
+    $this->entityQuery = $entity_query;
   }
 
   /**
@@ -51,10 +60,9 @@ abstract class AccountForm extends ContentEntityForm implements TrustedCallbackI
    */
   public static function create(ContainerInterface $container) {
     return new static(
-      $container->get('entity.repository'),
+      $container->get('entity.manager'),
       $container->get('language_manager'),
-      $container->get('entity_type.bundle.info'),
-      $container->get('datetime.time')
+      $container->get('entity.query')
     );
   }
 
@@ -69,154 +77,154 @@ abstract class AccountForm extends ContentEntityForm implements TrustedCallbackI
     $form['#cache']['tags'] = $config->getCacheTags();
 
     $language_interface = \Drupal::languageManager()->getCurrentLanguage();
-
-    // Check for new account.
     $register = $account->isAnonymous();
-
-    // For a new account, there are 2 sub-cases:
-    // $self_register: A user creates their own, new, account
-    //   (path '/user/register')
-    // $admin_create: An administrator creates a new account for another user
-    //   (path '/admin/people/create')
-    // If the current user is logged in and has permission to create users
-    // then it must be the second case.
-    $admin_create = $register && $account->access('create');
-    $self_register = $register && !$admin_create;
+    $admin = $user->hasPermission('administer users');
 
     // Account information.
-    $form['account'] = [
+    $form['account'] = array(
       '#type'   => 'container',
       '#weight' => -10,
-    ];
+    );
 
     // The mail field is NOT required if account originally had no mail set
     // and the user performing the edit has 'administer users' permission.
     // This allows users without email address to be edited and deleted.
     // Also see \Drupal\user\Plugin\Validation\Constraint\UserMailRequired.
-    $form['account']['mail'] = [
+    $form['account']['mail'] = array(
       '#type' => 'email',
       '#title' => $this->t('Email address'),
       '#description' => $this->t('A valid email address. All emails from the system will be sent to this address. The email address is not made public and will only be used if you wish to receive a new password or wish to receive certain news or notifications by email.'),
       '#required' => !(!$account->getEmail() && $user->hasPermission('administer users')),
       '#default_value' => (!$register ? $account->getEmail() : ''),
-    ];
+    );
 
     // Only show name field on registration form or user can change own username.
-    $form['account']['name'] = [
+    $form['account']['name'] = array(
       '#type' => 'textfield',
       '#title' => $this->t('Username'),
-      '#maxlength' => UserInterface::USERNAME_MAX_LENGTH,
-      '#description' => $this->t("Several special characters are allowed, including space, period (.), hyphen (-), apostrophe ('), underscore (_), and the @ sign."),
+      '#maxlength' => USERNAME_MAX_LENGTH,
+      '#description' => $this->t('Spaces are allowed; punctuation is not allowed except for periods, hyphens, apostrophes, and underscores.'),
       '#required' => TRUE,
-      '#attributes' => [
-        'class' => ['username'],
+      '#attributes' => array(
+        'class' => array('username'),
         'autocorrect' => 'off',
         'autocapitalize' => 'off',
         'spellcheck' => 'false',
-      ],
-      '#default_value' => (!$register ? $account->getAccountName() : ''),
-      '#access' => $account->name->access('edit'),
-    ];
+      ),
+      '#default_value' => (!$register ? $account->getUsername() : ''),
+      '#access' => ($register || ($user->id() == $account->id() && $user->hasPermission('change own username')) || $admin),
+    );
 
     // Display password field only for existing users or when user is allowed to
     // assign a password during registration.
     if (!$register) {
-      $form['account']['pass'] = [
+      $form['account']['pass'] = array(
         '#type' => 'password_confirm',
         '#size' => 25,
         '#description' => $this->t('To change the current user password, enter the new password in both fields.'),
-      ];
+      );
 
       // To skip the current password field, the user must have logged in via a
       // one-time link and have the token in the URL. Store this in $form_state
       // so it persists even on subsequent Ajax requests.
-      if (!$form_state->get('user_pass_reset') && ($token = $this->getRequest()->get('pass-reset-token'))) {
-        $session_key = 'pass_reset_' . $account->id();
-        $user_pass_reset = isset($_SESSION[$session_key]) && hash_equals($_SESSION[$session_key], $token);
+      if (!$form_state->get('user_pass_reset')) {
+        $user_pass_reset = $pass_reset = isset($_SESSION['pass_reset_' . $account->id()]) && (\Drupal::request()->query->get('pass-reset-token') == $_SESSION['pass_reset_' . $account->id()]);
         $form_state->set('user_pass_reset', $user_pass_reset);
+      }
+
+      $protected_values = array();
+      $current_pass_description = '';
+
+      // The user may only change their own password without their current
+      // password if they logged in via a one-time login link.
+      if (!$form_state->get('user_pass_reset')) {
+        $protected_values['mail'] = $form['account']['mail']['#title'];
+        $protected_values['pass'] = $this->t('Password');
+        $request_new = $this->l($this->t('Reset your password'), new Url('user.pass',
+          array(), array('attributes' => array('title' => $this->t('Send password reset instructions via e-mail.'))))
+        );
+        $current_pass_description = $this->t('Required if you want to change the %mail or %pass below. !request_new.',
+          array(
+            '%mail' => $protected_values['mail'],
+            '%pass' => $protected_values['pass'],
+            '!request_new' => $request_new,
+          )
+        );
       }
 
       // The user must enter their current password to change to a new one.
       if ($user->id() == $account->id()) {
-        $form['account']['current_pass'] = [
+        $form['account']['current_pass'] = array(
           '#type' => 'password',
           '#title' => $this->t('Current password'),
           '#size' => 25,
-          '#access' => !$form_state->get('user_pass_reset'),
+          '#access' => !empty($protected_values),
+          '#description' => $current_pass_description,
           '#weight' => -5,
           // Do not let web browsers remember this password, since we are
           // trying to confirm that the person submitting the form actually
           // knows the current one.
-          '#attributes' => ['autocomplete' => 'off'],
-        ];
-        $form_state->set('user', $account);
+          '#attributes' => array('autocomplete' => 'off'),
+        );
 
-        // The user may only change their own password without their current
-        // password if they logged in via a one-time login link.
-        if (!$form_state->get('user_pass_reset')) {
-          $form['account']['current_pass']['#description'] = $this->t('Required if you want to change the %mail or %pass below. <a href=":request_new_url" title="Send password reset instructions via email.">Reset your password</a>.', [
-            '%mail' => $form['account']['mail']['#title'],
-            '%pass' => $this->t('Password'),
-            ':request_new_url' => Url::fromRoute('user.pass')->toString(),
-          ]);
-        }
+        $form_state->set('user', $account);
       }
     }
-    elseif (!$config->get('verify_mail') || $admin_create) {
-      $form['account']['pass'] = [
+    elseif (!$config->get('verify_mail') || $admin) {
+      $form['account']['pass'] = array(
         '#type' => 'password_confirm',
         '#size' => 25,
         '#description' => $this->t('Provide a password for the new account in both fields.'),
         '#required' => TRUE,
-      ];
+      );
     }
 
     // When not building the user registration form, prevent web browsers from
     // autofilling/prefilling the email, username, and password fields.
-    if (!$register) {
-      foreach (['mail', 'name', 'pass'] as $key) {
+    if ($this->getOperation() != 'register') {
+      foreach (array('mail', 'name', 'pass') as $key) {
         if (isset($form['account'][$key])) {
           $form['account'][$key]['#attributes']['autocomplete'] = 'off';
         }
       }
     }
 
-    if (!$self_register) {
-      $status = $account->get('status')->value;
+    if ($admin) {
+      $status = $account->isActive();
     }
     else {
-      $status = $config->get('register') == UserInterface::REGISTER_VISITORS ? 1 : 0;
+      $status = $register ? $config->get('register') == USER_REGISTER_VISITORS : $account->isActive();
     }
 
-    $form['account']['status'] = [
+    $form['account']['status'] = array(
       '#type' => 'radios',
       '#title' => $this->t('Status'),
       '#default_value' => $status,
-      '#options' => [$this->t('Blocked'), $this->t('Active')],
-      '#access' => $account->status->access('edit'),
-    ];
+      '#options' => array($this->t('Blocked'), $this->t('Active')),
+      '#access' => $admin,
+    );
 
-    $roles = array_map(['\Drupal\Component\Utility\Html', 'escape'], user_role_names(TRUE));
+    $roles = array_map(array('\Drupal\Component\Utility\SafeMarkup', 'checkPlain'), user_role_names(TRUE));
 
-    $form['account']['roles'] = [
+    $form['account']['roles'] = array(
       '#type' => 'checkboxes',
       '#title' => $this->t('Roles'),
-      '#default_value' => (!$register ? $account->getRoles() : []),
+      '#default_value' => (!$register ? $account->getRoles() : array()),
       '#options' => $roles,
       '#access' => $roles && $user->hasPermission('administer permissions'),
-    ];
+    );
 
     // Special handling for the inevitable "Authenticated user" role.
-    $form['account']['roles'][RoleInterface::AUTHENTICATED_ID] = [
+    $form['account']['roles'][RoleInterface::AUTHENTICATED_ID] = array(
       '#default_value' => TRUE,
       '#disabled' => TRUE,
-    ];
+    );
 
-    $form['account']['notify'] = [
+    $form['account']['notify'] = array(
       '#type' => 'checkbox',
       '#title' => $this->t('Notify user of new account'),
-      '#access' => $admin_create,
-    ];
+      '#access' => $register && $admin,
+    );
 
     $user_preferred_langcode = $register ? $language_interface->getId() : $account->getPreferredLangcode();
 
@@ -228,16 +236,16 @@ abstract class AccountForm extends ContentEntityForm implements TrustedCallbackI
       $negotiator = $this->languageManager->getNegotiator();
       $user_language_added = $negotiator && $negotiator->isNegotiationMethodEnabled(LanguageNegotiationUser::METHOD_ID, LanguageInterface::TYPE_INTERFACE);
     }
-    $form['language'] = [
+    $form['language'] = array(
       '#type' => $this->languageManager->isMultilingual() ? 'details' : 'container',
       '#title' => $this->t('Language settings'),
       '#open' => TRUE,
       // Display language selector when either creating a user on the admin
       // interface or editing a user account.
-      '#access' => !$self_register,
-    ];
+      '#access' => !$register || $user->hasPermission('administer users'),
+    );
 
-    $form['language']['preferred_langcode'] = [
+    $form['language']['preferred_langcode'] = array(
       '#type' => 'language_select',
       '#title' => $this->t('Site language'),
       '#languages' => LanguageInterface::STATE_CONFIGURABLE,
@@ -247,7 +255,7 @@ abstract class AccountForm extends ContentEntityForm implements TrustedCallbackI
       // language are synchronized. It can be removed if a different behavior is
       // desired.
       '#pre_render' => ['user_langcode' => [$this, 'alterPreferredLangcodeDescription']],
-    ];
+    );
 
     // Only show the account setting for Administration pages language to users
     // if one of the detection and selection methods uses it.
@@ -256,7 +264,7 @@ abstract class AccountForm extends ContentEntityForm implements TrustedCallbackI
       $negotiator = $this->languageManager->getNegotiator();
       $show_admin_language = $negotiator && $negotiator->isNegotiationMethodEnabled(LanguageNegotiationUserAdmin::METHOD_ID);
     }
-    $form['language']['preferred_admin_langcode'] = [
+    $form['language']['preferred_admin_langcode'] = array(
       '#type' => 'language_select',
       '#title' => $this->t('Administration pages language'),
       '#languages' => LanguageInterface::STATE_CONFIGURABLE,
@@ -264,7 +272,7 @@ abstract class AccountForm extends ContentEntityForm implements TrustedCallbackI
       '#access' => $show_admin_language,
       '#empty_option' => $this->t('- No preference -'),
       '#empty_value' => '',
-    ];
+    );
 
     // User entities contain both a langcode property (for identifying the
     // language of the entity data) and a preferred_langcode property (see
@@ -273,16 +281,9 @@ abstract class AccountForm extends ContentEntityForm implements TrustedCallbackI
     // language. This entity builder provides that synchronization. For
     // use-cases where this synchronization is not desired, a module can alter
     // or remove this item.
-    $form['#entity_builders']['sync_user_langcode'] = '::syncUserLangcode';
+    $form['#entity_builders']['sync_user_langcode'] = [$this, 'syncUserLangcode'];
 
     return parent::form($form, $form_state, $account);
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public static function trustedCallbacks() {
-    return ['alterPreferredLangcodeDescription'];
   }
 
   /**
@@ -336,21 +337,16 @@ abstract class AccountForm extends ContentEntityForm implements TrustedCallbackI
     $account = parent::buildEntity($form, $form_state);
 
     // Translate the empty value '' of language selects to an unset field.
-    foreach (['preferred_langcode', 'preferred_admin_langcode'] as $field_name) {
+    foreach (array('preferred_langcode', 'preferred_admin_langcode') as $field_name) {
       if ($form_state->getValue($field_name) === '') {
         $account->$field_name = NULL;
       }
     }
 
     // Set existing password if set in the form state.
-    $current_pass = trim($form_state->getValue('current_pass'));
-    if (strlen($current_pass) > 0) {
+    if ($current_pass = $form_state->getValue('current_pass')) {
       $account->setExistingPassword($current_pass);
     }
-
-    // Skip the protected user field constraint if the user came from the
-    // password recovery page.
-    $account->_skipProtectedUserFieldConstraint = $form_state->get('user_pass_reset');
 
     return $account;
   }
@@ -358,39 +354,34 @@ abstract class AccountForm extends ContentEntityForm implements TrustedCallbackI
   /**
    * {@inheritdoc}
    */
-  protected function getEditedFieldNames(FormStateInterface $form_state) {
-    return array_merge([
-      'name',
-      'pass',
-      'mail',
-      'timezone',
-      'langcode',
-      'preferred_langcode',
-      'preferred_admin_langcode',
-    ], parent::getEditedFieldNames($form_state));
-  }
+  public function validate(array $form, FormStateInterface $form_state) {
+    /** @var \Drupal\user\UserInterface $account */
+    $account = parent::validate($form, $form_state);
 
-  /**
-   * {@inheritdoc}
-   */
-  protected function flagViolations(EntityConstraintViolationListInterface $violations, array $form, FormStateInterface $form_state) {
-    // Manually flag violations of fields not handled by the form display. This
-    // is necessary as entity form displays only flag violations for fields
-    // contained in the display.
-    $field_names = [
+    // Skip the protected user field constraint if the user came from the
+    // password recovery page.
+    $account->_skipProtectedUserFieldConstraint = $form_state->get('user_pass_reset');
+
+    // Customly trigger validation of manually added fields and add in
+    // violations. This is necessary as entity form displays only invoke entity
+    // validation for fields contained in the display.
+    $field_names = array(
       'name',
       'pass',
       'mail',
       'timezone',
       'langcode',
       'preferred_langcode',
-      'preferred_admin_langcode',
-    ];
-    foreach ($violations->getByFields($field_names) as $violation) {
-      list($field_name) = explode('.', $violation->getPropertyPath(), 2);
-      $form_state->setErrorByName($field_name, $violation->getMessage());
+      'preferred_admin_langcode'
+    );
+    foreach ($field_names as $field_name) {
+      $violations = $account->$field_name->validate();
+      foreach ($violations as $violation) {
+        $form_state->setErrorByName($field_name, $violation->getMessage());
+      }
     }
-    parent::flagViolations($violations, $form, $form_state);
+
+    return $account;
   }
 
   /**
@@ -402,9 +393,8 @@ abstract class AccountForm extends ContentEntityForm implements TrustedCallbackI
     $user = $this->getEntity($form_state);
     // If there's a session set to the users id, remove the password reset tag
     // since a new password was saved.
-    if (isset($_SESSION['pass_reset_' . $user->id()])) {
-      unset($_SESSION['pass_reset_' . $user->id()]);
+    if (isset($_SESSION['pass_reset_'. $user->id()])) {
+      unset($_SESSION['pass_reset_'. $user->id()]);
     }
   }
-
 }

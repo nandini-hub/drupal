@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\field_test\Plugin\Field\FieldType\TestItemWithPreconfiguredOptions.
+ */
+
 namespace Drupal\field_test\Plugin\Field\FieldType;
 
 use Drupal\Core\Field\FieldStorageDefinitionInterface;
@@ -19,7 +24,7 @@ use Drupal\Core\Field\PreconfiguredFieldUiOptionsInterface;
 class TestItemWithPreconfiguredOptions extends TestItem implements PreconfiguredFieldUiOptionsInterface {
 
   /**
-   * {@inheritdoc}
+   * {inheritdoc}
    */
   public static function getPreconfiguredOptions() {
     return [
@@ -29,7 +34,7 @@ class TestItemWithPreconfiguredOptions extends TestItem implements Preconfigured
         'field_storage_config' => [
           'cardinality' => FieldStorageDefinitionInterface::CARDINALITY_UNLIMITED,
           'settings' => [
-            'test_field_storage_setting' => 'preconfigured_storage_setting',
+            'test_field_storage_setting' => 'preconfigured_storage_setting'
           ],
         ],
         'field_config' => [

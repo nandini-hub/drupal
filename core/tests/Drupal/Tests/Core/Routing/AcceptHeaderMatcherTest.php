@@ -1,11 +1,16 @@
 <?php
 
+/**
+ * @file
+ * Contains Drupal\Tests\Core\Routing\AcceptHeaderMatcherTest.
+ */
+
 namespace Drupal\Tests\Core\Routing;
 
-use Drupal\accept_header_routing_test\Routing\AcceptHeaderMatcher;
+use Drupal\Core\Routing\AcceptHeaderMatcher;
+use Drupal\Tests\Core\Routing\RoutingFixtures;
 use Drupal\Tests\UnitTestCase;
 use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\HttpKernel\Exception\NotAcceptableHttpException;
 
 /**
  * Confirm that the mime types partial matcher is functioning properly.
@@ -17,14 +22,14 @@ class AcceptHeaderMatcherTest extends UnitTestCase {
   /**
    * A collection of shared fixture data for tests.
    *
-   * @var \Drupal\Tests\Core\Routing\RoutingFixtures
+   * @var RoutingFixtures
    */
   protected $fixtures;
 
   /**
    * The matcher object that is going to be tested.
    *
-   * @var \Drupal\accept_header_routing_test\Routing\AcceptHeaderMatcher
+   * @var \Drupal\Core\Routing\AcceptHeaderMatcher
    */
   protected $matcher;
 
@@ -86,6 +91,9 @@ class AcceptHeaderMatcherTest extends UnitTestCase {
 
   /**
    * Confirms that the AcceptHeaderMatcher throws an exception for no-route.
+   *
+   * @expectedException \Symfony\Component\HttpKernel\Exception\NotAcceptableHttpException
+   * @expectedExceptionMessage No route found for the specified formats application/json text/xml.
    */
   public function testNoRouteFound() {
     // Remove the sample routes that would match any method.
@@ -98,9 +106,9 @@ class AcceptHeaderMatcherTest extends UnitTestCase {
     $request = Request::create('path/two', 'GET');
     $request->headers->set('Accept', 'application/json, text/xml;q=0.9');
     $request->setRequestFormat('json');
-    $this->expectException(NotAcceptableHttpException::class);
-    $this->expectExceptionMessage('No route found for the specified formats application/json text/xml');
     $this->matcher->filter($routes, $request);
+    $this->matcher->filter($routes, $request);
+    $this->fail('No exception was thrown.');
   }
 
 }

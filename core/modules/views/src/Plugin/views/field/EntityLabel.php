@@ -1,11 +1,15 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\views\Plugin\views\field\EntityLabel.
+ */
+
 namespace Drupal\views\Plugin\views\field;
 
-use Drupal\Core\Entity\EntityMalformedException;
-use Drupal\Core\Entity\EntityTypeManagerInterface;
-use Drupal\Core\Entity\Exception\UndefinedLinkTemplateException;
+use Drupal\Core\Entity\EntityManagerInterface;
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\views\Plugin\views\field\FieldPluginBase;
 use Drupal\views\ResultRow;
 use Drupal\views\ViewExecutable;
 use Drupal\views\Plugin\views\display\DisplayPluginBase;
@@ -23,14 +27,14 @@ class EntityLabel extends FieldPluginBase {
    *
    * @var array
    */
-  protected $loadedReferencers = [];
+  protected $loadedReferencers = array();
 
   /**
-   * EntityTypeManager class.
+   * EntityManager class.
    *
-   * @var \Drupal\Core\Entity\EntityTypeManagerInterface
+   * @var \Drupal\Core\Entity\EntityManagerInterface
    */
-  protected $entityTypeManager;
+  protected $entityManager;
 
   /**
    * Constructs a EntityLabel object.
@@ -41,13 +45,13 @@ class EntityLabel extends FieldPluginBase {
    *   The plugin_id for the plugin instance.
    * @param mixed $plugin_definition
    *   The plugin implementation definition.
-   * @param \Drupal\Core\Entity\EntityTypeManagerInterface $entity_type_manager
-   *   The entity type manager.
+   * @param \Drupal\Core\Entity\EntityManagerInterface $manager
+   *   EntityManager that is stored internally and used to load nodes.
    */
-  public function __construct(array $configuration, $plugin_id, $plugin_definition, EntityTypeManagerInterface $entity_type_manager) {
+  public function __construct(array $configuration, $plugin_id, $plugin_definition, EntityManagerInterface $manager) {
     parent::__construct($configuration, $plugin_id, $plugin_definition);
 
-    $this->entityTypeManager = $entity_type_manager;
+    $this->entityManager = $manager;
   }
 
   /**
@@ -58,7 +62,7 @@ class EntityLabel extends FieldPluginBase {
       $configuration,
       $plugin_id,
       $plugin_definition,
-      $container->get('entity_type.manager')
+      $container->get('entity.manager')
     );
   }
 
@@ -75,7 +79,7 @@ class EntityLabel extends FieldPluginBase {
    */
   protected function defineOptions() {
     $options = parent::defineOptions();
-    $options['link_to_entity'] = ['default' => FALSE];
+    $options['link_to_entity'] = array('default' => FALSE);
     return $options;
   }
 
@@ -83,12 +87,12 @@ class EntityLabel extends FieldPluginBase {
    * {@inheritdoc}
    */
   public function buildOptionsForm(&$form, FormStateInterface $form_state) {
-    $form['link_to_entity'] = [
+    $form['link_to_entity'] = array(
       '#title' => $this->t('Link to entity'),
       '#description' => $this->t('Make entity label a link to entity page.'),
       '#type' => 'checkbox',
       '#default_value' => !empty($this->options['link_to_entity']),
-    ];
+    );
     parent::buildOptionsForm($form, $form_state);
   }
 
@@ -107,16 +111,8 @@ class EntityLabel extends FieldPluginBase {
     $entity = $this->loadedReferencers[$type][$value];
 
     if (!empty($this->options['link_to_entity'])) {
-      try {
-        $this->options['alter']['url'] = $entity->toUrl();
-        $this->options['alter']['make_link'] = TRUE;
-      }
-      catch (UndefinedLinkTemplateException $e) {
-        $this->options['alter']['make_link'] = FALSE;
-      }
-      catch (EntityMalformedException $e) {
-        $this->options['alter']['make_link'] = FALSE;
-      }
+      $this->options['alter']['make_link'] = TRUE;
+      $this->options['alter']['url'] = $entity->urlInfo();
     }
 
     return $this->sanitizeValue($entity->label());
@@ -128,7 +124,7 @@ class EntityLabel extends FieldPluginBase {
   public function preRender(&$values) {
     parent::preRender($values);
 
-    $entity_ids_per_type = [];
+    $entity_ids_per_type = array();
     foreach ($values as $value) {
       if ($type = $this->getValue($value, 'type')) {
         $entity_ids_per_type[$type][] = $this->getValue($value);
@@ -136,7 +132,7 @@ class EntityLabel extends FieldPluginBase {
     }
 
     foreach ($entity_ids_per_type as $type => $ids) {
-      $this->loadedReferencers[$type] = $this->entityTypeManager->getStorage($type)->loadMultiple($ids);
+      $this->loadedReferencers[$type] = $this->entityManager->getStorage($type)->loadMultiple($ids);
     }
   }
 

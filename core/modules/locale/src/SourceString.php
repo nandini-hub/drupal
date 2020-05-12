@@ -1,6 +1,13 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\locale\SourceString.
+ */
+
 namespace Drupal\locale;
+
+use Drupal\locale\LocaleString;
 
 /**
  * Defines the locale source string object.
@@ -10,30 +17,29 @@ namespace Drupal\locale;
  * value, and is assumed to be in English language.
  */
 class SourceString extends StringBase {
-
   /**
-   * {@inheritdoc}
+   * Implements Drupal\locale\StringInterface::isSource().
    */
   public function isSource() {
     return isset($this->source);
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\locale\StringInterface::isTranslation().
    */
   public function isTranslation() {
     return FALSE;
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\locale\LocaleString::getString().
    */
   public function getString() {
     return isset($this->source) ? $this->source : '';
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\locale\LocaleString::setString().
    */
   public function setString($string) {
     $this->source = $string;
@@ -41,7 +47,7 @@ class SourceString extends StringBase {
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\locale\LocaleString::isNew().
    */
   public function isNew() {
     return empty($this->lid);

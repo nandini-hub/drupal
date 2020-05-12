@@ -1,21 +1,25 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\tracker\Controller\TrackerUserRecent.
+ */
+
 namespace Drupal\tracker\Controller;
 
-@trigger_error(__NAMESPACE__ . '\TrackerUserRecent is deprecated in drupal:8.8.0 and is removed from drupal:9.0.0. Use \Drupal\tracker\Controller\TrackerController instead. See https://www.drupal.org/node/3030645', E_USER_DEPRECATED);
-
+use Drupal\Core\Controller\ControllerBase;
 use Drupal\user\UserInterface;
 
 /**
  * Controller for tracker.users_recent_content route.
  */
-class TrackerUserRecent extends TrackerController {
+class TrackerUserRecent extends ControllerBase {
 
   /**
    * Content callback for the tracker.users_recent_content route.
    */
   public function getContent(UserInterface $user) {
-    return $this->buildContent($user);
+    module_load_include('inc', 'tracker', 'tracker.pages');
+    return tracker_page($user);
   }
-
 }

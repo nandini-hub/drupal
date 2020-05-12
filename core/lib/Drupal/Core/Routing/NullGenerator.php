@@ -1,8 +1,12 @@
 <?php
 
+/**
+ * @file
+ * Contains Drupal\Core\Routing\NullGenerator.
+ */
+
 namespace Drupal\Core\Routing;
 
-use Drupal\Core\Render\BubbleableMetadata;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\Routing\RequestContext as SymfonyRequestContext;
 use Symfony\Component\Routing\Exception\RouteNotFoundException;
@@ -27,8 +31,8 @@ class NullGenerator extends UrlGenerator {
   /**
    * {@inheritdoc}
    *
-   * Methods generate(), generateFromRoute() and getPathFromRoute() all call
-   * this protected method.
+   * generate(), generateFromRoute(), and getPathFromRoute() all call this
+   * protected method.
    */
   protected function getRoute($name) {
     if ($name === '<front>') {
@@ -46,33 +50,32 @@ class NullGenerator extends UrlGenerator {
   /**
    * {@inheritdoc}
    */
-  protected function processRoute($name, Route $route, array &$parameters, BubbleableMetadata $bubbleable_metadata = NULL) {
+  protected function processRoute($name, Route $route, array &$parameters) {
   }
 
   /**
    * {@inheritdoc}
    */
-  protected function getInternalPathFromRoute($name, Route $route, $parameters = [], &$query_params = []) {
+  protected function getInternalPathFromRoute($name, Route $route, $parameters = array(), $query_params = array()) {
     return $route->getPath();
   }
 
   /**
-   * {@inheritdoc}
+   * Overrides Drupal\Core\Routing\UrlGenerator::setContext();
    */
   public function setContext(SymfonyRequestContext $context) {
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Symfony\Component\Routing\RequestContextAwareInterface::getContext();
    */
   public function getContext() {
   }
 
   /**
-   * {@inheritdoc}
+   * Overrides Drupal\Core\Routing\UrlGenerator::processPath().
    */
-  protected function processPath($path, &$options = [], BubbleableMetadata $bubbleable_metadata = NULL) {
+  protected function processPath($path, &$options = array()) {
     return $path;
   }
-
 }

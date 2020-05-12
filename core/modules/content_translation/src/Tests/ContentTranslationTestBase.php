@@ -1,22 +1,18 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\content_translation\Tests\ContentTranslationTestBase.
+ */
+
 namespace Drupal\content_translation\Tests;
 
-@trigger_error(__NAMESPACE__ . '\ContentTranslationTestBase is deprecated for removal before Drupal 9.0.0. Use Drupal\Tests\content_translation\Functional\ContentTranslationTestBase instead. See https://www.drupal.org/node/2999939', E_USER_DEPRECATED);
-
 use Drupal\Core\Entity\Sql\SqlContentEntityStorage;
-use Drupal\field\Entity\FieldConfig;
 use Drupal\language\Entity\ConfigurableLanguage;
 use Drupal\simpletest\WebTestBase;
-use Drupal\field\Entity\FieldStorageConfig;
 
 /**
  * Base class for content translation tests.
- *
- * @deprecated in drupal:8.?.? and is removed from drupal:9.0.0.
- *   Use \Drupal\Tests\content_translation\Functional\ContentTranslationTestBase instead.
- *
- * @see https://www.drupal.org/node/2999939
  */
 abstract class ContentTranslationTestBase extends WebTestBase {
 
@@ -25,7 +21,7 @@ abstract class ContentTranslationTestBase extends WebTestBase {
    *
    * @var array
    */
-  public static $modules = ['text'];
+  public static $modules = array('text');
 
   /**
    * The entity type being tested.
@@ -109,7 +105,7 @@ abstract class ContentTranslationTestBase extends WebTestBase {
    * Adds additional languages.
    */
   protected function setupLanguages() {
-    $this->langcodes = ['it', 'fr'];
+    $this->langcodes = array('it', 'fr');
     foreach ($this->langcodes as $langcode) {
       ConfigurableLanguage::createFromLangcode($langcode)->save();
     }
@@ -120,14 +116,14 @@ abstract class ContentTranslationTestBase extends WebTestBase {
    * Returns an array of permissions needed for the translator.
    */
   protected function getTranslatorPermissions() {
-    return array_filter([$this->getTranslatePermission(), 'create content translations', 'update content translations', 'delete content translations']);
+    return array_filter(array($this->getTranslatePermission(), 'create content translations', 'update content translations', 'delete content translations'));
   }
 
   /**
    * Returns the translate permissions for the current entity and bundle.
    */
   protected function getTranslatePermission() {
-    $entity_type = \Drupal::entityTypeManager()->getDefinition($this->entityTypeId);
+    $entity_type = \Drupal::entityManager()->getDefinition($this->entityTypeId);
     if ($permission_granularity = $entity_type->getPermissionGranularity()) {
       return $permission_granularity == 'bundle' ? "translate {$this->bundle} {$this->entityTypeId}" : "translate {$this->entityTypeId}";
     }
@@ -138,14 +134,14 @@ abstract class ContentTranslationTestBase extends WebTestBase {
    */
   protected function getEditorPermissions() {
     // Every entity-type-specific test needs to define these.
-    return [];
+    return array();
   }
 
   /**
    * Returns an array of permissions needed for the administrator.
    */
   protected function getAdministratorPermissions() {
-    return array_merge($this->getEditorPermissions(), $this->getTranslatorPermissions(), ['administer content translation']);
+    return array_merge($this->getEditorPermissions(), $this->getTranslatorPermissions(), array('administer content translation'));
   }
 
   /**
@@ -174,9 +170,10 @@ abstract class ContentTranslationTestBase extends WebTestBase {
     // Enable translation for the current entity type and ensure the change is
     // picked up.
     \Drupal::service('content_translation.manager')->setEnabled($this->entityTypeId, $this->bundle, TRUE);
-
-    \Drupal::entityTypeManager()->clearCachedDefinitions();
+    drupal_static_reset();
+    \Drupal::entityManager()->clearCachedDefinitions();
     \Drupal::service('router.builder')->rebuild();
+    \Drupal::service('entity.definition_update_manager')->applyUpdates();
   }
 
   /**
@@ -186,24 +183,23 @@ abstract class ContentTranslationTestBase extends WebTestBase {
     if (empty($this->fieldName)) {
       $this->fieldName = 'field_test_et_ui_test';
     }
-    FieldStorageConfig::create([
+    entity_create('field_storage_config', array(
       'field_name' => $this->fieldName,
       'type' => 'string',
       'entity_type' => $this->entityTypeId,
       'cardinality' => 1,
-    ])->save();
-    FieldConfig::create([
+    ))->save();
+    entity_create('field_config', array(
       'entity_type' => $this->entityTypeId,
       'field_name' => $this->fieldName,
       'bundle' => $this->bundle,
       'label' => 'Test translatable text-field',
-    ])->save();
-    \Drupal::service('entity_display.repository')
-      ->getFormDisplay($this->entityTypeId, $this->bundle)
-      ->setComponent($this->fieldName, [
+    ))->save();
+    entity_get_form_display($this->entityTypeId, $this->bundle, 'default')
+      ->setComponent($this->fieldName, array(
         'type' => 'string_textfield',
         'weight' => 0,
-      ])
+      ))
       ->save();
   }
 
@@ -224,21 +220,19 @@ abstract class ContentTranslationTestBase extends WebTestBase {
   protected function createEntity($values, $langcode, $bundle_name = NULL) {
     $entity_values = $values;
     $entity_values['langcode'] = $langcode;
-    $entity_type = \Drupal::entityTypeManager()->getDefinition($this->entityTypeId);
+    $entity_type = \Drupal::entityManager()->getDefinition($this->entityTypeId);
     if ($bundle_key = $entity_type->getKey('bundle')) {
       $entity_values[$bundle_key] = $bundle_name ?: $this->bundle;
     }
-    $controller = $this->container->get('entity_type.manager')->getStorage($this->entityTypeId);
+    $controller = $this->container->get('entity.manager')->getStorage($this->entityTypeId);
     if (!($controller instanceof SqlContentEntityStorage)) {
       foreach ($values as $property => $value) {
         if (is_array($value)) {
-          $entity_values[$property] = [$langcode => $value];
+          $entity_values[$property] = array($langcode => $value);
         }
       }
     }
-    $entity = $this->container->get('entity_type.manager')
-      ->getStorage($this->entityTypeId)
-      ->create($entity_values);
+    $entity = entity_create($this->entityTypeId, $entity_values);
     $entity->save();
     return $entity->id();
   }

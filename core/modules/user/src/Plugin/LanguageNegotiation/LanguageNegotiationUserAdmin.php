@@ -1,10 +1,16 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\user\Plugin\LanguageNegotiation\LanguageNegotiationUserAdmin.
+ */
+
 namespace Drupal\user\Plugin\LanguageNegotiation;
 
 use Drupal\Core\PathProcessor\PathProcessorManager;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Drupal\Core\Routing\AdminContext;
+use Drupal\Core\Routing\RouteMatch;
 use Drupal\Core\Routing\StackedRouteMatchInterface;
 use Drupal\language\LanguageNegotiationMethodBase;
 use Symfony\Cmf\Component\Routing\RouteObjectInterface;
@@ -17,7 +23,7 @@ use Symfony\Component\Routing\Matcher\UrlMatcherInterface;
 /**
  * Identifies admin language from the user preferences.
  *
- * @LanguageNegotiation(
+ * @Plugin(
  *   id = Drupal\user\Plugin\LanguageNegotiation\LanguageNegotiationUserAdmin::METHOD_ID,
  *   types = {Drupal\Core\Language\LanguageInterface::TYPE_INTERFACE},
  *   weight = -10,
@@ -127,15 +133,11 @@ class LanguageNegotiationUserAdmin extends LanguageNegotiationMethodBase impleme
       $route_match = $this->stackedRouteMatch->getRouteMatchFromRequest($request);
       if ($route_match && !$route_object = $route_match->getRouteObject()) {
         try {
-          // Some inbound path processors make changes to the request. Make a
-          // copy as we're not actually routing the request so we do not want to
-          // make changes.
-          $cloned_request = clone $request;
           // Process the path as an inbound path. This will remove any language
           // prefixes and other path components that inbound processing would
           // clear out, so we can attempt to load the route clearly.
-          $path = $this->pathProcessorManager->processInbound(urldecode(rtrim($cloned_request->getPathInfo(), '/')), $cloned_request);
-          $attributes = $this->router->match($path);
+          $path = $this->pathProcessorManager->processInbound(urldecode(trim($request->getPathInfo(), '/')), $request);
+          $attributes = $this->router->match('/' . $path);
         }
         catch (ResourceNotFoundException $e) {
           return FALSE;

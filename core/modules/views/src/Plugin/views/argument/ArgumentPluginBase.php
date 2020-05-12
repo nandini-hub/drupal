@@ -1,14 +1,20 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\views\Plugin\views\argument\ArgumentPluginBase.
+ */
+
 namespace Drupal\views\Plugin\views\argument;
 
 use Drupal\Component\Plugin\DependentPluginInterface;
 use Drupal\Component\Utility\Html;
 use Drupal\Component\Utility\NestedArray;
-use Drupal\Core\Cache\Cache;
-use Drupal\Core\Cache\CacheableDependencyInterface;
+use Drupal\Component\Utility\SafeMarkup;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Render\Element;
+use Drupal\views\Plugin\CacheablePluginInterface;
+use Drupal\views\Plugin\views\PluginBase;
 use Drupal\views\Plugin\views\display\DisplayPluginBase;
 use Drupal\views\ViewExecutable;
 use Drupal\views\Plugin\views\HandlerBase;
@@ -53,17 +59,17 @@ use Drupal\views\Views;
  * - numeric: If set to TRUE this field is numeric and will use %d instead of
  *            %s in queries.
  */
-abstract class ArgumentPluginBase extends HandlerBase implements CacheableDependencyInterface {
+abstract class ArgumentPluginBase extends HandlerBase implements CacheablePluginInterface {
 
-  public $validator = NULL;
-  public $argument = NULL;
-  public $value = NULL;
+  var $validator = NULL;
+  var $argument = NULL;
+  var $value = NULL;
 
   /**
    * The table to use for the name, should it not be in the same table as the argument.
    * @var string
    */
-  public $name_table;
+  var $name_table;
 
   /**
    * The field to use for the name to use in the summary, which is
@@ -71,7 +77,7 @@ abstract class ArgumentPluginBase extends HandlerBase implements CacheableDepend
    * the argument itself is the nid, but node.title is displayed.
    * @var string
    */
-  public $name_field;
+  var $name_field;
 
   /**
    * Overrides Drupal\views\Plugin\views\HandlerBase:init().
@@ -105,7 +111,7 @@ abstract class ArgumentPluginBase extends HandlerBase implements CacheableDepend
   /**
    * Determine if the argument needs a style plugin.
    *
-   * @return bool
+   * @return TRUE/FALSE
    */
   public function needsStylePlugin() {
     $info = $this->defaultActions($this->options['default_action']);
@@ -116,46 +122,37 @@ abstract class ArgumentPluginBase extends HandlerBase implements CacheableDepend
   protected function defineOptions() {
     $options = parent::defineOptions();
 
-    $options['default_action'] = ['default' => 'ignore'];
-    $options['exception'] = [
-      'contains' => [
-        'value' => ['default' => 'all'],
-        'title_enable' => ['default' => FALSE],
-        'title' => ['default' => 'All'],
-      ],
-    ];
-    $options['title_enable'] = ['default' => FALSE];
-    $options['title'] = ['default' => ''];
-    $options['default_argument_type'] = ['default' => 'fixed'];
-    $options['default_argument_options'] = ['default' => []];
-    $options['default_argument_skip_url'] = ['default' => FALSE];
-    $options['summary_options'] = ['default' => []];
-    $options['summary'] = [
-      'contains' => [
-        'sort_order' => ['default' => 'asc'],
-        'number_of_records' => ['default' => 0],
-        'format' => ['default' => 'default_summary'],
-      ],
-    ];
-    $options['specify_validation'] = ['default' => FALSE];
-    $options['validate'] = [
-      'contains' => [
-        'type' => ['default' => 'none'],
-        'fail' => ['default' => 'not found'],
-      ],
-    ];
-    $options['validate_options'] = ['default' => []];
+    $options['default_action'] = array('default' => 'ignore');
+    $options['exception'] = array(
+      'contains' => array(
+        'value' => array('default' => 'all'),
+        'title_enable' => array('default' => FALSE),
+        'title' => array('default' => 'All'),
+      ),
+    );
+    $options['title_enable'] = array('default' => FALSE);
+    $options['title'] = array('default' => '');
+    $options['default_argument_type'] = array('default' => 'fixed');
+    $options['default_argument_options'] = array('default' => array());
+    $options['default_argument_skip_url'] = array('default' => FALSE);
+    $options['summary_options'] = array('default' => array());
+    $options['summary'] = array(
+      'contains' => array(
+        'sort_order' => array('default' => 'asc'),
+        'number_of_records' => array('default' => 0),
+        'format' => array('default' => 'default_summary'),
+      ),
+    );
+    $options['specify_validation'] = array('default' => FALSE);
+    $options['validate'] = array(
+      'contains' => array(
+        'type' => array('default' => 'none'),
+        'fail' => array('default' => 'not found'),
+      ),
+    );
+    $options['validate_options'] = array('default' => array());
 
     return $options;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public static function trustedCallbacks() {
-    $callbacks = parent::trustedCallbacks();
-    $callbacks[] = 'preRenderMoveArgumentOptions';
-    return $callbacks;
   }
 
   public function buildOptionsForm(&$form, FormStateInterface $form_state) {
@@ -163,68 +160,68 @@ abstract class ArgumentPluginBase extends HandlerBase implements CacheableDepend
 
     $argument_text = $this->view->display_handler->getArgumentText();
 
-    $form['#pre_render'][] = [get_class($this), 'preRenderMoveArgumentOptions'];
+    $form['#pre_render'][] = array(get_class($this), 'preRenderMoveArgumentOptions');
 
-    $form['description'] = [
+    $form['description'] = array(
       '#markup' => $argument_text['description'],
-      '#theme_wrappers' => ['container'],
-      '#attributes' => ['class' => ['description']],
-    ];
+      '#theme_wrappers' => array('container'),
+      '#attributes' => array('class' => array('description')),
+    );
 
-    $form['no_argument'] = [
+    $form['no_argument'] = array(
       '#type' => 'details',
       '#title' => $argument_text['filter value not present'],
       '#open' => TRUE,
-    ];
+    );
     // Everything in the details is floated, so the last element needs to
     // clear those floats.
-    $form['no_argument']['clearfix'] = [
+    $form['no_argument']['clearfix'] = array(
       '#weight' => 1000,
       '#markup' => '<div class="clearfix"></div>',
-    ];
-    $form['default_action'] = [
+    );
+    $form['default_action'] = array(
       '#title' => $this->t('Default actions'),
       '#title_display' => 'invisible',
       '#type' => 'radios',
-      '#process' => [[$this, 'processContainerRadios']],
+      '#process' => array(array($this, 'processContainerRadios')),
       '#default_value' => $this->options['default_action'],
       '#fieldset' => 'no_argument',
-    ];
+    );
 
-    $form['exception'] = [
+    $form['exception'] = array(
       '#type' => 'details',
       '#title' => $this->t('Exceptions'),
       '#fieldset' => 'no_argument',
-    ];
-    $form['exception']['value'] = [
+    );
+    $form['exception']['value'] = array(
       '#type' => 'textfield',
       '#title' => $this->t('Exception value'),
       '#size' => 20,
       '#default_value' => $this->options['exception']['value'],
       '#description' => $this->t('If this value is received, the filter will be ignored; i.e, "all values"'),
-    ];
-    $form['exception']['title_enable'] = [
+    );
+    $form['exception']['title_enable'] = array(
       '#type' => 'checkbox',
       '#title' => $this->t('Override title'),
       '#default_value' => $this->options['exception']['title_enable'],
-    ];
-    $form['exception']['title'] = [
+    );
+    $form['exception']['title'] = array(
       '#type' => 'textfield',
       '#title' => $this->t('Override title'),
       '#title_display' => 'invisible',
       '#size' => 20,
       '#default_value' => $this->options['exception']['title'],
-      '#description' => $this->t('Override the view and other argument titles. You may use Twig syntax in this field as well as the "arguments" and "raw_arguments" arrays.'),
-      '#states' => [
-        'visible' => [
-          ':input[name="options[exception][title_enable]"]' => ['checked' => TRUE],
-        ],
-      ],
-    ];
+      '#description' => $this->t('Override the view and other argument titles. Use "%1" for the first argument, "%2" for the second, etc.'),
+      '#states' => array(
+        'visible' => array(
+          ':input[name="options[exception][title_enable]"]' => array('checked' => TRUE),
+        ),
+      ),
+    );
 
-    $options = [];
+    $options = array();
     $defaults = $this->defaultActions();
-    $validate_options = [];
+    $validate_options = array();
     foreach ($defaults as $id => $info) {
       $options[$id] = $info['title'];
       if (empty($info['default only'])) {
@@ -236,71 +233,54 @@ abstract class ArgumentPluginBase extends HandlerBase implements CacheableDepend
     }
     $form['default_action']['#options'] = $options;
 
-    $form['argument_present'] = [
+    $form['argument_present'] = array(
       '#type' => 'details',
       '#title' => $argument_text['filter value present'],
       '#open' => TRUE,
-    ];
-    $form['title_enable'] = [
+    );
+    $form['title_enable'] = array(
       '#type' => 'checkbox',
       '#title' => $this->t('Override title'),
       '#default_value' => $this->options['title_enable'],
       '#fieldset' => 'argument_present',
-    ];
-    $form['title'] = [
+    );
+    $form['title'] = array(
       '#type' => 'textfield',
       '#title' => $this->t('Provide title'),
       '#title_display' => 'invisible',
       '#default_value' => $this->options['title'],
-      '#description' => $this->t('Override the view and other argument titles. You may use Twig syntax in this field.'),
-      '#states' => [
-        'visible' => [
-          ':input[name="options[title_enable]"]' => ['checked' => TRUE],
-        ],
-      ],
+      '#description' => $this->t('Override the view and other argument titles. Use "%1" for the first argument, "%2" for the second, etc.'),
+      '#states' => array(
+        'visible' => array(
+          ':input[name="options[title_enable]"]' => array('checked' => TRUE),
+        ),
+      ),
       '#fieldset' => 'argument_present',
-    ];
+    );
 
-    $output = $this->getTokenHelp();
-    $form['token_help'] = [
-      '#type' => 'details',
-      '#title' => $this->t('Replacement patterns'),
-      '#value' => $output,
-      '#states' => [
-        'visible' => [
-          [
-            ':input[name="options[title_enable]"]' => ['checked' => TRUE],
-          ],
-          [
-            ':input[name="options[exception][title_enable]"]' => ['checked' => TRUE],
-          ],
-        ],
-      ],
-    ];
-
-    $form['specify_validation'] = [
+    $form['specify_validation'] = array(
       '#type' => 'checkbox',
       '#title' => $this->t('Specify validation criteria'),
       '#default_value' => $this->options['specify_validation'],
       '#fieldset' => 'argument_present',
-    ];
+    );
 
-    $form['validate'] = [
+    $form['validate'] = array(
       '#type' => 'container',
       '#fieldset' => 'argument_present',
-    ];
+    );
     // Validator options include derivatives with :. These are sanitized for js
     // and reverted on submission.
-    $form['validate']['type'] = [
+    $form['validate']['type'] = array(
       '#type' => 'select',
       '#title' => $this->t('Validator'),
       '#default_value' => static::encodeValidatorId($this->options['validate']['type']),
-      '#states' => [
-        'visible' => [
-          ':input[name="options[specify_validation]"]' => ['checked' => TRUE],
-        ],
-      ],
-    ];
+      '#states' => array(
+        'visible' => array(
+          ':input[name="options[specify_validation]"]' => array('checked' => TRUE),
+        ),
+      ),
+    );
 
     $plugins = Views::pluginManager('argument_validator')->getDefinitions();
     foreach ($plugins as $id => $info) {
@@ -329,22 +309,21 @@ abstract class ArgumentPluginBase extends HandlerBase implements CacheableDepend
           if ($plugin->access() || $this->options['validate']['type'] == $id) {
             // Sanitize ID for js.
             $sanitized_id = static::encodeValidatorId($id);
-            $form['validate']['options'][$sanitized_id] = [
+            $form['validate']['options'][$sanitized_id] = array(
               '#prefix' => '<div id="edit-options-validate-options-' . $sanitized_id . '-wrapper">',
               '#suffix' => '</div>',
               '#type' => 'item',
               // Even if the plugin has no options add the key to the form_state.
-              // trick it into checking input to make #process run.
-              '#input' => TRUE,
-              '#states' => [
-                'visible' => [
-                  ':input[name="options[specify_validation]"]' => ['checked' => TRUE],
-                  ':input[name="options[validate][type]"]' => ['value' => $sanitized_id],
-                ],
-              ],
+              '#input' => TRUE, // trick it into checking input to make #process run
+              '#states' => array(
+                'visible' => array(
+                  ':input[name="options[specify_validation]"]' => array('checked' => TRUE),
+                  ':input[name="options[validate][type]"]' => array('value' => $sanitized_id),
+                ),
+              ),
               '#id' => 'edit-options-validate-options-' . $sanitized_id,
-              '#default_value' => [],
-            ];
+              '#default_value' => array(),
+            );
             $plugin->buildOptionsForm($form['validate']['options'][$sanitized_id], $form_state);
             $validate_types[$sanitized_id] = $info['title'];
           }
@@ -355,56 +334,18 @@ abstract class ArgumentPluginBase extends HandlerBase implements CacheableDepend
     asort($validate_types);
     $form['validate']['type']['#options'] = $validate_types;
 
-    $form['validate']['fail'] = [
+    $form['validate']['fail'] = array(
       '#type' => 'select',
       '#title' => $this->t('Action to take if filter value does not validate'),
       '#default_value' => $this->options['validate']['fail'],
       '#options' => $validate_options,
-      '#states' => [
-        'visible' => [
-          ':input[name="options[specify_validation]"]' => ['checked' => TRUE],
-        ],
-      ],
+      '#states' => array(
+        'visible' => array(
+          ':input[name="options[specify_validation]"]' => array('checked' => TRUE),
+        ),
+      ),
       '#fieldset' => 'argument_present',
-    ];
-  }
-
-  /**
-   * Provide token help information for the argument.
-   *
-   * @return array
-   *   A render array.
-   */
-  protected function getTokenHelp() {
-    $output = [];
-
-    foreach ($this->view->display_handler->getHandlers('argument') as $arg => $handler) {
-      /** @var \Drupal\views\Plugin\views\argument\ArgumentPluginBase $handler */
-      $options[(string) t('Arguments')]["{{ arguments.$arg }}"] = $this->t('@argument title', ['@argument' => $handler->adminLabel()]);
-      $options[(string) t('Arguments')]["{{ raw_arguments.$arg }}"] = $this->t('@argument input', ['@argument' => $handler->adminLabel()]);
-    }
-
-    // We have some options, so make a list.
-    if (!empty($options)) {
-      $output[] = [
-        '#markup' => '<p>' . $this->t("The following replacement tokens are available for this argument.") . '</p>',
-      ];
-      foreach (array_keys($options) as $type) {
-        if (!empty($options[$type])) {
-          $items = [];
-          foreach ($options[$type] as $key => $value) {
-            $items[] = $key . ' == ' . $value;
-          }
-          $item_list = [
-            '#theme' => 'item_list',
-            '#items' => $items,
-          ];
-          $output[] = $item_list;
-        }
-      }
-    }
-
-    return $output;
+    );
   }
 
   public function validateOptionsForm(&$form, FormStateInterface $form_state) {
@@ -463,16 +404,6 @@ abstract class ArgumentPluginBase extends HandlerBase implements CacheableDepend
       $option_values['summary_options'] = $options;
     }
 
-    // If the 'Specify validation criteria' checkbox is not checked, reset the
-    // validation options.
-    if (empty($option_values['specify_validation'])) {
-      $option_values['validate']['type'] = 'none';
-      // We need to keep the empty array of options for the 'None' plugin as
-      // it will be needed later.
-      $option_values['validate']['options'] = ['none' => []];
-      $option_values['validate']['fail'] = 'not found';
-    }
-
     $sanitized_id = $option_values['validate']['type'];
     // Correct ID for js sanitized version.
     $option_values['validate']['type'] = $validate_id = static::decodeValidatorId($sanitized_id);
@@ -497,40 +428,38 @@ abstract class ArgumentPluginBase extends HandlerBase implements CacheableDepend
    * Override this method to provide additional (or fewer) default behaviors.
    */
   protected function defaultActions($which = NULL) {
-    $defaults = [
-      'ignore' => [
+    $defaults = array(
+      'ignore' => array(
         'title' => $this->t('Display all results for the specified field'),
         'method' => 'defaultIgnore',
-      ],
-      'default' => [
+      ),
+      'default' => array(
         'title' => $this->t('Provide default value'),
         'method' => 'defaultDefault',
         'form method' => 'defaultArgumentForm',
         'has default argument' => TRUE,
-        // This can only be used for missing argument, not validation failure.
-        'default only' => TRUE,
-      ],
-      'not found' => [
+        'default only' => TRUE, // this can only be used for missing argument, not validation failure
+      ),
+      'not found' => array(
         'title' => $this->t('Hide view'),
         'method' => 'defaultNotFound',
-        // This is a hard fail condition.
-        'hard fail' => TRUE,
-      ],
-      'summary' => [
+        'hard fail' => TRUE, // This is a hard fail condition
+      ),
+      'summary' => array(
         'title' => $this->t('Display a summary'),
         'method' => 'defaultSummary',
         'form method' => 'defaultSummaryForm',
         'style plugin' => TRUE,
-      ],
-      'empty' => [
+      ),
+      'empty' => array(
         'title' => $this->t('Display contents of "No results found"'),
         'method' => 'defaultEmpty',
-      ],
-      'access denied' => [
+      ),
+      'access denied' => array(
         'title' => $this->t('Display "Access Denied"'),
         'method' => 'defaultAccessDenied',
-      ],
-    ];
+      ),
+    );
 
     if ($this->view->display_handler->hasPath()) {
       $defaults['not found']['title'] = $this->t('Show "Page not found"');
@@ -552,31 +481,31 @@ abstract class ArgumentPluginBase extends HandlerBase implements CacheableDepend
    */
   public function defaultArgumentForm(&$form, FormStateInterface $form_state) {
     $plugins = Views::pluginManager('argument_default')->getDefinitions();
-    $options = [];
+    $options = array();
 
-    $form['default_argument_skip_url'] = [
+    $form['default_argument_skip_url'] = array(
       '#type' => 'checkbox',
       '#title' => $this->t('Skip default argument for view URL'),
       '#default_value' => $this->options['default_argument_skip_url'],
-      '#description' => $this->t('Select whether to include this default argument when constructing the URL for this view. Skipping default arguments is useful e.g. in the case of feeds.'),
-    ];
+      '#description' => $this->t('Select whether to include this default argument when constructing the URL for this view. Skipping default arguments is useful e.g. in the case of feeds.')
+    );
 
-    $form['default_argument_type'] = [
+    $form['default_argument_type'] = array(
       '#prefix' => '<div id="edit-options-default-argument-type-wrapper">',
       '#suffix' => '</div>',
       '#type' => 'select',
       '#id' => 'edit-options-default-argument-type',
       '#title' => $this->t('Type'),
       '#default_value' => $this->options['default_argument_type'],
-      '#states' => [
-        'visible' => [
-          ':input[name="options[default_action]"]' => ['value' => 'default'],
-        ],
-      ],
+      '#states' => array(
+        'visible' => array(
+          ':input[name="options[default_action]"]' => array('value' => 'default'),
+        ),
+      ),
       // Views custom key, moves this element to the appropriate container
       // under the radio button.
       '#argument_option' => 'default',
-    ];
+    );
 
     foreach ($plugins as $id => $info) {
       if (!empty($info['no_ui'])) {
@@ -586,21 +515,21 @@ abstract class ArgumentPluginBase extends HandlerBase implements CacheableDepend
       if ($plugin) {
         if ($plugin->access() || $this->options['default_argument_type'] == $id) {
           $form['argument_default']['#argument_option'] = 'default';
-          $form['argument_default'][$id] = [
+          $form['argument_default'][$id] = array(
             '#prefix' => '<div id="edit-options-argument-default-options-' . $id . '-wrapper">',
             '#suffix' => '</div>',
             '#id' => 'edit-options-argument-default-options-' . $id,
             '#type' => 'item',
             // Even if the plugin has no options add the key to the form_state.
             '#input' => TRUE,
-            '#states' => [
-              'visible' => [
-                ':input[name="options[default_action]"]' => ['value' => 'default'],
-                ':input[name="options[default_argument_type]"]' => ['value' => $id],
-              ],
-            ],
-            '#default_value' => [],
-          ];
+            '#states' => array(
+              'visible' => array(
+                ':input[name="options[default_action]"]' => array('value' => 'default'),
+                ':input[name="options[default_argument_type]"]' => array('value' => $id),
+              ),
+            ),
+            '#default_value' => array(),
+          );
           $options[$id] = $info['title'];
           $plugin->buildOptionsForm($form['argument_default'][$id], $form_state);
         }
@@ -617,8 +546,8 @@ abstract class ArgumentPluginBase extends HandlerBase implements CacheableDepend
    */
   public function defaultSummaryForm(&$form, FormStateInterface $form_state) {
     $style_plugins = Views::pluginManager('style')->getDefinitions();
-    $summary_plugins = [];
-    $format_options = [];
+    $summary_plugins = array();
+    $format_options = array();
     foreach ($style_plugins as $key => $plugin) {
       if (isset($plugin['display_types']) && in_array('summary', $plugin['display_types'])) {
         $summary_plugins[$key] = $plugin;
@@ -626,48 +555,48 @@ abstract class ArgumentPluginBase extends HandlerBase implements CacheableDepend
       }
     }
 
-    $form['summary'] = [
+    $form['summary'] = array(
       // Views custom key, moves this element to the appropriate container
       // under the radio button.
       '#argument_option' => 'summary',
-    ];
-    $form['summary']['sort_order'] = [
+    );
+    $form['summary']['sort_order'] = array(
       '#type' => 'radios',
       '#title' => $this->t('Sort order'),
-      '#options' => ['asc' => $this->t('Ascending'), 'desc' => $this->t('Descending')],
+      '#options' => array('asc' => $this->t('Ascending'), 'desc' => $this->t('Descending')),
       '#default_value' => $this->options['summary']['sort_order'],
-      '#states' => [
-        'visible' => [
-          ':input[name="options[default_action]"]' => ['value' => 'summary'],
-        ],
-      ],
-    ];
-    $form['summary']['number_of_records'] = [
+      '#states' => array(
+        'visible' => array(
+          ':input[name="options[default_action]"]' => array('value' => 'summary'),
+        ),
+      ),
+    );
+    $form['summary']['number_of_records'] = array(
       '#type' => 'radios',
       '#title' => $this->t('Sort by'),
       '#default_value' => $this->options['summary']['number_of_records'],
-      '#options' => [
+      '#options' => array(
         0 => $this->getSortName(),
-        1 => $this->t('Number of records'),
-      ],
-      '#states' => [
-        'visible' => [
-          ':input[name="options[default_action]"]' => ['value' => 'summary'],
-        ],
-      ],
-    ];
+        1 => $this->t('Number of records')
+      ),
+      '#states' => array(
+        'visible' => array(
+          ':input[name="options[default_action]"]' => array('value' => 'summary'),
+        ),
+      ),
+    );
 
-    $form['summary']['format'] = [
+    $form['summary']['format'] = array(
       '#type' => 'radios',
       '#title' => $this->t('Format'),
       '#options' => $format_options,
       '#default_value' => $this->options['summary']['format'],
-      '#states' => [
-        'visible' => [
-          ':input[name="options[default_action]"]' => ['value' => 'summary'],
-        ],
-      ],
-    ];
+      '#states' => array(
+        'visible' => array(
+          ':input[name="options[default_action]"]' => array('value' => 'summary'),
+        ),
+      ),
+    );
 
     foreach ($summary_plugins as $id => $info) {
       $plugin = $this->getPlugin('style', $id);
@@ -675,21 +604,20 @@ abstract class ArgumentPluginBase extends HandlerBase implements CacheableDepend
         continue;
       }
       if ($plugin) {
-        $form['summary']['options'][$id] = [
+        $form['summary']['options'][$id] = array(
           '#prefix' => '<div id="edit-options-summary-options-' . $id . '-wrapper">',
           '#suffix' => '</div>',
           '#id' => 'edit-options-summary-options-' . $id,
           '#type' => 'item',
-          // Trick it into checking input to make #process run.
-          '#input' => TRUE,
-          '#states' => [
-            'visible' => [
-              ':input[name="options[default_action]"]' => ['value' => 'summary'],
-              ':input[name="options[summary][format]"]' => ['value' => $id],
-            ],
-          ],
-          '#default_value' => [],
-        ];
+          '#input' => TRUE, // trick it into checking input to make #process run
+          '#states' => array(
+            'visible' => array(
+              ':input[name="options[default_action]"]' => array('value' => 'summary'),
+              ':input[name="options[summary][format]"]' => array('value' => $id),
+            ),
+          ),
+          '#default_value' => array(),
+        );
         $options[$id] = $info['title'];
         $plugin->buildOptionsForm($form['summary']['options'][$id], $form_state);
       }
@@ -715,7 +643,7 @@ abstract class ArgumentPluginBase extends HandlerBase implements CacheableDepend
     }
 
     if (!empty($info['method args'])) {
-      return call_user_func_array([&$this, $info['method']], $info['method args']);
+      return call_user_func_array(array(&$this, $info['method']), $info['method args']);
     }
     else {
       return $this->{$info['method']}();
@@ -729,7 +657,6 @@ abstract class ArgumentPluginBase extends HandlerBase implements CacheableDepend
     $info = $this->defaultActions($this->options['validate']['fail']);
     return $this->defaultAction($info);
   }
-
   /**
    * Default action: ignore.
    *
@@ -773,7 +700,7 @@ abstract class ArgumentPluginBase extends HandlerBase implements CacheableDepend
     // We return with no query; this will force the empty text.
     $this->view->built = TRUE;
     $this->view->executed = TRUE;
-    $this->view->result = [];
+    $this->view->result = array();
     return FALSE;
   }
 
@@ -788,7 +715,7 @@ abstract class ArgumentPluginBase extends HandlerBase implements CacheableDepend
   /**
    * Determine if the argument is set to provide a default argument.
    */
-  public function hasDefaultArgument() {
+  function hasDefaultArgument() {
     $info = $this->defaultActions($this->options['default_action']);
     return !empty($info['has default argument']);
   }
@@ -910,7 +837,7 @@ abstract class ArgumentPluginBase extends HandlerBase implements CacheableDepend
     // Add the number of nodes counter
     $distinct = ($this->view->display_handler->getOption('distinct') && empty($this->query->no_distinct));
 
-    $count_alias = $this->query->addField($this->view->storage->get('base_table'), $this->view->storage->get('base_field'), 'num_records', ['count' => TRUE, 'distinct' => $distinct]);
+    $count_alias = $this->query->addField($this->view->storage->get('base_table'), $this->view->storage->get('base_field'), 'num_records', array('count' => TRUE, 'distinct' => $distinct));
     $this->query->addGroupBy($this->name_alias);
 
     if ($count_field) {
@@ -955,7 +882,7 @@ abstract class ArgumentPluginBase extends HandlerBase implements CacheableDepend
     if (empty($value) && !empty($this->definition['empty field name'])) {
       $value = $this->definition['empty field name'];
     }
-    return $value;
+    return SafeMarkup::checkPlain($value);
   }
 
   /**
@@ -973,8 +900,8 @@ abstract class ArgumentPluginBase extends HandlerBase implements CacheableDepend
    *
    * This usually needs to be overridden to provide a proper title.
    */
-  public function title() {
-    return $this->argument;
+  function title() {
+    return SafeMarkup::checkPlain($this->argument);
   }
 
   /**
@@ -1087,7 +1014,7 @@ abstract class ArgumentPluginBase extends HandlerBase implements CacheableDepend
    * Get the display or row plugin, if it exists.
    */
   public function getPlugin($type = 'argument_default', $name = NULL) {
-    $options = [];
+    $options = array();
     switch ($type) {
       case 'argument_default':
         if (!isset($this->options['default_argument_type'])) {
@@ -1140,7 +1067,7 @@ abstract class ArgumentPluginBase extends HandlerBase implements CacheableDepend
    * their argument is (e.g. alphabetical, numeric, date).
    */
   public function getSortName() {
-    return $this->t('Default sort', [], ['context' => 'Sort order']);
+    return $this->t('Default sort', array(), array('context' => 'Sort order'));
   }
 
   /**
@@ -1155,12 +1082,12 @@ abstract class ArgumentPluginBase extends HandlerBase implements CacheableDepend
   public static function processContainerRadios($element) {
     if (count($element['#options']) > 0) {
       foreach ($element['#options'] as $key => $choice) {
-        $element += [$key => []];
+        $element += array($key => array());
         // Generate the parents as the autogenerator does, so we will have a
         // unique id for each radio button.
-        $parents_for_id = array_merge($element['#parents'], [$key]);
+        $parents_for_id = array_merge($element['#parents'], array($key));
 
-        $element[$key] += [
+        $element[$key] += array(
           '#type' => 'radio',
           '#title' => $choice,
           // The key is sanitized in drupal_attributes() during output from the
@@ -1171,11 +1098,11 @@ abstract class ArgumentPluginBase extends HandlerBase implements CacheableDepend
           '#parents' => $element['#parents'],
           '#id' => Html::getUniqueId('edit-' . implode('-', $parents_for_id)),
           '#ajax' => isset($element['#ajax']) ? $element['#ajax'] : NULL,
-        ];
-        $element[$key . '_options'] = [
+        );
+        $element[$key . '_options'] = array(
           '#type' => 'container',
-          '#attributes' => ['class' => ['views-admin-dependent']],
-        ];
+          '#attributes' => array('class' => array('views-admin-dependent')),
+        );
       }
     }
     return $element;
@@ -1185,7 +1112,7 @@ abstract class ArgumentPluginBase extends HandlerBase implements CacheableDepend
    * Moves argument options into their place.
    *
    * When configuring the default argument behavior, almost each of the radio
-   * buttons has its own fieldset shown below it when the radio button is
+   * buttons has its own fieldset shown bellow it when the radio button is
    * clicked. That fieldset is created through a custom form process callback.
    * Each element that has #argument_option defined and pointing to a default
    * behavior gets moved to the appropriate fieldset.
@@ -1211,7 +1138,7 @@ abstract class ArgumentPluginBase extends HandlerBase implements CacheableDepend
   /**
    * Sanitize validator options including derivatives with : for js.
    *
-   * Reason and alternative: https://www.drupal.org/node/2035345.
+   * Reason and alternative: http://drupal.org/node/2035345
    *
    * @param string $id
    *   The identifier to be sanitized.
@@ -1219,7 +1146,7 @@ abstract class ArgumentPluginBase extends HandlerBase implements CacheableDepend
    * @return string
    *   The sanitized identifier.
    *
-   * @see decodeValidatorId()
+   * @see decodeValidatorId().
    */
   public static function encodeValidatorId($id) {
     return str_replace(':', '---', $id);
@@ -1253,24 +1180,24 @@ abstract class ArgumentPluginBase extends HandlerBase implements CacheableDepend
   /**
    * {@inheritdoc}
    */
-  public function getCacheMaxAge() {
-    $max_age = Cache::PERMANENT;
+  public function isCacheable() {
+    $result = TRUE;
 
     // Asks all subplugins (argument defaults, argument validator and styles).
-    if (($plugin = $this->getPlugin('argument_default')) && $plugin instanceof CacheableDependencyInterface) {
-      $max_age = Cache::mergeMaxAges($max_age, $plugin->getCacheMaxAge());
+    if (($plugin = $this->getPlugin('argument_default')) && $plugin instanceof CacheablePluginInterface) {
+      $result &= $plugin->isCacheable();
     }
 
-    if (($plugin = $this->getPlugin('argument_validator')) && $plugin instanceof CacheableDependencyInterface) {
-      $max_age = Cache::mergeMaxAges($max_age, $plugin->getCacheMaxAge());
+    if (($plugin = $this->getPlugin('argument_validator')) && $plugin instanceof CacheablePluginInterface) {
+      $result &= $plugin->isCacheable();
     }
 
     // Summaries use style plugins.
-    if (($plugin = $this->getPlugin('style')) && $plugin instanceof CacheableDependencyInterface) {
-      $max_age = Cache::mergeMaxAges($max_age, $plugin->getCacheMaxAge());
+    if (($plugin = $this->getPlugin('style')) && $plugin instanceof CacheablePluginInterface) {
+      $result &= $plugin->isCacheable();
     }
 
-    return $max_age;
+    return $result;
   }
 
   /**
@@ -1284,41 +1211,19 @@ abstract class ArgumentPluginBase extends HandlerBase implements CacheableDepend
     $contexts[] = 'url';
 
     // Asks all subplugins (argument defaults, argument validator and styles).
-    if (($plugin = $this->getPlugin('argument_default')) && $plugin instanceof CacheableDependencyInterface) {
-      $contexts = Cache::mergeContexts($contexts, $plugin->getCacheContexts());
+    if (($plugin = $this->getPlugin('argument_default')) && $plugin instanceof CacheablePluginInterface) {
+      $contexts = array_merge($plugin->getCacheContexts(), $contexts);
     }
 
-    if (($plugin = $this->getPlugin('argument_validator')) && $plugin instanceof CacheableDependencyInterface) {
-      $contexts = Cache::mergeContexts($contexts, $plugin->getCacheContexts());
+    if (($plugin = $this->getPlugin('argument_validator')) && $plugin instanceof CacheablePluginInterface) {
+      $contexts = array_merge($plugin->getCacheContexts(), $contexts);
     }
 
-    if (($plugin = $this->getPlugin('style')) && $plugin instanceof CacheableDependencyInterface) {
-      $contexts = Cache::mergeContexts($contexts, $plugin->getCacheContexts());
+    if (($plugin = $this->getPlugin('style')) && $plugin instanceof CacheablePluginInterface) {
+      $contexts = array_merge($plugin->getCacheContexts(), $contexts);
     }
 
     return $contexts;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function getCacheTags() {
-    $tags = [];
-
-    // Asks all subplugins (argument defaults, argument validator and styles).
-    if (($plugin = $this->getPlugin('argument_default')) && $plugin instanceof CacheableDependencyInterface) {
-      $tags = Cache::mergeTags($tags, $plugin->getCacheTags());
-    }
-
-    if (($plugin = $this->getPlugin('argument_validator')) && $plugin instanceof CacheableDependencyInterface) {
-      $tags = Cache::mergeTags($tags, $plugin->getCacheTags());
-    }
-
-    if (($plugin = $this->getPlugin('style')) && $plugin instanceof CacheableDependencyInterface) {
-      $tags = Cache::mergeTags($tags, $plugin->getCacheTags());
-    }
-
-    return $tags;
   }
 
   /**
@@ -1337,17 +1242,6 @@ abstract class ArgumentPluginBase extends HandlerBase implements CacheableDepend
     }
 
     return $dependencies;
-  }
-
-  /**
-   * Returns a context definition for this argument.
-   *
-   * @return \Drupal\Core\Plugin\Context\ContextDefinitionInterface|null
-   *   A context definition that represents the argument or NULL if that is
-   *   not possible.
-   */
-  public function getContextDefinition() {
-    return $this->getPlugin('argument_validator')->getContextDefinition();
   }
 
 }

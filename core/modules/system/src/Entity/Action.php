@@ -1,13 +1,18 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\system\Entity\Action.
+ */
+
 namespace Drupal\system\Entity;
 
-use Drupal\Component\Plugin\PluginHelper;
 use Drupal\Core\Config\Entity\ConfigEntityBase;
 use Drupal\Core\Config\Entity\ConfigEntityInterface;
 use Drupal\Core\Entity\EntityWithPluginCollectionInterface;
 use Drupal\system\ActionConfigEntityInterface;
 use Drupal\Core\Action\ActionPluginCollection;
+use Drupal\Component\Plugin\ConfigurablePluginInterface;
 
 /**
  * Defines the configured action entity.
@@ -15,24 +20,10 @@ use Drupal\Core\Action\ActionPluginCollection;
  * @ConfigEntityType(
  *   id = "action",
  *   label = @Translation("Action"),
- *   label_collection = @Translation("Actions"),
- *   label_singular = @Translation("action"),
- *   label_plural = @Translation("actions"),
- *   label_count = @PluralTranslation(
- *     singular = "@count action",
- *     plural = "@count actions",
- *   ),
  *   admin_permission = "administer actions",
  *   entity_keys = {
  *     "id" = "id",
  *     "label" = "label"
- *   },
- *   config_export = {
- *     "id",
- *     "label",
- *     "type",
- *     "plugin",
- *     "configuration",
  *   }
  * )
  */
@@ -64,7 +55,7 @@ class Action extends ConfigEntityBase implements ActionConfigEntityInterface, En
    *
    * @var array
    */
-  protected $configuration = [];
+  protected $configuration = array();
 
   /**
    * The plugin ID of the action.
@@ -97,7 +88,7 @@ class Action extends ConfigEntityBase implements ActionConfigEntityInterface, En
    * {@inheritdoc}
    */
   public function getPluginCollections() {
-    return ['configuration' => $this->getPluginCollection()];
+    return array('configuration' => $this->getPluginCollection());
   }
 
   /**
@@ -133,7 +124,7 @@ class Action extends ConfigEntityBase implements ActionConfigEntityInterface, En
    * {@inheritdoc}
    */
   public function isConfigurable() {
-    return PluginHelper::isConfigurable($this->getPlugin());
+    return $this->getPlugin() instanceof ConfigurablePluginInterface;
   }
 
   /**

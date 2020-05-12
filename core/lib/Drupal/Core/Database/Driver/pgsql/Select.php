@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\Core\Database\Driver\pgsql\Select
+ */
+
 namespace Drupal\Core\Database\Driver\pgsql;
 
 use Drupal\Core\Database\Query\Select as QuerySelect;
@@ -9,9 +14,6 @@ use Drupal\Core\Database\Query\Select as QuerySelect;
  * @{
  */
 
-/**
- * PostgreSQL implementation of \Drupal\Core\Database\Query\Select.
- */
 class Select extends QuerySelect {
 
   public function orderRandom() {
@@ -30,7 +32,7 @@ class Select extends QuerySelect {
    * yet selected.
    *
    * @code
-   *   $query = \Drupal::database()->select('example', 'e');
+   *   $query = db_select('example', 'e');
    *   $query->join('example_revision', 'er', 'e.vid = er.vid');
    *   $query
    *     ->distinct()
@@ -114,7 +116,7 @@ class Select extends QuerySelect {
   /**
    * {@inheritdoc}
    */
-  public function addExpression($expression, $alias = NULL, $arguments = []) {
+  public function addExpression($expression, $alias = NULL, $arguments = array()) {
     if (empty($alias)) {
       $alias = 'expression';
     }
@@ -127,11 +129,11 @@ class Select extends QuerySelect {
     }
     $alias = $alias_candidate;
 
-    $this->expressions[$alias] = [
+    $this->expressions[$alias] = array(
       'expression' => $expression,
       'alias' => $this->connection->escapeAlias($alias_candidate),
       'arguments' => $arguments,
-    ];
+    );
 
     return $alias;
   }
@@ -152,7 +154,6 @@ class Select extends QuerySelect {
 
     return $result;
   }
-
 }
 
 /**

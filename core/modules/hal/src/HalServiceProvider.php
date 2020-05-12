@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\hal\HalServiceProvider.
+ */
+
 namespace Drupal\hal;
 
 use Drupal\Core\DependencyInjection\ContainerBuilder;
@@ -14,9 +19,10 @@ class HalServiceProvider implements ServiceModifierInterface {
    * {@inheritdoc}
    */
   public function alter(ContainerBuilder $container) {
-    if ($container->has('http_middleware.negotiation') && is_a($container->getDefinition('http_middleware.negotiation')->getClass(), '\Drupal\Core\StackMiddleware\NegotiationMiddleware', TRUE)) {
+    if ($container->has('http_middleware.negotiation')) {
       $container->getDefinition('http_middleware.negotiation')->addMethodCall('registerFormat', ['hal_json', ['application/hal+json']]);
     }
   }
 
 }
+

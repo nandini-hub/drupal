@@ -18,20 +18,23 @@
  * - label_display: The display settings for the label.
  *
  * @see template_preprocess_field()
+ * @see bartik_preprocess_field()
  */
 #}
+{% set field_name_class = field_name|clean_class %}
 {%
   set classes = [
     'field',
-    'field--name-' ~ field_name|clean_class,
-    'field--type-' ~ field_type|clean_class,
-    'field--label-' ~ label_display,
+    'field-' ~ entity_type|clean_class ~ '--' ~ field_name_class,
+    'field-name-' ~ field_name_class,
+    'field-type-' ~ field_type|clean_class,
+    'field-label-' ~ label_display,
     'clearfix',
   ]
 %}
 {%
   set title_classes = [
-    'field__label',
+    'field-label',
     label_display == 'inline' ? 'inline',
   ]
 %}
@@ -39,7 +42,7 @@
   {% if not label_hidden %}
     <h3{{ title_attributes.addClass(title_classes) }}>{{ label }}</h3>
   {% endif %}
-  <ul class="links field__items">
+  <ul{{ content_attributes.addClass('links', 'field-items') }}>
     {% for item in items %}
       <li{{ item.attributes }}>{{ item.content }}</li>
     {% endfor %}

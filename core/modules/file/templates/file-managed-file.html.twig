@@ -12,12 +12,6 @@
  * @ingroup themeable
  */
 #}
-{%
-  set classes = [
-    'js-form-managed-file',
-    'form-managed-file',
-  ]
-%}
-<div{{ attributes.addClass(classes) }}>
+<div{{ attributes.addClass('form-managed-file') }}>
   {{ element }}
 </div>

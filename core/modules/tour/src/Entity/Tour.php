@@ -1,8 +1,14 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\tour\Entity\Tour.
+ */
+
 namespace Drupal\tour\Entity;
 
 use Drupal\Core\Config\Entity\ConfigEntityBase;
+use Drupal\Core\Entity\EntityStorageInterface;
 use Drupal\tour\TipsPluginCollection;
 use Drupal\tour\TourInterface;
 
@@ -12,31 +18,12 @@ use Drupal\tour\TourInterface;
  * @ConfigEntityType(
  *   id = "tour",
  *   label = @Translation("Tour"),
- *   label_collection = @Translation("Tours"),
- *   label_singular = @Translation("tour"),
- *   label_plural = @Translation("tours"),
- *   label_count = @PluralTranslation(
- *     singular = "@count tour",
- *     plural = "@count tours",
- *   ),
  *   handlers = {
- *     "view_builder" = "Drupal\tour\TourViewBuilder",
- *     "access" = "Drupal\tour\TourAccessControlHandler",
+ *     "view_builder" = "Drupal\tour\TourViewBuilder"
  *   },
- *   admin_permission = "administer site configuration",
  *   entity_keys = {
  *     "id" = "id",
  *     "label" = "label"
- *   },
- *   config_export = {
- *     "id",
- *     "label",
- *     "module",
- *     "routes",
- *     "tips",
- *   },
- *   lookup_keys = {
- *     "routes.*.route_name"
  *   }
  * )
  */
@@ -68,7 +55,7 @@ class Tour extends ConfigEntityBase implements TourInterface {
    *
    * @var array
    */
-  protected $routes = [];
+  protected $routes = array();
 
   /**
    * The routes on which this tour should be displayed, keyed by route id.
@@ -89,10 +76,10 @@ class Tour extends ConfigEntityBase implements TourInterface {
    *
    * @var array
    */
-  protected $tips = [];
+  protected $tips = array();
 
   /**
-   * {@inheritdoc}
+   * Overrides \Drupal\Core\Config\Entity\ConfigEntityBase::__construct();
    */
   public function __construct(array $values, $entity_type) {
     parent::__construct($values, $entity_type);
@@ -118,7 +105,7 @@ class Tour extends ConfigEntityBase implements TourInterface {
    * {@inheritdoc}
    */
   public function getTips() {
-    $tips = [];
+    $tips = array();
     foreach ($this->tips as $id => $tip) {
       $tips[] = $this->getTip($id);
     }
@@ -145,9 +132,9 @@ class Tour extends ConfigEntityBase implements TourInterface {
    */
   public function hasMatchingRoute($route_name, $route_params) {
     if (!isset($this->keyedRoutes)) {
-      $this->keyedRoutes = [];
+      $this->keyedRoutes = array();
       foreach ($this->getRoutes() as $route) {
-        $this->keyedRoutes[$route['route_name']] = isset($route['route_params']) ? $route['route_params'] : [];
+        $this->keyedRoutes[$route['route_name']] = isset($route['route_params']) ? $route['route_params'] : array();
       }
     }
     if (!isset($this->keyedRoutes[$route_name])) {
@@ -180,13 +167,13 @@ class Tour extends ConfigEntityBase implements TourInterface {
   public function calculateDependencies() {
     parent::calculateDependencies();
 
-    foreach ($this->tipsCollection as $instance) {
+    foreach($this->tipsCollection as $instance) {
       $definition = $instance->getPluginDefinition();
       $this->addDependency('module', $definition['provider']);
     }
 
     $this->addDependency('module', $this->module);
-    return $this;
+    return $this->dependencies;
   }
 
 }

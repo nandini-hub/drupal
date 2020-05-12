@@ -1,8 +1,13 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Tests\block\Unit\Menu\BlockLocalTasksTest.
+ */
+
 namespace Drupal\Tests\block\Unit\Menu;
 
-use Drupal\Tests\Core\Menu\LocalTaskIntegrationTestBase;
+use Drupal\Tests\Core\Menu\LocalTaskIntegrationTest;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 
 /**
@@ -10,47 +15,36 @@ use Symfony\Component\DependencyInjection\ContainerBuilder;
  *
  * @group block
  */
-class BlockLocalTasksTest extends LocalTaskIntegrationTestBase {
+class BlockLocalTasksTest extends LocalTaskIntegrationTest {
 
   protected function setUp() {
-    $this->directoryList = ['block' => 'core/modules/block'];
+    $this->directoryList = array('block' => 'core/modules/block');
     parent::setUp();
 
-    $config_factory = $this->getConfigFactoryStub([
-      'system.theme' => ['default' => 'test_c'],
-    ]);
+    $config_factory = $this->getConfigFactoryStub(array('system.theme' => array(
+      'default' => 'test_c',
+    )));
 
-    $themes = [];
-    $themes['test_a'] = (object) [
+    $themes = array();
+    $themes['test_a'] = (object) array(
+      'status' => 0,
+    );
+    $themes['test_b'] = (object) array(
       'status' => 1,
-      'info' => [
-        'name' => 'test_a',
-        'hidden' => TRUE,
-      ],
-    ];
-    $themes['test_b'] = (object) [
-      'status' => 1,
-      'info' => [
+      'info' => array(
         'name' => 'test_b',
-      ],
-    ];
-    $themes['test_c'] = (object) [
+      ),
+    );
+    $themes['test_c'] = (object) array(
       'status' => 1,
-      'info' => [
+      'info' => array(
         'name' => 'test_c',
-      ],
-    ];
-    $theme_handler = $this->createMock('Drupal\Core\Extension\ThemeHandlerInterface');
+      ),
+    );
+    $theme_handler = $this->getMock('Drupal\Core\Extension\ThemeHandlerInterface');
     $theme_handler->expects($this->any())
       ->method('listInfo')
       ->will($this->returnValue($themes));
-    $theme_handler->expects($this->any())
-      ->method('hasUi')
-      ->willReturnMap([
-        ['test_a', FALSE],
-        ['test_b', TRUE],
-        ['test_c', TRUE],
-      ]);
 
     $container = new ContainerBuilder();
     $container->set('config.factory', $config_factory);
@@ -63,7 +57,7 @@ class BlockLocalTasksTest extends LocalTaskIntegrationTestBase {
    * Tests the admin edit local task.
    */
   public function testBlockAdminLocalTasks() {
-    $this->assertLocalTasks('entity.block.edit_form', [['entity.block.edit_form']]);
+    $this->assertLocalTasks('entity.block.edit_form', array(array('entity.block.edit_form')));
   }
 
   /**
@@ -79,10 +73,10 @@ class BlockLocalTasksTest extends LocalTaskIntegrationTestBase {
    * Provides a list of routes to test.
    */
   public function providerTestBlockAdminDisplay() {
-    return [
-      ['block.admin_display', [['block.admin_display'], ['block.admin_display_theme:test_b', 'block.admin_display_theme:test_c']]],
-      ['block.admin_display_theme', [['block.admin_display'], ['block.admin_display_theme:test_b', 'block.admin_display_theme:test_c']]],
-    ];
+    return array(
+      array('block.admin_display', array(array('block.admin_display'), array('block.admin_display_theme:test_b', 'block.admin_display_theme:test_c'))),
+      array('block.admin_display_theme', array(array('block.admin_display'), array('block.admin_display_theme:test_b', 'block.admin_display_theme:test_c'))),
+    );
   }
 
 }

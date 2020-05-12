@@ -1,8 +1,11 @@
 <?php
 
-namespace Drupal\Core\Cache;
+/**
+ * @file
+ * Definition of Drupal\Core\Cache\ArrayBackend.
+ */
 
-use Drupal\Component\Assertion\Inspector;
+namespace Drupal\Core\Cache;
 
 /**
  * Defines a memory cache implementation.
@@ -12,11 +15,6 @@ use Drupal\Component\Assertion\Inspector;
  * Should be used for unit tests and specialist use-cases only, does not
  * store cached items between requests.
  *
- * The functions ::prepareItem()/::set() use unserialize()/serialize(). It
- * behaves as an external cache backend to avoid changing the cached data by
- * reference. In ::prepareItem(), the object is not modified by the call to
- * unserialize() because we make a clone of it.
- *
  * @ingroup cache
  */
 class MemoryBackend implements CacheBackendInterface, CacheTagsInvalidatorInterface {
@@ -24,10 +22,19 @@ class MemoryBackend implements CacheBackendInterface, CacheTagsInvalidatorInterf
   /**
    * Array to store cache objects.
    */
-  protected $cache = [];
+  protected $cache = array();
 
   /**
-   * {@inheritdoc}
+   * Constructs a MemoryBackend object.
+   *
+   * @param string $bin
+   *   The cache bin for which the object is created.
+   */
+  public function __construct($bin) {
+  }
+
+  /**
+   * Implements Drupal\Core\Cache\CacheBackendInterface::get().
    */
   public function get($cid, $allow_invalid = FALSE) {
     if (isset($this->cache[$cid])) {
@@ -39,10 +46,10 @@ class MemoryBackend implements CacheBackendInterface, CacheTagsInvalidatorInterf
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\Cache\CacheBackendInterface::getMultiple().
    */
   public function getMultiple(&$cids, $allow_invalid = FALSE) {
-    $ret = [];
+    $ret = array();
 
     $items = array_intersect_key($this->cache, array_flip($cids));
 
@@ -65,7 +72,7 @@ class MemoryBackend implements CacheBackendInterface, CacheTagsInvalidatorInterf
    * as appropriate.
    *
    * @param object $cache
-   *   An item loaded from self::get() or self::getMultiple().
+   *   An item loaded from cache_get() or cache_get_multiple().
    * @param bool $allow_invalid
    *   (optional) If TRUE, cache items may be returned even if they have expired
    *   or been invalidated.
@@ -97,54 +104,54 @@ class MemoryBackend implements CacheBackendInterface, CacheTagsInvalidatorInterf
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\Cache\CacheBackendInterface::set().
    */
-  public function set($cid, $data, $expire = Cache::PERMANENT, array $tags = []) {
-    assert(Inspector::assertAllStrings($tags), 'Cache Tags must be strings.');
+  public function set($cid, $data, $expire = Cache::PERMANENT, array $tags = array()) {
+    Cache::validateTags($tags);
     $tags = array_unique($tags);
     // Sort the cache tags so that they are stored consistently in the database.
     sort($tags);
-    $this->cache[$cid] = (object) [
+    $this->cache[$cid] = (object) array(
       'cid' => $cid,
       'data' => serialize($data),
       'created' => $this->getRequestTime(),
       'expire' => $expire,
       'tags' => $tags,
-    ];
+    );
   }
 
   /**
    * {@inheritdoc}
    */
-  public function setMultiple(array $items = []) {
+  public function setMultiple(array $items = array()) {
     foreach ($items as $cid => $item) {
-      $this->set($cid, $item['data'], isset($item['expire']) ? $item['expire'] : CacheBackendInterface::CACHE_PERMANENT, isset($item['tags']) ? $item['tags'] : []);
+      $this->set($cid, $item['data'], isset($item['expire']) ? $item['expire'] : CacheBackendInterface::CACHE_PERMANENT, isset($item['tags']) ? $item['tags'] : array());
     }
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\Cache\CacheBackendInterface::delete().
    */
   public function delete($cid) {
     unset($this->cache[$cid]);
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\Cache\CacheBackendInterface::deleteMultiple().
    */
   public function deleteMultiple(array $cids) {
     $this->cache = array_diff_key($this->cache, array_flip($cids));
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\Cache\CacheBackendInterface::deleteAll().
    */
   public function deleteAll() {
-    $this->cache = [];
+    $this->cache = array();
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\Cache\CacheBackendInterface::invalidate().
    */
   public function invalidate($cid) {
     if (isset($this->cache[$cid])) {
@@ -153,11 +160,10 @@ class MemoryBackend implements CacheBackendInterface, CacheTagsInvalidatorInterf
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\Cache\CacheBackendInterface::invalidateMultiple().
    */
   public function invalidateMultiple(array $cids) {
-    $items = array_intersect_key($this->cache, array_flip($cids));
-    foreach ($items as $cid => $item) {
+    foreach ($cids as $cid) {
       $this->cache[$cid]->expire = $this->getRequestTime() - 1;
     }
   }
@@ -174,7 +180,7 @@ class MemoryBackend implements CacheBackendInterface, CacheTagsInvalidatorInterf
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\Cache\CacheBackendInterface::invalidateAll().
    */
   public function invalidateAll() {
     foreach ($this->cache as $cid => $item) {
@@ -183,7 +189,7 @@ class MemoryBackend implements CacheBackendInterface, CacheTagsInvalidatorInterf
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\Cache\CacheBackendInterface::garbageCollection()
    */
   public function garbageCollection() {
   }
@@ -209,15 +215,6 @@ class MemoryBackend implements CacheBackendInterface, CacheTagsInvalidatorInterf
    */
   public function __sleep() {
     return [];
-  }
-
-  /**
-   * Reset statically cached variables.
-   *
-   * This is only used by tests.
-   */
-  public function reset() {
-    $this->cache = [];
   }
 
 }

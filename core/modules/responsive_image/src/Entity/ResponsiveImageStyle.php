@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\responsive_image\Entity\ResponsiveImageStyle.
+ */
+
 namespace Drupal\responsive_image\Entity;
 
 use Drupal\Core\Config\Entity\ConfigEntityBase;
@@ -12,13 +17,6 @@ use Drupal\responsive_image\ResponsiveImageStyleInterface;
  * @ConfigEntityType(
  *   id = "responsive_image_style",
  *   label = @Translation("Responsive image style"),
- *   label_collection = @Translation("Responsive image styles"),
- *   label_singular = @Translation("responsive image style"),
- *   label_plural = @Translation("responsive image styles"),
- *   label_count = @PluralTranslation(
- *     singular = "@count responsive image style",
- *     plural = "@count responsive image styles",
- *   ),
  *   handlers = {
  *     "list_builder" = "Drupal\responsive_image\ResponsiveImageStyleListBuilder",
  *     "form" = {
@@ -28,18 +26,12 @@ use Drupal\responsive_image\ResponsiveImageStyleInterface;
  *       "duplicate" = "Drupal\responsive_image\ResponsiveImageStyleForm"
  *     }
  *   },
+ *   list_path = "admin/config/media/responsive-image-style",
  *   admin_permission = "administer responsive images",
  *   config_prefix = "styles",
  *   entity_keys = {
  *     "id" = "id",
  *     "label" = "label"
- *   },
- *   config_export = {
- *     "id",
- *     "label",
- *     "image_style_mappings",
- *     "breakpoint_group",
- *     "fallback_image_style",
  *   },
  *   links = {
  *     "edit-form" = "/admin/config/media/responsive-image-style/{responsive_image_style}",
@@ -82,7 +74,7 @@ class ResponsiveImageStyle extends ConfigEntityBase implements ResponsiveImageSt
    *
    * @var array
    */
-  protected $image_style_mappings = [];
+  protected $image_style_mappings = array();
 
   /**
    * @var array
@@ -117,18 +109,17 @@ class ResponsiveImageStyle extends ConfigEntityBase implements ResponsiveImageSt
     // If there is an existing mapping, overwrite it.
     foreach ($this->image_style_mappings as &$mapping) {
       if ($mapping['breakpoint_id'] === $breakpoint_id && $mapping['multiplier'] === $multiplier) {
-        $mapping = [
+        $mapping = array(
           'breakpoint_id' => $breakpoint_id,
           'multiplier' => $multiplier,
-        ] + $image_style_mapping;
-        $this->keyedImageStyleMappings = NULL;
+        ) + $image_style_mapping;
         return $this;
       }
     }
-    $this->image_style_mappings[] = [
+    $this->image_style_mappings[] = array(
       'breakpoint_id' => $breakpoint_id,
       'multiplier' => $multiplier,
-    ] + $image_style_mapping;
+    ) + $image_style_mapping;
     $this->keyedImageStyleMappings = NULL;
     return $this;
   }
@@ -146,8 +137,8 @@ class ResponsiveImageStyle extends ConfigEntityBase implements ResponsiveImageSt
    */
   public function getKeyedImageStyleMappings() {
     if (!$this->keyedImageStyleMappings) {
-      $this->keyedImageStyleMappings = [];
-      foreach ($this->image_style_mappings as $mapping) {
+      $this->keyedImageStyleMappings = array();
+      foreach($this->image_style_mappings as $mapping) {
         if (!static::isEmptyImageStyleMapping($mapping)) {
           $this->keyedImageStyleMappings[$mapping['breakpoint_id']][$mapping['multiplier']] = $mapping;
         }
@@ -202,7 +193,7 @@ class ResponsiveImageStyle extends ConfigEntityBase implements ResponsiveImageSt
    * {@inheritdoc}
    */
   public function removeImageStyleMappings() {
-    $this->image_style_mappings = [];
+    $this->image_style_mappings = array();
     $this->keyedImageStyleMappings = NULL;
     return $this;
   }
@@ -221,7 +212,7 @@ class ResponsiveImageStyle extends ConfigEntityBase implements ResponsiveImageSt
     array_walk($styles, function ($style) {
       $this->addDependency('config', $style->getConfigDependencyName());
     });
-    return $this;
+    return $this->dependencies;
   }
 
   /**

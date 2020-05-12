@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\taxonomy\TermStorageSchema.
+ */
+
 namespace Drupal\taxonomy;
 
 use Drupal\Core\Entity\ContentEntityTypeInterface;
@@ -15,67 +20,95 @@ class TermStorageSchema extends SqlContentEntityStorageSchema {
    * {@inheritdoc}
    */
   protected function getEntitySchema(ContentEntityTypeInterface $entity_type, $reset = FALSE) {
-    $schema = parent::getEntitySchema($entity_type, $reset);
+    $schema = parent::getEntitySchema($entity_type, $reset = FALSE);
 
-    if ($data_table = $this->storage->getDataTable()) {
-      $schema[$data_table]['indexes'] += [
-        'taxonomy_term__tree' => ['vid', 'weight', 'name'],
-        'taxonomy_term__vid_name' => ['vid', 'name'],
-      ];
-    }
+    $schema['taxonomy_term_field_data']['indexes'] += array(
+      'taxonomy_term__tree' => array('vid', 'weight', 'name'),
+      'taxonomy_term__vid_name' => array('vid', 'name'),
+    );
 
-    $schema['taxonomy_index'] = [
+    $schema['taxonomy_term_hierarchy'] = array(
+      'description' => 'Stores the hierarchical relationship between terms.',
+      'fields' => array(
+        'tid' => array(
+          'type' => 'int',
+          'unsigned' => TRUE,
+          'not null' => TRUE,
+          'default' => 0,
+          'description' => 'Primary Key: The {taxonomy_term_data}.tid of the term.',
+        ),
+        'parent' => array(
+          'type' => 'int',
+          'unsigned' => TRUE,
+          'not null' => TRUE,
+          'default' => 0,
+          'description' => "Primary Key: The {taxonomy_term_data}.tid of the term's parent. 0 indicates no parent.",
+        ),
+      ),
+      'indexes' => array(
+        'parent' => array('parent'),
+      ),
+      'foreign keys' => array(
+        'taxonomy_term_data' => array(
+          'table' => 'taxonomy_term_data',
+          'columns' => array('tid' => 'tid'),
+        ),
+      ),
+      'primary key' => array('tid', 'parent'),
+    );
+
+    $schema['taxonomy_index'] = array(
       'description' => 'Maintains denormalized information about node/term relationships.',
-      'fields' => [
-        'nid' => [
+      'fields' => array(
+        'nid' => array(
           'description' => 'The {node}.nid this record tracks.',
           'type' => 'int',
           'unsigned' => TRUE,
           'not null' => TRUE,
           'default' => 0,
-        ],
-        'tid' => [
+        ),
+        'tid' => array(
           'description' => 'The term ID.',
           'type' => 'int',
           'unsigned' => TRUE,
           'not null' => TRUE,
           'default' => 0,
-        ],
-        'status' => [
+        ),
+        'status' => array(
           'description' => 'Boolean indicating whether the node is published (visible to non-administrators).',
           'type' => 'int',
           'not null' => TRUE,
           'default' => 1,
-        ],
-        'sticky' => [
+        ),
+        'sticky' => array(
           'description' => 'Boolean indicating whether the node is sticky.',
           'type' => 'int',
           'not null' => FALSE,
           'default' => 0,
           'size' => 'tiny',
-        ],
-        'created' => [
+        ),
+        'created' => array(
           'description' => 'The Unix timestamp when the node was created.',
           'type' => 'int',
           'not null' => TRUE,
-          'default' => 0,
-        ],
-      ],
-      'primary key' => ['nid', 'tid'],
-      'indexes' => [
-        'term_node' => ['tid', 'status', 'sticky', 'created'],
-      ],
-      'foreign keys' => [
-        'tracked_node' => [
+          'default'=> 0,
+        ),
+      ),
+      'primary key' => array('nid', 'tid'),
+      'indexes' => array(
+        'term_node' => array('tid', 'status', 'sticky', 'created'),
+      ),
+      'foreign keys' => array(
+        'tracked_node' => array(
           'table' => 'node',
-          'columns' => ['nid' => 'nid'],
-        ],
-        'term' => [
+          'columns' => array('nid' => 'nid'),
+        ),
+        'term' => array(
           'table' => 'taxonomy_term_data',
-          'columns' => ['tid' => 'tid'],
-        ],
-      ],
-    ];
+          'columns' => array('tid' => 'tid'),
+        ),
+      ),
+    );
 
     return $schema;
   }
@@ -106,31 +139,6 @@ class TermStorageSchema extends SqlContentEntityStorageSchema {
     }
 
     return $schema;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  protected function getDedicatedTableSchema(FieldStorageDefinitionInterface $storage_definition, ContentEntityTypeInterface $entity_type = NULL) {
-    $dedicated_table_schema = parent::getDedicatedTableSchema($storage_definition, $entity_type);
-
-    // Add an index on 'bundle', 'delta' and 'parent_target_id' columns to
-    // increase the performance of the query from
-    // \Drupal\taxonomy\TermStorage::getVocabularyHierarchyType().
-    if ($storage_definition->getName() === 'parent') {
-      /** @var \Drupal\Core\Entity\Sql\DefaultTableMapping $table_mapping */
-      $table_mapping = $this->storage->getTableMapping();
-      $dedicated_table_name = $table_mapping->getDedicatedDataTableName($storage_definition);
-
-      unset($dedicated_table_schema[$dedicated_table_name]['indexes']['bundle']);
-      $dedicated_table_schema[$dedicated_table_name]['indexes']['bundle_delta_target_id'] = [
-        'bundle',
-        'delta',
-        $table_mapping->getFieldColumnName($storage_definition, 'target_id'),
-      ];
-    }
-
-    return $dedicated_table_schema;
   }
 
 }

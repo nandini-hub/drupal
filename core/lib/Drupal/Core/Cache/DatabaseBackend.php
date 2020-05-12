@@ -1,11 +1,15 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\Core\Cache\DatabaseBackend.
+ */
+
 namespace Drupal\Core\Cache;
 
-use Drupal\Component\Assertion\Inspector;
 use Drupal\Component\Utility\Crypt;
 use Drupal\Core\Database\Connection;
-use Drupal\Core\Database\DatabaseException;
+use Drupal\Core\Database\SchemaObjectExistsException;
 
 /**
  * Defines a default cache implementation.
@@ -16,30 +20,6 @@ use Drupal\Core\Database\DatabaseException;
  * @ingroup cache
  */
 class DatabaseBackend implements CacheBackendInterface {
-
-  /**
-   * The default maximum number of rows that this cache bin table can store.
-   *
-   * This maximum is introduced to ensure that the database is not filled with
-   * hundred of thousand of cache entries with gigabytes in size.
-   *
-   * Read about how to change it in the @link cache Cache API topic. @endlink
-   */
-  const DEFAULT_MAX_ROWS = 5000;
-
-  /**
-   * -1 means infinite allows numbers of rows for the cache backend.
-   */
-  const MAXIMUM_NONE = -1;
-
-  /**
-   * The maximum number of rows that this cache bin table is allowed to store.
-   *
-   * @see ::MAXIMUM_NONE
-   *
-   * @var int
-   */
-  protected $maxRows;
 
   /**
    * @var string
@@ -70,34 +50,30 @@ class DatabaseBackend implements CacheBackendInterface {
    *   The cache tags checksum provider.
    * @param string $bin
    *   The cache bin for which the object is created.
-   * @param int $max_rows
-   *   (optional) The maximum number of rows that are allowed in this cache bin
-   *   table.
    */
-  public function __construct(Connection $connection, CacheTagsChecksumInterface $checksum_provider, $bin, $max_rows = NULL) {
+  public function __construct(Connection $connection, CacheTagsChecksumInterface $checksum_provider, $bin) {
     // All cache tables should be prefixed with 'cache_'.
     $bin = 'cache_' . $bin;
 
     $this->bin = $bin;
     $this->connection = $connection;
     $this->checksumProvider = $checksum_provider;
-    $this->maxRows = $max_rows === NULL ? static::DEFAULT_MAX_ROWS : $max_rows;
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\Cache\CacheBackendInterface::get().
    */
   public function get($cid, $allow_invalid = FALSE) {
-    $cids = [$cid];
+    $cids = array($cid);
     $cache = $this->getMultiple($cids, $allow_invalid);
     return reset($cache);
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\Cache\CacheBackendInterface::getMultiple().
    */
   public function getMultiple(&$cids, $allow_invalid = FALSE) {
-    $cid_mapping = [];
+    $cid_mapping = array();
     foreach ($cids as $cid) {
       $cid_mapping[$this->normalizeCid($cid)] = $cid;
     }
@@ -108,14 +84,14 @@ class DatabaseBackend implements CacheBackendInterface {
     // is used here only due to the performance overhead we would incur
     // otherwise. When serving an uncached page, the overhead of using
     // ::select() is a much smaller proportion of the request.
-    $result = [];
+    $result = array();
     try {
-      $result = $this->connection->query('SELECT cid, data, created, expire, serialized, tags, checksum FROM {' . $this->connection->escapeTable($this->bin) . '} WHERE cid IN ( :cids[] ) ORDER BY cid', [':cids[]' => array_keys($cid_mapping)]);
+      $result = $this->connection->query('SELECT cid, data, created, expire, serialized, tags, checksum FROM {' . $this->connection->escapeTable($this->bin) . '} WHERE cid IN ( :cids[] ) ORDER BY cid', array(':cids[]' => array_keys($cid_mapping)));
     }
     catch (\Exception $e) {
       // Nothing to do.
     }
-    $cache = [];
+    $cache = array();
     foreach ($result as $item) {
       // Map the cache ID back to the original.
       $item->cid = $cid_mapping[$item->cid];
@@ -135,7 +111,7 @@ class DatabaseBackend implements CacheBackendInterface {
    * data as appropriate.
    *
    * @param object $cache
-   *   An item loaded from self::get() or self::getMultiple().
+   *   An item loaded from cache_get() or cache_get_multiple().
    * @param bool $allow_invalid
    *   If FALSE, the method returns FALSE if the cache item is not valid.
    *
@@ -148,7 +124,7 @@ class DatabaseBackend implements CacheBackendInterface {
       return FALSE;
     }
 
-    $cache->tags = $cache->tags ? explode(' ', $cache->tags) : [];
+    $cache->tags = $cache->tags ? explode(' ', $cache->tags) : array();
 
     // Check expire time.
     $cache->valid = $cache->expire == Cache::PERMANENT || $cache->expire >= REQUEST_TIME;
@@ -171,26 +147,17 @@ class DatabaseBackend implements CacheBackendInterface {
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\Cache\CacheBackendInterface::set().
    */
-  public function set($cid, $data, $expire = Cache::PERMANENT, array $tags = []) {
-    $this->setMultiple([
-      $cid => [
-        'data' => $data,
-        'expire' => $expire,
-        'tags' => $tags,
-      ],
-    ]);
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function setMultiple(array $items) {
+  public function set($cid, $data, $expire = Cache::PERMANENT, array $tags = array()) {
+    Cache::validateTags($tags);
+    $tags = array_unique($tags);
+    // Sort the cache tags so that they are stored consistently in the database.
+    sort($tags);
     $try_again = FALSE;
     try {
       // The bin might not yet exist.
-      $this->doSetMultiple($items);
+      $this->doSet($cid, $data, $expire, $tags);
     }
     catch (\Exception $e) {
       // If there was an exception, try to create the bins.
@@ -202,89 +169,104 @@ class DatabaseBackend implements CacheBackendInterface {
     }
     // Now that the bin has been created, try again if necessary.
     if ($try_again) {
-      $this->doSetMultiple($items);
+      $this->doSet($cid, $data, $expire, $tags);
     }
   }
 
   /**
-   * Stores multiple items in the persistent cache.
-   *
-   * @param array $items
-   *   An array of cache items, keyed by cid.
-   *
-   * @see \Drupal\Core\Cache\CacheBackendInterface::setMultiple()
+   * Actually set the cache.
    */
-  protected function doSetMultiple(array $items) {
-    $values = [];
-
-    foreach ($items as $cid => $item) {
-      $item += [
-        'expire' => CacheBackendInterface::CACHE_PERMANENT,
-        'tags' => [],
-      ];
-
-      assert(Inspector::assertAllStrings($item['tags']), 'Cache Tags must be strings.');
-      $item['tags'] = array_unique($item['tags']);
-      // Sort the cache tags so that they are stored consistently in the DB.
-      sort($item['tags']);
-
-      $fields = [
-        'cid' => $this->normalizeCid($cid),
-        'expire' => $item['expire'],
-        'created' => round(microtime(TRUE), 3),
-        'tags' => implode(' ', $item['tags']),
-        'checksum' => $this->checksumProvider->getCurrentChecksum($item['tags']),
-      ];
-
-      // Avoid useless writes.
-      if ($fields['checksum'] === CacheTagsChecksumInterface::INVALID_CHECKSUM_WHILE_IN_TRANSACTION) {
-        continue;
-      }
-
-      if (!is_string($item['data'])) {
-        $fields['data'] = serialize($item['data']);
-        $fields['serialized'] = 1;
-      }
-      else {
-        $fields['data'] = $item['data'];
-        $fields['serialized'] = 0;
-      }
-      $values[] = $fields;
+  protected function doSet($cid, $data, $expire, $tags) {
+    $fields = array(
+      'created' => round(microtime(TRUE), 3),
+      'expire' => $expire,
+      'tags' => implode(' ', $tags),
+      'checksum' => $this->checksumProvider->getCurrentChecksum($tags),
+    );
+    if (!is_string($data)) {
+      $fields['data'] = serialize($data);
+      $fields['serialized'] = 1;
+    }
+    else {
+      $fields['data'] = $data;
+      $fields['serialized'] = 0;
     }
 
-    // If all $items were useless writes, we may end up with zero writes.
-    if (empty($values)) {
-      return;
-    }
-
-    // Use an upsert query which is atomic and optimized for multiple-row
-    // merges.
-    $query = $this->connection
-      ->upsert($this->bin)
-      ->key('cid')
-      ->fields(['cid', 'expire', 'created', 'tags', 'checksum', 'data', 'serialized']);
-    foreach ($values as $fields) {
-      // Only pass the values since the order of $fields matches the order of
-      // the insert fields. This is a performance optimization to avoid
-      // unnecessary loops within the method.
-      $query->values(array_values($fields));
-    }
-
-    $query->execute();
+    $this->connection->merge($this->bin)
+      ->key('cid', $this->normalizeCid($cid))
+      ->fields($fields)
+      ->execute();
   }
 
   /**
    * {@inheritdoc}
+   */
+  public function setMultiple(array $items) {
+    // Use a transaction so that the database can write the changes in a single
+    // commit.
+    $transaction = $this->connection->startTransaction();
+
+    try {
+      // Delete all items first so we can do one insert. Rather than multiple
+      // merge queries.
+      $this->deleteMultiple(array_keys($items));
+
+      $query = $this->connection
+        ->insert($this->bin)
+        ->fields(array('cid', 'data', 'expire', 'created', 'serialized', 'tags', 'checksum'));
+
+      foreach ($items as $cid => $item) {
+        $item += array(
+          'expire' => CacheBackendInterface::CACHE_PERMANENT,
+          'tags' => array(),
+        );
+
+        Cache::validateTags($item['tags']);
+        $item['tags'] = array_unique($item['tags']);
+        // Sort the cache tags so that they are stored consistently in the DB.
+        sort($item['tags']);
+
+        $fields = array(
+          'cid' => $cid,
+          'expire' => $item['expire'],
+          'created' => round(microtime(TRUE), 3),
+          'tags' => implode(' ', $item['tags']),
+          'checksum' => $this->checksumProvider->getCurrentChecksum($item['tags']),
+        );
+
+        if (!is_string($item['data'])) {
+          $fields['data'] = serialize($item['data']);
+          $fields['serialized'] = 1;
+        }
+        else {
+          $fields['data'] = $item['data'];
+          $fields['serialized'] = 0;
+        }
+
+        $query->values($fields);
+      }
+
+      $query->execute();
+    }
+    catch (\Exception $e) {
+      $transaction->rollback();
+      // @todo Log something here or just re throw?
+      throw $e;
+    }
+  }
+
+  /**
+   * Implements Drupal\Core\Cache\CacheBackendInterface::delete().
    */
   public function delete($cid) {
-    $this->deleteMultiple([$cid]);
+    $this->deleteMultiple(array($cid));
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\Cache\CacheBackendInterface::deleteMultiple().
    */
   public function deleteMultiple(array $cids) {
-    $cids = array_values(array_map([$this, 'normalizeCid'], $cids));
+    $cids = array_values(array_map(array($this, 'normalizeCid'), $cids));
     try {
       // Delete in chunks when a large array is passed.
       foreach (array_chunk($cids, 1000) as $cids_chunk) {
@@ -304,7 +286,7 @@ class DatabaseBackend implements CacheBackendInterface {
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\Cache\CacheBackendInterface::deleteAll().
    */
   public function deleteAll() {
     try {
@@ -321,22 +303,22 @@ class DatabaseBackend implements CacheBackendInterface {
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\Cache\CacheBackendInterface::invalidate().
    */
   public function invalidate($cid) {
-    $this->invalidateMultiple([$cid]);
+    $this->invalidateMultiple(array($cid));
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\Cache\CacheBackendInterface::invalidateMultiple().
    */
   public function invalidateMultiple(array $cids) {
-    $cids = array_values(array_map([$this, 'normalizeCid'], $cids));
+    $cids = array_values(array_map(array($this, 'normalizeCid'), $cids));
     try {
       // Update in chunks when a large array is passed.
       foreach (array_chunk($cids, 1000) as $cids_chunk) {
         $this->connection->update($this->bin)
-          ->fields(['expire' => REQUEST_TIME - 1])
+          ->fields(array('expire' => REQUEST_TIME - 1))
           ->condition('cid', $cids_chunk, 'IN')
           ->execute();
       }
@@ -347,12 +329,12 @@ class DatabaseBackend implements CacheBackendInterface {
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\Cache\CacheBackendInterface::invalidateAll().
    */
   public function invalidateAll() {
     try {
       $this->connection->update($this->bin)
-        ->fields(['expire' => REQUEST_TIME - 1])
+        ->fields(array('expire' => REQUEST_TIME - 1))
         ->execute();
     }
     catch (\Exception $e) {
@@ -361,26 +343,10 @@ class DatabaseBackend implements CacheBackendInterface {
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\Cache\CacheBackendInterface::garbageCollection().
    */
   public function garbageCollection() {
     try {
-      // Bounded size cache bin, using FIFO.
-      if ($this->maxRows !== static::MAXIMUM_NONE) {
-        $first_invalid_create_time = $this->connection->select($this->bin)
-          ->fields($this->bin, ['created'])
-          ->orderBy("{$this->bin}.created", 'DESC')
-          ->range($this->maxRows, $this->maxRows + 1)
-          ->execute()
-          ->fetchField();
-
-        if ($first_invalid_create_time) {
-          $this->connection->delete($this->bin)
-            ->condition('created', $first_invalid_create_time, '<=')
-            ->execute();
-        }
-      }
-
       $this->connection->delete($this->bin)
         ->condition('expire', Cache::PERMANENT, '<>')
         ->condition('expire', REQUEST_TIME, '<')
@@ -420,7 +386,7 @@ class DatabaseBackend implements CacheBackendInterface {
     // If another process has already created the cache table, attempting to
     // recreate it will throw an exception. In this case just catch the
     // exception and do nothing.
-    catch (DatabaseException $e) {
+    catch (SchemaObjectExistsException $e) {
       return TRUE;
     }
     return FALSE;
@@ -447,102 +413,85 @@ class DatabaseBackend implements CacheBackendInterface {
   }
 
   /**
-   * Normalizes a cache ID in order to comply with database limitations.
+   * Ensures that cache IDs have a maximum length of 255 characters.
    *
    * @param string $cid
    *   The passed in cache ID.
    *
    * @return string
-   *   An ASCII-encoded cache ID that is at most 255 characters long.
+   *   A cache ID that is at most 255 characters long.
    */
   protected function normalizeCid($cid) {
-    // Nothing to do if the ID is a US ASCII string of 255 characters or less.
-    $cid_is_ascii = mb_check_encoding($cid, 'ASCII');
-    if (strlen($cid) <= 255 && $cid_is_ascii) {
+    // Nothing to do if the ID length is 255 characters or less.
+    if (strlen($cid) <= 255) {
       return $cid;
     }
     // Return a string that uses as much as possible of the original cache ID
     // with the hash appended.
     $hash = Crypt::hashBase64($cid);
-    if (!$cid_is_ascii) {
-      return $hash;
-    }
     return substr($cid, 0, 255 - strlen($hash)) . $hash;
   }
 
   /**
    * Defines the schema for the {cache_*} bin tables.
-   *
-   * @internal
    */
   public function schemaDefinition() {
-    $schema = [
+    $schema = array(
       'description' => 'Storage for the cache API.',
-      'fields' => [
-        'cid' => [
+      'fields' => array(
+        'cid' => array(
           'description' => 'Primary Key: Unique cache ID.',
-          'type' => 'varchar_ascii',
+          'type' => 'varchar',
           'length' => 255,
           'not null' => TRUE,
           'default' => '',
           'binary' => TRUE,
-        ],
-        'data' => [
+        ),
+        'data' => array(
           'description' => 'A collection of data to cache.',
           'type' => 'blob',
           'not null' => FALSE,
           'size' => 'big',
-        ],
-        'expire' => [
+        ),
+        'expire' => array(
           'description' => 'A Unix timestamp indicating when the cache entry should expire, or ' . Cache::PERMANENT . ' for never.',
           'type' => 'int',
           'not null' => TRUE,
           'default' => 0,
-        ],
-        'created' => [
+        ),
+        'created' => array(
           'description' => 'A timestamp with millisecond precision indicating when the cache entry was created.',
           'type' => 'numeric',
           'precision' => 14,
           'scale' => 3,
           'not null' => TRUE,
           'default' => 0,
-        ],
-        'serialized' => [
+        ),
+        'serialized' => array(
           'description' => 'A flag to indicate whether content is serialized (1) or not (0).',
           'type' => 'int',
           'size' => 'small',
           'not null' => TRUE,
           'default' => 0,
-        ],
-        'tags' => [
+        ),
+        'tags' => array(
           'description' => 'Space-separated list of cache tags for this entry.',
           'type' => 'text',
           'size' => 'big',
           'not null' => FALSE,
-        ],
-        'checksum' => [
+        ),
+        'checksum' => array(
           'description' => 'The tag invalidation checksum when this entry was saved.',
-          'type' => 'varchar_ascii',
+          'type' => 'varchar',
           'length' => 255,
           'not null' => TRUE,
-        ],
-      ],
-      'indexes' => [
-        'expire' => ['expire'],
-        'created' => ['created'],
-      ],
-      'primary key' => ['cid'],
-    ];
+        ),
+      ),
+      'indexes' => array(
+        'expire' => array('expire'),
+      ),
+      'primary key' => array('cid'),
+    );
     return $schema;
   }
-
-  /**
-   * The maximum number of rows that this cache bin table is allowed to store.
-   *
-   * @return int
-   */
-  public function getMaxRows() {
-    return $this->maxRows;
-  }
-
 }

@@ -17,4 +17,5 @@ translatable: true
 default_value: {  }
 default_value_callback: ''
 settings: {  }
+third_party_settings: {  }
 field_type: text_long

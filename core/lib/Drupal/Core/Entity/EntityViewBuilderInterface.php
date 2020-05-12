@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Entity\EntityViewBuilderInterface.
+ */
+
 namespace Drupal\Core\Entity;
 
 use Drupal\Core\Field\FieldItemInterface;
@@ -24,11 +29,14 @@ interface EntityViewBuilderInterface {
    *   configured for the entity components, keyed by bundle name.
    * @param string $view_mode
    *   The view mode in which the entity is being viewed.
+   * @param string $langcode
+   *   (optional) For which language the entity should be build, defaults to
+   *   the current content language.
    */
-  public function buildComponents(array &$build, array $entities, array $displays, $view_mode);
+  public function buildComponents(array &$build, array $entities, array $displays, $view_mode, $langcode = NULL);
 
   /**
-   * Builds the render array for the provided entity.
+   * Returns the render array for the provided entity.
    *
    * @param \Drupal\Core\Entity\EntityInterface $entity
    *   The entity to render.
@@ -50,7 +58,7 @@ interface EntityViewBuilderInterface {
   public function view(EntityInterface $entity, $view_mode = 'full', $langcode = NULL);
 
   /**
-   * Builds the render array for the provided entities.
+   * Returns the render array for the provided entities.
    *
    * @param array $entities
    *   An array of entities implementing EntityInterface to view.
@@ -70,7 +78,7 @@ interface EntityViewBuilderInterface {
    *   comments belongs to, or not passing one, and having the comments node not
    *   be available for loading.
    */
-  public function viewMultiple(array $entities = [], $view_mode = 'full', $langcode = NULL);
+  public function viewMultiple(array $entities = array(), $view_mode = 'full', $langcode = NULL);
 
   /**
    * Resets the entity render cache.
@@ -81,7 +89,7 @@ interface EntityViewBuilderInterface {
   public function resetCache(array $entities = NULL);
 
   /**
-   * Builds a renderable array for the value of a single field in an entity.
+   * Returns a renderable array for the value of a single field in an entity.
    *
    * The resulting output is a fully themed field with label and multiple
    * values.
@@ -99,7 +107,7 @@ interface EntityViewBuilderInterface {
    * @param \Drupal\Core\Field\FieldItemListInterface $items
    *   FieldItemList containing the values to be displayed.
    * @param string|array $display_options
-   *   Can be either:
+   *  Can be either:
    *   - The name of a view mode. The field will be displayed according to the
    *     display settings specified for this view mode in the $field
    *     definition for the field in the entity's bundle. If no display settings
@@ -122,10 +130,10 @@ interface EntityViewBuilderInterface {
    *
    * @see \Drupal\Core\Entity\EntityViewBuilderInterface::viewFieldItem()
    */
-  public function viewField(FieldItemListInterface $items, $display_options = []);
+  public function viewField(FieldItemListInterface $items, $display_options = array());
 
   /**
-   * Builds a renderable array for a single field item.
+   * Returns a renderable array for a single field item.
    *
    * @param \Drupal\Core\Field\FieldItemInterface $item
    *   FieldItem to be displayed.
@@ -138,7 +146,7 @@ interface EntityViewBuilderInterface {
    *
    * @see \Drupal\Core\Entity\EntityViewBuilderInterface::viewField()
    */
-  public function viewFieldItem(FieldItemInterface $item, $display_options = []);
+  public function viewFieldItem(FieldItemInterface $item, $display_options = array());
 
   /**
    * The cache tag associated with this entity view builder.

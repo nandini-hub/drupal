@@ -1,6 +1,13 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\views\Annotation\ViewsStyle.
+ */
+
 namespace Drupal\views\Annotation;
+
+use Drupal\views\Annotation\ViewsPluginAnnotationBase;
 
 /**
  * Defines a Plugin annotation object for views style plugins.

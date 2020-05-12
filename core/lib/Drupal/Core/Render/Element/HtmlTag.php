@@ -1,33 +1,17 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Render\Element\HtmlTag.
+ */
+
 namespace Drupal\Core\Render\Element;
 
-use Drupal\Component\Render\MarkupInterface;
-use Drupal\Component\Utility\Html as HtmlUtility;
-use Drupal\Core\Render\Markup;
-use Drupal\Component\Utility\Xss;
+use Drupal\Component\Utility\SafeMarkup;
 use Drupal\Core\Template\Attribute;
 
 /**
  * Provides a render element for any HTML tag, with properties and value.
- *
- * Properties:
- * - #tag: The tag name to output.
- * - #attributes: (array, optional) HTML attributes to apply to the tag. The
- *   attributes are escaped, see \Drupal\Core\Template\Attribute.
- * - #value: (string, optional) A string containing the textual contents of
- *   the tag.
- * - #noscript: (bool, optional) When set to TRUE, the markup
- *   (including any prefix or suffix) will be wrapped in a <noscript> element.
- *
- * Usage example:
- * @code
- * $build['hello'] = [
- *   '#type' => 'html_tag',
- *   '#tag' => 'p',
- *   '#value' => $this->t('Hello World'),
- * ];
- * @endcode
  *
  * @RenderElement("html_tag")
  */
@@ -38,29 +22,31 @@ class HtmlTag extends RenderElement {
    * @see http://www.w3.org/TR/html5/syntax.html#syntax-start-tag
    * @see http://www.w3.org/TR/html5/syntax.html#void-elements
    */
-  protected static $voidElements = [
+  static protected $voidElements = array(
     'area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input',
     'keygen', 'link', 'meta', 'param', 'source', 'track', 'wbr',
-    'rect', 'circle', 'polygon', 'ellipse', 'stop', 'use', 'path',
-  ];
+  );
 
   /**
    * {@inheritdoc}
    */
   public function getInfo() {
     $class = get_class($this);
-    return [
-      '#pre_render' => [
-        [$class, 'preRenderConditionalComments'],
-        [$class, 'preRenderHtmlTag'],
-      ],
-      '#attributes' => [],
+    return array(
+      '#pre_render' => array(
+        array($class, 'preRenderConditionalComments'),
+        array($class, 'preRenderHtmlTag'),
+      ),
+      '#attributes' => array(),
       '#value' => NULL,
-    ];
+    );
   }
 
   /**
-   * Pre-render callback: Renders a generic HTML tag with attributes.
+   * Pre-render callback: Renders a generic HTML tag with attributes into #markup.
+   *
+   * Note: It is the caller's responsibility to sanitize any input parameters.
+   * This callback does not perform sanitization.
    *
    * @param array $element
    *   An associative array containing:
@@ -68,44 +54,51 @@ class HtmlTag extends RenderElement {
    *     - meta: To provide meta information, such as a page refresh.
    *     - link: To refer to stylesheets and other contextual information.
    *     - script: To load JavaScript.
-   *     The value of #tag is escaped.
+   *     The value of #tag is not escaped or sanitized, so do not pass in user
+   *     input.
    *   - #attributes: (optional) An array of HTML attributes to apply to the
-   *     tag. The attributes are escaped, see \Drupal\Core\Template\Attribute.
+   *     tag.
    *   - #value: (optional) A string containing tag content, such as inline
-   *     CSS. The value of #value will be XSS admin filtered if it is not safe.
-   *   - #noscript: (optional) If TRUE, the markup (including any prefix or
-   *     suffix) will be wrapped in a <noscript> element. (Note that passing
-   *     any non-empty value here will add the <noscript> tag.)
+   *     CSS.
+   *   - #value_prefix: (optional) A string to prepend to #value, e.g. a CDATA
+   *     wrapper prefix.
+   *   - #value_suffix: (optional) A string to append to #value, e.g. a CDATA
+   *     wrapper suffix.
    *
    * @return array
    */
   public static function preRenderHtmlTag($element) {
     $attributes = isset($element['#attributes']) ? new Attribute($element['#attributes']) : '';
 
-    // An HTML tag should not contain any special characters. Escape them to
-    // ensure this cannot be abused.
-    $escaped_tag = HtmlUtility::escape($element['#tag']);
-    $open_tag = '<' . $escaped_tag . $attributes;
-    $close_tag = '</' . $escaped_tag . ">\n";
     // Construct a void element.
     if (in_array($element['#tag'], self::$voidElements)) {
-      $open_tag .= ' />';
-      $close_tag = "\n";
+      // This function is intended for internal use, so we assume that no unsafe
+      // values are passed in #tag. The attributes are already safe because
+      // Attribute output is already automatically sanitized.
+      // @todo Escape this properly instead? https://www.drupal.org/node/2296101
+      $markup = SafeMarkup::set('<' . $element['#tag'] . $attributes . " />\n");
     }
     // Construct all other elements.
     else {
-      $open_tag .= '>';
-      $markup = $element['#value'] instanceof MarkupInterface ? $element['#value'] : Xss::filterAdmin($element['#value']);
-      $element['#markup'] = Markup::create($markup);
+      $markup = '<' . $element['#tag'] . $attributes . '>';
+      if (isset($element['#value_prefix'])) {
+        $markup .= $element['#value_prefix'];
+      }
+      $markup .= $element['#value'];
+      if (isset($element['#value_suffix'])) {
+        $markup .= $element['#value_suffix'];
+      }
+      $markup .= '</' . $element['#tag'] . ">\n";
+      // @todo We cannot actually guarantee this markup is safe. Consider a fix
+      //   in: https://www.drupal.org/node/2296101
+      $markup = SafeMarkup::set($markup);
     }
-    $prefix = isset($element['#prefix']) ? $element['#prefix'] . $open_tag : $open_tag;
-    $suffix = isset($element['#suffix']) ? $close_tag . $element['#suffix'] : $close_tag;
     if (!empty($element['#noscript'])) {
-      $prefix = '<noscript>' . $prefix;
-      $suffix .= '</noscript>';
+      $element['#markup'] = '<noscript>' . $markup . '</noscript>';
     }
-    $element['#prefix'] = Markup::create($prefix);
-    $element['#suffix'] = Markup::create($suffix);
+    else {
+      $element['#markup'] = $markup;
+    }
     return $element;
   }
 
@@ -139,11 +132,11 @@ class HtmlTag extends RenderElement {
    *   added to '#prefix' and '#suffix'.
    */
   public static function preRenderConditionalComments($element) {
-    $browsers = isset($element['#browsers']) ? $element['#browsers'] : [];
-    $browsers += [
+    $browsers = isset($element['#browsers']) ? $element['#browsers'] : array();
+    $browsers += array(
       'IE' => TRUE,
       '!IE' => TRUE,
-    ];
+    );
 
     // If rendering in all browsers, no need for conditional comments.
     if ($browsers['IE'] === TRUE && $browsers['!IE']) {
@@ -160,39 +153,32 @@ class HtmlTag extends RenderElement {
     }
     else {
       // The IE expression might contain some user input data.
-      $expression = Xss::filterAdmin($browsers['IE']);
+      $expression = SafeMarkup::checkAdminXss($browsers['IE']);
     }
 
     // If the #prefix and #suffix properties are used, wrap them with
     // conditional comment markup. The conditional comment expression is
     // evaluated by Internet Explorer only. To control the rendering by other
     // browsers, use either the "downlevel-hidden" or "downlevel-revealed"
-    // technique. See http://wikipedia.org/wiki/Conditional_comment
+    // technique. See http://en.wikipedia.org/wiki/Conditional_comment
     // for details.
 
     // Ensure what we are dealing with is safe.
     // This would be done later anyway in drupal_render().
-    $prefix = isset($element['#prefix']) ? $element['#prefix'] : '';
-    if ($prefix && !($prefix instanceof MarkupInterface)) {
-      $prefix = Xss::filterAdmin($prefix);
-    }
-    $suffix = isset($element['#suffix']) ? $element['#suffix'] : '';
-    if ($suffix && !($suffix instanceof MarkupInterface)) {
-      $suffix = Xss::filterAdmin($suffix);
-    }
+    $prefix = isset($elements['#prefix']) ? SafeMarkup::checkAdminXss($elements['#prefix']) : '';
+    $suffix = isset($elements['#suffix']) ? SafeMarkup::checkAdminXss($elements['#suffix']) : '';
 
-    // We ensured above that $expression is either a string we created or is
-    // admin XSS filtered, and that $prefix and $suffix are also admin XSS
-    // filtered if they are unsafe. Thus, all these strings are safe.
+    // Now calling SafeMarkup::set is safe, because we ensured the
+    // data coming in was at least admin escaped.
     if (!$browsers['!IE']) {
       // "downlevel-hidden".
-      $element['#prefix'] = Markup::create("\n<!--[if $expression]>\n" . $prefix);
-      $element['#suffix'] = Markup::create($suffix . "<![endif]-->\n");
+      $element['#prefix'] = SafeMarkup::set("\n<!--[if $expression]>\n" . $prefix);
+      $element['#suffix'] = SafeMarkup::set($suffix . "<![endif]-->\n");
     }
     else {
       // "downlevel-revealed".
-      $element['#prefix'] = Markup::create("\n<!--[if $expression]><!-->\n" . $prefix);
-      $element['#suffix'] = Markup::create($suffix . "<!--<![endif]-->\n");
+      $element['#prefix'] = SafeMarkup::set("\n<!--[if $expression]><!-->\n" . $prefix);
+      $element['#suffix'] = SafeMarkup::set($suffix . "<!--<![endif]-->\n");
     }
 
     return $element;

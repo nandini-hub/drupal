@@ -1,18 +1,23 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Config\TypedConfigManager.
+ */
+
 namespace Drupal\Core\Config;
 
 use Drupal\Component\Utility\NestedArray;
+use Drupal\Component\Utility\SafeMarkup;
 use Drupal\Core\Cache\CacheBackendInterface;
+use Drupal\Core\Config\Schema\ArrayElement;
 use Drupal\Core\Config\Schema\ConfigSchemaAlterException;
 use Drupal\Core\Config\Schema\ConfigSchemaDiscovery;
-use Drupal\Core\DependencyInjection\ClassResolverInterface;
-use Drupal\Core\Config\Schema\Undefined;
 use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\Core\TypedData\TypedDataManager;
 
 /**
- * Manages config schema type plugins.
+ * Manages config type plugins.
  */
 class TypedConfigManager extends TypedDataManager implements TypedConfigManagerInterface {
 
@@ -46,36 +51,30 @@ class TypedConfigManager extends TypedDataManager implements TypedConfigManagerI
    *   The storage object to use for reading schema data
    * @param \Drupal\Core\Cache\CacheBackendInterface $cache
    *   The cache backend to use for caching the definitions.
-   * @param \Drupal\Core\Extension\ModuleHandlerInterface $module_handler
-   *   The module handler.
-   * @param \Drupal\Core\DependencyInjection\ClassResolverInterface $class_resolver
-   *   (optional) The class resolver.
    */
-  public function __construct(StorageInterface $configStorage, StorageInterface $schemaStorage, CacheBackendInterface $cache, ModuleHandlerInterface $module_handler, ClassResolverInterface $class_resolver = NULL) {
+  public function __construct(StorageInterface $configStorage, StorageInterface $schemaStorage, CacheBackendInterface $cache, ModuleHandlerInterface $module_handler) {
     $this->configStorage = $configStorage;
     $this->schemaStorage = $schemaStorage;
     $this->setCacheBackend($cache, 'typed_config_definitions');
+    $this->discovery = new ConfigSchemaDiscovery($schemaStorage);
     $this->alterInfo('config_schema_info');
     $this->moduleHandler = $module_handler;
-    $this->classResolver = $class_resolver ?: \Drupal::service('class_resolver');
   }
 
   /**
-   * {@inheritdoc}
-   */
-  protected function getDiscovery() {
-    if (!isset($this->discovery)) {
-      $this->discovery = new ConfigSchemaDiscovery($this->schemaStorage);
-    }
-    return $this->discovery;
-  }
-
-  /**
-   * {@inheritdoc}
+   * Gets typed configuration data.
+   *
+   * @param string $name
+   *   Configuration object name.
+   *
+   * @return \Drupal\Core\Config\Schema\TypedConfigInterface
+   *   Typed configuration data.
    */
   public function get($name) {
     $data = $this->configStorage->read($name);
-    return $this->createFromNameAndData($name, $data);
+    $type_definition = $this->getDefinition($name);
+    $data_definition = $this->buildDataDefinition($type_definition, $data);
+    return $this->create($data_definition, $data);
   }
 
   /**
@@ -83,13 +82,12 @@ class TypedConfigManager extends TypedDataManager implements TypedConfigManagerI
    */
   public function buildDataDefinition(array $definition, $value, $name = NULL, $parent = NULL) {
     // Add default values for data type and replace variables.
-    $definition += ['type' => 'undefined'];
+    $definition += array('type' => 'undefined');
 
-    $replace = [];
     $type = $definition['type'];
     if (strpos($type, ']')) {
       // Replace variable names in definition.
-      $replace = is_array($value) ? $value : [];
+      $replace = is_array($value) ? $value : array();
       if (isset($parent)) {
         $replace['%parent'] = $parent;
       }
@@ -102,7 +100,7 @@ class TypedConfigManager extends TypedDataManager implements TypedConfigManagerI
       unset($definition['type']);
     }
     // Add default values from type definition.
-    $definition += $this->getDefinitionWithReplacements($type, $replace);
+    $definition += $this->getDefinition($type);
 
     $data_definition = $this->createDataDefinition($definition['type']);
 
@@ -116,17 +114,10 @@ class TypedConfigManager extends TypedDataManager implements TypedConfigManagerI
   }
 
   /**
-   * Determines the typed config type for a plugin ID.
-   *
-   * @param string $base_plugin_id
-   *   The plugin ID.
-   * @param array $definitions
-   *   An array of typed config definitions.
-   *
-   * @return string
-   *   The typed config type for the given plugin ID.
+   * {@inheritdoc}
    */
-  protected function determineType($base_plugin_id, array $definitions) {
+  public function getDefinition($base_plugin_id, $exception_on_invalid = TRUE, $is_config_name = FALSE) {
+    $definitions = $this->getDefinitions();
     if (isset($definitions[$base_plugin_id])) {
       $type = $base_plugin_id;
     }
@@ -138,66 +129,31 @@ class TypedConfigManager extends TypedDataManager implements TypedConfigManagerI
       // If we don't have definition, return the 'undefined' element.
       $type = 'undefined';
     }
-    return $type;
-  }
-
-  /**
-   * Gets a schema definition with replacements for dynamic names.
-   *
-   * @param string $base_plugin_id
-   *   A plugin ID.
-   * @param array $replacements
-   *   An array of replacements for dynamic type names.
-   * @param bool $exception_on_invalid
-   *   (optional) This parameter is passed along to self::getDefinition().
-   *   However, self::getDefinition() does not respect this parameter, so it is
-   *   effectively useless in this context.
-   *
-   * @return array
-   *   A schema definition array.
-   */
-  protected function getDefinitionWithReplacements($base_plugin_id, array $replacements, $exception_on_invalid = TRUE) {
-    $definitions = $this->getDefinitions();
-    $type = $this->determineType($base_plugin_id, $definitions);
     $definition = $definitions[$type];
     // Check whether this type is an extension of another one and compile it.
     if (isset($definition['type'])) {
       $merge = $this->getDefinition($definition['type'], $exception_on_invalid);
       // Preserve integer keys on merge, so sequence item types can override
       // parent settings as opposed to adding unused second, third, etc. items.
-      $definition = NestedArray::mergeDeepArray([$merge, $definition], TRUE);
-
-      // Replace dynamic portions of the definition type.
-      if (!empty($replacements) && strpos($definition['type'], ']')) {
-        $sub_type = $this->determineType($this->replaceName($definition['type'], $replacements), $definitions);
-        $sub_definition = $definitions[$sub_type];
-        if (isset($definitions[$sub_type]['type'])) {
-          $sub_merge = $this->getDefinition($definitions[$sub_type]['type'], $exception_on_invalid);
-          $sub_definition = NestedArray::mergeDeepArray([$sub_merge, $definitions[$sub_type]], TRUE);
-        }
-        // Merge the newly determined subtype definition with the original
-        // definition.
-        $definition = NestedArray::mergeDeepArray([$sub_definition, $definition], TRUE);
-        $type = "$type||$sub_type";
-      }
+      $definition = NestedArray::mergeDeepArray(array($merge, $definition), TRUE);
       // Unset type so we try the merge only once per type.
       unset($definition['type']);
       $this->definitions[$type] = $definition;
     }
     // Add type and default definition class.
-    $definition += [
+    $definition += array(
       'definition_class' => '\Drupal\Core\TypedData\DataDefinition',
       'type' => $type,
-      'unwrap_for_canonical_representation' => TRUE,
-    ];
+    );
+    // If this is definition expected for a config name and it is defined as a
+    // mapping, add a langcode element if not already present.
+    if ($is_config_name && isset($definition['mapping']) && !isset($definition['mapping']['langcode'])) {
+      $definition['mapping']['langcode'] = array(
+        'type' => 'string',
+        'label' => 'Language code',
+      );
+    }
     return $definition;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function getDefinition($base_plugin_id, $exception_on_invalid = TRUE) {
-    return $this->getDefinitionWithReplacements($base_plugin_id, [], $exception_on_invalid);
   }
 
   /**
@@ -275,7 +231,7 @@ class TypedConfigManager extends TypedDataManager implements TypedConfigManagerI
   protected function replaceName($name, $data) {
     if (preg_match_all("/\[(.*)\]/U", $name, $matches)) {
       // Build our list of '[value]' => replacement.
-      $replace = [];
+      $replace = array();
       foreach (array_combine($matches[0], $matches[1]) as $key => $value) {
         $replace[$key] = $this->replaceVariable($value, $data);
       }
@@ -325,12 +281,8 @@ class TypedConfigManager extends TypedDataManager implements TypedConfigManagerI
         return $value;
       }
       elseif (!$parts) {
-        $value = $data[$name];
-        if (is_bool($value)) {
-          $value = (int) $value;
-        }
         // If no more parts left, this is the final property.
-        return (string) $value;
+        return (string)$data[$name];
       }
       else {
         // Get nested value and continue processing.
@@ -359,7 +311,7 @@ class TypedConfigManager extends TypedDataManager implements TypedConfigManagerI
   public function hasConfigSchema($name) {
     // The schema system falls back on the Undefined class for unknown types.
     $definition = $this->getDefinition($name);
-    return is_array($definition) && ($definition['class'] != Undefined::class);
+    return is_array($definition) && ($definition['class'] != '\Drupal\Core\Config\Schema\Undefined');
   }
 
   /**
@@ -370,28 +322,32 @@ class TypedConfigManager extends TypedDataManager implements TypedConfigManagerI
     parent::alterDefinitions($definitions);
     $altered_schema = array_keys($definitions);
     if ($discovered_schema != $altered_schema) {
-      $added_keys = implode(',', array_diff($altered_schema, $discovered_schema));
-      $removed_keys = implode(',', array_diff($discovered_schema, $altered_schema));
+      $added_keys = array_diff($altered_schema, $discovered_schema);
+      $removed_keys = array_diff($discovered_schema, $altered_schema);
       if (!empty($added_keys) && !empty($removed_keys)) {
-        $message = "Invoking hook_config_schema_info_alter() has added ($added_keys) and removed ($removed_keys) schema definitions";
+        $message = 'Invoking hook_config_schema_info_alter() has added (@added) and removed (@removed) schema definitions';
       }
       elseif (!empty($added_keys)) {
-        $message = "Invoking hook_config_schema_info_alter() has added ($added_keys) schema definitions";
+        $message = 'Invoking hook_config_schema_info_alter() has added (@added) schema definitions';
       }
       else {
-        $message = "Invoking hook_config_schema_info_alter() has removed ($removed_keys) schema definitions";
+        $message = 'Invoking hook_config_schema_info_alter() has removed (@removed) schema definitions';
       }
-      throw new ConfigSchemaAlterException($message);
+      throw new ConfigSchemaAlterException(SafeMarkup::format($message, ['@added' => implode(',', $added_keys), '@removed' => implode(',', $removed_keys)]));
     }
   }
 
   /**
    * {@inheritdoc}
    */
-  public function createFromNameAndData($config_name, array $config_data) {
-    $definition = $this->getDefinition($config_name);
-    $data_definition = $this->buildDataDefinition($definition, $config_data);
-    return $this->create($data_definition, $config_data);
+  public function createInstance($data_type, array $configuration = array()) {
+    $instance = parent::createInstance($data_type, $configuration);
+    // Enable elements to construct their own definitions using the typed config
+    // manager.
+    if ($instance instanceof ArrayElement) {
+      $instance->setTypedConfig($this);
+    }
+    return $instance;
   }
 
 }

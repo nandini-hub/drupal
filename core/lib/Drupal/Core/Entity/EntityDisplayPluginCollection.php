@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\filter\EntityDisplayPluginCollection.
+ */
+
 namespace Drupal\Core\Entity;
 
 use Drupal\Core\Plugin\DefaultLazyPluginCollection;

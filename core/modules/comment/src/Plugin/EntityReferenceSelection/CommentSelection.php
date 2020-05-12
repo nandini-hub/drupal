@@ -1,9 +1,14 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\comment\Plugin\EntityReferenceSelection\CommentSelection.
+ */
+
 namespace Drupal\comment\Plugin\EntityReferenceSelection;
 
 use Drupal\Core\Database\Query\SelectInterface;
-use Drupal\Core\Entity\Plugin\EntityReferenceSelection\DefaultSelection;
+use Drupal\Core\Entity\Plugin\EntityReferenceSelection\SelectionBase;
 use Drupal\comment\CommentInterface;
 
 /**
@@ -17,7 +22,7 @@ use Drupal\comment\CommentInterface;
  *   weight = 1
  * )
  */
-class CommentSelection extends DefaultSelection {
+class CommentSelection extends SelectionBase {
 
   /**
    * {@inheritdoc}
@@ -37,37 +42,7 @@ class CommentSelection extends DefaultSelection {
   /**
    * {@inheritdoc}
    */
-  public function createNewEntity($entity_type_id, $bundle, $label, $uid) {
-    $comment = parent::createNewEntity($entity_type_id, $bundle, $label, $uid);
-
-    // In order to create a referenceable comment, it needs to published.
-    /** @var \Drupal\comment\CommentInterface $comment */
-    $comment->setPublished();
-
-    return $comment;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function validateReferenceableNewEntities(array $entities) {
-    $entities = parent::validateReferenceableNewEntities($entities);
-    // Mirror the conditions checked in buildEntityQuery().
-    if (!$this->currentUser->hasPermission('administer comments')) {
-      $entities = array_filter($entities, function ($comment) {
-        /** @var \Drupal\comment\CommentInterface $comment */
-        return $comment->isPublished();
-      });
-    }
-    return $entities;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
   public function entityQueryAlter(SelectInterface $query) {
-    parent::entityQueryAlter($query);
-
     $tables = $query->getTables();
     $data_table = 'comment_field_data';
     if (!isset($tables['comment_field_data']['alias'])) {
@@ -85,7 +60,7 @@ class CommentSelection extends DefaultSelection {
 
     // Passing the query to node_query_node_access_alter() is sadly
     // insufficient for nodes.
-    // @see \Drupal\node\Plugin\EntityReferenceSelection\NodeSelection::buildEntityQuery()
+    // @see SelectionEntityTypeNode::entityQueryAlter()
     if (!$this->currentUser->hasPermission('bypass node access') && !count($this->moduleHandler->getImplementations('node_grants'))) {
       $query->condition($node_alias . '.status', 1);
     }

@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Validation\Plugin\Validation\Constraint\PrimitiveTypeConstraintValidator.
+ */
+
 namespace Drupal\Core\Validation\Plugin\Validation\Constraint;
 
 use Drupal\Core\TypedData\Type\BinaryInterface;
@@ -10,8 +15,6 @@ use Drupal\Core\TypedData\Type\FloatInterface;
 use Drupal\Core\TypedData\Type\IntegerInterface;
 use Drupal\Core\TypedData\Type\StringInterface;
 use Drupal\Core\TypedData\Type\UriInterface;
-use Drupal\Core\TypedData\Validation\TypedDataAwareValidatorTrait;
-use Drupal\Component\Render\MarkupInterface;
 use Symfony\Component\Validator\Constraint;
 use Symfony\Component\Validator\ConstraintValidator;
 
@@ -20,10 +23,8 @@ use Symfony\Component\Validator\ConstraintValidator;
  */
 class PrimitiveTypeConstraintValidator extends ConstraintValidator {
 
-  use TypedDataAwareValidatorTrait;
-
   /**
-   * {@inheritdoc}
+   * Implements \Symfony\Component\Validator\ConstraintValidatorInterface::validate().
    */
   public function validate($value, Constraint $constraint) {
 
@@ -31,7 +32,7 @@ class PrimitiveTypeConstraintValidator extends ConstraintValidator {
       return;
     }
 
-    $typed_data = $this->getTypedData();
+    $typed_data = $this->context->getMetadata()->getTypedData();
     $valid = TRUE;
     if ($typed_data instanceof BinaryInterface && !is_resource($value)) {
       $valid = FALSE;
@@ -45,7 +46,7 @@ class PrimitiveTypeConstraintValidator extends ConstraintValidator {
     if ($typed_data instanceof IntegerInterface && filter_var($value, FILTER_VALIDATE_INT) === FALSE) {
       $valid = FALSE;
     }
-    if ($typed_data instanceof StringInterface && !is_scalar($value) && !($value instanceof MarkupInterface)) {
+    if ($typed_data instanceof StringInterface && !is_scalar($value)) {
       $valid = FALSE;
     }
     // Ensure that URIs comply with http://tools.ietf.org/html/rfc3986, which
@@ -72,10 +73,9 @@ class PrimitiveTypeConstraintValidator extends ConstraintValidator {
 
     if (!$valid) {
       // @todo: Provide a good violation message for each problem.
-      $this->context->addViolation($constraint->message, [
-        '%value' => is_object($value) ? get_class($value) : (is_array($value) ? 'Array' : (string) $value),
-      ]);
+      $this->context->addViolation($constraint->message, array(
+        '%value' => is_object($value) ? get_class($value) : (is_array($value) ? 'Array' : (string) $value)
+      ));
     }
   }
-
 }

@@ -1,8 +1,12 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Entity\Plugin\Field\FieldType\UriItem.
+ */
+
 namespace Drupal\Core\Field\Plugin\Field\FieldType;
 
-use Drupal\Core\Field\FieldDefinitionInterface;
 use Drupal\Core\Field\FieldStorageDefinitionInterface;
 use Drupal\Core\TypedData\DataDefinition;
 
@@ -19,7 +23,6 @@ use Drupal\Core\TypedData\DataDefinition;
  *   description = @Translation("An entity field containing a URI."),
  *   no_ui = TRUE,
  *   default_formatter = "uri_link",
- *   default_widget = "uri",
  * )
  */
 class UriItem extends StringItem {
@@ -28,11 +31,9 @@ class UriItem extends StringItem {
    * {@inheritdoc}
    */
   public static function defaultStorageSettings() {
-    $storage_settings = parent::defaultStorageSettings();
-    // is_ascii doesn't make sense for URIs.
-    unset($storage_settings['is_ascii']);
-    $storage_settings['max_length'] = 2048;
-    return $storage_settings;
+    return array(
+      'max_length' => 2048,
+    ) + parent::defaultStorageSettings();
   }
 
   /**
@@ -51,15 +52,15 @@ class UriItem extends StringItem {
    * {@inheritdoc}
    */
   public static function schema(FieldStorageDefinitionInterface $field_definition) {
-    return [
-      'columns' => [
-        'value' => [
+    return array(
+      'columns' => array(
+        'value' => array(
           'type' => 'varchar',
           'length' => (int) $field_definition->getSetting('max_length'),
           'binary' => $field_definition->getSetting('case_sensitive'),
-        ],
-      ],
-    ];
+        ),
+      ),
+    );
   }
 
   /**
@@ -71,18 +72,6 @@ class UriItem extends StringItem {
       return TRUE;
     }
     return parent::isEmpty();
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public static function generateSampleValue(FieldDefinitionInterface $field_definition) {
-    $values = parent::generateSampleValue($field_definition);
-    $suffix_length = $field_definition->getSetting('max_length') - 7;
-    foreach ($values as $key => $value) {
-      $values[$key] = 'http://' . mb_substr($value, 0, $suffix_length);
-    }
-    return $values;
   }
 
 }

@@ -1,8 +1,11 @@
 <?php
 
-namespace Drupal\Core\Config\Entity;
+/**
+ * @file
+ * Contains \Drupal\Core\Config\Entity\ConfigEntityDependency.
+ */
 
-use Drupal\Component\Utility\NestedArray;
+namespace Drupal\Core\Config\Entity;
 
 /**
  * Provides a value object to discover configuration dependencies.
@@ -23,7 +26,7 @@ class ConfigEntityDependency {
    *
    * @var array
    */
-  protected $dependencies = [];
+  protected $dependencies;
 
   /**
    * Constructs the configuration entity dependency from the entity values.
@@ -33,16 +36,13 @@ class ConfigEntityDependency {
    * @param array $values
    *   (optional) The configuration entity's values.
    */
-  public function __construct($name, $values = []) {
+  public function __construct($name, $values = array()) {
     $this->name = $name;
-    if (isset($values['dependencies']) && isset($values['dependencies']['enforced'])) {
-      // Merge the enforced dependencies into the list of dependencies.
-      $enforced_dependencies = $values['dependencies']['enforced'];
-      unset($values['dependencies']['enforced']);
-      $this->dependencies = NestedArray::mergeDeep($values['dependencies'], $enforced_dependencies);
-    }
-    elseif (isset($values['dependencies'])) {
+    if (isset($values['dependencies'])) {
       $this->dependencies = $values['dependencies'];
+    }
+    else {
+      $this->dependencies = array();
     }
   }
 
@@ -57,7 +57,7 @@ class ConfigEntityDependency {
    *   The list of dependencies of the supplied type.
    */
   public function getDependencies($type) {
-    $dependencies = [];
+    $dependencies = array();
     if (isset($this->dependencies[$type])) {
       $dependencies = $this->dependencies[$type];
     }

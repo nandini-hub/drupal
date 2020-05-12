@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\entity_test\Entity\EntityTestMulDefaultValue.
+ */
+
 namespace Drupal\entity_test\Entity;
 
 use Drupal\Core\Entity\EntityTypeInterface;
@@ -18,6 +23,7 @@ use Drupal\Core\Field\BaseFieldDefinition;
  *       "default" = "Drupal\entity_test\EntityTestForm",
  *       "delete" = "Drupal\entity_test\EntityTestDeleteForm"
  *     },
+ *     "translation" = "Drupal\content_translation\ContentTranslationHandler",
  *     "views_data" = "Drupal\views\EntityViewsData"
  *   },
  *   base_table = "entity_test_mul_default_value",

@@ -1,50 +1,24 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\node\NodeInterface.
+ */
+
 namespace Drupal\node;
 
-use Drupal\Core\Entity\EntityPublishedInterface;
-use Drupal\Core\Entity\RevisionLogInterface;
 use Drupal\user\EntityOwnerInterface;
 use Drupal\Core\Entity\EntityChangedInterface;
 use Drupal\Core\Entity\ContentEntityInterface;
+use Drupal\user\UserInterface;
 
 /**
  * Provides an interface defining a node entity.
  */
-interface NodeInterface extends ContentEntityInterface, EntityChangedInterface, EntityOwnerInterface, RevisionLogInterface, EntityPublishedInterface {
+interface NodeInterface extends ContentEntityInterface, EntityChangedInterface, EntityOwnerInterface {
 
   /**
-   * Denotes that the node is not published.
-   */
-  const NOT_PUBLISHED = 0;
-
-  /**
-   * Denotes that the node is published.
-   */
-  const PUBLISHED = 1;
-
-  /**
-   * Denotes that the node is not promoted to the front page.
-   */
-  const NOT_PROMOTED = 0;
-
-  /**
-   * Denotes that the node is promoted to the front page.
-   */
-  const PROMOTED = 1;
-
-  /**
-   * Denotes that the node is not sticky at the top of the page.
-   */
-  const NOT_STICKY = 0;
-
-  /**
-   * Denotes that the node is sticky at the top of the page.
-   */
-  const STICKY = 1;
-
-  /**
-   * Gets the node type.
+   * Returns the node type.
    *
    * @return string
    *   The node type.
@@ -52,7 +26,7 @@ interface NodeInterface extends ContentEntityInterface, EntityChangedInterface, 
   public function getType();
 
   /**
-   * Gets the node title.
+   * Returns the node title.
    *
    * @return string
    *   Title of the node.
@@ -65,13 +39,13 @@ interface NodeInterface extends ContentEntityInterface, EntityChangedInterface, 
    * @param string $title
    *   The node title.
    *
-   * @return $this
+   * @return \Drupal\node\NodeInterface
    *   The called node entity.
    */
   public function setTitle($title);
 
   /**
-   * Gets the node creation timestamp.
+   * Returns the node creation timestamp.
    *
    * @return int
    *   Creation timestamp of the node.
@@ -84,7 +58,7 @@ interface NodeInterface extends ContentEntityInterface, EntityChangedInterface, 
    * @param int $timestamp
    *   The node creation timestamp.
    *
-   * @return $this
+   * @return \Drupal\node\NodeInterface
    *   The called node entity.
    */
   public function setCreatedTime($timestamp);
@@ -103,7 +77,7 @@ interface NodeInterface extends ContentEntityInterface, EntityChangedInterface, 
    * @param bool $promoted
    *   TRUE to set this node to promoted, FALSE to set it to not promoted.
    *
-   * @return $this
+   * @return \Drupal\node\NodeInterface
    *   The called node entity.
    */
   public function setPromoted($promoted);
@@ -122,13 +96,34 @@ interface NodeInterface extends ContentEntityInterface, EntityChangedInterface, 
    * @param bool $sticky
    *   TRUE to set this node to sticky, FALSE to set it to not sticky.
    *
-   * @return $this
+   * @return \Drupal\node\NodeInterface
    *   The called node entity.
    */
   public function setSticky($sticky);
 
   /**
-   * Gets the node revision creation timestamp.
+   * Returns the node published status indicator.
+   *
+   * Unpublished nodes are only visible to their authors and to administrators.
+   *
+   * @return bool
+   *   TRUE if the node is published.
+   */
+  public function isPublished();
+
+  /**
+   * Sets the published status of a node..
+   *
+   * @param bool $published
+   *   TRUE to set this node to published, FALSE to set it to unpublished.
+   *
+   * @return \Drupal\node\NodeInterface
+   *   The called node entity.
+   */
+  public function setPublished($published);
+
+  /**
+   * Returns the node revision creation timestamp.
    *
    * @return int
    *   The UNIX timestamp of when this revision was created.
@@ -141,21 +136,16 @@ interface NodeInterface extends ContentEntityInterface, EntityChangedInterface, 
    * @param int $timestamp
    *   The UNIX timestamp of when this revision was created.
    *
-   * @return $this
+   * @return \Drupal\node\NodeInterface
    *   The called node entity.
    */
   public function setRevisionCreationTime($timestamp);
 
   /**
-   * Gets the node revision author.
+   * Returns the node revision author.
    *
    * @return \Drupal\user\UserInterface
    *   The user entity for the revision author.
-   *
-   * @deprecated in drupal:8.2.0 and is removed from drupal:9.0.0. Use
-   *   \Drupal\Core\Entity\RevisionLogInterface::getRevisionUser() instead.
-   *
-   * @see https://www.drupal.org/node/3069750
    */
   public function getRevisionAuthor();
 
@@ -165,14 +155,17 @@ interface NodeInterface extends ContentEntityInterface, EntityChangedInterface, 
    * @param int $uid
    *   The user ID of the revision author.
    *
-   * @return $this
+   * @return \Drupal\node\NodeInterface
    *   The called node entity.
-   *
-   * @deprecated in drupal:8.2.0 and is removed from drupal:9.0.0. Use
-   *   \Drupal\Core\Entity\RevisionLogInterface::setRevisionUserId() instead.
-   *
-   * @see https://www.drupal.org/node/3069750
    */
   public function setRevisionAuthorId($uid);
+
+  /**
+   * Prepares the langcode for a node.
+   *
+   * @return string
+   *   The langcode for this node.
+   */
+  public function prepareLangcode();
 
 }

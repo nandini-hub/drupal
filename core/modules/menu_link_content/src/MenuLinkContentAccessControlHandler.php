@@ -1,4 +1,8 @@
 <?php
+/**
+ * @file
+ * Contains \Drupal\menu_link_content\MenuLinkContentAccessControlHandler.
+ */
 
 namespace Drupal\menu_link_content;
 
@@ -47,24 +51,22 @@ class MenuLinkContentAccessControlHandler extends EntityAccessControlHandler imp
   /**
    * {@inheritdoc}
    */
-  protected function checkAccess(EntityInterface $entity, $operation, AccountInterface $account) {
+  protected function checkAccess(EntityInterface $entity, $operation, $langcode, AccountInterface $account) {
     switch ($operation) {
       case 'view':
-        // There is no direct viewing of a menu link, but still for purposes of
-        // content_translation we need a generic way to check access.
-        return AccessResult::allowedIfHasPermission($account, 'administer menu');
+        // There is no direct view.
+        return AccessResult::neutral();
 
       case 'update':
         if (!$account->hasPermission('administer menu')) {
-          return AccessResult::neutral("The 'administer menu' permission is required.")->cachePerPermissions();
+          return AccessResult::neutral()->cachePerPermissions();
         }
         else {
-          // Assume that access is allowed.
-          $access = AccessResult::allowed()->cachePerPermissions()->addCacheableDependency($entity);
+          // If there is a URL, this is an external link so always accessible.
+          $access = AccessResult::allowed()->cachePerPermissions()->cacheUntilEntityChanges($entity);
           /** @var \Drupal\menu_link_content\MenuLinkContentInterface $entity */
-          // If the link is routed determine whether the user has access unless
-          // they have the 'link to any page' permission.
-          if (!$account->hasPermission('link to any page') && ($url_object = $entity->getUrlObject()) && $url_object->isRouted()) {
+          // We allow access, but only if the link is accessible as well.
+          if (($url_object = $entity->getUrlObject()) && $url_object->isRouted()) {
             $link_access = $this->accessManager->checkNamedRoute($url_object->getRouteName(), $url_object->getRouteParameters(), $account, TRUE);
             $access = $access->andIf($link_access);
           }
@@ -72,8 +74,7 @@ class MenuLinkContentAccessControlHandler extends EntityAccessControlHandler imp
         }
 
       case 'delete':
-        return AccessResult::allowedIfHasPermission($account, 'administer menu')
-          ->andIf(AccessResult::allowedIf(!$entity->isNew())->addCacheableDependency($entity));
+        return AccessResult::allowedIf(!$entity->isNew() && $account->hasPermission('administer menu'))->cachePerPermissions()->cacheUntilEntityChanges($entity);
     }
   }
 

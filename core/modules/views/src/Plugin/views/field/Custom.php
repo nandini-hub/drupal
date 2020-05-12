@@ -1,10 +1,13 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\views\Plugin\views\field\Custom.
+ */
+
 namespace Drupal\views\Plugin\views\field;
 
-use Drupal\Component\Utility\Xss;
 use Drupal\Core\Form\FormStateInterface;
-use Drupal\views\Render\ViewsRenderPipelineMarkup;
 use Drupal\views\ResultRow;
 
 /**
@@ -37,8 +40,8 @@ class Custom extends FieldPluginBase {
     $options = parent::defineOptions();
 
     // Override the alter text option to always alter the text.
-    $options['alter']['contains']['alter_text'] = ['default' => TRUE];
-    $options['hide_alter_empty'] = ['default' => FALSE];
+    $options['alter']['contains']['alter_text'] = array('default' => TRUE);
+    $options['hide_alter_empty'] = array('default' => FALSE);
     return $options;
   }
 
@@ -52,16 +55,7 @@ class Custom extends FieldPluginBase {
     unset($form['alter']['alter_text']);
     unset($form['alter']['text']['#states']);
     unset($form['alter']['help']['#states']);
-    $form['#pre_render'][] = [$this, 'preRenderCustomForm'];
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public static function trustedCallbacks() {
-    $callbacks = parent::trustedCallbacks();
-    $callbacks[] = 'preRenderCustomForm';
-    return $callbacks;
+    $form['#pre_render'][] = array($this, 'preRenderCustomForm');
   }
 
   /**
@@ -69,7 +63,7 @@ class Custom extends FieldPluginBase {
    */
   public function render(ResultRow $values) {
     // Return the text, so the code never thinks the value is empty.
-    return ViewsRenderPipelineMarkup::create(Xss::filterAdmin($this->options['alter']['text']));
+    return $this->options['alter']['text'];
   }
 
   /**

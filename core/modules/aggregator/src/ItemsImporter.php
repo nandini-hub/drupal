@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\aggregator\Entity\ItemsImporter.
+ */
+
 namespace Drupal\aggregator;
 
 use Drupal\aggregator\Plugin\AggregatorPluginManager;
@@ -94,8 +99,8 @@ class ItemsImporter implements ItemsImporterInterface {
       watchdog_exception('aggregator', $e);
     }
 
-    // Store instances in an array so we don't have to instantiate new objects.
-    $processor_instances = [];
+    // Store instances in an array so we dont have to instantiate new objects.
+    $processor_instances = array();
     foreach ($this->config->get('processors') as $processor) {
       try {
         $processor_instances[$processor] = $this->processorManager->createInstance($processor);
@@ -124,10 +129,10 @@ class ItemsImporter implements ItemsImporterInterface {
 
           // Log if feed URL has changed.
           if ($feed->getUrl() != $feed_url) {
-            $this->logger->notice('Updated URL for feed %title to %url.', ['%title' => $feed->label(), '%url' => $feed->getUrl()]);
+            $this->logger->notice('Updated URL for feed %title to %url.', array('%title' => $feed->label(), '%url' => $feed->getUrl()));
           }
 
-          $this->logger->notice('There is new syndicated content from %site.', ['%site' => $feed->label()]);
+          $this->logger->notice('There is new syndicated content from %site.', array('%site' => $feed->label()));
 
           // If there are items on the feed, let enabled processors process them.
           if (!empty($feed->items)) {

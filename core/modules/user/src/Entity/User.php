@@ -1,16 +1,18 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\user\Entity\User.
+ */
+
 namespace Drupal\user\Entity;
 
 use Drupal\Core\Entity\ContentEntityBase;
-use Drupal\Core\Entity\EntityChangedTrait;
 use Drupal\Core\Entity\EntityStorageInterface;
 use Drupal\Core\Entity\EntityTypeInterface;
 use Drupal\Core\Field\BaseFieldDefinition;
 use Drupal\Core\Language\LanguageInterface;
 use Drupal\user\RoleInterface;
-use Drupal\user\StatusItem;
-use Drupal\user\TimeZoneItem;
 use Drupal\user\UserInterface;
 
 /**
@@ -22,13 +24,6 @@ use Drupal\user\UserInterface;
  * @ContentEntityType(
  *   id = "user",
  *   label = @Translation("User"),
- *   label_collection = @Translation("Users"),
- *   label_singular = @Translation("user"),
- *   label_plural = @Translation("users"),
- *   label_count = @PluralTranslation(
- *     singular = "@count user",
- *     plural = "@count users",
- *   ),
  *   handlers = {
  *     "storage" = "Drupal\user\UserStorage",
  *     "storage_schema" = "Drupal\user\UserStorageSchema",
@@ -48,6 +43,7 @@ use Drupal\user\UserInterface;
  *   admin_permission = "administer users",
  *   base_table = "users",
  *   data_table = "users_field_data",
+ *   label_callback = "user_format_name",
  *   translatable = TRUE,
  *   entity_keys = {
  *     "id" = "uid",
@@ -66,8 +62,6 @@ use Drupal\user\UserInterface;
  */
 class User extends ContentEntityBase implements UserInterface {
 
-  use EntityChangedTrait;
-
   /**
    * Stores a reference for a reusable anonymous user entity.
    *
@@ -85,25 +79,18 @@ class User extends ContentEntityBase implements UserInterface {
   /**
    * {@inheritdoc}
    */
-  public function label() {
-    return $this->getDisplayName();
-  }
-
-  /**
-   * {@inheritdoc}
-   */
   public function preSave(EntityStorageInterface $storage) {
     parent::preSave($storage);
 
     // Make sure that the authenticated/anonymous roles are not persisted.
     foreach ($this->get('roles') as $index => $item) {
-      if (in_array($item->target_id, [RoleInterface::ANONYMOUS_ID, RoleInterface::AUTHENTICATED_ID])) {
+      if (in_array($item->target_id, array(RoleInterface::ANONYMOUS_ID, RoleInterface::AUTHENTICATED_ID))) {
         $this->get('roles')->offsetUnset($index);
       }
     }
 
     // Store account cancellation information.
-    foreach (['user_cancel_method', 'user_cancel_notify'] as $key) {
+    foreach (array('user_cancel_method', 'user_cancel_notify') as $key) {
       if (isset($this->{$key})) {
         \Drupal::service('user.data')->set('user', $this->id(), substr($key, 5), $this->{$key});
       }
@@ -155,7 +142,7 @@ class User extends ContentEntityBase implements UserInterface {
    * {@inheritdoc}
    */
   public function getRoles($exclude_locked_roles = FALSE) {
-    $roles = [];
+    $roles = array();
 
     // Users with an ID always have the authenticated user role.
     if (!$exclude_locked_roles) {
@@ -201,7 +188,7 @@ class User extends ContentEntityBase implements UserInterface {
    * {@inheritdoc}
    */
   public function removeRole($rid) {
-    $this->set('roles', array_diff($this->getRoles(TRUE), [$rid]));
+    $this->set('roles', array_diff($this->getRoles(TRUE), array($rid)));
   }
 
   /**
@@ -323,7 +310,7 @@ class User extends ContentEntityBase implements UserInterface {
   /**
    * {@inheritdoc}
    */
-  public function getPreferredLangcode($fallback_to_default = TRUE) {
+  function getPreferredLangcode($fallback_to_default = TRUE) {
     $language_list = $this->languageManager()->getLanguages();
     $preferred_langcode = $this->get('preferred_langcode')->value;
     if (!empty($preferred_langcode) && isset($language_list[$preferred_langcode])) {
@@ -337,7 +324,7 @@ class User extends ContentEntityBase implements UserInterface {
   /**
    * {@inheritdoc}
    */
-  public function getPreferredAdminLangcode($fallback_to_default = TRUE) {
+  function getPreferredAdminLangcode($fallback_to_default = TRUE) {
     $language_list = $this->languageManager()->getLanguages();
     $preferred_langcode = $this->get('preferred_admin_langcode')->value;
     if (!empty($preferred_langcode) && isset($language_list[$preferred_langcode])) {
@@ -361,7 +348,6 @@ class User extends ContentEntityBase implements UserInterface {
   public function isAuthenticated() {
     return $this->id() > 0;
   }
-
   /**
    * {@inheritdoc}
    */
@@ -373,22 +359,7 @@ class User extends ContentEntityBase implements UserInterface {
    * {@inheritdoc}
    */
   public function getUsername() {
-    @trigger_error('\Drupal\Core\Session\AccountInterface::getUsername() is deprecated in Drupal 8.0.0, will be removed before Drupal 9.0.0. Use \Drupal\Core\Session\AccountInterface::getAccountName() or \Drupal\user\UserInterface::getDisplayName() instead. See https://www.drupal.org/node/2572493', E_USER_DEPRECATED);
-    return $this->getAccountName();
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function getAccountName() {
-    return $this->get('name')->value ?: '';
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function getDisplayName() {
-    $name = $this->getAccountName() ?: \Drupal::config('user.settings')->get('anonymous');
+    $name = $this->get('name')->value ?: \Drupal::config('user.settings')->get('anonymous');
     \Drupal::moduleHandler()->alter('user_format_name', $name, $this);
     return $name;
   }
@@ -404,6 +375,13 @@ class User extends ContentEntityBase implements UserInterface {
   /**
    * {@inheritdoc}
    */
+  public function getChangedTime() {
+    return $this->get('changed')->value;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
   public function setExistingPassword($password) {
     $this->get('pass')->existing = $password;
   }
@@ -412,7 +390,7 @@ class User extends ContentEntityBase implements UserInterface {
    * {@inheritdoc}
    */
   public function checkExistingPassword(UserInterface $account_unchanged) {
-    return strlen($this->get('pass')->existing) > 0 && \Drupal::service('password')->check(trim($this->get('pass')->existing), $account_unchanged->getPassword());
+    return !empty($this->get('pass')->existing) && \Drupal::service('password')->check(trim($this->get('pass')->existing), $account_unchanged);
   }
 
   /**
@@ -426,17 +404,11 @@ class User extends ContentEntityBase implements UserInterface {
 
       // @todo Use the entity factory once available, see
       //   https://www.drupal.org/node/1867228.
-      $entity_type_manager = \Drupal::entityTypeManager();
-      $entity_type = $entity_type_manager->getDefinition('user');
+      $entity_manager = \Drupal::entityManager();
+      $entity_type = $entity_manager->getDefinition('user');
       $class = $entity_type->getClass();
 
-      static::$anonymousUser = new $class([
-        'uid' => [LanguageInterface::LANGCODE_DEFAULT => 0],
-        'name' => [LanguageInterface::LANGCODE_DEFAULT => ''],
-        // Explicitly set the langcode to ensure that field definitions do not
-        // need to be fetched to figure out a default.
-        'langcode' => [LanguageInterface::LANGCODE_DEFAULT => LanguageInterface::LANGCODE_NOT_SPECIFIED],
-      ], $entity_type->id());
+      static::$anonymousUser = new $class(['uid' => [LanguageInterface::LANGCODE_DEFAULT => 0]], $entity_type->id());
     }
     return clone static::$anonymousUser;
   }
@@ -445,26 +417,30 @@ class User extends ContentEntityBase implements UserInterface {
    * {@inheritdoc}
    */
   public static function baseFieldDefinitions(EntityTypeInterface $entity_type) {
-    /** @var \Drupal\Core\Field\BaseFieldDefinition[] $fields */
-    $fields = parent::baseFieldDefinitions($entity_type);
+    $fields['uid'] = BaseFieldDefinition::create('integer')
+      ->setLabel(t('User ID'))
+      ->setDescription(t('The user ID.'))
+      ->setReadOnly(TRUE)
+      ->setSetting('unsigned', TRUE);
 
-    $fields['uid']->setLabel(t('User ID'))
-      ->setDescription(t('The user ID.'));
+    $fields['uuid'] = BaseFieldDefinition::create('uuid')
+      ->setLabel(t('UUID'))
+      ->setDescription(t('The user UUID.'))
+      ->setReadOnly(TRUE);
 
-    $fields['uuid']->setDescription(t('The user UUID.'));
-
-    $fields['langcode']->setLabel(t('Language code'))
+    $fields['langcode'] = BaseFieldDefinition::create('language')
+      ->setLabel(t('Language code'))
       ->setDescription(t('The user language code.'))
-      ->setDisplayOptions('form', ['region' => 'hidden']);
+      ->setTranslatable(TRUE);
 
     $fields['preferred_langcode'] = BaseFieldDefinition::create('language')
       ->setLabel(t('Preferred language code'))
       ->setDescription(t("The user's preferred language code for receiving emails and viewing the site."))
       // @todo: Define this via an options provider once
       // https://www.drupal.org/node/2329937 is completed.
-      ->addPropertyConstraints('value', [
-        'AllowedValues' => ['callback' => __CLASS__ . '::getAllowedConfigurableLanguageCodes'],
-      ]);
+      ->addPropertyConstraints('value', array(
+        'AllowedValues' => array('callback' => __CLASS__ . '::getAllowedConfigurableLanguageCodes'),
+      ));
 
     $fields['preferred_admin_langcode'] = BaseFieldDefinition::create('language')
       ->setLabel(t('Preferred admin language code'))
@@ -472,26 +448,25 @@ class User extends ContentEntityBase implements UserInterface {
       // @todo: A default value of NULL is ignored, so we have to specify
       // an empty field item structure instead. Fix this in
       // https://www.drupal.org/node/2318605.
-      ->setDefaultValue([0 => ['value' => NULL]])
+      ->setDefaultValue(array(0 => array ('value' => NULL)))
       // @todo: Define this via an options provider once
       // https://www.drupal.org/node/2329937 is completed.
-      ->addPropertyConstraints('value', [
-        'AllowedValues' => ['callback' => __CLASS__ . '::getAllowedConfigurableLanguageCodes'],
-      ]);
+      ->addPropertyConstraints('value', array(
+        'AllowedValues' => array('callback' => __CLASS__ . '::getAllowedConfigurableLanguageCodes'),
+      ));
 
     // The name should not vary per language. The username is the visual
     // identifier for a user and needs to be consistent in all languages.
     $fields['name'] = BaseFieldDefinition::create('string')
       ->setLabel(t('Name'))
       ->setDescription(t('The name of this user.'))
-      ->setRequired(TRUE)
-      ->setConstraints([
+      ->setDefaultValue('')
+      ->setConstraints(array(
         // No Length constraint here because the UserName constraint also covers
         // that.
-        'UserName' => [],
-        'UserNameUnique' => [],
-      ]);
-    $fields['name']->getItemDefinition()->setClass('\Drupal\user\UserNameItem');
+        'UserName' => array(),
+        'UserNameUnique' => array(),
+      ));
 
     $fields['pass'] = BaseFieldDefinition::create('password')
       ->setLabel(t('Password'))
@@ -512,16 +487,14 @@ class User extends ContentEntityBase implements UserInterface {
       ->setSetting('max_length', 32)
       // @todo: Define this via an options provider once
       // https://www.drupal.org/node/2329937 is completed.
-      ->addPropertyConstraints('value', [
-        'AllowedValues' => ['callback' => __CLASS__ . '::getAllowedTimezones'],
-      ]);
-    $fields['timezone']->getItemDefinition()->setClass(TimeZoneItem::class);
+      ->addPropertyConstraints('value', array(
+        'AllowedValues' => array('callback' => __CLASS__ . '::getAllowedTimezones'),
+      ));
 
     $fields['status'] = BaseFieldDefinition::create('boolean')
       ->setLabel(t('User status'))
       ->setDescription(t('Whether the user is active or blocked.'))
       ->setDefaultValue(FALSE);
-    $fields['status']->getItemDefinition()->setClass(StatusItem::class);
 
     $fields['created'] = BaseFieldDefinition::create('created')
       ->setLabel(t('Created'))
@@ -529,8 +502,7 @@ class User extends ContentEntityBase implements UserInterface {
 
     $fields['changed'] = BaseFieldDefinition::create('changed')
       ->setLabel(t('Changed'))
-      ->setDescription(t('The time that the user was last edited.'))
-      ->setTranslatable(TRUE);
+      ->setDescription(t('The time that the user was last edited.'));
 
     $fields['access'] = BaseFieldDefinition::create('timestamp')
       ->setLabel(t('Last access'))
@@ -563,7 +535,7 @@ class User extends ContentEntityBase implements UserInterface {
    *   The role storage object.
    */
   protected function getRoleStorage() {
-    return \Drupal::entityTypeManager()->getStorage('user_role');
+    return \Drupal::entityManager()->getStorage('user_role');
   }
 
   /**

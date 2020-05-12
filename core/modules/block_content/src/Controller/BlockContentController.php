@@ -1,7 +1,13 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\block_content\Controller\BlockContentController
+ */
+
 namespace Drupal\block_content\Controller;
 
+use Drupal\Component\Plugin\PluginManagerInterface;
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Entity\EntityStorageInterface;
 use Drupal\block_content\BlockContentTypeInterface;
@@ -37,10 +43,10 @@ class BlockContentController extends ControllerBase {
    * {@inheritdoc}
    */
   public static function create(ContainerInterface $container) {
-    $entity_type_manager = $container->get('entity_type.manager');
+    $entity_manager = $container->get('entity.manager');
     return new static(
-      $entity_type_manager->getStorage('block_content'),
-      $entity_type_manager->getStorage('block_content_type'),
+      $entity_manager->getStorage('block_content'),
+      $entity_manager->getStorage('block_content_type'),
       $container->get('theme_handler')
     );
   }
@@ -79,14 +85,14 @@ class BlockContentController extends ControllerBase {
       return $this->addForm($type, $request);
     }
     if (count($types) === 0) {
-      return [
-        '#markup' => $this->t('You have not created any block types yet. Go to the <a href=":url">block type creation page</a> to add a new block type.', [
-          ':url' => Url::fromRoute('block_content.type_add')->toString(),
+      return array(
+        '#markup' => $this->t('You have not created any block types yet. Go to the <a href="!url">block type creation page</a> to add a new block type.', [
+          '!url' => Url::fromRoute('block_content.type_add')->toString(),
         ]),
-      ];
+      );
     }
 
-    return ['#theme' => 'block_content_add_list', '#content' => $types];
+    return array('#theme' => 'block_content_add_list', '#content' => $types);
   }
 
   /**
@@ -98,13 +104,12 @@ class BlockContentController extends ControllerBase {
    *   The current request object.
    *
    * @return array
-   *   A form array as expected by
-   *   \Drupal\Core\Render\RendererInterface::render().
+   *   A form array as expected by drupal_render().
    */
   public function addForm(BlockContentTypeInterface $block_content_type, Request $request) {
-    $block = $this->blockContentStorage->create([
-      'type' => $block_content_type->id(),
-    ]);
+    $block = $this->blockContentStorage->create(array(
+      'type' => $block_content_type->id()
+    ));
     if (($theme = $request->query->get('theme')) && in_array($theme, array_keys($this->themeHandler->listInfo()))) {
       // We have navigated to this page from the block library and will keep track
       // of the theme for redirecting the user to the configuration page for the
@@ -124,7 +129,7 @@ class BlockContentController extends ControllerBase {
    *   The page title.
    */
   public function getAddFormTitle(BlockContentTypeInterface $block_content_type) {
-    return $this->t('Add %type custom block', ['%type' => $block_content_type->label()]);
+    return $this->t('Add %type custom block', array('%type' => $block_content_type->label()));
   }
 
 }

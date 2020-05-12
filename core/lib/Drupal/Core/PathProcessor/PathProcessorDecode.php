@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains Drupal\Core\PathProcessor\PathProcessorDecode.
+ */
+
 namespace Drupal\Core\PathProcessor;
 
 use Symfony\Component\HttpFoundation\Request;
@@ -20,7 +25,7 @@ use Symfony\Component\HttpFoundation\Request;
 class PathProcessorDecode implements InboundPathProcessorInterface {
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\PathProcessor\InboundPathProcessorInterface::processInbound().
    */
   public function processInbound($path, Request $request) {
     return urldecode($path);

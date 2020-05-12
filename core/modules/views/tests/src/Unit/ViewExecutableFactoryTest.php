@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Tests\views\Unit\VIewExecutableFactoryTest.
+ */
+
 namespace Drupal\Tests\views\Unit;
 
 use Drupal\Tests\UnitTestCase;
@@ -16,7 +21,7 @@ class ViewExecutableFactoryTest extends UnitTestCase {
   /**
    * The mock user object.
    *
-   * @var \Drupal\Core\Session\AccountInterface|\PHPUnit\Framework\MockObject\MockObject
+   * @var \Drupal\Core\Session\AccountInterface|\PHPUnit_Framework_MockObject_MockObject
    */
   protected $user;
 
@@ -30,7 +35,7 @@ class ViewExecutableFactoryTest extends UnitTestCase {
   /**
    * The mock view entity.
    *
-   * @var \Drupal\Core\Config\Entity\ConfigEntityInterface|\PHPUnit\Framework\MockObject\MockObject
+   * @var \Drupal\Core\Config\Entity\ConfigEntityInterface|\PHPUnit_Framework_MockObject_MockObject
    */
   protected $view;
 
@@ -44,14 +49,14 @@ class ViewExecutableFactoryTest extends UnitTestCase {
   /**
    * The mocked views data.
    *
-   * @var \Drupal\views\ViewsData|\PHPUnit\Framework\MockObject\MockObject
+   * @var \Drupal\views\ViewsData|\PHPUnit_Framework_MockObject_MockObject
    */
   protected $viewsData;
 
   /**
    * The mocked route provider.
    *
-   * @var \Drupal\Core\Routing\RouteProviderInterface|\PHPUnit\Framework\MockObject\MockObject
+   * @var \Drupal\Core\Routing\RouteProviderInterface|\PHPUnit_Framework_MockObject_MockObject
    */
   protected $routeProvider;
 
@@ -61,13 +66,13 @@ class ViewExecutableFactoryTest extends UnitTestCase {
   protected function setUp() {
     parent::setUp();
 
-    $this->user = $this->createMock('Drupal\Core\Session\AccountInterface');
+    $this->user = $this->getMock('Drupal\Core\Session\AccountInterface');
     $this->requestStack = new RequestStack();
-    $this->view = $this->createMock('Drupal\views\ViewEntityInterface');
+    $this->view = $this->getMock('Drupal\views\ViewEntityInterface');
     $this->viewsData = $this->getMockBuilder('Drupal\views\ViewsData')
       ->disableOriginalConstructor()
       ->getMock();
-    $this->routeProvider = $this->createMock('Drupal\Core\Routing\RouteProviderInterface');
+    $this->routeProvider = $this->getMock('Drupal\Core\Routing\RouteProviderInterface');
     $this->viewExecutableFactory = new ViewExecutableFactory($this->user, $this->requestStack, $this->viewsData, $this->routeProvider);
   }
 

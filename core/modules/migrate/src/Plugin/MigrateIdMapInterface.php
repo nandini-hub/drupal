@@ -1,8 +1,14 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\migrate\Plugin\MigrateIdMapInterface.
+ */
+
 namespace Drupal\migrate\Plugin;
 
 use Drupal\Component\Plugin\PluginInspectionInterface;
+use Drupal\migrate\Entity\MigrationInterface;
 use Drupal\migrate\MigrateMessageInterface;
 use Drupal\migrate\Row;
 
@@ -10,9 +16,7 @@ use Drupal\migrate\Row;
  * Defines an interface for migrate ID mappings.
  *
  * Migrate ID mappings maintain a relation between source ID and destination ID
- * for audit and rollback purposes. The keys used in the migrate_map table are
- * of the form sourceidN and destidN for the source and destination values
- * respectively.
+ * for audit and rollback purposes.
  */
 interface MigrateIdMapInterface extends \Iterator, PluginInspectionInterface {
 
@@ -33,8 +37,8 @@ interface MigrateIdMapInterface extends \Iterator, PluginInspectionInterface {
   /**
    * Saves a mapping from the source identifiers to the destination identifiers.
    *
-   * Called upon import of one row, we record a mapping from the source ID to
-   * the destination ID. Also may be called, setting the third parameter to
+   * Called upon import of one row, we record a mapping from the source ID
+   * to the destination ID. Also may be called, setting the third parameter to
    * NEEDS_UPDATE, to signal an existing record should be re-migrated.
    *
    * @param \Drupal\migrate\Row $row
@@ -43,11 +47,9 @@ interface MigrateIdMapInterface extends \Iterator, PluginInspectionInterface {
    * @param array $destination_id_values
    *   An array of destination identifier values.
    * @param int $status
-   *   (optional) Status of the source row in the map. Defaults to
-   *   self::STATUS_IMPORTED.
+   *   Status of the source row in the map.
    * @param int $rollback_action
-   *   (optional) How to handle the destination object on rollback. Defaults to
-   *   self::ROLLBACK_DELETE.
+   *   How to handle the destination object on rollback.
    */
   public function saveIdMapping(Row $row, array $destination_id_values, $status = self::STATUS_IMPORTED, $rollback_action = self::ROLLBACK_DELETE);
 
@@ -55,55 +57,13 @@ interface MigrateIdMapInterface extends \Iterator, PluginInspectionInterface {
    * Saves a message related to a source record in the migration message table.
    *
    * @param array $source_id_values
-   *   The source identifier keyed values of the record, e.g. ['nid' => 5].
+   *   The source identifier values of the record in error.
    * @param string $message
    *   The message to record.
    * @param int $level
-   *   (optional) The message severity. Defaults to
-   *   MigrationInterface::MESSAGE_ERROR.
+   *   Optional message severity (defaults to MESSAGE_ERROR).
    */
   public function saveMessage(array $source_id_values, $message, $level = MigrationInterface::MESSAGE_ERROR);
-
-  /**
-   * Retrieves a traversable object of messages related to source records.
-   *
-   * @param array $source_id_values
-   *   (optional) The source identifier keyed values of the record, e.g.
-   *   ['nid' => 5]. If empty (the default), all messages are retrieved.
-   * @param int $level
-   *   (optional) Message severity. If NULL (the default), retrieve messages of
-   *   all severities.
-   *
-   * @return \Traversable
-   *   Retrieves a traversable object of message objects of unspecified class.
-   *   Each object has the following public properties:
-   *   - source_row_hash: the hash of the entire serialized source row data.
-   *   - message: the text of the message.
-   *   - level: one of MigrationInterface::MESSAGE_ERROR,
-   *   MigrationInterface::MESSAGE_WARNING, MigrationInterface::MESSAGE_NOTICE,
-   *   MigrationInterface::MESSAGE_INFORMATIONAL.
-   */
-  public function getMessages(array $source_id_values = [], $level = NULL);
-
-  /**
-   * Retrieves an iterator over messages relate to source records.
-   *
-   * @param array $source_id_values
-   *   (optional) The source identifier keyed values of the record, e.g.
-   *   ['nid' => 5]. If empty (the default), all messages are retrieved.
-   * @param int $level
-   *   (optional) Message severity. If NULL (the default), retrieve messages of
-   *   all severities.
-   *
-   * @return \Iterator
-   *   Retrieves an iterator over the message rows.
-   *
-   * @deprecated in drupal:8.8.0 and is removed from drupal:9.0.0.
-   *   Use \Drupal\migrate\Plugin\MigrateIdMapInterface::getMessages() instead.
-   *
-   * @see https://www.drupal.org/node/3060969
-   */
-  public function getMessageIterator(array $source_id_values = [], $level = NULL);
 
   /**
    * Prepares to run a full update.
@@ -130,6 +90,7 @@ interface MigrateIdMapInterface extends \Iterator, PluginInspectionInterface {
    *   The number of imported items.
    */
   public function importedCount();
+
 
   /**
    * Returns a count of items which are marked as needing update.
@@ -159,9 +120,9 @@ interface MigrateIdMapInterface extends \Iterator, PluginInspectionInterface {
    * Deletes the map and message entries for a given source record.
    *
    * @param array $source_id_values
-   *   The source identifier keyed values of the record, e.g. ['nid' => 5].
+   *   The source identifier values of the record to delete.
    * @param bool $messages_only
-   *   (optional) TRUE to only delete the migrate messages. Defaults to FALSE.
+   *   TRUE to only delete the migrate messages.
    */
   public function delete(array $source_id_values, $messages_only = FALSE);
 
@@ -169,9 +130,18 @@ interface MigrateIdMapInterface extends \Iterator, PluginInspectionInterface {
    * Deletes the map and message table entries for a given destination row.
    *
    * @param array $destination_id_values
-   *   The destination identifier key value pairs we should do the deletes for.
+   *   The destination identifier values we should do the deletes for.
    */
   public function deleteDestination(array $destination_id_values);
+
+  /**
+   * Deletes the map and message entries for a set of given source records.
+   *
+   * @param array $source_id_values
+   *   The identifier values of the sources we should do the deletes for. Each
+   *   array member is an array of identifier values for one source row.
+   */
+  public function deleteBulk(array $source_id_values);
 
   /**
    * Clears all messages from the map.
@@ -182,7 +152,7 @@ interface MigrateIdMapInterface extends \Iterator, PluginInspectionInterface {
    * Retrieves a row from the map table based on source identifier values.
    *
    * @param array $source_id_values
-   *   The source identifier keyed values of the record, e.g. ['nid' => 5].
+   *   The source identifier values of the record to retrieve.
    *
    * @return array
    *   The raw row data as an associative array.
@@ -193,7 +163,7 @@ interface MigrateIdMapInterface extends \Iterator, PluginInspectionInterface {
    * Retrieves a row by the destination identifiers.
    *
    * @param array $destination_id_values
-   *   The destination identifier keyed values of the record, e.g. ['nid' => 5].
+   *   The destination identifier values of the record to retrieve.
    *
    * @return array
    *   The row(s) of data.
@@ -218,67 +188,26 @@ interface MigrateIdMapInterface extends \Iterator, PluginInspectionInterface {
    * (possibly multi-field) source identifier value mapped to it.
    *
    * @param array $destination_id_values
-   *   The destination identifier keyed values of the record, e.g. ['nid' => 5].
+   *   The destination identifier values of the record.
    *
    * @return array
-   *   The source identifier keyed values of the record, e.g. ['nid' => 5], or
-   *   an empty array on failure.
+   *   The source identifier values of the record, or NULL on failure.
    */
-  public function lookupSourceId(array $destination_id_values);
+  public function lookupSourceID(array $destination_id_values);
 
   /**
-   * Looks up the destination identifier corresponding to a source key.
+   * Looks up the destination identifier.
    *
    * Given a (possibly multi-field) source identifier value, return the
    * (possibly multi-field) destination identifier value it is mapped to.
    *
    * @param array $source_id_values
-   *   The source identifier keyed values of the record, e.g. ['nid' => 5].
-   *
-   * @return array
-   *   The destination identifier values of the record, or empty on failure.
-   *
-   * @deprecated in drupal:8.1.0 and is removed from drupal:9.0.0. Use
-   *   lookupDestinationIds() instead.
-   *
-   * @see https://www.drupal.org/node/2725809
-   */
-  public function lookupDestinationId(array $source_id_values);
-
-  /**
-   * Looks up the destination identifiers corresponding to a source key.
-   *
-   * This can look up a subset of source keys if only some are provided, and
-   * will return all destination keys that match.
-   *
-   * @param array $source_id_values
-   *   The source identifier keyed values of the records, e.g. ['nid' => 5].
-   *   If unkeyed, the first count($source_id_values) keys will be assumed.
-   *
-   * @return array
-   *   An array of arrays of destination identifier values.
-   *
-   * @throws \Drupal\migrate\MigrateException
-   *   Thrown when $source_id_values contains unknown keys, or is the wrong
-   *   length.
-   */
-  public function lookupDestinationIds(array $source_id_values);
-
-  /**
-   * Looks up the destination identifier currently being iterated.
+   *   The source identifier values of the record.
    *
    * @return array
    *   The destination identifier values of the record, or NULL on failure.
    */
-  public function currentDestination();
-
-  /**
-   * Looks up the source identifier(s) currently being iterated.
-   *
-   * @return array
-   *   The source identifier values of the record, or NULL on failure.
-   */
-  public function currentSource();
+  public function lookupDestinationId(array $source_id_values);
 
   /**
    * Removes any persistent storage used by this map.
@@ -295,10 +224,10 @@ interface MigrateIdMapInterface extends \Iterator, PluginInspectionInterface {
   public function getQualifiedMapTableName();
 
   /**
-   * Sets the migrate message service.
+   * Sets the migrate message.
    *
    * @param \Drupal\migrate\MigrateMessageInterface $message
-   *   The migrate message service.
+   *   The message to display.
    */
   public function setMessage(MigrateMessageInterface $message);
 

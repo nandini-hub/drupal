@@ -1,14 +1,19 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\filter\Element\ProcessedText.
+ */
+
 namespace Drupal\filter\Element;
 
+use Drupal\Component\Utility\NestedArray;
 use Drupal\Core\Cache\Cache;
-use Drupal\Core\Cache\CacheableMetadata;
 use Drupal\Core\Render\BubbleableMetadata;
 use Drupal\Core\Render\Element\RenderElement;
+use Drupal\Core\Render\Renderer;
 use Drupal\filter\Entity\FilterFormat;
 use Drupal\filter\Plugin\FilterInterface;
-use Drupal\filter\Render\FilteredMarkup;
 
 /**
  * Provides a processed text render element.
@@ -22,15 +27,15 @@ class ProcessedText extends RenderElement {
    */
   public function getInfo() {
     $class = get_class($this);
-    return [
+    return array(
       '#text' => '',
       '#format' => NULL,
-      '#filter_types_to_skip' => [],
+      '#filter_types_to_skip' => array(),
       '#langcode' => '',
-      '#pre_render' => [
-        [$class, 'preRenderText'],
-      ],
-    ];
+      '#pre_render' => array(
+        array($class, 'preRenderText'),
+      ),
+    );
   }
 
   /**
@@ -70,25 +75,17 @@ class ProcessedText extends RenderElement {
     $langcode = $element['#langcode'];
 
     if (!isset($format_id)) {
-      $filter_settings = static::configFactory()->get('filter.settings');
-      $format_id = $filter_settings->get('fallback_format');
-      // Ensure 'filter.settings' config's cacheability is respected.
-      CacheableMetadata::createFromRenderArray($element)
-        ->addCacheableDependency($filter_settings)
-        ->applyTo($element);
+      $format_id = static::configFactory()->get('filter.settings')->get('fallback_format');
     }
+    // If the requested text format does not exist, the text cannot be filtered.
     /** @var \Drupal\filter\Entity\FilterFormat $format **/
-    $format = FilterFormat::load($format_id);
-    // If the requested text format doesn't exist or its disabled, the text
-    // cannot be filtered.
-    if (!$format || !$format->status()) {
-      $message = !$format ? 'Missing text format: %format.' : 'Disabled text format: %format.';
-      static::logger('filter')->alert($message, ['%format' => $format_id]);
+    if (!$format = FilterFormat::load($format_id)) {
+      static::logger('filter')->alert('Missing text format: %format.', array('%format' => $format_id));
       $element['#markup'] = '';
       return $element;
     }
 
-    $filter_must_be_applied = function (FilterInterface $filter) use ($filter_types_to_skip) {
+    $filter_must_be_applied = function(FilterInterface $filter) use ($filter_types_to_skip) {
       $enabled = $filter->status === TRUE;
       $type = $filter->getType();
       // Prevent FilterInterface::TYPE_HTML_RESTRICTOR from being skipped.
@@ -98,7 +95,7 @@ class ProcessedText extends RenderElement {
 
     // Convert all Windows and Mac newlines to a single newline, so filters only
     // need to deal with one possibility.
-    $text = str_replace(["\r\n", "\r"], "\n", $text);
+    $text = str_replace(array("\r\n", "\r"), "\n", $text);
 
     // Get a complete list of filters, ordered properly.
     /** @var \Drupal\filter\Plugin\FilterInterface[] $filters **/
@@ -121,15 +118,9 @@ class ProcessedText extends RenderElement {
       }
     }
 
-    // Filtering and sanitizing have been done in
-    // \Drupal\filter\Plugin\FilterInterface. $text is not guaranteed to be
-    // safe, but it has been passed through the filter system and checked with
-    // a text format, so it must be printed as is. (See the note about security
-    // in the method documentation above.)
-    $element['#markup'] = FilteredMarkup::create($text);
-
-    // Set the updated bubbleable rendering metadata and the text format's
-    // cache tag.
+    // Filtering done, store in #markup, set the updated bubbleable rendering
+    // metadata, and set the text format's cache tag.
+    $element['#markup'] = $text;
     $metadata->applyTo($element);
     $element['#cache']['tags'] = Cache::mergeTags($element['#cache']['tags'], $format->getCacheTags());
 
@@ -139,11 +130,7 @@ class ProcessedText extends RenderElement {
   /**
    * Wraps a logger channel.
    *
-   * @param string $channel
-   *   The name of the channel.
-   *
    * @return \Psr\Log\LoggerInterface
-   *   The logger for this channel.
    */
   protected static function logger($channel) {
     return \Drupal::logger($channel);

@@ -1,8 +1,14 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\link\Plugin\Field\FieldType\LinkItem.
+ */
+
 namespace Drupal\link\Plugin\Field\FieldType;
 
 use Drupal\Component\Utility\Random;
+use Drupal\Component\Utility\UrlHelper;
 use Drupal\Core\Field\FieldDefinitionInterface;
 use Drupal\Core\Field\FieldItemBase;
 use Drupal\Core\Field\FieldStorageDefinitionInterface;
@@ -30,10 +36,10 @@ class LinkItem extends FieldItemBase implements LinkItemInterface {
    * {@inheritdoc}
    */
   public static function defaultFieldSettings() {
-    return [
+    return array(
       'title' => DRUPAL_OPTIONAL,
-      'link_type' => LinkItemInterface::LINK_GENERIC,
-    ] + parent::defaultFieldSettings();
+      'link_type' => LinkItemInterface::LINK_GENERIC
+    ) + parent::defaultFieldSettings();
   }
 
   /**
@@ -56,58 +62,58 @@ class LinkItem extends FieldItemBase implements LinkItemInterface {
    * {@inheritdoc}
    */
   public static function schema(FieldStorageDefinitionInterface $field_definition) {
-    return [
-      'columns' => [
-        'uri' => [
+    return array(
+      'columns' => array(
+        'uri' => array(
           'description' => 'The URI of the link.',
           'type' => 'varchar',
           'length' => 2048,
-        ],
-        'title' => [
+        ),
+        'title' => array(
           'description' => 'The link text.',
           'type' => 'varchar',
           'length' => 255,
-        ],
-        'options' => [
+        ),
+        'options' => array(
           'description' => 'Serialized array of options for the link.',
           'type' => 'blob',
           'size' => 'big',
           'serialize' => TRUE,
-        ],
-      ],
-      'indexes' => [
-        'uri' => [['uri', 30]],
-      ],
-    ];
+        ),
+      ),
+      'indexes' => array(
+        'uri' => array(array('uri', 30)),
+      ),
+    );
   }
 
   /**
    * {@inheritdoc}
    */
   public function fieldSettingsForm(array $form, FormStateInterface $form_state) {
-    $element = [];
+    $element = array();
 
-    $element['link_type'] = [
+    $element['link_type'] = array(
       '#type' => 'radios',
       '#title' => t('Allowed link type'),
       '#default_value' => $this->getSetting('link_type'),
-      '#options' => [
+      '#options' => array(
         static::LINK_INTERNAL => t('Internal links only'),
         static::LINK_EXTERNAL => t('External links only'),
         static::LINK_GENERIC => t('Both internal and external links'),
-      ],
-    ];
+      ),
+    );
 
-    $element['title'] = [
+    $element['title'] = array(
       '#type' => 'radios',
       '#title' => t('Allow link text'),
       '#default_value' => $this->getSetting('title'),
-      '#options' => [
+      '#options' => array(
         DRUPAL_DISABLED => t('Disabled'),
         DRUPAL_OPTIONAL => t('Optional'),
         DRUPAL_REQUIRED => t('Required'),
-      ],
-    ];
+      ),
+    );
 
     return $element;
   }
@@ -116,30 +122,25 @@ class LinkItem extends FieldItemBase implements LinkItemInterface {
    * {@inheritdoc}
    */
   public static function generateSampleValue(FieldDefinitionInterface $field_definition) {
+    // Set of possible top-level domains.
+    $tlds = array('com', 'net', 'gov', 'org', 'edu', 'biz', 'info');
+    // Set random length for the domain name.
+    $domain_length = mt_rand(7, 15);
     $random = new Random();
-    if ($field_definition->getItemDefinition()->getSetting('link_type') & LinkItemInterface::LINK_EXTERNAL) {
-      // Set of possible top-level domains.
-      $tlds = ['com', 'net', 'gov', 'org', 'edu', 'biz', 'info'];
-      // Set random length for the domain name.
-      $domain_length = mt_rand(7, 15);
 
-      switch ($field_definition->getSetting('title')) {
-        case DRUPAL_DISABLED:
-          $values['title'] = '';
-          break;
-        case DRUPAL_REQUIRED:
-          $values['title'] = $random->sentences(4);
-          break;
-        case DRUPAL_OPTIONAL:
-          // In case of optional title, randomize its generation.
-          $values['title'] = mt_rand(0, 1) ? $random->sentences(4) : '';
-          break;
-      }
-      $values['uri'] = 'http://www.' . $random->word($domain_length) . '.' . $tlds[mt_rand(0, (count($tlds) - 1))];
+    switch ($field_definition->getSetting('title')) {
+      case DRUPAL_DISABLED:
+        $values['title'] = '';
+        break;
+      case DRUPAL_REQUIRED:
+        $values['title'] = $random->sentences(4);
+        break;
+      case DRUPAL_OPTIONAL:
+        // In case of optional title, randomize its generation.
+        $values['title'] = mt_rand(0,1) ? $random->sentences(4) : '';
+        break;
     }
-    else {
-      $values['uri'] = 'base:' . $random->name(mt_rand(1, 64));
-    }
+    $values['uri'] = 'http://www.' . $random->word($domain_length) . '.' . $tlds[mt_rand(0, (sizeof($tlds)-1))];
     return $values;
   }
 
@@ -169,28 +170,19 @@ class LinkItem extends FieldItemBase implements LinkItemInterface {
    * {@inheritdoc}
    */
   public function getUrl() {
-    return Url::fromUri($this->uri, (array) $this->options);
+    return Url::fromUri($this->uri);
   }
 
   /**
    * {@inheritdoc}
    */
   public function setValue($values, $notify = TRUE) {
-    // Treat the values as property value of the main property, if no array is
-    // given.
-    if (isset($values) && !is_array($values)) {
-      $values = [static::mainPropertyName() => $values];
-    }
-    if (isset($values)) {
-      $values += [
-        'options' => [],
-      ];
-      // Unserialize the values, this is deprecated as the storage takes care of
-      // this, options must not be passed as a string anymore.
-      if (is_string($values['options'])) {
-        @trigger_error('Support for passing options as a serialized string is deprecated in 8.7.0 and will be removed before Drupal 9.0.0. Pass them as an array instead. See https://www.drupal.org/node/2961643.', E_USER_DEPRECATED);
-        $values['options'] = unserialize($values['options'], ['allowed_classes' => FALSE]);
-      }
+    // Unserialize the values.
+    // @todo The storage controller should take care of this, see
+    //   SqlContentEntityStorage::loadFieldItems, see
+    //   https://www.drupal.org/node/2414835
+    if (isset($values['options']) && is_string($values['options'])) {
+      $values['options'] = unserialize($values['options']);
     }
     parent::setValue($values, $notify);
   }

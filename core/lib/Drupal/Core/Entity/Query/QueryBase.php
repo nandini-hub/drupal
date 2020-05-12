@@ -1,10 +1,14 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Entity\Query\QueryBase.
+ */
+
 namespace Drupal\Core\Entity\Query;
 
 use Drupal\Core\Database\Query\PagerSelectExtender;
 use Drupal\Core\Entity\EntityTypeInterface;
-use Drupal\Core\Utility\TableSort;
 
 /**
  * The base entity query class.
@@ -30,7 +34,7 @@ abstract class QueryBase implements QueryInterface {
    *
    * @var array
    */
-  protected $sort = [];
+  protected $sort = array();
 
   /**
    * TRUE if this is a count query, FALSE if it isn't.
@@ -51,14 +55,14 @@ abstract class QueryBase implements QueryInterface {
    *
    * @var array
    */
-  protected $aggregate = [];
+  protected $aggregate = array();
 
   /**
    * The list of columns to group on.
    *
    * @var array
    */
-  protected $groupBy = [];
+  protected $groupBy = array();
 
   /**
    * Aggregate Conditions
@@ -72,14 +76,14 @@ abstract class QueryBase implements QueryInterface {
    *
    * @var array
    */
-  protected $sortAggregate = [];
+  protected $sortAggregate = array();
 
   /**
    * The query range.
    *
    * @var array
    */
-  protected $range = [];
+  protected $range = array();
 
   /**
    * The query metadata for alter purposes.
@@ -110,27 +114,20 @@ abstract class QueryBase implements QueryInterface {
   protected $allRevisions = FALSE;
 
   /**
-   * Flag indicating whether to query the latest revision.
-   *
-   * @var bool
-   */
-  protected $latestRevision = FALSE;
-
-  /**
    * The query pager data.
    *
    * @var array
    *
    * @see Query::pager()
    */
-  protected $pager = [];
+  protected $pager = array();
 
   /**
    * List of potential namespaces of the classes belonging to this query.
    *
    * @var array
    */
-  protected $namespaces = [];
+  protected $namespaces = array();
 
   /**
    * Constructs this object.
@@ -162,7 +159,7 @@ abstract class QueryBase implements QueryInterface {
   }
 
   /**
-   * {@inheritdoc}
+   * Implements \Drupal\Core\Entity\Query\QueryInterface::condition().
    */
   public function condition($property, $value = NULL, $operator = NULL, $langcode = NULL) {
     $this->condition->condition($property, $value, $operator, $langcode);
@@ -170,7 +167,7 @@ abstract class QueryBase implements QueryInterface {
   }
 
   /**
-   * {@inheritdoc}
+   * Implements \Drupal\Core\Entity\Query\QueryInterface::exists().
    */
   public function exists($property, $langcode = NULL) {
     $this->condition->exists($property, $langcode);
@@ -178,7 +175,7 @@ abstract class QueryBase implements QueryInterface {
   }
 
   /**
-   * {@inheritdoc}
+   * Implements \Drupal\Core\Entity\Query\QueryInterface::notExists().
    */
   public function notExists($property, $langcode = NULL) {
     $this->condition->notExists($property, $langcode);
@@ -186,13 +183,13 @@ abstract class QueryBase implements QueryInterface {
   }
 
   /**
-   * {@inheritdoc}
+   * Implements \Drupal\Core\Entity\Query\QueryInterface::range().
    */
   public function range($start = NULL, $length = NULL) {
-    $this->range = [
+    $this->range = array(
       'start' => $start,
       'length' => $length,
-    ];
+    );
     return $this;
   }
 
@@ -214,33 +211,33 @@ abstract class QueryBase implements QueryInterface {
   }
 
   /**
-   * {@inheritdoc}
+   * Implements \Drupal\Core\Entity\Query\QueryInterface::andConditionGroup().
    */
   public function andConditionGroup() {
     return $this->conditionGroupFactory('and');
   }
 
   /**
-   * {@inheritdoc}
+   * Implements \Drupal\Core\Entity\Query\QueryInterface::orConditionGroup().
    */
   public function orConditionGroup() {
     return $this->conditionGroupFactory('or');
   }
 
   /**
-   * {@inheritdoc}
+   * Implements \Drupal\Core\Entity\Query\QueryInterface::sort().
    */
   public function sort($field, $direction = 'ASC', $langcode = NULL) {
-    $this->sort[] = [
+    $this->sort[] = array(
       'field' => $field,
-      'direction' => strtoupper($direction),
+      'direction' => $direction,
       'langcode' => $langcode,
-    ];
+    );
     return $this;
   }
 
   /**
-   * {@inheritdoc}
+   * Implements \Drupal\Core\Entity\Query\QueryInterface::count().
    */
   public function count() {
     $this->count = TRUE;
@@ -248,7 +245,7 @@ abstract class QueryBase implements QueryInterface {
   }
 
   /**
-   * {@inheritdoc}
+   * Implements \Drupal\Core\Entity\Query\QueryInterface::accessCheck().
    */
   public function accessCheck($access_check = TRUE) {
     $this->accessCheck = $access_check;
@@ -260,16 +257,6 @@ abstract class QueryBase implements QueryInterface {
    */
   public function currentRevision() {
     $this->allRevisions = FALSE;
-    $this->latestRevision = FALSE;
-    return $this;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function latestRevision() {
-    $this->allRevisions = TRUE;
-    $this->latestRevision = TRUE;
     return $this;
   }
 
@@ -278,12 +265,11 @@ abstract class QueryBase implements QueryInterface {
    */
   public function allRevisions() {
     $this->allRevisions = TRUE;
-    $this->latestRevision = FALSE;
     return $this;
   }
 
   /**
-   * {@inheritdoc}
+   * Implements \Drupal\Core\Entity\Query\QueryInterface::pager().
    */
   public function pager($limit = 10, $element = NULL) {
     // Even when not using SQL, storing the element PagerSelectExtender is as
@@ -295,10 +281,10 @@ abstract class QueryBase implements QueryInterface {
       PagerSelectExtender::$maxElement = $element + 1;
     }
 
-    $this->pager = [
+    $this->pager = array(
       'limit' => $limit,
       'element' => $element,
-    ];
+    );
     return $this;
   }
 
@@ -310,28 +296,28 @@ abstract class QueryBase implements QueryInterface {
    */
   protected function initializePager() {
     if ($this->pager && !empty($this->pager['limit']) && !$this->count) {
-      $page = \Drupal::service('pager.parameters')->findPage($this->pager['element']);
+      $page = pager_find_page($this->pager['element']);
       $count_query = clone $this;
       $this->pager['total'] = $count_query->count()->execute();
       $this->pager['start'] = $page * $this->pager['limit'];
-      \Drupal::service('pager.manager')->createPager($this->pager['total'], $this->pager['limit'], $this->pager['element']);
+      pager_default_initialize($this->pager['total'], $this->pager['limit'], $this->pager['element']);
       $this->range($this->pager['start'], $this->pager['limit']);
     }
   }
 
   /**
-   * {@inheritdoc}
+   * Implements \Drupal\Core\Entity\Query\QueryInterface::tableSort().
    */
   public function tableSort(&$headers) {
     // If 'field' is not initialized, the header columns aren't clickable.
-    foreach ($headers as $key => $header) {
+    foreach ($headers as $key =>$header) {
       if (is_array($header) && isset($header['specifier'])) {
         $headers[$key]['field'] = '';
       }
     }
 
-    $order = TableSort::getOrder($headers, \Drupal::request());
-    $direction = TableSort::getSort($headers, \Drupal::request());
+    $order = tablesort_get_order($headers);
+    $direction = tablesort_get_sort($headers);
     foreach ($headers as $header) {
       if (is_array($header) && ($header['data'] == $order['name'])) {
         $this->sort($header['specifier'], $direction, isset($header['langcode']) ? $header['langcode'] : NULL);
@@ -344,12 +330,12 @@ abstract class QueryBase implements QueryInterface {
   /**
    * Makes sure that the Condition object is cloned as well.
    */
-  public function __clone() {
+  function __clone() {
     $this->condition = clone $this->condition;
   }
 
   /**
-   * {@inheritdoc}
+   * Implements \Drupal\Core\Database\Query\AlterableInterface::addTag().
    */
   public function addTag($tag) {
     $this->alterTags[$tag] = 1;
@@ -357,28 +343,28 @@ abstract class QueryBase implements QueryInterface {
   }
 
   /**
-   * {@inheritdoc}
+   * Implements \Drupal\Core\Database\Query\AlterableInterface::hasTag().
    */
   public function hasTag($tag) {
     return isset($this->alterTags[$tag]);
   }
 
   /**
-   * {@inheritdoc}
+   * Implements \Drupal\Core\Database\Query\AlterableInterface::hasAllTags().
    */
   public function hasAllTags() {
-    return !(boolean) array_diff(func_get_args(), array_keys($this->alterTags));
+    return !(boolean)array_diff(func_get_args(), array_keys($this->alterTags));
   }
 
   /**
-   * {@inheritdoc}
+   * Implements \Drupal\Core\Database\Query\AlterableInterface::hasAnyTag().
    */
   public function hasAnyTag() {
-    return (boolean) array_intersect(func_get_args(), array_keys($this->alterTags));
+    return (boolean)array_intersect(func_get_args(), array_keys($this->alterTags));
   }
 
   /**
-   * {@inheritdoc}
+   * Implements \Drupal\Core\Database\Query\AlterableInterface::addMetaData().
    */
   public function addMetaData($key, $object) {
     $this->alterMetaData[$key] = $object;
@@ -386,32 +372,32 @@ abstract class QueryBase implements QueryInterface {
   }
 
   /**
-   * {@inheritdoc}
+   * Implements \Drupal\Core\Database\Query\AlterableInterface::getMetaData().
    */
   public function getMetaData($key) {
     return isset($this->alterMetaData[$key]) ? $this->alterMetaData[$key] : NULL;
   }
 
   /**
-   * {@inheritdoc}
+   * Implements \Drupal\Core\Entity\Query\QueryAggregateInterface::aggregate()
    */
   public function aggregate($field, $function, $langcode = NULL, &$alias = NULL) {
     if (!isset($alias)) {
       $alias = $this->getAggregationAlias($field, $function);
     }
 
-    $this->aggregate[$alias] = [
+    $this->aggregate[$alias] = array(
       'field' => $field,
       'function' => $function,
       'alias' => $alias,
       'langcode' => $langcode,
-    ];
+    );
 
     return $this;
   }
 
   /**
-   * {@inheritdoc}
+   * Implements \Drupal\Core\Entity\Query\QueryAggregateInterface::conditionAggregate().
    */
   public function conditionAggregate($field, $function = NULL, $value = NULL, $operator = '=', $langcode = NULL) {
     $this->aggregate($field, $function, $langcode);
@@ -421,36 +407,36 @@ abstract class QueryBase implements QueryInterface {
   }
 
   /**
-   * {@inheritdoc}
+   * Implements \Drupal\Core\Entity\Query\QueryAggregateInterface::sortAggregate().
    */
   public function sortAggregate($field, $function, $direction = 'ASC', $langcode = NULL) {
     $alias = $this->getAggregationAlias($field, $function);
 
-    $this->sortAggregate[$alias] = [
+    $this->sortAggregate[$alias] = array(
       'field' => $field,
       'function' => $function,
       'direction' => $direction,
       'langcode' => $langcode,
-    ];
+    );
     $this->aggregate($field, $function, $langcode, $alias);
 
     return $this;
   }
 
   /**
-   * {@inheritdoc}
+   * Implements \Drupal\Core\Entity\Query\QueryAggregateInterface::execute().
    */
   public function groupBy($field, $langcode = NULL) {
-    $this->groupBy[] = [
+    $this->groupBy[] = array(
       'field' => $field,
       'langcode' => $langcode,
-    ];
+    );
 
     return $this;
   }
 
   /**
-   * Generates an alias for a field and its aggregated function.
+   * Generates an alias for a field and it's aggregated function.
    *
    * @param string $field
    *   The field name used in the alias.
@@ -461,7 +447,7 @@ abstract class QueryBase implements QueryInterface {
    *   The alias for the field.
    */
   protected function getAggregationAlias($field, $function) {
-    return strtolower($field . '_' . $function);
+    return strtolower($field . '_'. $function);
   }
 
   /**
@@ -475,7 +461,7 @@ abstract class QueryBase implements QueryInterface {
    *   parent of the class and so on and so on.
    */
   public static function getNamespaces($object) {
-    $namespaces = [];
+    $namespaces = array();
     for ($class = get_class($object); $class; $class = get_parent_class($class)) {
       $namespaces[] = substr($class, 0, strrpos($class, '\\'));
     }

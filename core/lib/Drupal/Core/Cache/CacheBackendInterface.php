@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\Core\Cache\CacheBackendInterface.
+ */
+
 namespace Drupal\Core\Cache;
 
 /**
@@ -9,7 +14,7 @@ namespace Drupal\Core\Cache;
  * Drupal\Core\Cache\DatabaseBackend provides the default implementation, which
  * can be consulted as an example.
  *
- * The cache identifiers are case sensitive.
+ * The cache indentifiers are case sensitive.
  *
  * @ingroup cache
  */
@@ -91,12 +96,12 @@ interface CacheBackendInterface {
    *   identify objects used to build the cache item, which should trigger
    *   cache invalidation when updated. For example if a cached item represents
    *   a node, both the node ID and the author's user ID might be passed in as
-   *   tags. For example ['node:123', 'node:456', 'user:789'].
+   *   tags. For example array('node' => array(123), 'user' => array(92)).
    *
    * @see \Drupal\Core\Cache\CacheBackendInterface::get()
    * @see \Drupal\Core\Cache\CacheBackendInterface::getMultiple()
    */
-  public function set($cid, $data, $expire = Cache::PERMANENT, array $tags = []);
+  public function set($cid, $data, $expire = Cache::PERMANENT, array $tags = array());
 
   /**
    * Store multiple items in the persistent cache.
@@ -215,5 +220,4 @@ interface CacheBackendInterface {
    * Remove a cache bin.
    */
   public function removeBin();
-
 }

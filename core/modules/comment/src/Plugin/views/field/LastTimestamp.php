@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\comment\Plugin\views\field\LastTimestamp.
+ */
+
 namespace Drupal\comment\Plugin\views\field;
 
 use Drupal\views\Plugin\views\field\Date;
@@ -17,7 +22,7 @@ use Drupal\views\ViewExecutable;
 class LastTimestamp extends Date {
 
   /**
-   * {@inheritdoc}
+   * Overrides Drupal\views\Plugin\views\field\FieldPluginBase::init().
    */
   public function init(ViewExecutable $view, DisplayPluginBase $display, array &$options = NULL) {
     parent::init($view, $display, $options);

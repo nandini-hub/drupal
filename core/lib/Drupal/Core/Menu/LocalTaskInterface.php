@@ -1,17 +1,16 @@
 <?php
 
+/**
+ * @file
+ * Contains \DrupalCore\Menu\LocalTaskInterface.
+ */
+
 namespace Drupal\Core\Menu;
 
 use Drupal\Core\Routing\RouteMatchInterface;
 
 /**
  * Defines an interface for menu local tasks.
- *
- * Menu local tasks are typically rendered as navigation tabs above the content
- * region, though other presentations are possible. It is convention that the
- * titles of these tasks should be short verbs if possible.
- *
- * @see \Drupal\Core\Menu\LocalTaskManagerInterface
  */
 interface LocalTaskInterface {
 
@@ -70,7 +69,7 @@ interface LocalTaskInterface {
    * @param bool $active
    *   Sets whether this tab is active (e.g. a parent of the current tab).
    *
-   * @return $this
+   * @return \Drupal\Core\Menu\LocalTaskInterface
    *   The called object for chaining.
    */
   public function setActive($active = TRUE);

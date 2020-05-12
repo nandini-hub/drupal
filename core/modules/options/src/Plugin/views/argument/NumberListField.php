@@ -1,9 +1,14 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\options\Plugin\views\argument\NumberListField.
+ */
+
 namespace Drupal\options\Plugin\views\argument;
 
+use Drupal\Component\Utility\SafeMarkup;
 use Drupal\Core\Field\AllowedTagsXssTrait;
-use Drupal\Core\Field\FieldFilteredMarkup;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\views\FieldAPIHandlerTrait;
 use Drupal\views\ViewExecutable;
@@ -75,11 +80,11 @@ class NumberListField extends NumericArgument {
     $value = $data->{$this->name_alias};
     // If the list element has a human readable name show it.
     if (isset($this->allowedValues[$value]) && !empty($this->options['summary']['human'])) {
-      return FieldFilteredMarkup::create($this->allowedValues[$value]);
+      return $this->fieldFilterXss($this->allowedValues[$value]);
     }
     // Else, fallback to the key.
     else {
-      return $value;
+      return SafeMarkup::checkPlain($value);
     }
   }
 

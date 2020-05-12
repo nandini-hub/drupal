@@ -1,6 +1,13 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\Core\Ajax\AlertCommand.
+ */
+
 namespace Drupal\Core\Ajax;
+
+use Drupal\Core\Ajax\CommandInterface;
 
 /**
  * AJAX command for a javascript alert box.
@@ -31,10 +38,10 @@ class AlertCommand implements CommandInterface {
    */
   public function render() {
 
-    return [
+    return array(
       'command' => 'alert',
       'text' => $this->text,
-    ];
+    );
   }
 
 }

@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\entity_test\EntityTestListBuilder.
+ */
+
 namespace Drupal\entity_test;
 
 use Drupal\Core\Entity\EntityInterface;
@@ -25,7 +30,7 @@ class EntityTestListBuilder extends EntityListBuilder {
    * {@inheritdoc}
    */
   public function buildRow(EntityInterface $entity) {
-    $row['label'] = $entity->label();
+    $row['label'] = $this->getLabel($entity);
     $row['id'] = $entity->id();
     return $row + parent::buildRow($entity);
   }

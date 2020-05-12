@@ -1,6 +1,13 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\Core\Ajax\PrependCommand.
+ */
+
 namespace Drupal\Core\Ajax;
+
+use Drupal\Core\Ajax\InsertCommand;
 
 /**
  * AJAX command for calling the jQuery insert() method.
@@ -23,13 +30,13 @@ class PrependCommand extends InsertCommand {
    */
   public function render() {
 
-    return [
+    return array(
       'command' => 'insert',
       'method' => 'prepend',
       'selector' => $this->selector,
       'data' => $this->getRenderedContent(),
       'settings' => $this->settings,
-    ];
+    );
   }
 
 }

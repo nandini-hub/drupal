@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Logger\LogMessageParserInterface.
+ */
+
 namespace Drupal\Core\Logger;
 
 /**
@@ -12,24 +17,22 @@ interface LogMessageParserInterface {
    *
    * For a value to be considered as a placeholder should be in the following
    * formats:
-   *   - @link https://github.com/php-fig/fig-standards/blob/master/accepted/PSR-3-logger-interface.md#12-message The PSR3 format @endlink
-   *   - The Drupal specific string placeholder format, described in
-   *     \Drupal\Component\Render\FormattableMarkup
+   *   - PSR3 format:
+   *     @see https://github.com/php-fig/fig-standards/blob/master/accepted/PSR-3-logger-interface.md#12-message
+   *   - Drupal specific string placeholder format:
+   *     @see \Drupal\Component\Utility\SafeMarkup::format()
    *
-   * Values in PSR3 format will be transformed to
-   * \Drupal\Component\Render\FormattableMarkup format.
+   * Values in PSR3 format will be transformed to SafeMarkup::format() format.
    *
    * @param string $message
    *   The message that contains the placeholders.
    *   If the message is in PSR3 style, it will be transformed to
-   *   \Drupal\Component\Render\FormattableMarkup style.
+   *   \Drupal\Component\Utility\SafeMarkup::format() style.
    * @param array $context
    *   An array that may or may not contain placeholder variables.
    *
    * @return array
    *   An array of the extracted message placeholders.
-   *
-   * @see \Drupal\Component\Render\FormattableMarkup
    */
   public function parseMessagePlaceholders(&$message, array &$context);
 

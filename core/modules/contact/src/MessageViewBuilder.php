@@ -1,9 +1,15 @@
 <?php
 
+/**
+ * @file
+ * Contains Drupal\contact\MessageViewBuilder.
+ */
+
 namespace Drupal\contact;
 
 use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Entity\EntityViewBuilder;
+use Drupal\Component\Utility\SafeMarkup;
 use Drupal\Core\Mail\MailFormatHelper;
 use Drupal\Core\Render\Element;
 
@@ -15,12 +21,31 @@ class MessageViewBuilder extends EntityViewBuilder {
   /**
    * {@inheritdoc}
    */
-  protected function getBuildDefaults(EntityInterface $entity, $view_mode) {
-    $build = parent::getBuildDefaults($entity, $view_mode);
+  protected function getBuildDefaults(EntityInterface $entity, $view_mode, $langcode) {
+    $build = parent::getBuildDefaults($entity, $view_mode, $langcode);
     // The message fields are individually rendered into email templates, so
     // the entity has no template itself.
     unset($build['#theme']);
     return $build;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function buildComponents(array &$build, array $entities, array $displays, $view_mode, $langcode = NULL) {
+    parent::buildComponents($build, $entities, $displays, $view_mode, $langcode);
+
+    foreach ($entities as $id => $entity) {
+      // Add the message extra field, if enabled.
+      $display = $displays[$entity->bundle()];
+      if ($entity->getMessage() && $display->getComponent('message')) {
+        $build[$id]['message'] = array(
+          '#type' => 'item',
+          '#title' => t('Message'),
+          '#markup' => SafeMarkup::checkPlain($entity->getMessage()),
+        );
+      }
+    }
   }
 
   /**
@@ -35,14 +60,14 @@ class MessageViewBuilder extends EntityViewBuilder {
       // convert DIVs correctly.
       foreach (Element::children($build) as $key) {
         if (isset($build[$key]['#label_display']) && $build[$key]['#label_display'] == 'above') {
-          $build[$key] += ['#prefix' => ''];
+          $build[$key] += array('#prefix' => '');
           $build[$key]['#prefix'] = $build[$key]['#title'] . ":\n";
           $build[$key]['#label_display'] = 'hidden';
         }
       }
-      $build['#post_render'][] = function ($html, array $elements) {
-        return MailFormatHelper::htmlToText($html);
-      };
+      $build = array(
+        '#markup' => MailFormatHelper::htmlToText(drupal_render($build)),
+      );
     }
     return $build;
   }

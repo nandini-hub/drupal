@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\config_translation\Form\ConfigTranslationDeleteForm.
+ */
+
 namespace Drupal\config_translation\Form;
 
 use Drupal\config_translation\ConfigMapperManagerInterface;
@@ -7,16 +12,14 @@ use Drupal\Core\Cache\Cache;
 use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\Core\Form\ConfirmFormBase;
 use Drupal\Core\Form\FormStateInterface;
-use Drupal\Core\Routing\RouteMatchInterface;
 use Drupal\Core\Url;
 use Drupal\language\ConfigurableLanguageManagerInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 /**
  * Builds a form to delete configuration translation.
- *
- * @internal
  */
 class ConfigTranslationDeleteForm extends ConfirmFormBase {
 
@@ -86,7 +89,7 @@ class ConfigTranslationDeleteForm extends ConfirmFormBase {
    * {@inheritdoc}
    */
   public function getQuestion() {
-    return $this->t('Are you sure you want to delete the @language translation of %label?', ['%label' => $this->mapper->getTitle(), '@language' => $this->language->getName()]);
+    return $this->t('Are you sure you want to delete the @language translation of %label?', array('%label' => $this->mapper->getTitle(), '@language' => $this->language->getName()));
   }
 
   /**
@@ -106,17 +109,17 @@ class ConfigTranslationDeleteForm extends ConfirmFormBase {
   /**
    * {@inheritdoc}
    */
-  public function getFormId() {
+  public function getFormID() {
     return 'config_translation_delete_form';
   }
 
   /**
    * {@inheritdoc}
    */
-  public function buildForm(array $form, FormStateInterface $form_state, RouteMatchInterface $route_match = NULL, $plugin_id = NULL, $langcode = NULL) {
+  public function buildForm(array $form, FormStateInterface $form_state, Request $request = NULL, $plugin_id = NULL, $langcode = NULL) {
     /** @var \Drupal\config_translation\ConfigMapperInterface $mapper */
     $mapper = $this->configMapperManager->createInstance($plugin_id);
-    $mapper->populateFromRouteMatch($route_match);
+    $mapper->populateFromRequest($request);
 
     $language = $this->languageManager->getLanguage($langcode);
     if (!$language) {
@@ -138,11 +141,11 @@ class ConfigTranslationDeleteForm extends ConfirmFormBase {
 
     // Flush all persistent caches.
     $this->moduleHandler->invokeAll('cache_flush');
-    foreach (Cache::getBins() as $cache_backend) {
+    foreach (Cache::getBins() as $service_id => $cache_backend) {
       $cache_backend->deleteAll();
     }
 
-    $this->messenger()->addStatus($this->t('@language translation of %label was deleted', ['%label' => $this->mapper->getTitle(), '@language' => $this->language->getName()]));
+    drupal_set_message($this->t('@language translation of %label was deleted', array('%label' => $this->mapper->getTitle(), '@language' => $this->language->getName())));
 
     $form_state->setRedirectUrl($this->getCancelUrl());
   }

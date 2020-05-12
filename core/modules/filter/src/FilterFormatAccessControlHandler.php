@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\filter\FilterFormatAccessControlHandler.
+ */
+
 namespace Drupal\filter;
 
 use Drupal\Core\Access\AccessResult;
@@ -17,7 +22,7 @@ class FilterFormatAccessControlHandler extends EntityAccessControlHandler {
   /**
    * {@inheritdoc}
    */
-  protected function checkAccess(EntityInterface $filter_format, $operation, AccountInterface $account) {
+  protected function checkAccess(EntityInterface $filter_format, $operation, $langcode, AccountInterface $account) {
     /** @var \Drupal\filter\FilterFormatInterface $filter_format */
 
     // All users are allowed to use the fallback filter.
@@ -41,8 +46,8 @@ class FilterFormatAccessControlHandler extends EntityAccessControlHandler {
       return AccessResult::forbidden();
     }
 
-    if (in_array($operation, ['disable', 'update', 'view'])) {
-      return parent::checkAccess($filter_format, $operation, $account);
+    if (in_array($operation, array('disable', 'update'))) {
+      return parent::checkAccess($filter_format, $operation, $langcode, $account);
     }
 
     // No opinion.

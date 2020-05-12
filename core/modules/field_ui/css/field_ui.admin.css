@@ -16,31 +16,19 @@
   line-height: 1em;
 }
 .field-ui-overview .field-plugin-summary {
-  float: left; /* LTR */
-  font-size: 0.9em;
-}
-[dir="rtl"] .field-ui-overview .field-plugin-summary {
-  float: right;
+  float: left;
+  font-size: .9em;
 }
 .field-ui-overview .field-plugin-summary-cell .warning {
   display: block;
-  float: left; /* LTR */
-  margin-right: 0.5em;
-}
-[dir="rtl"] .field-ui-overview .field-plugin-summary-cell .warning {
-  float: right;
+  float: left;
+  margin-right: .5em;
 }
 .field-ui-overview .field-plugin-settings-edit-wrapper {
-  float: right; /* LTR */
-}
-[dir="rtl"] .field-ui-overview .field-plugin-settings-edit-wrapper {
-  float: left;
+  float: right;
 }
 .field-ui-overview .field-plugin-settings-edit {
-  float: right; /* LTR */
-}
-[dir="rtl"] .field-ui-overview .field-plugin-settings-edit {
-  float: left;
+  float: right;
 }
 .field-ui-overview .field-plugin-settings-editing td {
   vertical-align: top;

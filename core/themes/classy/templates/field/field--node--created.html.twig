@@ -19,12 +19,14 @@
  * @see field.html.twig
  */
 #}
+{% set field_name_class = field_name|clean_class %}
 {%
   set classes = [
     'field',
-    'field--name-' ~ field_name|clean_class,
-    'field--type-' ~ field_type|clean_class,
-    'field--label-' ~ label_display,
+    'field-' ~ entity_type|clean_class ~ '--' ~ field_name_class,
+    'field-name-' ~ field_name_class,
+    'field-type-' ~ field_type|clean_class,
+    'field-label-' ~ label_display,
   ]
 %}
 <span{{ attributes.addClass(classes) }}>

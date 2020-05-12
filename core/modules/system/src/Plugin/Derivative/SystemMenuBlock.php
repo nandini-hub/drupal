@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\system\Plugin\Derivative\SystemMenuBlock.
+ */
+
 namespace Drupal\system\Plugin\Derivative;
 
 use Drupal\Component\Plugin\Derivative\DeriverBase;
@@ -36,7 +41,7 @@ class SystemMenuBlock extends DeriverBase implements ContainerDeriverInterface {
    */
   public static function create(ContainerInterface $container, $base_plugin_id) {
     return new static(
-      $container->get('entity_type.manager')->getStorage('menu')
+      $container->get('entity.manager')->getStorage('menu')
     );
   }
 
@@ -47,7 +52,7 @@ class SystemMenuBlock extends DeriverBase implements ContainerDeriverInterface {
     foreach ($this->menuStorage->loadMultiple() as $menu => $entity) {
       $this->derivatives[$menu] = $base_plugin_definition;
       $this->derivatives[$menu]['admin_label'] = $entity->label();
-      $this->derivatives[$menu]['config_dependencies']['config'] = [$entity->getConfigDependencyName()];
+      $this->derivatives[$menu]['config_dependencies']['config'] = array($entity->getConfigDependencyName());
     }
     return $this->derivatives;
   }

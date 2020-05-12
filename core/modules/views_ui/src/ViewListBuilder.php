@@ -1,16 +1,20 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\views_ui\ViewListBuilder.
+ */
+
 namespace Drupal\views_ui;
 
+use Drupal\Component\Utility\SafeMarkup;
 use Drupal\Component\Plugin\PluginManagerInterface;
 use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Config\Entity\ConfigEntityListBuilder;
 use Drupal\Core\Entity\EntityStorageInterface;
 use Drupal\Core\Entity\EntityTypeInterface;
-use Drupal\Core\Link;
 use Drupal\Core\Url;
 use Symfony\Component\DependencyInjection\ContainerInterface;
-use Symfony\Component\HttpKernel\Exception\NotAcceptableHttpException;
 
 /**
  * Defines a class to build a listing of view entities.
@@ -29,15 +33,10 @@ class ViewListBuilder extends ConfigEntityListBuilder {
   /**
    * {@inheritdoc}
    */
-  protected $limit;
-
-  /**
-   * {@inheritdoc}
-   */
   public static function createInstance(ContainerInterface $container, EntityTypeInterface $entity_type) {
     return new static(
       $entity_type,
-      $container->get('entity_type.manager')->getStorage($entity_type->id()),
+      $container->get('entity.manager')->getStorage($entity_type->id()),
       $container->get('plugin.manager.views.display')
     );
   }
@@ -47,7 +46,7 @@ class ViewListBuilder extends ConfigEntityListBuilder {
    *
    * @param \Drupal\Core\Entity\EntityTypeInterface $entity_type
    *   The entity type definition.
-   * @param \Drupal\Core\Entity\EntityStorageInterface $storage
+   * @param \Drupal\Core\Entity\EntityStorageInterface $storage.
    *   The entity storage class.
    * @param \Drupal\Component\Plugin\PluginManagerInterface $display_manager
    *   The views display plugin manager to use.
@@ -56,21 +55,16 @@ class ViewListBuilder extends ConfigEntityListBuilder {
     parent::__construct($entity_type, $storage);
 
     $this->displayManager = $display_manager;
-    // This list builder uses client-side filters which requires all entities to
-    // be listed, disable the pager.
-    // @todo https://www.drupal.org/node/2536826 change the filtering to support
-    //   a pager.
-    $this->limit = FALSE;
   }
 
   /**
    * {@inheritdoc}
    */
   public function load() {
-    $entities = [
-      'enabled' => [],
-      'disabled' => [],
-    ];
+    $entities = array(
+      'enabled' => array(),
+      'disabled' => array(),
+    );
     foreach (parent::load() as $entity) {
       if ($entity->status()) {
         $entities['enabled'][] = $entity;
@@ -87,73 +81,62 @@ class ViewListBuilder extends ConfigEntityListBuilder {
    */
   public function buildRow(EntityInterface $view) {
     $row = parent::buildRow($view);
-    return [
-      'data' => [
-        'view_name' => [
-          'data' => [
-            '#plain_text' => $view->label(),
-          ],
-        ],
-        'machine_name' => [
-          'data' => [
-            '#plain_text' => $view->id(),
-          ],
-        ],
-        'description' => [
-          'data' => [
-            '#plain_text' => $view->get('description'),
-          ],
-        ],
-        'displays' => [
-          'data' => [
-            '#theme' => 'views_ui_view_displays_list',
-            '#displays' => $this->getDisplaysList($view),
-          ],
-        ],
+    $display_paths = '';
+    $separator = '';
+    foreach ($this->getDisplayPaths($view) as $display_path) {
+      $display_paths .= $separator . SafeMarkup::escape($display_path);
+      $separator = ', ';
+    }
+    return array(
+      'data' => array(
+        'view_name' => array(
+          'data' => array(
+            '#theme' => 'views_ui_view_info',
+            '#view' => $view,
+            '#displays' => $this->getDisplaysList($view)
+          ),
+        ),
+        'description' => array(
+          'data' => array(
+            '#markup' => SafeMarkup::checkPlain($view->get('description')),
+          ),
+          'class' => array('views-table-filter-text-source'),
+        ),
+        'tag' => $view->get('tag'),
+        'path' => SafeMarkup::set($display_paths),
         'operations' => $row['operations'],
-      ],
-      '#attributes' => [
-        'class' => [$view->status() ? 'views-ui-list-enabled' : 'views-ui-list-disabled'],
-      ],
-    ];
+      ),
+      'title' => $this->t('Machine name: @name', array('@name' => $view->id())),
+      'class' => array($view->status() ? 'views-ui-list-enabled' : 'views-ui-list-disabled'),
+    );
   }
 
   /**
    * {@inheritdoc}
    */
   public function buildHeader() {
-    return [
-      'view_name' => [
+    return array(
+      'view_name' => array(
         'data' => $this->t('View name'),
-        '#attributes' => [
-          'class' => ['views-ui-name'],
-        ],
-      ],
-      'machine_name' => [
-        'data' => $this->t('Machine name'),
-        '#attributes' => [
-          'class' => ['views-ui-machine-name'],
-        ],
-      ],
-      'description' => [
+        'class' => array('views-ui-name'),
+      ),
+      'description' => array(
         'data' => $this->t('Description'),
-        '#attributes' => [
-          'class' => ['views-ui-description'],
-        ],
-      ],
-      'displays' => [
-        'data' => $this->t('Displays'),
-        '#attributes' => [
-          'class' => ['views-ui-displays'],
-        ],
-      ],
-      'operations' => [
+        'class' => array('views-ui-description'),
+      ),
+      'tag' => array(
+        'data' => $this->t('Tag'),
+        'class' => array('views-ui-tag'),
+      ),
+      'path' => array(
+        'data' => $this->t('Path'),
+        'class' => array('views-ui-path'),
+      ),
+      'operations' => array(
         'data' => $this->t('Operations'),
-        '#attributes' => [
-          'class' => ['views-ui-operations'],
-        ],
-      ],
-    ];
+        'class' => array('views-ui-operations'),
+      ),
+    );
   }
 
   /**
@@ -163,28 +146,20 @@ class ViewListBuilder extends ConfigEntityListBuilder {
     $operations = parent::getDefaultOperations($entity);
 
     if ($entity->hasLinkTemplate('duplicate-form')) {
-      $operations['duplicate'] = [
+      $operations['duplicate'] = array(
         'title' => $this->t('Duplicate'),
         'weight' => 15,
-        'url' => $entity->toUrl('duplicate-form'),
-      ];
+        'url' => $entity->urlInfo('duplicate-form'),
+      );
     }
 
     // Add AJAX functionality to enable/disable operations.
-    foreach (['enable', 'disable'] as $op) {
+    foreach (array('enable', 'disable') as $op) {
       if (isset($operations[$op])) {
-        $operations[$op]['url'] = $entity->toUrl($op);
+        $operations[$op]['url'] = $entity->urlInfo($op);
         // Enable and disable operations should use AJAX.
         $operations[$op]['attributes']['class'][] = 'use-ajax';
       }
-    }
-
-    // ajax.js focuses automatically on the data-drupal-selector element. When
-    // enabling the view again, focusing on the disable link doesn't work, as it
-    // is hidden. We assign data-drupal-selector to every link, so it focuses
-    // on the edit link.
-    foreach ($operations as &$operation) {
-      $operation['attributes']['data-drupal-selector'] = 'views-listing-' . $entity->id();
     }
 
     return $operations;
@@ -201,41 +176,46 @@ class ViewListBuilder extends ConfigEntityListBuilder {
     $list['#attached']['library'][] = 'core/drupal.ajax';
     $list['#attached']['library'][] = 'views_ui/views_ui.listing';
 
-    $list['filters'] = [
+    $form['filters'] = array(
       '#type' => 'container',
-      '#attributes' => [
-        'class' => ['table-filter', 'js-show'],
-      ],
-    ];
+      '#attributes' => array(
+        'class' => array('table-filter', 'js-show'),
+      ),
+    );
 
-    $list['filters']['text'] = [
+    $list['filters']['text'] = array(
       '#type' => 'search',
       '#title' => $this->t('Filter'),
       '#title_display' => 'invisible',
-      '#size' => 60,
-      '#placeholder' => $this->t('Filter by view name, machine name, description, or display path'),
-      '#attributes' => [
-        'class' => ['views-filter-text'],
+      '#size' => 40,
+      '#placeholder' => $this->t('Filter by view name or description'),
+      '#attributes' => array(
+        'class' => array('views-filter-text'),
         'data-table' => '.views-listing-table',
         'autocomplete' => 'off',
-        'title' => $this->t('Enter a part of the view name, machine name, description, or display path to filter by.'),
-      ],
-    ];
+        'title' => $this->t('Enter a part of the view name or description to filter by.'),
+      ),
+    );
 
-    $list['enabled']['heading']['#markup'] = '<h2>' . $this->t('Enabled', [], ['context' => 'Plural']) . '</h2>';
-    $list['disabled']['heading']['#markup'] = '<h2>' . $this->t('Disabled', [], ['context' => 'Plural']) . '</h2>';
-    foreach (['enabled', 'disabled'] as $status) {
+    $list['enabled']['heading']['#markup'] = '<h2>' . $this->t('Enabled', array(), array('context' => 'Plural')) . '</h2>';
+    $list['disabled']['heading']['#markup'] = '<h2>' . $this->t('Disabled', array(), array('context' => 'Plural')) . '</h2>';
+    foreach (array('enabled', 'disabled') as $status) {
       $list[$status]['#type'] = 'container';
-      $list[$status]['#attributes'] = ['class' => ['views-list-section', $status]];
-      $list[$status]['table'] = [
-        '#theme' => 'views_ui_views_listing_table',
-        '#headers' => $this->buildHeader(),
-        '#attributes' => ['class' => ['views-listing-table', $status]],
-      ];
+      $list[$status]['#attributes'] = array('class' => array('views-list-section', $status));
+      $list[$status]['table'] = array(
+        '#type' => 'table',
+        '#attributes' => array(
+          'class' => array('views-listing-table'),
+        ),
+        '#header' => $this->buildHeader(),
+        '#rows' => array(),
+      );
       foreach ($entities[$status] as $entity) {
         $list[$status]['table']['#rows'][$entity->id()] = $this->buildRow($entity);
       }
     }
+    // @todo Use a placeholder for the entity label if this is abstracted to
+    // other entity types.
     $list['enabled']['table']['#empty'] = $this->t('There are no enabled views.');
     $list['disabled']['table']['#empty'] = $this->t('There are no disabled views.');
 
@@ -252,42 +232,47 @@ class ViewListBuilder extends ConfigEntityListBuilder {
    *   An array of display types that this view includes.
    */
   protected function getDisplaysList(EntityInterface $view) {
-    $displays = [];
-
-    $executable = $view->getExecutable();
-    $executable->initDisplay();
-    foreach ($executable->displayHandlers as $display) {
-      $rendered_path = FALSE;
-      $definition = $display->getPluginDefinition();
+    $displays = array();
+    foreach ($view->get('display') as $display) {
+      $definition = $this->displayManager->getDefinition($display['display_plugin']);
       if (!empty($definition['admin'])) {
-        if ($display->hasPath()) {
-          $path = $display->getPath();
-          if ($view->status() && strpos($path, '%') === FALSE) {
-            // Wrap this in a try/catch as trying to generate links to some
-            // routes may throw a NotAcceptableHttpException if they do not
-            // respond to HTML, such as RESTExports.
-            try {
-              // @todo Views should expect and store a leading /. See:
-              //   https://www.drupal.org/node/2423913
-              $rendered_path = Link::fromTextAndUrl('/' . $path, Url::fromUserInput('/' . $path))->toString();
-            }
-            catch (NotAcceptableHttpException $e) {
-              $rendered_path = '/' . $path;
-            }
-          }
-          else {
-            $rendered_path = '/' . $path;
-          }
-        }
-        $displays[] = [
-          'display' => $definition['admin'],
-          'path' => $rendered_path,
-        ];
+        // Cast the admin label to a string since it is an object.
+        // @see \Drupal\Core\StringTranslation\TranslationWrapper
+        $displays[] = (string) $definition['admin'];
       }
     }
 
     sort($displays);
     return $displays;
+  }
+
+  /**
+   * Gets a list of paths assigned to the view.
+   *
+   * @param \Drupal\Core\Entity\EntityInterface $view
+   *   The view entity.
+   *
+   * @return array
+   *   An array of paths for this view.
+   */
+  protected function getDisplayPaths(EntityInterface $view) {
+    $all_paths = array();
+    $executable = $view->getExecutable();
+    $executable->initDisplay();
+    foreach ($executable->displayHandlers as $display) {
+      if ($display->hasPath()) {
+        $path = $display->getPath();
+        if ($view->status() && strpos($path, '%') === FALSE) {
+          // @todo Views should expect and store a leading /. See:
+          //   https://www.drupal.org/node/2423913
+          $all_paths[] = \Drupal::l('/' . $path, Url::fromUserInput('/' . $path));
+        }
+        else {
+          $all_paths[] = SafeMarkup::checkPlain('/' . $path);
+        }
+      }
+    }
+    return array_unique($all_paths);
   }
 
 }

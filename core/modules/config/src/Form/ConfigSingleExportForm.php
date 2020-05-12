@@ -1,40 +1,32 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\config\Form\ConfigSingleExportForm.
+ */
+
 namespace Drupal\config\Form;
 
-use Drupal\Core\Config\Entity\ConfigEntityInterface;
+use Drupal\Component\Serialization\Yaml;
 use Drupal\Core\Config\StorageInterface;
-use Drupal\Core\DependencyInjection\DeprecatedServicePropertyTrait;
-use Drupal\Core\Entity\EntityTypeManagerInterface;
+use Drupal\Core\Entity\EntityManagerInterface;
 use Drupal\Core\Entity\EntityTypeInterface;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormState;
 use Drupal\Core\Form\FormStateInterface;
-use Drupal\Core\Serialization\Yaml;
-use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
  * Provides a form for exporting a single configuration file.
- *
- * @internal
  */
 class ConfigSingleExportForm extends FormBase {
-  use DeprecatedServicePropertyTrait;
 
   /**
-   * {@inheritdoc}
-   */
-  protected $deprecatedProperties = [
-    'entityManager' => 'entity.manager',
-  ];
-
-  /**
-   * The entity type manager.
+   * The entity manager.
    *
-   * @var \Drupal\Core\Entity\EntityTypeManagerInterface
+   * @var \Drupal\Core\Entity\EntityManagerInterface
    */
-  protected $entityTypeManager;
+  protected $entityManager;
 
   /**
    * The config storage.
@@ -48,18 +40,18 @@ class ConfigSingleExportForm extends FormBase {
    *
    * @var \Drupal\Core\Entity\EntityTypeInterface[]
    */
-  protected $definitions = [];
+  protected $definitions = array();
 
   /**
    * Constructs a new ConfigSingleImportForm.
    *
-   * @param \Drupal\Core\Entity\EntityTypeManagerInterface $entity_type_manager
-   *   The entity type manager.
+   * @param \Drupal\Core\Entity\EntityManagerInterface $entity_manager
+   *   The entity manager.
    * @param \Drupal\Core\Config\StorageInterface $config_storage
    *   The config storage.
    */
-  public function __construct(EntityTypeManagerInterface $entity_type_manager, StorageInterface $config_storage) {
-    $this->entityTypeManager = $entity_type_manager;
+  public function __construct(EntityManagerInterface $entity_manager, StorageInterface $config_storage) {
+    $this->entityManager = $entity_manager;
     $this->configStorage = $config_storage;
   }
 
@@ -68,7 +60,7 @@ class ConfigSingleExportForm extends FormBase {
    */
   public static function create(ContainerInterface $container) {
     return new static(
-      $container->get('entity_type.manager'),
+      $container->get('entity.manager'),
       $container->get('config.storage')
     );
   }
@@ -76,7 +68,7 @@ class ConfigSingleExportForm extends FormBase {
   /**
    * {@inheritdoc}
    */
-  public function getFormId() {
+  public function getFormID() {
     return 'config_single_export_form';
   }
 
@@ -84,8 +76,8 @@ class ConfigSingleExportForm extends FormBase {
    * {@inheritdoc}
    */
   public function buildForm(array $form, FormStateInterface $form_state, $config_type = NULL, $config_name = NULL) {
-    foreach ($this->entityTypeManager->getDefinitions() as $entity_type => $definition) {
-      if ($definition->entityClassImplements(ConfigEntityInterface::class)) {
+    foreach ($this->entityManager->getDefinitions() as $entity_type => $definition) {
+      if ($definition->isSubclassOf('Drupal\Core\Config\Entity\ConfigEntityInterface')) {
         $this->definitions[$entity_type] = $definition;
       }
     }
@@ -94,40 +86,42 @@ class ConfigSingleExportForm extends FormBase {
     }, $this->definitions);
     // Sort the entity types by label, then add the simple config to the top.
     uasort($entity_types, 'strnatcasecmp');
-    $config_types = [
+    $config_types = array(
       'system.simple' => $this->t('Simple configuration'),
-    ] + $entity_types;
-    $form['config_type'] = [
+    ) + $entity_types;
+    $form['config_type'] = array(
       '#title' => $this->t('Configuration type'),
       '#type' => 'select',
       '#options' => $config_types,
       '#default_value' => $config_type,
-      '#ajax' => [
+      '#ajax' => array(
         'callback' => '::updateConfigurationType',
         'wrapper' => 'edit-config-type-wrapper',
-      ],
-    ];
+      ),
+    );
     $default_type = $form_state->getValue('config_type', $config_type);
-    $form['config_name'] = [
+    $form['config_name'] = array(
       '#title' => $this->t('Configuration name'),
       '#type' => 'select',
       '#options' => $this->findConfiguration($default_type),
       '#default_value' => $config_name,
+      '#required' => TRUE,
       '#prefix' => '<div id="edit-config-type-wrapper">',
       '#suffix' => '</div>',
-      '#ajax' => [
+      '#ajax' => array(
         'callback' => '::updateExport',
         'wrapper' => 'edit-export-wrapper',
-      ],
-    ];
+      ),
+    );
 
-    $form['export'] = [
+    $form['export'] = array(
       '#title' => $this->t('Here is your configuration:'),
       '#type' => 'textarea',
       '#rows' => 24,
+      '#required' => TRUE,
       '#prefix' => '<div id="edit-export-wrapper">',
       '#suffix' => '</div>',
-    ];
+    );
     if ($config_type && $config_name) {
       $fake_form_state = (new FormState())->setValues([
         'config_type' => $config_type,
@@ -152,7 +146,7 @@ class ConfigSingleExportForm extends FormBase {
   public function updateExport($form, FormStateInterface $form_state) {
     // Determine the full config name for the selected config entity.
     if ($form_state->getValue('config_type') !== 'system.simple') {
-      $definition = $this->entityTypeManager->getDefinition($form_state->getValue('config_type'));
+      $definition = $this->entityManager->getDefinition($form_state->getValue('config_type'));
       $name = $definition->getConfigPrefix() . '.' . $form_state->getValue('config_name');
     }
     // The config name is used directly for simple configuration.
@@ -161,7 +155,7 @@ class ConfigSingleExportForm extends FormBase {
     }
     // Read the raw data for this config name, encode it, and display it.
     $form['export']['#value'] = Yaml::encode($this->configStorage->read($name));
-    $form['export']['#description'] = $this->t('Filename: %name', ['%name' => $name . '.yml']);
+    $form['export']['#description'] = $this->t('Filename: %name', array('%name' => $name . '.yml'));
     return $form['export'];
   }
 
@@ -169,20 +163,16 @@ class ConfigSingleExportForm extends FormBase {
    * Handles switching the configuration type selector.
    */
   protected function findConfiguration($config_type) {
-    $names = [
+    $names = array(
       '' => $this->t('- Select -'),
-    ];
+    );
     // For a given entity type, load all entities.
     if ($config_type && $config_type !== 'system.simple') {
-      $entity_storage = $this->entityTypeManager->getStorage($config_type);
+      $entity_storage = $this->entityManager->getStorage($config_type);
       foreach ($entity_storage->loadMultiple() as $entity) {
         $entity_id = $entity->id();
-        if ($label = $entity->label()) {
-          $names[$entity_id] = new TranslatableMarkup('@label (@id)', ['@label' => $label, '@id' => $entity_id]);
-        }
-        else {
-          $names[$entity_id] = $entity_id;
-        }
+        $label = $entity->label() ?: $entity_id;
+        $names[$entity_id] = $label;
       }
     }
     // Handle simple configuration.

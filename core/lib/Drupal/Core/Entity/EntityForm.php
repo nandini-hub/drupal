@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Entity\EntityForm.
+ */
+
 namespace Drupal\Core\Entity;
 
 use Drupal\Core\Form\FormBase;
@@ -35,21 +40,9 @@ class EntityForm extends FormBase implements EntityFormInterface {
   /**
    * The entity manager.
    *
-   * This member exists for BC reasons and should be removed when the
-   *   drupal:9.0.0 branch opens.
-   *
    * @var \Drupal\Core\Entity\EntityManagerInterface
-   *
-   * @see https://www.drupal.org/node/2549139
    */
-  private $privateEntityManager;
-
-  /**
-   * The entity type manager.
-   *
-   * @var \Drupal\Core\Entity\EntityTypeManagerInterface
-   */
-  protected $entityTypeManager;
+  protected $entityManager;
 
   /**
    * The entity being used by this form.
@@ -57,37 +50,6 @@ class EntityForm extends FormBase implements EntityFormInterface {
    * @var \Drupal\Core\Entity\EntityInterface
    */
   protected $entity;
-
-  /**
-   * {@inheritdoc}
-   */
-  public function __get($name) {
-    // Removing core's usage of ::setEntityManager means that this deprecated
-    // service wont be set. We provide it here for backwards compatibility.
-    if ($name === 'entityManager') {
-      @trigger_error('EntityForm::entityManager is deprecated in drupal:8.0.0 and is removed from drupal:9.0.0. Use EntityForm::entityTypeManager instead. See https://www.drupal.org/node/2549139', E_USER_DEPRECATED);
-      return $this->privateEntityManager ?: \Drupal::entityManager();
-    }
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function __set($name, $value) {
-    // We've changed the entityManager property from protected to private so
-    // access is funnelled through __get above. This method is provided for BC
-    // purposes, in case any extended class attempts to set the previously
-    // accessible property directly.
-    if ($name === 'entityManager') {
-      @trigger_error('EntityForm::entityManager is deprecated in drupal:8.0.0 and is removed from drupal:9.0.0. Use EntityForm::entityTypeManager instead. See https://www.drupal.org/node/2549139', E_USER_DEPRECATED);
-      $this->privateEntityManager = $value;
-    }
-    else {
-      // Ensure usual PHP behaviour of dynamically declaring properties works as
-      // expected.
-      $this->$name = $value;
-    }
-  }
 
   /**
    * {@inheritdoc}
@@ -139,12 +101,6 @@ class EntityForm extends FormBase implements EntityFormInterface {
       $this->init($form_state);
     }
 
-    // Ensure that edit forms have the correct cacheability metadata so they can
-    // be cached.
-    if (!$this->entity->isNew()) {
-      \Drupal::service('renderer')->addCacheableDependency($form, $this->entity);
-    }
-
     // Retrieve the form array using the possibly updated entity in form state.
     $form = $this->form($form, $form_state);
 
@@ -173,7 +129,7 @@ class EntityForm extends FormBase implements EntityFormInterface {
   }
 
   /**
-   * Gets the actual form array to be built.
+   * Returns the actual form array to be built.
    *
    * @see \Drupal\Core\Entity\EntityForm::processForm()
    * @see \Drupal\Core\Entity\EntityForm::afterBuild()
@@ -238,9 +194,9 @@ class EntityForm extends FormBase implements EntityFormInterface {
 
     $count = 0;
     foreach (Element::children($element) as $action) {
-      $element[$action] += [
+      $element[$action] += array(
         '#weight' => ++$count * 5,
-      ];
+      );
     }
 
     if (!empty($element)) {
@@ -253,17 +209,6 @@ class EntityForm extends FormBase implements EntityFormInterface {
   /**
    * Returns an array of supported actions for the current entity form.
    *
-   * This function generates a list of Form API elements which represent
-   * actions supported by the current entity form.
-   *
-   * @param array $form
-   *   An associative array containing the structure of the form.
-   * @param \Drupal\Core\Form\FormStateInterface $form_state
-   *   The current state of the form.
-   *
-   * @return array
-   *   An array of supported Form API action elements keyed by name.
-   *
    * @todo Consider introducing a 'preview' action here, since it is used by
    *   many entity types.
    */
@@ -271,31 +216,42 @@ class EntityForm extends FormBase implements EntityFormInterface {
     // @todo Consider renaming the action key from submit to save. The impacts
     //   are hard to predict. For example, see
     //   \Drupal\language\Element\LanguageConfiguration::processLanguageConfiguration().
-    $actions['submit'] = [
+    $actions['submit'] = array(
       '#type' => 'submit',
       '#value' => $this->t('Save'),
-      '#submit' => ['::submitForm', '::save'],
-    ];
+      '#validate' => array('::validate'),
+      '#submit' => array('::submitForm', '::save'),
+    );
 
     if (!$this->entity->isNew() && $this->entity->hasLinkTemplate('delete-form')) {
-      $route_info = $this->entity->toUrl('delete-form');
+      $route_info = $this->entity->urlInfo('delete-form');
       if ($this->getRequest()->query->has('destination')) {
         $query = $route_info->getOption('query');
         $query['destination'] = $this->getRequest()->query->get('destination');
         $route_info->setOption('query', $query);
       }
-      $actions['delete'] = [
+      $actions['delete'] = array(
         '#type' => 'link',
         '#title' => $this->t('Delete'),
         '#access' => $this->entity->access('delete'),
-        '#attributes' => [
-          'class' => ['button', 'button--danger'],
-        ],
-      ];
+        '#attributes' => array(
+          'class' => array('button', 'button--danger'),
+        ),
+      );
       $actions['delete']['#url'] = $route_info;
     }
 
     return $actions;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function validate(array $form, FormStateInterface $form_state) {
+    // @todo Remove this.
+    // Execute legacy global validation handlers.
+    $form_state->setValidateHandlers([]);
+    \Drupal::service('form_validator')->executeValidateHandlers($form, $form_state);
   }
 
   /**
@@ -339,7 +295,7 @@ class EntityForm extends FormBase implements EntityFormInterface {
     // properties.
     if (isset($form['#entity_builders'])) {
       foreach ($form['#entity_builders'] as $function) {
-        call_user_func_array($form_state->prepareCallback($function), [$entity->getEntityTypeId(), $entity, &$form, &$form_state]);
+        call_user_func_array($function, array($entity->getEntityTypeId(), $entity, &$form, &$form_state));
       }
     }
 
@@ -398,19 +354,7 @@ class EntityForm extends FormBase implements EntityFormInterface {
       $entity = $route_match->getParameter($entity_type_id);
     }
     else {
-      $values = [];
-      // If the entity has bundles, fetch it from the route match.
-      $entity_type = $this->entityTypeManager->getDefinition($entity_type_id);
-      if ($bundle_key = $entity_type->getKey('bundle')) {
-        if (($bundle_entity_type_id = $entity_type->getBundleEntityType()) && $route_match->getRawParameter($bundle_entity_type_id)) {
-          $values[$bundle_key] = $route_match->getParameter($bundle_entity_type_id)->id();
-        }
-        elseif ($route_match->getRawParameter($bundle_key)) {
-          $values[$bundle_key] = $route_match->getParameter($bundle_key);
-        }
-      }
-
-      $entity = $this->entityTypeManager->getStorage($entity_type_id)->create($values);
+      $entity = $this->entityManager->getStorage($entity_type_id)->create([]);
     }
 
     return $entity;
@@ -436,7 +380,7 @@ class EntityForm extends FormBase implements EntityFormInterface {
       if (function_exists($function)) {
         // Ensure we pass an updated translation object and form display at
         // each invocation, since they depend on form state which is alterable.
-        $args = [$this->entity, $this->operation, &$form_state];
+        $args = array($this->entity, $this->operation, &$form_state);
         call_user_func_array($function, $args);
       }
     }
@@ -461,16 +405,7 @@ class EntityForm extends FormBase implements EntityFormInterface {
    * {@inheritdoc}
    */
   public function setEntityManager(EntityManagerInterface $entity_manager) {
-    @trigger_error('EntityForm::setEntityTypeManager() is deprecated in drupal:8.0.0 and is removed from drupal:9.0.0. Use EntityFormInterface::setEntityTypeManager() instead. See https://www.drupal.org/node/2549139', E_USER_DEPRECATED);
-    $this->privateEntityManager = $entity_manager;
-    return $this;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function setEntityTypeManager(EntityTypeManagerInterface $entity_type_manager) {
-    $this->entityTypeManager = $entity_type_manager;
+    $this->entityManager = $entity_manager;
     return $this;
   }
 

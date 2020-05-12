@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\Core\Lock\NullLockBackend.
+ */
+
 namespace Drupal\Core\Lock;
 
 /**
@@ -20,36 +25,36 @@ class NullLockBackend implements LockBackendInterface {
   protected $lockId;
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\Lock\LockBackedInterface::acquire().
    */
   public function acquire($name, $timeout = 30.0) {
     return TRUE;
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\Lock\LockBackedInterface::lockMayBeAvailable().
    */
   public function lockMayBeAvailable($name) {
     return TRUE;
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\Lock\LockBackedInterface::wait().
    */
   public function wait($name, $delay = 30) {}
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\Lock\LockBackedInterface::release().
    */
   public function release($name) {}
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\Lock\LockBackedInterface::releaseAll().
    */
   public function releaseAll($lock_id = NULL) {}
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\Lock\LockBackedInterface::getLockId().
    */
   public function getLockId() {
     if (!isset($this->lockId)) {
@@ -57,5 +62,4 @@ class NullLockBackend implements LockBackendInterface {
     }
     return $this->lockId;
   }
-
 }

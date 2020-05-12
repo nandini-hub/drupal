@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Tests\Core\Lock\LockBackendAbstractTest.
+ */
+
 namespace Drupal\Tests\Core\Lock;
 
 use Drupal\Tests\UnitTestCase;
@@ -13,7 +18,7 @@ class LockBackendAbstractTest extends UnitTestCase {
   /**
    * The Mocked LockBackendAbstract object.
    *
-   * @var \Drupal\Core\Lock\LockBackendAbstract|\PHPUnit\Framework\MockObject\MockObject
+   * @var \Drupal\Core\Lock\LockBackendAbstract|\PHPUnit_Framework_MockObject_MockObject
    */
   protected $lock;
 

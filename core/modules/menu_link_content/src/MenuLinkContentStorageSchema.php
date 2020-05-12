@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\menu_link_content\MenuLinkContentStorageSchema.
+ */
+
 namespace Drupal\menu_link_content;
 
 use Drupal\Core\Entity\Sql\SqlContentEntityStorageSchema;
@@ -17,7 +22,7 @@ class MenuLinkContentStorageSchema extends SqlContentEntityStorageSchema {
     $schema = parent::getSharedTableFieldSchema($storage_definition, $table_name, $column_mapping);
     $field_name = $storage_definition->getName();
 
-    if ($table_name == $this->storage->getBaseTable()) {
+    if ($table_name == 'menu_link_content') {
       switch ($field_name) {
         case 'rediscover':
           $this->addSharedTableFieldIndex($storage_definition, $schema, TRUE);

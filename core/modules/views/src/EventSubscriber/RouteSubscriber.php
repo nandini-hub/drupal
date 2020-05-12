@@ -1,8 +1,13 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\views\EventSubscriber\RouteSubscriber.
+ */
+
 namespace Drupal\views\EventSubscriber;
 
-use Drupal\Core\Entity\EntityTypeManagerInterface;
+use Drupal\Core\Entity\EntityManagerInterface;
 use Drupal\Core\State\StateInterface;
 use Drupal\Core\Routing\RouteSubscriberBase;
 use Drupal\Core\Routing\RoutingEvents;
@@ -10,6 +15,8 @@ use Drupal\views\Plugin\views\display\DisplayRouterInterface;
 use Drupal\views\ViewExecutable;
 use Drupal\views\Views;
 use Symfony\Component\Routing\RouteCollection;
+use Symfony\Component\HttpKernel\Event\GetResponseForControllerResultEvent;
+use Symfony\Component\HttpKernel\KernelEvents;
 
 /**
  * Builds up the routes of all views.
@@ -49,18 +56,18 @@ class RouteSubscriber extends RouteSubscriberBase {
    *
    * @var array
    */
-  protected $viewRouteNames = [];
+  protected $viewRouteNames = array();
 
   /**
    * Constructs a \Drupal\views\EventSubscriber\RouteSubscriber instance.
    *
-   * @param \Drupal\Core\Entity\EntityTypeManagerInterface $entity_type_manager
-   *   The entity type manager service.
+   * @param \Drupal\Core\Entity\EntityManagerInterface $entity_manager
+   *   The entity manager.
    * @param \Drupal\Core\State\StateInterface $state
    *   The state key value store.
    */
-  public function __construct(EntityTypeManagerInterface $entity_type_manager, StateInterface $state) {
-    $this->viewStorage = $entity_type_manager->getStorage('view');
+  public function __construct(EntityManagerInterface $entity_manager, StateInterface $state) {
+    $this->viewStorage = $entity_manager->getStorage('view');
     $this->state = $state;
   }
 
@@ -76,7 +83,7 @@ class RouteSubscriber extends RouteSubscriberBase {
    */
   public static function getSubscribedEvents() {
     $events = parent::getSubscribedEvents();
-    $events[RoutingEvents::FINISHED] = ['routeRebuildFinished'];
+    $events[RoutingEvents::FINISHED] = array('routeRebuildFinished');
     // Ensure to run after the entity resolver subscriber
     // @see \Drupal\Core\EventSubscriber\EntityRouteAlterSubscriber
     $events[RoutingEvents::ALTER] = ['onAlterRoutes', -175];
@@ -89,13 +96,14 @@ class RouteSubscriber extends RouteSubscriberBase {
    */
   protected function getViewsDisplayIDsWithRoute() {
     if (!isset($this->viewsDisplayPairs)) {
-      $this->viewsDisplayPairs = [];
+      $this->viewsDisplayPairs = array();
 
       // @todo Convert this method to some service.
       $views = $this->getApplicableViews();
       foreach ($views as $data) {
-        list($view_id, $display_id) = $data;
-        $this->viewsDisplayPairs[] = $view_id . '.' . $display_id;
+        list($view, $display_id) = $data;
+        $id = $view->storage->id();
+        $this->viewsDisplayPairs[] = $id . '.' . $display_id;
       }
       $this->viewsDisplayPairs = array_combine($this->viewsDisplayPairs, $this->viewsDisplayPairs);
     }
@@ -156,11 +164,7 @@ class RouteSubscriber extends RouteSubscriberBase {
   }
 
   /**
-   * Stores the new route names after they have been rebuilt.
-   *
-   * Callback for the RoutingEvents::FINISHED event.
-   *
-   * @see \Drupal\views\EventSubscriber::getSubscribedEvents()
+   * {@inheritdoc}
    */
   public function routeRebuildFinished() {
     $this->reset();

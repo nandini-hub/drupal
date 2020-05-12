@@ -90,6 +90,9 @@ views.view.*:
     base_field:
       type: string
       label: 'Base field'
+    core:
+      type: string
+      label: 'Drupal version'
     display:
       type: sequence
       label: 'Displays'
@@ -115,30 +118,22 @@ views.view.*:
             type: mapping
             label: 'Cache metadata'
             mapping:
-              max-age:
-                type: integer
-                label: 'Cache maximum age'
+              cacheable:
+                type: boolean
+                label: 'Cacheable'
               contexts:
                 type: sequence
                 label: 'Cache contexts'
                 sequence:
                   type: string
-              tags:
-                type: sequence
-                label: 'Cache tags'
-                sequence:
-                  type: string
-              # Deprecated.
-              cacheable:
-                type: boolean
-                label: 'Cacheable'
+
 views_block:
   type: block_settings
   label: 'View block'
   mapping:
     views_label:
       type: label
-      label: 'Title'
+      lable: 'Title'
     items_per_page:
       type: string
       label: 'Items per block'

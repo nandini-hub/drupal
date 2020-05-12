@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\language\LanguageNegotiationMethodManager.
+ */
+
 namespace Drupal\language;
 
 use Drupal\Core\Cache\CacheBackendInterface;
@@ -23,7 +28,7 @@ class LanguageNegotiationMethodManager extends DefaultPluginManager {
    *   An object that implements ModuleHandlerInterface
    */
   public function __construct(\Traversable $namespaces, CacheBackendInterface $cache_backend, ModuleHandlerInterface $module_handler) {
-    parent::__construct('Plugin/LanguageNegotiation', $namespaces, $module_handler, 'Drupal\language\LanguageNegotiationMethodInterface', 'Drupal\language\Annotation\LanguageNegotiation');
+    parent::__construct('Plugin/LanguageNegotiation', $namespaces, $module_handler, 'Drupal\language\LanguageNegotiationMethodInterface');
     $this->cacheBackend = $cache_backend;
     $this->cacheKeyPrefix = 'language_negotiation_plugins';
     $this->cacheKey = 'language_negotiation_plugins';

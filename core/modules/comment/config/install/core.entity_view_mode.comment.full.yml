@@ -1,9 +1,8 @@
-langcode: en
+id: comment.full
+label: 'Full comment'
 status: false
+cache: true
+targetEntityType: comment
 dependencies:
   module:
     - comment
-id: comment.full
-label: 'Full comment'
-targetEntityType: comment
-cache: true

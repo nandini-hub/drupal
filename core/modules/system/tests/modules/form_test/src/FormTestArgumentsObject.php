@@ -1,14 +1,18 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\form_test\FormTestArgumentsObject.
+ */
+
 namespace Drupal\form_test;
 
+use Drupal\Component\Utility\SafeMarkup;
 use Drupal\Core\Form\ConfigFormBase;
 use Drupal\Core\Form\FormStateInterface;
 
 /**
  * Provides a test form object that needs arguments.
- *
- * @internal
  */
 class FormTestArgumentsObject extends ConfigFormBase {
 
@@ -30,19 +34,19 @@ class FormTestArgumentsObject extends ConfigFormBase {
    * {@inheritdoc}
    */
   public function buildForm(array $form, FormStateInterface $form_state, $arg = NULL) {
-    $form['element'] = ['#markup' => 'The FormTestArgumentsObject::buildForm() method was used for this form.'];
+    $form['element'] = array('#markup' => 'The FormTestArgumentsObject::buildForm() method was used for this form.');
 
-    $form['bananas'] = [
+    $form['bananas'] = array(
       '#type' => 'textfield',
-      '#default_value' => $arg,
+      '#default_value' => SafeMarkup::checkPlain($arg),
       '#title' => $this->t('Bananas'),
-    ];
+    );
 
     $form['actions']['#type'] = 'actions';
-    $form['actions']['submit'] = [
+    $form['actions']['submit'] = array(
       '#type' => 'submit',
       '#value' => $this->t('Save'),
-    ];
+    );
     return $form;
   }
 
@@ -50,14 +54,14 @@ class FormTestArgumentsObject extends ConfigFormBase {
    * {@inheritdoc}
    */
   public function validateForm(array &$form, FormStateInterface $form_state) {
-    $this->messenger()->addStatus($this->t('The FormTestArgumentsObject::validateForm() method was used for this form.'));
+    drupal_set_message($this->t('The FormTestArgumentsObject::validateForm() method was used for this form.'));
   }
 
   /**
    * {@inheritdoc}
    */
   public function submitForm(array &$form, FormStateInterface $form_state) {
-    $this->messenger()->addStatus($this->t('The FormTestArgumentsObject::submitForm() method was used for this form.'));
+    drupal_set_message($this->t('The FormTestArgumentsObject::submitForm() method was used for this form.'));
     $this->config('form_test.object')
       ->set('bananas', $form_state->getValue('bananas'))
       ->save();

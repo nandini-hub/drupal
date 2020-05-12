@@ -1,8 +1,14 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\views\Analyzer.
+ */
+
 namespace Drupal\views;
 
 use Drupal\Core\Extension\ModuleHandlerInterface;
+use Drupal\views\ViewExecutable;
 
 /**
  * This tool is a small plugin manager to perform analysis on a view and
@@ -31,6 +37,7 @@ class Analyzer {
     $this->moduleHandler = $module_handler;
   }
 
+
   /**
    * Analyzes a review and return the results.
    *
@@ -43,7 +50,7 @@ class Analyzer {
    */
   public function getMessages(ViewExecutable $view) {
     $view->initDisplay();
-    $messages = $this->moduleHandler->invokeAll('views_analyze', [$view]);
+    $messages = $this->moduleHandler->invokeAll('views_analyze', array($view));
 
     return $messages;
   }
@@ -51,19 +58,18 @@ class Analyzer {
   /**
    * Formats the analyze result into a message string.
    *
-   * This is based upon the format of
-   * \Drupal\Core\Messenger\MessengerInterface::addMessage() which uses separate
+   * This is based upon the format of drupal_set_message which uses separate
    * boxes for "ok", "warning" and "error".
    */
   public function formatMessages(array $messages) {
     if (empty($messages)) {
-      $messages = [static::formatMessage(t('View analysis can find nothing to report.'), 'ok')];
+      $messages = array(static::formatMessage(t('View analysis can find nothing to report.'), 'ok'));
     }
 
-    $types = ['ok' => [], 'warning' => [], 'error' => []];
+    $types = array('ok' => array(), 'warning' => array(), 'error' => array());
     foreach ($messages as $message) {
       if (empty($types[$message['type']])) {
-        $types[$message['type']] = [];
+        $types[$message['type']] = array();
       }
       $types[$message['type']][] = $message['message'];
     }
@@ -73,11 +79,11 @@ class Analyzer {
       $type .= ' messages';
       $message = '';
       if (count($messages) > 1) {
-        $item_list = [
+        $item_list = array(
           '#theme' => 'item_list',
           '#items' => $messages,
-        ];
-        $message = \Drupal::service('renderer')->render($item_list);
+        );
+        $message = drupal_render($item_list);
       }
       elseif ($messages) {
         $message = array_shift($messages);
@@ -103,8 +109,8 @@ class Analyzer {
    * The 'ok' status should be used to provide information about things
    * that are acceptable. In general analysis isn't interested in 'ok'
    * messages, but instead the 'warning', which is a category for items
-   * that may be broken unless the user knows what they are doing, and 'error'
-   * for items that are definitely broken are much more useful.
+   * that may be broken unless the user knows what he or she is doing,
+   * and 'error' for items that are definitely broken are much more useful.
    *
    * @param string $message
    * @param string $type
@@ -115,8 +121,8 @@ class Analyzer {
    * @return array
    *   A single formatted message, consisting of a key message and a key type.
    */
-  public static function formatMessage($message, $type = 'error') {
-    return ['message' => $message, 'type' => $type];
+  static function formatMessage($message, $type = 'error') {
+    return array('message' => $message, 'type' => $type);
   }
 
 }

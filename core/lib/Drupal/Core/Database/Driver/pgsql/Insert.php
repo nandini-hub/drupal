@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\Core\Database\Driver\pgsql\Insert
+ */
+
 namespace Drupal\Core\Database\Driver\pgsql;
 
 use Drupal\Core\Database\Database;
@@ -10,9 +15,6 @@ use Drupal\Core\Database\Query\Insert as QueryInsert;
  * @{
  */
 
-/**
- * PostgreSQL implementation of \Drupal\Core\Database\Query\Insert.
- */
 class Insert extends QueryInsert {
 
   public function execute() {
@@ -26,7 +28,7 @@ class Insert extends QueryInsert {
     $table_information = $this->connection->schema()->queryTableInformation($this->table);
 
     $max_placeholder = 0;
-    $blobs = [];
+    $blobs = array();
     $blob_count = 0;
     foreach ($this->insertValues as $insert_values) {
       foreach ($this->insertFields as $idx => $field) {
@@ -66,7 +68,7 @@ class Insert extends QueryInsert {
             // used twice. However, trying to insert a value into a serial
             // column should only be done in very rare cases and is not thread
             // safe by definition.
-            $this->connection->query("SELECT setval('" . $table_information->sequences[$index] . "', GREATEST(MAX(" . $serial_field . "), :serial_value)) FROM {" . $this->table . "}", [':serial_value' => (int) $serial_value]);
+            $this->connection->query("SELECT setval('" . $table_information->sequences[$index] . "', GREATEST(MAX(" . $serial_field . "), :serial_value)) FROM {" . $this->table . "}", array(':serial_value' => (int)$serial_value));
           }
         }
       }
@@ -94,29 +96,16 @@ class Insert extends QueryInsert {
     elseif ($options['return'] == Database::RETURN_INSERT_ID) {
       $options['return'] = Database::RETURN_NULL;
     }
-
-    // Create a savepoint so we can rollback a failed query. This is so we can
-    // mimic MySQL and SQLite transactions which don't fail if a single query
-    // fails. This is important for tables that are created on demand. For
-    // example, \Drupal\Core\Cache\DatabaseBackend.
-    $this->connection->addSavepoint();
-    try {
-      // Only use the returned last_insert_id if it is not already set.
-      if (!empty($last_insert_id)) {
-        $this->connection->query($stmt, [], $options);
-      }
-      else {
-        $last_insert_id = $this->connection->query($stmt, [], $options);
-      }
-      $this->connection->releaseSavepoint();
+    // Only use the returned last_insert_id if it is not already set.
+    if (!empty($last_insert_id)) {
+      $this->connection->query($stmt, array(), $options);
     }
-    catch (\Exception $e) {
-      $this->connection->rollbackSavepoint();
-      throw $e;
+    else {
+      $last_insert_id = $this->connection->query($stmt, array(), $options);
     }
 
     // Re-initialize the values array so that we can re-use this query.
-    $this->insertValues = [];
+    $this->insertValues = array();
 
     return $last_insert_id;
   }
@@ -128,10 +117,6 @@ class Insert extends QueryInsert {
     // Default fields are always placed first for consistency.
     $insert_fields = array_merge($this->defaultFields, $this->insertFields);
 
-    $insert_fields = array_map(function ($f) {
-      return $this->connection->escapeField($f);
-    }, $insert_fields);
-
     // If we're selecting from a SelectQuery, finish building the query and
     // pass it back, as any remaining options are irrelevant.
     if (!empty($this->fromQuery)) {
@@ -141,10 +126,32 @@ class Insert extends QueryInsert {
 
     $query = $comments . 'INSERT INTO {' . $this->table . '} (' . implode(', ', $insert_fields) . ') VALUES ';
 
-    $values = $this->getInsertPlaceholderFragment($this->insertValues, $this->defaultFields);
+    $max_placeholder = 0;
+    $values = array();
+      if (count($this->insertValues)) {
+      foreach ($this->insertValues as $insert_values) {
+        $placeholders = array();
+
+        // Default fields aren't really placeholders, but this is the most convenient
+        // way to handle them.
+        $placeholders = array_pad($placeholders, count($this->defaultFields), 'default');
+
+        $new_placeholder = $max_placeholder + count($insert_values);
+        for ($i = $max_placeholder; $i < $new_placeholder; ++$i) {
+          $placeholders[] = ':db_insert_placeholder_' . $i;
+        }
+        $max_placeholder = $new_placeholder;
+        $values[] = '(' . implode(', ', $placeholders) . ')';
+      }
+    }
+    else {
+      // If there are no values, then this is a default-only query. We still need to handle that.
+      $placeholders = array_fill(0, count($this->defaultFields), 'default');
+      $values[] = '(' . implode(', ', $placeholders) . ')';
+    }
+
     $query .= implode(', ', $values);
 
     return $query;
   }
-
 }

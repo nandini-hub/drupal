@@ -1,11 +1,16 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\views\Plugin\views\field\MultiItemsFieldHandlerInterface.
+ */
+
 namespace Drupal\views\Plugin\views\field;
 
 use Drupal\views\ResultRow;
 
 /**
- * Defines a field handler which renders multiple items per row.
+ * Defines a field hander which renders multiple items per row.
  */
 interface MultiItemsFieldHandlerInterface extends FieldHandlerInterface {
 
@@ -45,3 +50,4 @@ interface MultiItemsFieldHandlerInterface extends FieldHandlerInterface {
   public function renderItems($items);
 
 }
+

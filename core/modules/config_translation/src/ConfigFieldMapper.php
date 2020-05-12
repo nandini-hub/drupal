@@ -1,8 +1,11 @@
 <?php
 
-namespace Drupal\config_translation;
+/**
+ * @file
+ * Contains \Drupal\config_translation\ConfigFieldMapper.
+ */
 
-use Drupal\Core\Config\Entity\ConfigEntityInterface;
+namespace Drupal\config_translation;
 
 /**
  * Configuration mapper for fields.
@@ -26,9 +29,8 @@ class ConfigFieldMapper extends ConfigEntityMapper {
    */
   public function getBaseRouteParameters() {
     $parameters = parent::getBaseRouteParameters();
-    $base_entity_info = $this->entityTypeManager->getDefinition($this->pluginDefinition['base_entity_type']);
-    $bundle_parameter_key = $base_entity_info->getBundleEntityType() ?: 'bundle';
-    $parameters[$bundle_parameter_key] = $this->entity->getTargetBundle();
+    $base_entity_info = $this->entityManager->getDefinition($this->pluginDefinition['base_entity_type']);
+    $parameters[$base_entity_info->getBundleEntityType()] = $this->entity->getTargetBundle();
     return $parameters;
   }
 
@@ -43,26 +45,8 @@ class ConfigFieldMapper extends ConfigEntityMapper {
    * {@inheritdoc}
    */
   public function getTypeLabel() {
-    $base_entity_info = $this->entityTypeManager->getDefinition($this->pluginDefinition['base_entity_type']);
-    return $this->t('@label fields', ['@label' => $base_entity_info->getLabel()]);
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function setEntity(ConfigEntityInterface $entity) {
-    if (parent::setEntity($entity)) {
-
-      // Field storage config can also contain translatable values. Add the name
-      // of the config as well to the list of configs for this entity.
-      /** @var \Drupal\field\FieldStorageConfigInterface $field_storage */
-      $field_storage = $this->entity->getFieldStorageDefinition();
-      /** @var \Drupal\Core\Config\Entity\ConfigEntityTypeInterface $entity_type_info */
-      $entity_type_info = $this->entityTypeManager->getDefinition($field_storage->getEntityTypeId());
-      $this->addConfigName($entity_type_info->getConfigPrefix() . '.' . $field_storage->id());
-      return TRUE;
-    }
-    return FALSE;
+    $base_entity_info = $this->entityManager->getDefinition($this->pluginDefinition['base_entity_type']);
+    return $this->t('@label fields', array('@label' => $base_entity_info->getLabel()));
   }
 
 }

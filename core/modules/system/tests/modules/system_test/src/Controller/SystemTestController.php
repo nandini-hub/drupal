@@ -1,14 +1,15 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\system_test\Controller\SystemTestController.
+ */
+
 namespace Drupal\system_test\Controller;
 
 use Drupal\Core\Access\AccessResult;
-use Drupal\Core\Cache\CacheableResponse;
 use Drupal\Core\Controller\ControllerBase;
-use Drupal\Core\Messenger\MessengerInterface;
-use Drupal\Core\Security\TrustedCallbackInterface;
 use Drupal\Core\Render\RendererInterface;
-use Drupal\Core\Render\Markup;
 use Drupal\Core\Session\AccountInterface;
 use Drupal\Core\Url;
 use Symfony\Component\HttpFoundation\RedirectResponse;
@@ -20,7 +21,7 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
 /**
  * Controller routines for system_test routes.
  */
-class SystemTestController extends ControllerBase implements TrustedCallbackInterface {
+class SystemTestController extends ControllerBase {
 
   /**
    * The lock service.
@@ -51,13 +52,6 @@ class SystemTestController extends ControllerBase implements TrustedCallbackInte
   protected $renderer;
 
   /**
-   * The messenger service.
-   *
-   * @var \Drupal\Core\Messenger\MessengerInterface
-   */
-  protected $messenger;
-
-  /**
    * Constructs the SystemTestController.
    *
    * @param \Drupal\Core\Lock\LockBackendInterface $lock
@@ -68,15 +62,12 @@ class SystemTestController extends ControllerBase implements TrustedCallbackInte
    *   The current user.
    * @param \Drupal\Core\Render\RendererInterface $renderer
    *   The renderer.
-   * @param \Drupal\Core\Messenger\MessengerInterface $messenger
-   *   The messenger service.
    */
-  public function __construct(LockBackendInterface $lock, LockBackendInterface $persistent_lock, AccountInterface $current_user, RendererInterface $renderer, MessengerInterface $messenger) {
+  public function __construct(LockBackendInterface $lock, LockBackendInterface $persistent_lock, AccountInterface $current_user, RendererInterface $renderer) {
     $this->lock = $lock;
     $this->persistentLock = $persistent_lock;
     $this->currentUser = $current_user;
     $this->renderer = $renderer;
-    $this->messenger = $messenger;
   }
 
   /**
@@ -87,8 +78,7 @@ class SystemTestController extends ControllerBase implements TrustedCallbackInte
       $container->get('lock'),
       $container->get('lock.persistent'),
       $container->get('current_user'),
-      $container->get('renderer'),
-      $container->get('messenger')
+      $container->get('renderer')
     );
   }
 
@@ -108,41 +98,20 @@ class SystemTestController extends ControllerBase implements TrustedCallbackInte
    * @return string
    *   Empty string, we just test the setting of messages.
    */
-  public function messengerServiceTest() {
+  public function drupalSetMessageTest() {
     // Set two messages.
-    $this->messenger->addStatus('First message (removed).');
-    $this->messenger->addStatus($this->t('Second message with <em>markup!</em> (not removed).'));
-    $messages = $this->messenger->deleteByType('status');
-    // Remove the first.
-    unset($messages[0]);
+    drupal_set_message('First message (removed).');
+    drupal_set_message('Second message (not removed).');
 
-    foreach ($messages as $message) {
-      $this->messenger->addStatus($message);
-    }
+    // Remove the first.
+    unset($_SESSION['messages']['status'][0]);
 
     // Duplicate message check.
-    $this->messenger->addStatus('Non Duplicated message');
-    $this->messenger->addStatus('Non Duplicated message');
+    drupal_set_message('Non Duplicated message', 'status', FALSE);
+    drupal_set_message('Non Duplicated message', 'status', FALSE);
 
-    $this->messenger->addStatus('Duplicated message', TRUE);
-    $this->messenger->addStatus('Duplicated message', TRUE);
-
-    // Add a Markup message.
-    $this->messenger->addStatus(Markup::create('Markup with <em>markup!</em>'));
-    // Test duplicate Markup messages.
-    $this->messenger->addStatus(Markup::create('Markup with <em>markup!</em>'));
-    // Ensure that multiple Markup messages work.
-    $this->messenger->addStatus(Markup::create('Markup2 with <em>markup!</em>'));
-
-    // Test mixing of types.
-    $this->messenger->addStatus(Markup::create('Non duplicate Markup / string.'));
-    $this->messenger->addStatus('Non duplicate Markup / string.');
-    $this->messenger->addStatus(Markup::create('Duplicate Markup / string.'), TRUE);
-    $this->messenger->addStatus('Duplicate Markup / string.', TRUE);
-
-    // Test auto-escape of non safe strings.
-    $this->messenger->addStatus('<em>This<span>markup will be</span> escaped</em>.');
-
+    drupal_set_message('Duplicated message', 'status', TRUE);
+    drupal_set_message('Duplicated message', 'status', TRUE);
     return [];
   }
 
@@ -223,15 +192,15 @@ class SystemTestController extends ControllerBase implements TrustedCallbackInte
    * Set cache tag on on the returned render array.
    */
   public function system_test_cache_tags_page() {
-    $build['main'] = [
-      '#cache' => ['tags' => ['system_test_cache_tags_page']],
-      '#pre_render' => [
+    $build['main'] = array(
+      '#cache' => array('tags' => array('system_test_cache_tags_page')),
+      '#pre_render' => array(
         '\Drupal\system_test\Controller\SystemTestController::preRenderCacheTags',
-      ],
-      'message' => [
+      ),
+      'message' => array(
         '#markup' => 'Cache tags page example',
-      ],
-    ];
+      ),
+    );
     return $build;
   }
 
@@ -239,12 +208,12 @@ class SystemTestController extends ControllerBase implements TrustedCallbackInte
    * Set cache max-age on the returned render array.
    */
   public function system_test_cache_maxage_page() {
-    $build['main'] = [
-      '#cache' => ['max-age' => 90],
-      'message' => [
+    $build['main'] = array(
+      '#cache' => array('max-age' => 90),
+      'message' => array(
         '#markup' => 'Cache max-age page example',
-      ],
-    ];
+      ),
+    );
     return $build;
   }
 
@@ -259,11 +228,11 @@ class SystemTestController extends ControllerBase implements TrustedCallbackInte
   /**
    * Initialize authorize.php during testing.
    *
-   * @see system_authorized_init()
+   * @see system_authorized_init().
    */
   public function authorizeInit($page_title) {
-    $authorize_url = Url::fromUri('base:core/authorize.php', ['absolute' => TRUE])->toString();
-    system_authorized_init('system_test_authorize_run', __DIR__ . '/../../system_test.module', [], $page_title);
+    $authorize_url = Url::fromUri('base:core/authorize.php', array('absolute' => TRUE))->toString();
+    system_authorized_init('system_test_authorize_run', drupal_get_path('module', 'system_test') . '/system_test.module', array(), $page_title);
     return new RedirectResponse($authorize_url);
   }
 
@@ -272,33 +241,11 @@ class SystemTestController extends ControllerBase implements TrustedCallbackInte
    */
   public function setHeader(Request $request) {
     $query = $request->query->all();
-    $response = new CacheableResponse();
+    $response = new Response();
     $response->headers->set($query['name'], $query['value']);
-    $response->getCacheableMetadata()->addCacheContexts(['url.query_args:name', 'url.query_args:value']);
-    $response->setContent($this->t('The following header was set: %name: %value', ['%name' => $query['name'], '%value' => $query['value']]));
+    $response->setContent($this->t('The following header was set: %name: %value', array('%name' => $query['name'], '%value' => $query['value'])));
 
     return $response;
-  }
-
-  /**
-   * A simple page callback that uses a plain Symfony response object.
-   */
-  public function respondWithReponse(Request $request) {
-    return new Response('test');
-  }
-
-  /**
-   * A plain Symfony response with Cache-Control: public, max-age=60.
-   */
-  public function respondWithPublicResponse() {
-    return (new Response('test'))->setPublic()->setMaxAge(60);
-  }
-
-  /**
-   * A simple page callback that uses a CacheableResponse object.
-   */
-  public function respondWithCacheableReponse(Request $request) {
-    return new CacheableResponse('test');
   }
 
   /**
@@ -330,21 +277,6 @@ class SystemTestController extends ControllerBase implements TrustedCallbackInte
   }
 
   /**
-   * Simple argument echo.
-   *
-   * @param string $text
-   *   Any string for the {text} slug.
-   *
-   * @return array
-   *   A render array.
-   */
-  public function simpleEcho($text) {
-    return [
-      '#plain_text' => $text,
-    ];
-  }
-
-  /**
    * Shows permission-dependent content.
    *
    * @return array
@@ -366,52 +298,6 @@ class SystemTestController extends ControllerBase implements TrustedCallbackInte
     }
 
     return $build;
-  }
-
-  /**
-   * Returns the current date.
-   *
-   * @return \Symfony\Component\HttpFoundation\Response
-   *   A Response object containing the current date.
-   */
-  public function getCurrentDate() {
-    // Uses specific time to test that the right timezone is used.
-    $response = new Response(\Drupal::service('date.formatter')->format(1452702549));
-    return $response;
-  }
-
-  /**
-   * Returns a response with a test header set from the request.
-   *
-   * @return \Symfony\Component\HttpFoundation\Response
-   *   A Response object containing the test header.
-   */
-  public function getTestHeader(Request $request) {
-    $response = new Response();
-    $response->headers->set('Test-Header', $request->headers->get('Test-Header'));
-    return $response;
-  }
-
-  /**
-   * Returns a cacheable response with a custom cache control.
-   */
-  public function getCacheableResponseWithCustomCacheControl() {
-    return new CacheableResponse('Foo', 200, ['Cache-Control' => 'bar']);
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public static function trustedCallbacks() {
-    return ['preRenderCacheTags'];
-  }
-
-  /**
-   * Use a plain Symfony response object to output the current install_profile.
-   */
-  public function getInstallProfile() {
-    $install_profile = \Drupal::installProfile() ?: 'NONE';
-    return new Response('install_profile: ' . $install_profile);
   }
 
 }

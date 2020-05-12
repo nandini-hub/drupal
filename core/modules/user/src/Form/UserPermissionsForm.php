@@ -1,8 +1,13 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\user\Form\UserPermissionsForm.
+ */
+
 namespace Drupal\user\Form;
 
-use Drupal\Core\Extension\ModuleHandlerInterface;
+use Drupal\Component\Utility\SafeMarkup;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\user\PermissionHandlerInterface;
@@ -11,8 +16,6 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
  * Provides the user permissions administration form.
- *
- * @internal
  */
 class UserPermissionsForm extends FormBase {
 
@@ -31,26 +34,16 @@ class UserPermissionsForm extends FormBase {
   protected $roleStorage;
 
   /**
-   * The module handler.
-   *
-   * @var \Drupal\Core\Extension\ModuleHandlerInterface
-   */
-  protected $moduleHandler;
-
-  /**
    * Constructs a new UserPermissionsForm.
    *
    * @param \Drupal\user\PermissionHandlerInterface $permission_handler
    *   The permission handler.
    * @param \Drupal\user\RoleStorageInterface $role_storage
    *   The role storage.
-   * @param \Drupal\Core\Extension\ModuleHandlerInterface $module_handler
-   *   The module handler.
    */
-  public function __construct(PermissionHandlerInterface $permission_handler, RoleStorageInterface $role_storage, ModuleHandlerInterface $module_handler) {
+  public function __construct(PermissionHandlerInterface $permission_handler, RoleStorageInterface $role_storage) {
     $this->permissionHandler = $permission_handler;
     $this->roleStorage = $role_storage;
-    $this->moduleHandler = $module_handler;
   }
 
   /**
@@ -59,8 +52,7 @@ class UserPermissionsForm extends FormBase {
   public static function create(ContainerInterface $container) {
     return new static(
       $container->get('user.permissions'),
-      $container->get('entity_type.manager')->getStorage('user_role'),
-      $container->get('module_handler')
+      $container->get('entity.manager')->getStorage('user_role')
     );
   }
 
@@ -85,108 +77,95 @@ class UserPermissionsForm extends FormBase {
    * {@inheritdoc}
    */
   public function buildForm(array $form, FormStateInterface $form_state) {
-    $role_names = [];
-    $role_permissions = [];
-    $admin_roles = [];
+    $role_names = array();
+    $role_permissions = array();
+    $admin_roles = array();
     foreach ($this->getRoles() as $role_name => $role) {
       // Retrieve role names for columns.
-      $role_names[$role_name] = $role->label();
+      $role_names[$role_name] = SafeMarkup::checkPlain($role->label());
       // Fetch permissions for the roles.
       $role_permissions[$role_name] = $role->getPermissions();
       $admin_roles[$role_name] = $role->isAdmin();
     }
 
     // Store $role_names for use when saving the data.
-    $form['role_names'] = [
+    $form['role_names'] = array(
       '#type' => 'value',
       '#value' => $role_names,
-    ];
+    );
     // Render role/permission overview:
+    $options = array();
+    $module_info = system_rebuild_module_data();
     $hide_descriptions = system_admin_compact_mode();
 
-    $form['system_compact_link'] = [
+    $form['system_compact_link'] = array(
       '#id' => FALSE,
       '#type' => 'system_compact_link',
-    ];
+    );
 
-    $form['permissions'] = [
+    $form['permissions'] = array(
       '#type' => 'table',
-      '#header' => [$this->t('Permission')],
+      '#header' => array($this->t('Permission')),
       '#id' => 'permissions',
-      '#attributes' => ['class' => ['permissions', 'js-permissions']],
+      '#attributes' => ['class' => ['permissions']],
       '#sticky' => TRUE,
-    ];
+    );
     foreach ($role_names as $name) {
-      $form['permissions']['#header'][] = [
+      $form['permissions']['#header'][] = array(
         'data' => $name,
-        'class' => ['checkbox'],
-      ];
+        'class' => array('checkbox'),
+      );
     }
 
     $permissions = $this->permissionHandler->getPermissions();
-    $permissions_by_provider = [];
+    $permissions_by_provider = array();
     foreach ($permissions as $permission_name => $permission) {
       $permissions_by_provider[$permission['provider']][$permission_name] = $permission;
     }
 
-    // Move the access content permission to the Node module if it is installed.
-    if ($this->moduleHandler->moduleExists('node')) {
-      // Insert 'access content' before the 'view own unpublished content' key
-      // in order to maintain the UI even though the permission is provided by
-      // the system module.
-      $keys = array_keys($permissions_by_provider['node']);
-      $offset = (int) array_search('view own unpublished content', $keys);
-      $permissions_by_provider['node'] = array_merge(
-        array_slice($permissions_by_provider['node'], 0, $offset),
-        ['access content' => $permissions_by_provider['system']['access content']],
-        array_slice($permissions_by_provider['node'], $offset)
-      );
-      unset($permissions_by_provider['system']['access content']);
-    }
-
     foreach ($permissions_by_provider as $provider => $permissions) {
       // Module name.
-      $form['permissions'][$provider] = [
-        [
-          '#wrapper_attributes' => [
-            'colspan' => count($role_names) + 1,
-            'class' => ['module'],
-            'id' => 'module-' . $provider,
-          ],
-          '#markup' => $this->moduleHandler->getName($provider),
-        ],
-      ];
+      $form['permissions'][$provider] = array(array(
+        '#wrapper_attributes' => array(
+          'colspan' => count($role_names) + 1,
+          'class' => array('module'),
+          'id' => 'module-' . $provider,
+        ),
+        '#markup' => $module_info[$provider]->info['name'],
+      ));
       foreach ($permissions as $perm => $perm_item) {
         // Fill in default values for the permission.
-        $perm_item += [
+        $perm_item += array(
           'description' => '',
           'restrict access' => FALSE,
           'warning' => !empty($perm_item['restrict access']) ? $this->t('Warning: Give to trusted roles only; this permission has security implications.') : '',
-        ];
-        $form['permissions'][$perm]['description'] = [
+        );
+        $options[$perm] = $perm_item['title'];
+        $form['permissions'][$perm]['description'] = array(
           '#type' => 'inline_template',
           '#template' => '<div class="permission"><span class="title">{{ title }}</span>{% if description or warning %}<div class="description">{% if warning %}<em class="permission-warning">{{ warning }}</em> {% endif %}{{ description }}</div>{% endif %}</div>',
-          '#context' => [
+          '#context' => array(
             'title' => $perm_item['title'],
-          ],
-        ];
+          ),
+        );
         // Show the permission description.
         if (!$hide_descriptions) {
           $form['permissions'][$perm]['description']['#context']['description'] = $perm_item['description'];
           $form['permissions'][$perm]['description']['#context']['warning'] = $perm_item['warning'];
         }
+        $options[$perm] = '';
         foreach ($role_names as $rid => $name) {
-          $form['permissions'][$perm][$rid] = [
+          $form['permissions'][$perm][$rid] = array(
             '#title' => $name . ': ' . $perm_item['title'],
             '#title_display' => 'invisible',
-            '#wrapper_attributes' => [
-              'class' => ['checkbox'],
-            ],
+            '#wrapper_attributes' => array(
+              'class' => array('checkbox'),
+            ),
             '#type' => 'checkbox',
             '#default_value' => in_array($perm, $role_permissions[$rid]) ? 1 : 0,
-            '#attributes' => ['class' => ['rid-' . $rid, 'js-rid-' . $rid]],
-            '#parents' => [$rid, $perm],
-          ];
+            '#attributes' => array('class' => array('rid-' . $rid)),
+            '#parents' => array($rid, $perm),
+          );
           // Show a column of disabled but checked checkboxes.
           if ($admin_roles[$rid]) {
             $form['permissions'][$perm][$rid]['#disabled'] = TRUE;
@@ -196,12 +175,12 @@ class UserPermissionsForm extends FormBase {
       }
     }
 
-    $form['actions'] = ['#type' => 'actions'];
-    $form['actions']['submit'] = [
+    $form['actions'] = array('#type' => 'actions');
+    $form['actions']['submit'] = array(
       '#type' => 'submit',
       '#value' => $this->t('Save permissions'),
       '#button_type' => 'primary',
-    ];
+    );
 
     $form['#attached']['library'][] = 'user/drupal.user.permissions';
 
@@ -211,12 +190,12 @@ class UserPermissionsForm extends FormBase {
   /**
    * {@inheritdoc}
    */
-  public function submitForm(array &$form, FormStateInterface $form_state) {
+  function submitForm(array &$form, FormStateInterface $form_state) {
     foreach ($form_state->getValue('role_names') as $role_name => $name) {
       user_role_change_permissions($role_name, (array) $form_state->getValue($role_name));
     }
 
-    $this->messenger()->addStatus($this->t('The changes have been saved.'));
+    drupal_set_message($this->t('The changes have been saved.'));
   }
 
 }

@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Logger\RfcLoggerTrait.
+ */
+
 namespace Drupal\Core\Logger;
 
 /**
@@ -15,64 +20,64 @@ namespace Drupal\Core\Logger;
 trait RfcLoggerTrait {
 
   /**
-   * {@inheritdoc}
+   * Implements \Psr\Log\LoggerInterface::emergency()
    */
-  public function emergency($message, array $context = []) {
+  public function emergency($message, array $context = array()) {
     $this->log(RfcLogLevel::EMERGENCY, $message, $context);
   }
 
   /**
-   * {@inheritdoc}
+   * Implements \Psr\Log\LoggerInterface::alert()
    */
-  public function alert($message, array $context = []) {
+  public function alert($message, array $context = array()) {
     $this->log(RfcLogLevel::ALERT, $message, $context);
   }
 
   /**
-   * {@inheritdoc}
+   * Implements \Psr\Log\LoggerInterface::critical()
    */
-  public function critical($message, array $context = []) {
+  public function critical($message, array $context = array()) {
     $this->log(RfcLogLevel::CRITICAL, $message, $context);
   }
 
   /**
-   * {@inheritdoc}
+   * Implements \Psr\Log\LoggerInterface::error()
    */
-  public function error($message, array $context = []) {
+  public function error($message, array $context = array()) {
     $this->log(RfcLogLevel::ERROR, $message, $context);
   }
 
   /**
-   * {@inheritdoc}
+   * Implements \Psr\Log\LoggerInterface::warning()
    */
-  public function warning($message, array $context = []) {
+  public function warning($message, array $context = array()) {
     $this->log(RfcLogLevel::WARNING, $message, $context);
   }
 
   /**
-   * {@inheritdoc}
+   * Implements \Psr\Log\LoggerInterface::notice()
    */
-  public function notice($message, array $context = []) {
+  public function notice($message, array $context = array()) {
     $this->log(RfcLogLevel::NOTICE, $message, $context);
   }
 
   /**
-   * {@inheritdoc}
+   * Implements \Psr\Log\LoggerInterface::info()
    */
-  public function info($message, array $context = []) {
+  public function info($message, array $context = array()) {
     $this->log(RfcLogLevel::INFO, $message, $context);
   }
 
   /**
-   * {@inheritdoc}
+   * Implements \Psr\Log\LoggerInterface::debug()
    */
-  public function debug($message, array $context = []) {
+  public function debug($message, array $context = array()) {
     $this->log(RfcLogLevel::DEBUG, $message, $context);
   }
 
   /**
-   * {@inheritdoc}
+   * Implements \Psr\Log\LoggerInterface::log()
    */
-  abstract public function log($level, $message, array $context = []);
+  abstract public function log($level, $message, array $context = array());
 
 }

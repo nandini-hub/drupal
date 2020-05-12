@@ -1,13 +1,17 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\field_ui\FieldConfigListBuilder.
+ */
+
 namespace Drupal\field_ui;
 
 use Drupal\Component\Utility\Html;
+use Drupal\Component\Utility\SafeMarkup;
 use Drupal\Core\Config\Entity\ConfigEntityListBuilder;
-use Drupal\Core\DependencyInjection\DeprecatedServicePropertyTrait;
-use Drupal\Core\Entity\EntityFieldManagerInterface;
 use Drupal\Core\Entity\EntityInterface;
-use Drupal\Core\Entity\EntityTypeManagerInterface;
+use Drupal\Core\Entity\EntityManagerInterface;
 use Drupal\Core\Entity\EntityTypeInterface;
 use Drupal\Core\Field\FieldTypePluginManagerInterface;
 use Drupal\Core\Url;
@@ -18,14 +22,6 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
  * Provides lists of field config entities.
  */
 class FieldConfigListBuilder extends ConfigEntityListBuilder {
-  use DeprecatedServicePropertyTrait;
-
-  /**
-   * {@inheritdoc}
-   */
-  protected $deprecatedProperties = [
-    'entityManager' => 'entity.manager',
-  ];
 
   /**
    * The name of the entity type the listed fields are attached to.
@@ -42,11 +38,11 @@ class FieldConfigListBuilder extends ConfigEntityListBuilder {
   protected $targetBundle;
 
   /**
-   * The entity type manager.
+   * The entity manager.
    *
-   * @var \Drupal\Core\Entity\EntityTypeManagerInterface
+   * @var \Drupal\Core\Entity\EntityManagerInterface
    */
-  protected $entityTypeManager;
+  protected $entityManager;
 
   /**
    * The field type plugin manager.
@@ -56,46 +52,27 @@ class FieldConfigListBuilder extends ConfigEntityListBuilder {
   protected $fieldTypeManager;
 
   /**
-   * The entity field manager.
-   *
-   * @var \Drupal\Core\Entity\EntityFieldManagerInterface
-   */
-  protected $entityFieldManager;
-
-  /**
    * Constructs a new class instance.
    *
    * @param \Drupal\Core\Entity\EntityTypeInterface $entity_type
    *   The entity type definition.
-   * @param \Drupal\Core\Entity\EntityTypeManagerInterface $entity_type_manager
-   *   The entity type manager.
+   * @param \Drupal\Core\Entity\EntityManagerInterface $entity_manager
+   *   The entity manager.
    * @param \Drupal\Core\Field\FieldTypePluginManagerInterface $field_type_manager
-   *   The field type manager.
-   * @param \Drupal\Core\Entity\EntityFieldManagerInterface|null $entity_field_manager
-   *   The entity field manager.
+   *   The field type manager
    */
-  public function __construct(EntityTypeInterface $entity_type, EntityTypeManagerInterface $entity_type_manager, FieldTypePluginManagerInterface $field_type_manager, EntityFieldManagerInterface $entity_field_manager = NULL) {
-    parent::__construct($entity_type, $entity_type_manager->getStorage($entity_type->id()));
+  public function __construct(EntityTypeInterface $entity_type, EntityManagerInterface $entity_manager, FieldTypePluginManagerInterface $field_type_manager) {
+    parent::__construct($entity_type, $entity_manager->getStorage($entity_type->id()));
 
-    $this->entityTypeManager = $entity_type_manager;
+    $this->entityManager = $entity_manager;
     $this->fieldTypeManager = $field_type_manager;
-    if (!$entity_field_manager) {
-      @trigger_error('Calling FieldConfigListBuilder::__construct() with the $entity_field_manager argument is supported in Drupal 8.7.0 and will be required before Drupal 9.0.0. See https://www.drupal.org/node/2549139.', E_USER_DEPRECATED);
-      $entity_field_manager = \Drupal::service('entity_field.manager');
-    }
-    $this->entityFieldManager = $entity_field_manager;
   }
 
   /**
    * {@inheritdoc}
    */
   public static function createInstance(ContainerInterface $container, EntityTypeInterface $entity_type) {
-    return new static(
-      $entity_type,
-      $container->get('entity_type.manager'),
-      $container->get('plugin.manager.field.field_type'),
-      $container->get('entity_field.manager')
-    );
+    return new static($entity_type, $container->get('entity.manager'), $container->get('plugin.manager.field.field_type'));
   }
 
   /**
@@ -116,13 +93,13 @@ class FieldConfigListBuilder extends ConfigEntityListBuilder {
    * {@inheritdoc}
    */
   public function load() {
-    $entities = array_filter($this->entityFieldManager->getFieldDefinitions($this->targetEntityTypeId, $this->targetBundle), function ($field_definition) {
+    $entities = array_filter($this->entityManager->getFieldDefinitions($this->targetEntityTypeId, $this->targetBundle), function ($field_definition) {
       return $field_definition instanceof FieldConfigInterface;
     });
 
     // Sort the entities using the entity class's sort() method.
     // See \Drupal\Core\Config\Entity\ConfigEntityBase::sort().
-    uasort($entities, [$this->entityType->getClass(), 'sort']);
+    uasort($entities, array($this->entityType->getClass(), 'sort'));
     return $entities;
   }
 
@@ -130,14 +107,14 @@ class FieldConfigListBuilder extends ConfigEntityListBuilder {
    * {@inheritdoc}
    */
   public function buildHeader() {
-    $header = [
+    $header = array(
       'label' => $this->t('Label'),
-      'field_name' => [
+      'field_name' => array(
         'data' => $this->t('Machine name'),
-        'class' => [RESPONSIVE_PRIORITY_MEDIUM],
-      ],
+        'class' => array(RESPONSIVE_PRIORITY_MEDIUM),
+      ),
       'field_type' => $this->t('Field type'),
-    ];
+    );
     return $header + parent::buildHeader();
   }
 
@@ -147,31 +124,33 @@ class FieldConfigListBuilder extends ConfigEntityListBuilder {
   public function buildRow(EntityInterface $field_config) {
     /** @var \Drupal\field\FieldConfigInterface $field_config */
     $field_storage = $field_config->getFieldStorageDefinition();
-    $route_parameters = [
+    $target_bundle_entity_type_id = $this->entityManager->getDefinition($this->targetEntityTypeId)->getBundleEntityType();
+    $route_parameters = array(
+      $target_bundle_entity_type_id => $this->targetBundle,
       'field_config' => $field_config->id(),
-    ] + FieldUI::getRouteBundleParameter($this->entityTypeManager->getDefinition($this->targetEntityTypeId), $this->targetBundle);
+    );
 
-    $row = [
+    $row = array(
       'id' => Html::getClass($field_config->getName()),
-      'data' => [
-        'label' => $field_config->getLabel(),
+      'data' => array(
+        'label' => SafeMarkup::checkPlain($field_config->getLabel()),
         'field_name' => $field_config->getName(),
-        'field_type' => [
-          'data' => [
+        'field_type' => array(
+          'data' => array(
             '#type' => 'link',
             '#title' => $this->fieldTypeManager->getDefinitions()[$field_storage->getType()]['label'],
             '#url' => Url::fromRoute("entity.field_config.{$this->targetEntityTypeId}_storage_edit_form", $route_parameters),
-            '#options' => ['attributes' => ['title' => $this->t('Edit field settings.')]],
-          ],
-        ],
-      ],
-    ];
+            '#options' => array('attributes' => array('title' => $this->t('Edit field settings.'))),
+          ),
+        ),
+      ),
+    );
 
     // Add the operations.
     $row['data'] = $row['data'] + parent::buildRow($field_config);
 
     if ($field_storage->isLocked()) {
-      $row['data']['operations'] = ['data' => ['#markup' => $this->t('Locked')]];
+      $row['data']['operations'] = array('data' => array('#markup' => $this->t('Locked')));
       $row['class'][] = 'menu-disabled';
     }
 
@@ -185,33 +164,29 @@ class FieldConfigListBuilder extends ConfigEntityListBuilder {
     /** @var \Drupal\field\FieldConfigInterface $entity */
     $operations = parent::getDefaultOperations($entity);
 
-    if ($entity->access('update') && $entity->hasLinkTemplate("{$entity->getTargetEntityTypeId()}-field-edit-form")) {
-      $operations['edit'] = [
+    if ($entity->access('update') && $entity->hasLinkTemplate("{$entity->entity_type}-field-edit-form")) {
+      $operations['edit'] = array(
         'title' => $this->t('Edit'),
         'weight' => 10,
-        'url' => $entity->toUrl("{$entity->getTargetEntityTypeId()}-field-edit-form"),
-        'attributes' => [
-          'title' => $this->t('Edit field settings.'),
-        ],
-      ];
+        'url' => $entity->urlInfo("{$entity->entity_type}-field-edit-form"),
+      );
     }
-    if ($entity->access('delete') && $entity->hasLinkTemplate("{$entity->getTargetEntityTypeId()}-field-delete-form")) {
-      $operations['delete'] = [
+    if ($entity->access('delete') && $entity->hasLinkTemplate("{$entity->entity_type}-field-delete-form")) {
+      $operations['delete'] = array(
         'title' => $this->t('Delete'),
         'weight' => 100,
-        'url' => $entity->toUrl("{$entity->getTargetEntityTypeId()}-field-delete-form"),
-        'attributes' => [
-          'title' => $this->t('Delete field.'),
-        ],
-      ];
+        'url' => $entity->urlInfo("{$entity->entity_type}-field-delete-form"),
+      );
     }
 
-    $operations['storage-settings'] = [
+    $operations['storage-settings'] = array(
       'title' => $this->t('Storage settings'),
       'weight' => 20,
-      'attributes' => ['title' => $this->t('Edit storage settings.')],
-      'url' => $entity->toUrl("{$entity->getTargetEntityTypeId()}-storage-edit-form"),
-    ];
+      'attributes' => array('title' => $this->t('Edit storage settings.')),
+      'url' => $entity->urlInfo("{$entity->entity_type}-storage-edit-form"),
+    );
+    $operations['edit']['attributes']['title'] = $this->t('Edit field settings.');
+    $operations['delete']['attributes']['title'] = $this->t('Delete field.');
 
     return $operations;
   }

@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\entity_test\Entity\EntityTestCache.
+ */
+
 namespace Drupal\entity_test\Entity;
 
 /**
@@ -13,8 +18,9 @@ namespace Drupal\entity_test\Entity;
  *     "form" = {
  *       "default" = "Drupal\entity_test\EntityTestForm"
  *     },
+ *     "translation" = "Drupal\content_translation\ContentTranslationHandler"
  *   },
- *   base_table = "entity_test_cache",
+ *   base_table = "entity_test",
  *   entity_keys = {
  *     "id" = "id",
  *     "uuid" = "uuid",

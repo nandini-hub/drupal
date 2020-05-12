@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\shortcut\ShortcutSetListBuilder.
+ */
+
 namespace Drupal\shortcut;
 
 use Drupal\Core\Config\Entity\ConfigEntityListBuilder;
@@ -30,10 +35,10 @@ class ShortcutSetListBuilder extends ConfigEntityListBuilder {
       $operations['edit']['title'] = t('Edit shortcut set');
     }
 
-    $operations['list'] = [
+    $operations['list'] = array(
       'title' => t('List links'),
-      'url' => $entity->toUrl('customize-form'),
-    ];
+      'url' => $entity->urlInfo('customize-form'),
+    );
     return $operations;
   }
 
@@ -41,7 +46,7 @@ class ShortcutSetListBuilder extends ConfigEntityListBuilder {
    * {@inheritdoc}
    */
   public function buildRow(EntityInterface $entity) {
-    $row['name'] = $entity->label();
+    $row['name'] = $this->getLabel($entity);
     return $row + parent::buildRow($entity);
   }
 

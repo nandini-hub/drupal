@@ -1,14 +1,17 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Tests\simpletest\Unit\WebTestBaseTest.
+ */
+
 namespace Drupal\Tests\simpletest\Unit;
 
 use Drupal\Tests\UnitTestCase;
 
 /**
- * @requires extension curl
  * @coversDefaultClass \Drupal\simpletest\WebTestBase
  * @group simpletest
- * @group WebTestBase
  */
 class WebTestBaseTest extends UnitTestCase {
 
@@ -19,12 +22,12 @@ class WebTestBaseTest extends UnitTestCase {
    *   An array of values passed to the test method.
    */
   public function providerAssertFieldByName() {
-    $data = [];
-    $data[] = ['select_2nd_selected', 'test', '1', FALSE];
-    $data[] = ['select_2nd_selected', 'test', '2', TRUE];
-    $data[] = ['select_none_selected', 'test', '', FALSE];
-    $data[] = ['select_none_selected', 'test', '1', TRUE];
-    $data[] = ['select_none_selected', 'test', NULL, TRUE];
+    $data = array();
+    $data[] = array('select_2nd_selected', 'test', '1', FALSE);
+    $data[] = array('select_2nd_selected', 'test', '2', TRUE);
+    $data[] = array('select_none_selected', 'test', '', FALSE);
+    $data[] = array('select_none_selected', 'test', '1', TRUE);
+    $data[] = array('select_none_selected', 'test', NULL, TRUE);
 
     return $data;
   }
@@ -51,7 +54,7 @@ class WebTestBaseTest extends UnitTestCase {
 
     $web_test = $this->getMockBuilder('Drupal\simpletest\WebTestBase')
       ->disableOriginalConstructor()
-      ->setMethods(['getRawContent', 'assertTrue', 'pass'])
+      ->setMethods(array('getRawContent', 'assertTrue', 'pass'))
       ->getMock();
 
     $web_test->expects($this->any())
@@ -66,7 +69,7 @@ class WebTestBaseTest extends UnitTestCase {
 
     $test_method = new \ReflectionMethod('Drupal\simpletest\WebTestBase', 'assertFieldByName');
     $test_method->setAccessible(TRUE);
-    $test_method->invokeArgs($web_test, [$name, $value, 'message']);
+    $test_method->invokeArgs($web_test, array($name, $value, 'message'));
   }
 
   /**
@@ -88,32 +91,32 @@ class WebTestBaseTest extends UnitTestCase {
    *     to mock no link found on the page.
    */
   public function providerTestClickLink() {
-    return [
+    return array(
       // Test for a non-existent label.
-      [
+      array(
         FALSE,
         'does_not_exist',
         0,
-        [],
-      ],
+        array(),
+      ),
       // Test for an existing label.
-      [
+      array(
         'This Text Returned By drupalGet()',
         'exists',
         0,
-        [0 => ['href' => 'this_is_a_url']],
-      ],
+        array(0 => array('href' => 'this_is_a_url')),
+      ),
       // Test for an existing label that isn't the first one.
-      [
+      array(
         'This Text Returned By drupalGet()',
         'exists',
         1,
-        [
-          0 => ['href' => 'this_is_a_url'],
-          1 => ['href' => 'this_is_another_url'],
-        ],
-      ],
-    ];
+        array(
+          0 => array('href' => 'this_is_a_url'),
+          1 => array('href' => 'this_is_another_url'),
+        ),
+      ),
+    );
   }
 
   /**
@@ -135,14 +138,14 @@ class WebTestBaseTest extends UnitTestCase {
     // Mock a WebTestBase object and some of its methods.
     $web_test = $this->getMockBuilder('Drupal\simpletest\WebTestBase')
       ->disableOriginalConstructor()
-      ->setMethods([
+      ->setMethods(array(
         'pass',
         'fail',
         'getUrl',
         'xpath',
         'drupalGet',
         'getAbsoluteUrl',
-      ])
+      ))
       ->getMock();
 
     // Mocked getUrl() is only used for reporting so we just return a string.
@@ -193,44 +196,6 @@ class WebTestBaseTest extends UnitTestCase {
     $clicklink_method->setAccessible(TRUE);
 
     $this->assertSame($expected, $clicklink_method->invoke($web_test, $label, $index));
-  }
-
-  /**
-   * @dataProvider providerTestGetAbsoluteUrl
-   */
-  public function testGetAbsoluteUrl($href, $expected_absolute_path) {
-    $web_test = $this->getMockBuilder('Drupal\simpletest\WebTestBase')
-      ->disableOriginalConstructor()
-      ->setMethods(['getUrl'])
-      ->getMock();
-
-    $web_test->expects($this->any())
-      ->method('getUrl')
-      ->willReturn('http://example.com/drupal/current-path?foo=baz');
-
-    $GLOBALS['base_url'] = 'http://example.com';
-    $GLOBALS['base_path'] = 'drupal';
-
-    $get_absolute_url_method = new \ReflectionMethod($web_test, 'getAbsoluteUrl');
-    $get_absolute_url_method->setAccessible(TRUE);
-
-    $this->assertSame($expected_absolute_path, $get_absolute_url_method->invoke($web_test, $href));
-    unset($GLOBALS['base_url'], $GLOBALS['base_path']);
-  }
-
-  /**
-   * Provides test data for testGetAbsoluteUrl.
-   *
-   * @return array
-   */
-  public function providerTestGetAbsoluteUrl() {
-    $data = [];
-    $data['host'] = ['http://example.com/drupal/test-example', 'http://example.com/drupal/test-example'];
-    $data['path'] = ['/drupal/test-example', 'http://example.com/drupal/test-example'];
-    $data['path-with-query'] = ['/drupal/test-example?foo=bar', 'http://example.com/drupal/test-example?foo=bar'];
-    $data['just-query'] = ['?foo=bar', 'http://example.com/drupal/current-path?foo=bar'];
-
-    return $data;
   }
 
 }

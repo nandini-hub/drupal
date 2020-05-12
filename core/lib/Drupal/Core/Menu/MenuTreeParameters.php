@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Menu\MenuTreeParameters.
+ */
+
 namespace Drupal\Core\Menu;
 
 /**
@@ -11,8 +16,12 @@ namespace Drupal\Core\Menu;
  * - Which parent IDs should be used to restrict the tree. Only links with
  *   a parent in the list will be included.
  * - Which menu links are omitted, depending on the minimum and maximum depth.
+ *
+ * @todo Add getter methods and make all properties protected and define an
+ *   interface instead of using the concrete class to type hint.
+ *   https://www.drupal.org/node/2302041
  */
-class MenuTreeParameters implements \Serializable {
+class MenuTreeParameters {
 
   /**
    * A menu link plugin ID that should be used as the root.
@@ -27,6 +36,9 @@ class MenuTreeParameters implements \Serializable {
 
   /**
    * The minimum depth of menu links in the resulting tree relative to the root.
+   *
+   * Defaults to 1, which is the default to build a whole tree for a menu
+   * (excluding the root).
    *
    * @var int|null
    */
@@ -47,7 +59,7 @@ class MenuTreeParameters implements \Serializable {
    *
    * @var string[]
    */
-  public $expandedParents = [];
+  public $expandedParents = array();
 
   /**
    * The IDs from the currently active menu link to the root of the whole tree.
@@ -59,7 +71,7 @@ class MenuTreeParameters implements \Serializable {
    *
    * @var string[]
    */
-  public $activeTrail = [];
+  public $activeTrail = array();
 
   /**
    * The conditions used to restrict which links are loaded.
@@ -68,7 +80,7 @@ class MenuTreeParameters implements \Serializable {
    *
    * @var array
    */
-  public $conditions = [];
+  public $conditions = array();
 
   /**
    * Sets a root for menu tree loading.
@@ -167,7 +179,7 @@ class MenuTreeParameters implements \Serializable {
       $this->conditions[$definition_field] = $value;
     }
     else {
-      $this->conditions[$definition_field] = [$value, $operator];
+      $this->conditions[$definition_field] = array($value, $operator);
     }
     return $this;
   }
@@ -205,41 +217,6 @@ class MenuTreeParameters implements \Serializable {
    */
   public function excludeRoot() {
     $this->setMinDepth(1);
-    return $this;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function serialize() {
-    // Enforce type consistency for all the internal properties of this object.
-    $this->root = (string) $this->root;
-    $this->minDepth = $this->minDepth !== NULL ? (int) $this->minDepth : NULL;
-    $this->maxDepth = $this->maxDepth !== NULL ? (int) $this->maxDepth : NULL;
-    $this->activeTrail = array_values(array_filter($this->activeTrail));
-
-    // Sort 'expanded' and 'conditions' to prevent duplicate cache items.
-    sort($this->expandedParents);
-    asort($this->conditions);
-
-    return serialize([
-      'root' => $this->root,
-      'minDepth' => $this->minDepth,
-      'maxDepth' => $this->maxDepth,
-      'expandedParents' => $this->expandedParents,
-      'activeTrail' => $this->activeTrail,
-      'conditions' => $this->conditions,
-    ]);
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function unserialize($serialized) {
-    foreach (unserialize($serialized) as $key => $value) {
-      $this->{$key} = $value;
-    }
-
     return $this;
   }
 

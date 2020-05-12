@@ -1,8 +1,12 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Tests\user\Unit\UserAuthTest.
+ */
+
 namespace Drupal\Tests\user\Unit;
 
-use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Tests\UnitTestCase;
 use Drupal\user\UserAuth;
 
@@ -15,21 +19,21 @@ class UserAuthTest extends UnitTestCase {
   /**
    * The mock user storage.
    *
-   * @var \Drupal\Core\Entity\EntityStorageInterface|\PHPUnit\Framework\MockObject\MockObject
+   * @var \Drupal\Core\Entity\EntityStorageInterface|\PHPUnit_Framework_MockObject_MockObject
    */
   protected $userStorage;
 
   /**
    * The mocked password service.
    *
-   * @var \Drupal\Core\Password\PasswordInterface|\PHPUnit\Framework\MockObject\MockObject
+   * @var \Drupal\Core\Password\PasswordInterface|\PHPUnit_Framework_MockObject_MockObject
    */
   protected $passwordService;
 
   /**
    * The mock user.
    *
-   * @var \Drupal\user\Entity\User|\PHPUnit\Framework\MockObject\MockObject
+   * @var \Drupal\user\Entity\User|\PHPUnit_Framework_MockObject_MockObject
    */
   protected $testUser;
 
@@ -48,7 +52,7 @@ class UserAuthTest extends UnitTestCase {
   protected $username = 'test_user';
 
   /**
-   * The test password.
+   * The test password
    *
    * @var string
    */
@@ -58,23 +62,22 @@ class UserAuthTest extends UnitTestCase {
    * {@inheritdoc}
    */
   protected function setUp() {
-    $this->userStorage = $this->createMock('Drupal\Core\Entity\EntityStorageInterface');
+    $this->userStorage = $this->getMock('Drupal\Core\Entity\EntityStorageInterface');
 
-    /** @var \Drupal\Core\Entity\EntityTypeManagerInterface|\PHPUnit\Framework\MockObject\MockObject $entity_type_manager */
-    $entity_type_manager = $this->createMock(EntityTypeManagerInterface::class);
-    $entity_type_manager->expects($this->any())
+    $entity_manager = $this->getMock('Drupal\Core\Entity\EntityManagerInterface');
+    $entity_manager->expects($this->any())
       ->method('getStorage')
       ->with('user')
       ->will($this->returnValue($this->userStorage));
 
-    $this->passwordService = $this->createMock('Drupal\Core\Password\PasswordInterface');
+    $this->passwordService = $this->getMock('Drupal\Core\Password\PasswordInterface');
 
     $this->testUser = $this->getMockBuilder('Drupal\user\Entity\User')
       ->disableOriginalConstructor()
-      ->setMethods(['id', 'setPassword', 'save', 'getPassword'])
+      ->setMethods(array('id', 'setPassword', 'save'))
       ->getMock();
 
-    $this->userAuth = new UserAuth($entity_type_manager, $this->passwordService);
+    $this->userAuth = new UserAuth($entity_manager, $this->passwordService);
   }
 
   /**
@@ -97,12 +100,12 @@ class UserAuthTest extends UnitTestCase {
    * @return array
    */
   public function providerTestAuthenticateWithMissingCredentials() {
-    return [
-      [NULL, NULL],
-      [NULL, ''],
-      ['', NULL],
-      ['', ''],
-    ];
+    return array(
+      array(NULL, NULL),
+      array(NULL, ''),
+      array('', NULL),
+      array('', ''),
+    );
   }
 
   /**
@@ -113,8 +116,8 @@ class UserAuthTest extends UnitTestCase {
   public function testAuthenticateWithNoAccountReturned() {
     $this->userStorage->expects($this->once())
       ->method('loadByProperties')
-      ->with(['name' => $this->username])
-      ->will($this->returnValue([]));
+      ->with(array('name' => $this->username))
+      ->will($this->returnValue(array()));
 
     $this->assertFalse($this->userAuth->authenticate($this->username, $this->password));
   }
@@ -127,12 +130,12 @@ class UserAuthTest extends UnitTestCase {
   public function testAuthenticateWithIncorrectPassword() {
     $this->userStorage->expects($this->once())
       ->method('loadByProperties')
-      ->with(['name' => $this->username])
-      ->will($this->returnValue([$this->testUser]));
+      ->with(array('name' => $this->username))
+      ->will($this->returnValue(array($this->testUser)));
 
     $this->passwordService->expects($this->once())
       ->method('check')
-      ->with($this->password, $this->testUser->getPassword())
+      ->with($this->password, $this->testUser)
       ->will($this->returnValue(FALSE));
 
     $this->assertFalse($this->userAuth->authenticate($this->username, $this->password));
@@ -150,42 +153,15 @@ class UserAuthTest extends UnitTestCase {
 
     $this->userStorage->expects($this->once())
       ->method('loadByProperties')
-      ->with(['name' => $this->username])
-      ->will($this->returnValue([$this->testUser]));
+      ->with(array('name' => $this->username))
+      ->will($this->returnValue(array($this->testUser)));
 
     $this->passwordService->expects($this->once())
       ->method('check')
-      ->with($this->password, $this->testUser->getPassword())
+      ->with($this->password, $this->testUser)
       ->will($this->returnValue(TRUE));
 
     $this->assertsame(1, $this->userAuth->authenticate($this->username, $this->password));
-  }
-
-  /**
-   * Tests the authenticate method with a correct password.
-   *
-   * We discovered in https://www.drupal.org/node/2563751 that logging in with a
-   * password that is literally "0" was not possible. This test ensures that
-   * this regression can't happen again.
-   *
-   * @covers ::authenticate
-   */
-  public function testAuthenticateWithZeroPassword() {
-    $this->testUser->expects($this->once())
-      ->method('id')
-      ->will($this->returnValue(2));
-
-    $this->userStorage->expects($this->once())
-      ->method('loadByProperties')
-      ->with(['name' => $this->username])
-      ->will($this->returnValue([$this->testUser]));
-
-    $this->passwordService->expects($this->once())
-      ->method('check')
-      ->with(0, 0)
-      ->will($this->returnValue(TRUE));
-
-    $this->assertsame(2, $this->userAuth->authenticate($this->username, 0));
   }
 
   /**
@@ -205,16 +181,16 @@ class UserAuthTest extends UnitTestCase {
 
     $this->userStorage->expects($this->once())
       ->method('loadByProperties')
-      ->with(['name' => $this->username])
-      ->will($this->returnValue([$this->testUser]));
+      ->with(array('name' => $this->username))
+      ->will($this->returnValue(array($this->testUser)));
 
     $this->passwordService->expects($this->once())
       ->method('check')
-      ->with($this->password, $this->testUser->getPassword())
+      ->with($this->password, $this->testUser)
       ->will($this->returnValue(TRUE));
     $this->passwordService->expects($this->once())
-      ->method('needsRehash')
-      ->with($this->testUser->getPassword())
+      ->method('userNeedsNewHash')
+      ->with($this->testUser)
       ->will($this->returnValue(TRUE));
 
     $this->assertsame(1, $this->userAuth->authenticate($this->username, $this->password));

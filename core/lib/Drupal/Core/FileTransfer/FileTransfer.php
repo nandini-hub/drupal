@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\Core\FileTransfer\FileTransfer.
+ */
+
 namespace Drupal\Core\FileTransfer;
 
 /**
@@ -49,7 +54,7 @@ abstract class FileTransfer {
    *   be restricted to. This prevents the FileTransfer classes from being
    *   able to touch other parts of the filesystem.
    */
-  public function __construct($jail) {
+  function __construct($jail) {
     $this->jail = $jail;
   }
 
@@ -73,7 +78,7 @@ abstract class FileTransfer {
    *
    * @throws \Drupal\Core\FileTransfer\FileTransferException
    */
-  public static function factory($jail, $settings) {
+  static function factory($jail, $settings) {
     throw new FileTransferException('FileTransfer::factory() static method not overridden by FileTransfer subclass.');
   }
 
@@ -90,7 +95,7 @@ abstract class FileTransfer {
    * @return string|bool
    *   The variable specified in $name.
    */
-  public function __get($name) {
+  function __get($name) {
     if ($name == 'connection') {
       $this->connect();
       return $this->connection;
@@ -115,7 +120,7 @@ abstract class FileTransfer {
    * @param string $destination
    *   The destination path.
    */
-  final public function copyDirectory($source, $destination) {
+  public final function copyDirectory($source, $destination) {
     $source = $this->sanitizePath($source);
     $destination = $this->fixRemotePath($destination);
     $this->checkPath($destination);
@@ -136,7 +141,7 @@ abstract class FileTransfer {
    *
    * @see http://php.net/chmod
    */
-  final public function chmod($path, $mode, $recursive = FALSE) {
+  public final function chmod($path, $mode, $recursive = FALSE) {
     if (!($this instanceof ChmodInterface)) {
       throw new FileTransferException('Unable to change file permissions');
     }
@@ -152,7 +157,7 @@ abstract class FileTransfer {
    * @param string $directory
    *   The directory to be created.
    */
-  final public function createDirectory($directory) {
+  public final function createDirectory($directory) {
     $directory = $this->fixRemotePath($directory);
     $this->checkPath($directory);
     $this->createDirectoryJailed($directory);
@@ -164,7 +169,7 @@ abstract class FileTransfer {
    * @param string $directory
    *   The directory to be removed.
    */
-  final public function removeDirectory($directory) {
+  public final function removeDirectory($directory) {
     $directory = $this->fixRemotePath($directory);
     $this->checkPath($directory);
     $this->removeDirectoryJailed($directory);
@@ -178,7 +183,7 @@ abstract class FileTransfer {
    * @param string $destination
    *   The destination file.
    */
-  final public function copyFile($source, $destination) {
+  public final function copyFile($source, $destination) {
     $source = $this->sanitizePath($source);
     $destination = $this->fixRemotePath($destination);
     $this->checkPath($destination);
@@ -191,7 +196,7 @@ abstract class FileTransfer {
    * @param string $destination
    *   The destination file to be removed.
    */
-  final public function removeFile($destination) {
+  public final function removeFile($destination) {
     $destination = $this->fixRemotePath($destination);
     $this->checkPath($destination);
     $this->removeFileJailed($destination);
@@ -205,13 +210,12 @@ abstract class FileTransfer {
    *
    * @throws \Drupal\Core\FileTransfer\FileTransferException
    */
-  final protected function checkPath($path) {
+  protected final function checkPath($path) {
     $full_jail = $this->chroot . $this->jail;
-    $full_path = \Drupal::service('file_system')
-      ->realpath(substr($this->chroot . $path, 0, strlen($full_jail)));
+    $full_path = drupal_realpath(substr($this->chroot . $path, 0, strlen($full_jail)));
     $full_path = $this->fixRemotePath($full_path, FALSE);
     if ($full_jail !== $full_path) {
-      throw new FileTransferException('@directory is outside of the @jail', NULL, ['@directory' => $path, '@jail' => $this->jail]);
+      throw new FileTransferException('@directory is outside of the @jail', NULL, array('@directory' => $path, '@jail' => $this->jail));
     }
   }
 
@@ -230,10 +234,9 @@ abstract class FileTransfer {
    * @return string
    *   The modified path.
    */
-  final protected function fixRemotePath($path, $strip_chroot = TRUE) {
+  protected final function fixRemotePath($path, $strip_chroot = TRUE) {
     $path = $this->sanitizePath($path);
-    // Strip out windows driveletter if its there.
-    $path = preg_replace('|^([a-z]{1}):|i', '', $path);
+    $path = preg_replace('|^([a-z]{1}):|i', '', $path); // Strip out windows driveletter if its there.
     if ($strip_chroot) {
       if ($this->chroot && strpos($path, $this->chroot) === 0) {
         $path = ($path == $this->chroot) ? '' : substr($path, strlen($this->chroot));
@@ -251,9 +254,8 @@ abstract class FileTransfer {
    * @return string
    *   The modified path.
    */
-  public function sanitizePath($path) {
-    // Windows path sanitization.
-    $path = str_replace('\\', '/', $path);
+  function sanitizePath($path) {
+    $path = str_replace('\\', '/', $path); // Windows path sanitization.
     if (substr($path, -1) == '/') {
       $path = substr($path, 0, -1);
     }
@@ -272,7 +274,7 @@ abstract class FileTransfer {
    */
   protected function copyDirectoryJailed($source, $destination) {
     if ($this->isDirectory($destination)) {
-      $destination = $destination . '/' . \Drupal::service('file_system')->basename($source);
+      $destination = $destination . '/' . drupal_basename($source);
     }
     $this->createDirectory($destination);
     foreach (new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($source, \RecursiveDirectoryIterator::SKIP_DOTS), \RecursiveIteratorIterator::SELF_FIRST) as $filename => $file) {
@@ -350,7 +352,7 @@ abstract class FileTransfer {
    * @return string|bool
    *   If successful, the chroot path for this connection, otherwise FALSE.
    */
-  public function findChroot() {
+  function findChroot() {
     // If the file exists as is, there is no chroot.
     $path = __FILE__;
     $path = $this->fixRemotePath($path, FALSE);
@@ -363,8 +365,8 @@ abstract class FileTransfer {
     $parts = explode('/', $path);
     $chroot = '';
     while (count($parts)) {
-      $check = implode('/', $parts);
-      if ($this->isFile($check . '/' . \Drupal::service('file_system')->basename(__FILE__))) {
+      $check = implode($parts, '/');
+      if ($this->isFile($check . '/' . drupal_basename(__FILE__))) {
         // Remove the trailing slash.
         return substr($chroot, 0, -1);
       }
@@ -376,7 +378,7 @@ abstract class FileTransfer {
   /**
    * Sets the chroot and changes the jail to match the correct path scheme.
    */
-  public function setChroot() {
+  function setChroot() {
     $this->chroot = $this->findChroot();
     $this->jail = $this->fixRemotePath($this->jail);
   }
@@ -391,31 +393,30 @@ abstract class FileTransfer {
    *   An array that contains a Form API definition.
    */
   public function getSettingsForm() {
-    $form['username'] = [
+    $form['username'] = array(
       '#type' => 'textfield',
       '#title' => t('Username'),
-    ];
-    $form['password'] = [
+    );
+    $form['password'] = array(
       '#type' => 'password',
       '#title' => t('Password'),
       '#description' => t('Your password is not saved in the database and is only used to establish a connection.'),
-    ];
-    $form['advanced'] = [
+    );
+    $form['advanced'] = array(
       '#type' => 'details',
       '#title' => t('Advanced settings'),
-    ];
-    $form['advanced']['hostname'] = [
+    );
+    $form['advanced']['hostname'] = array(
       '#type' => 'textfield',
       '#title' => t('Host'),
       '#default_value' => 'localhost',
       '#description' => t('The connection will be created between your web server and the machine hosting the web server files. In the vast majority of cases, this will be the same machine, and "localhost" is correct.'),
-    ];
-    $form['advanced']['port'] = [
+    );
+    $form['advanced']['port'] = array(
       '#type' => 'textfield',
       '#title' => t('Port'),
       '#default_value' => NULL,
-    ];
+    );
     return $form;
   }
-
 }

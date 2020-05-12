@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\migrate\Plugin\Derivative\MigrateEntityDerivative.
+ */
+
 namespace Drupal\migrate\Plugin\Derivative;
 
 use Drupal\Core\Plugin\Discovery\ContainerDeriverInterface;
@@ -12,7 +17,7 @@ class MigrateEntityRevision implements ContainerDeriverInterface {
    *
    * @var array
    */
-  protected $derivatives = [];
+  protected $derivatives = array();
 
   /**
    * The entity definitions
@@ -36,7 +41,7 @@ class MigrateEntityRevision implements ContainerDeriverInterface {
    */
   public static function create(ContainerInterface $container, $base_plugin_id) {
     return new static(
-      $container->get('entity_type.manager')->getDefinitions()
+      $container->get('entity.manager')->getDefinitions()
     );
   }
 
@@ -57,12 +62,11 @@ class MigrateEntityRevision implements ContainerDeriverInterface {
   public function getDerivativeDefinitions($base_plugin_definition) {
     foreach ($this->entityDefinitions as $entity_type => $entity_info) {
       if ($entity_info->getKey('revision')) {
-        $this->derivatives[$entity_type] = [
+        $this->derivatives[$entity_type] = array(
           'id' => "entity_revision:$entity_type",
           'class' => 'Drupal\migrate\Plugin\migrate\destination\EntityRevision',
           'requirements_met' => 1,
-          'provider' => $entity_info->getProvider(),
-        ];
+        );
       }
     }
     return $this->derivatives;

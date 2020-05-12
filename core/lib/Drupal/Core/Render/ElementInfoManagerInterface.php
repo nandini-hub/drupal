@@ -1,23 +1,26 @@
 <?php
 
-namespace Drupal\Core\Render;
+/**
+ * @file
+ * Contains \Drupal\Core\Render\ElementInfoManagerInterface.
+ */
 
-use Drupal\Component\Plugin\Discovery\DiscoveryInterface;
+namespace Drupal\Core\Render;
 
 /**
  * Collects available render array element types.
  */
-interface ElementInfoManagerInterface extends DiscoveryInterface {
+interface ElementInfoManagerInterface {
 
   /**
    * Retrieves the default properties for the defined element type.
    *
-   * Each of the element types defined by this hook is assumed to have a
-   * matching theme hook, which should be registered with hook_theme() as
+   * Each of the form element types defined by this hook is assumed to have
+   * a matching theme hook, which should be registered with hook_theme() as
    * normal.
    *
    * For more information about custom element types see the explanation at
-   * https://www.drupal.org/node/169815.
+   * http://drupal.org/node/169815.
    *
    * @param string $type
    *   The machine name of an element type plugin.
@@ -41,6 +44,8 @@ interface ElementInfoManagerInterface extends DiscoveryInterface {
    *   - #title_display: optional string indicating if and how #title should be
    *     displayed (see form-element.html.twig).
    *
+   * @see hook_element_info()
+   * @see hook_element_info_alter()
    * @see \Drupal\Core\Render\Element\ElementInterface
    * @see \Drupal\Core\Render\Element\ElementInterface::getInfo()
    */
@@ -50,14 +55,14 @@ interface ElementInfoManagerInterface extends DiscoveryInterface {
    * Retrieves a single property for the defined element type.
    *
    * @param string $type
-   *   An element type as defined by an element plugin.
+   *   An element type as defined by hook_element_info().
    * @param string $property_name
    *   The property within the element type that should be returned.
    * @param $default
    *   (Optional) The value to return if the element type does not specify a
    *   value for the property. Defaults to NULL.
    *
-   * @return mixed
+   * @return string
    *   The property value of the defined element type. Or the provided
    *   default value, which can be NULL.
    */

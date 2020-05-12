@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains Drupal\Core\Config\ConfigInstallerInterface.
+ */
+
 namespace Drupal\Core\Config;
 
 /**
@@ -40,11 +45,10 @@ interface ConfigInstallerInterface {
    * - it's a configuration entity.
    * - its dependencies can be met.
    *
-   * @param \Drupal\Core\Config\StorageInterface $storage
+   * @param \Drupal\Core\Config\StorageInterface
    *   (optional) The configuration storage to search for optional
    *   configuration. If not provided, all enabled extension's optional
-   *   configuration directories including the install profile's will be
-   *   searched.
+   *   configuration directories will be searched.
    * @param array $dependency
    *   (optional) If set, ensures that the configuration being installed has
    *   this dependency. The format is dependency type as the key ('module',
@@ -74,15 +78,6 @@ interface ConfigInstallerInterface {
    * @return $this
    */
   public function setSourceStorage(StorageInterface $storage);
-
-  /**
-   * Gets the configuration storage that provides the default configuration.
-   *
-   * @return \Drupal\Core\Config\StorageInterface|null
-   *   The configuration storage that provides the default configuration.
-   *   Returns null if the source storage has not been set.
-   */
-  public function getSourceStorage();
 
   /**
    * Sets the status of the isSyncing flag.

@@ -1,8 +1,12 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Tests\Core\Menu\MenuLinkMock
+ */
+
 namespace Drupal\Tests\Core\Menu;
 
-use Drupal\Core\Cache\Cache;
 use Drupal\Core\Menu\MenuLinkBase;
 
 /**
@@ -10,36 +14,32 @@ use Drupal\Core\Menu\MenuLinkBase;
  */
 class MenuLinkMock extends MenuLinkBase {
 
-  protected static $defaults = [
+  protected static $defaults = array(
     'menu_name' => 'mock',
     'route_name' => 'MUST BE PROVIDED',
-    'route_parameters' => [],
+    'route_parameters' => array(),
     'url' => '',
     'title' => 'MUST BE PROVIDED',
-    'title_arguments' => [],
+    'title_arguments' => array(),
     'title_context' => '',
     'description' => '',
     'parent' => 'MUST BE PROVIDED',
     'weight' => '0',
-    'options' => [],
+    'options' => array(),
     'expanded' => '0',
-    'enabled' => '1',
+    'hidden' => '0',
     'provider' => 'simpletest',
-    'metadata' => [
-      'cache_contexts' => [],
-      'cache_tags' => [],
-      'cache_max_age' => Cache::PERMANENT,
-    ],
+    'metadata' => array(),
     'class' => 'Drupal\\Tests\\Core\Menu\\MenuLinkMock',
     'form_class' => 'Drupal\\Core\\Menu\\Form\\MenuLinkDefaultForm',
     'id' => 'MUST BE PROVIDED',
-  ];
+  );
 
   /**
    * Create an instance from a definition with at least id, title, route_name.
    */
   public static function create($definition) {
-    return new static([], $definition['id'], $definition + static::$defaults);
+    return new static(array(), $definition['id'], $definition + static::$defaults);
   }
 
   /**
@@ -65,27 +65,6 @@ class MenuLinkMock extends MenuLinkBase {
   public function updateLink(array $new_definition_values, $persist) {
     // No-op.
     return $this->pluginDefinition;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function getCacheContexts() {
-    return $this->pluginDefinition['metadata']['cache_contexts'];
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function getCacheTags() {
-    return $this->pluginDefinition['metadata']['cache_tags'];
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function getCacheMaxAge() {
-    return $this->pluginDefinition['metadata']['cache_max_age'];
   }
 
 }

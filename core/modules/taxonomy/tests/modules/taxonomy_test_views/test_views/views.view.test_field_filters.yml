@@ -11,6 +11,7 @@ description: ''
 tag: ''
 base_table: taxonomy_term_field_data
 base_field: tid
+core: 8.x
 display:
   default:
     display_plugin: default
@@ -23,7 +24,7 @@ display:
         options:
           perm: 'access content'
       cache:
-        type: tag
+        type: none
         options: {  }
       query:
         type: views_query

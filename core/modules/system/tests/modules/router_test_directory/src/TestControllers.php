@@ -1,14 +1,17 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\router_test\TestControllers.
+ */
+
 namespace Drupal\router_test;
 
 use Drupal\Core\Cache\CacheableResponse;
 use Drupal\Core\ParamConverter\ParamNotConvertedException;
 use Drupal\user\UserInterface;
 use Symfony\Cmf\Component\Routing\RouteObjectInterface;
-use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
-use Zend\Diactoros\Response\HtmlResponse;
 
 /**
  * Controller routines for testing the routing system.
@@ -71,7 +74,14 @@ class TestControllers {
    * This can be used to test if the generated backtrace is properly escaped.
    */
   public function test10() {
-    $this->removeExceptionLogger();
+    // Remove the exception logger from the event dispatcher. We are going to
+    // throw an exception to check if it is properly escaped when rendered as a
+    // backtrace. The exception logger does a call to error_log() which is not
+    // handled by the Simpletest error handler and would cause a test failure.
+    $event_dispatcher = \Drupal::service('event_dispatcher');
+    $exception_logger = \Drupal::service('exception.logger');
+    $event_dispatcher->removeSubscriber($exception_logger);
+
     $this->throwException('<script>alert(\'xss\')</script>');
   }
 
@@ -92,30 +102,6 @@ class TestControllers {
     return new CacheableResponse('test21');
   }
 
-  public function test23() {
-    return new HtmlResponse('test23');
-  }
-
-  public function test24() {
-    $this->removeExceptionLogger();
-    throw new \Exception('Escaped content: <p> <br> <h3>');
-  }
-
-  public function test25() {
-    return [
-      '#cache' => [
-        'url',
-      ],
-      '#markup' => \Drupal::requestStack()->getCurrentRequest()->getUri(),
-    ];
-  }
-
-  public function testRouteName(Request $request) {
-    return [
-      '#markup' => $request->attributes->get(RouteObjectInterface::ROUTE_NAME),
-    ];
-  }
-
   /**
    * Throws an exception.
    *
@@ -127,16 +113,6 @@ class TestControllers {
    */
   protected function throwException($message) {
     throw new \Exception($message);
-  }
-
-  protected function removeExceptionLogger() {
-    // Remove the exception logger from the event dispatcher. We are going to
-    // throw an exception to check if it is properly escaped when rendered as a
-    // backtrace. The exception logger does a call to error_log() which is not
-    // handled by the Simpletest error handler and would cause a test failure.
-    $event_dispatcher = \Drupal::service('event_dispatcher');
-    $exception_logger = \Drupal::service('exception.logger');
-    $event_dispatcher->removeSubscriber($exception_logger);
   }
 
 }

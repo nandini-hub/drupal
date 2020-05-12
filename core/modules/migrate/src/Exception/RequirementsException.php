@@ -1,11 +1,16 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\migrate\Exception\RequirementsException.
+ */
+
 namespace Drupal\migrate\Exception;
 
 use Exception;
 
 /**
- * Defines an exception thrown when a migration does not meet the requirements.
+ * Defines an
  *
  * @see \Drupal\migrate\Plugin\RequirementsInterface
  */
@@ -55,10 +60,6 @@ class RequirementsException extends \RuntimeException {
   public function getRequirementsString() {
     $output = '';
     foreach ($this->requirements as $requirement_type => $requirements) {
-      if (!is_array($requirements)) {
-        $requirements = [$requirements];
-      }
-
       foreach ($requirements as $value) {
         $output .= "$requirement_type: $value. ";
       }

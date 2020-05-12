@@ -1,18 +1,17 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Render\Element\StatusMessages.
+ */
+
 namespace Drupal\Core\Render\Element;
+
+use Drupal\Component\Utility\Crypt;
+use Drupal\Core\Site\Settings;
 
 /**
  * Provides a messages element.
- *
- * Used to display results of \Drupal::messenger()->addMessage() calls.
- *
- * Usage example:
- * @code
- * $build['status_messages'] = [
- *   '#type' => 'status_messages',
- * ];
- * @endcode
  *
  * @RenderElement("status_messages")
  */
@@ -32,13 +31,23 @@ class StatusMessages extends RenderElement {
       '#pre_render' => [
         get_class() . '::generatePlaceholder',
       ],
-      '#include_fallback' => FALSE,
     ];
   }
 
   /**
    * #pre_render callback to generate a placeholder.
    *
+   * Ensures the same token is used for all instances, hence resulting in the
+   * same placeholder for all places rendering the status messages for this
+   * request (e.g. in multiple blocks). This ensures we can put the rendered
+   * messages in all placeholders in one go.
+   * Also ensures the same context key is used for the #post_render_cache
+   * property, this ensures that if status messages are rendered multiple times,
+   * their individual (but identical!) #post_render_cache properties are merged,
+   * ensuring the callback is only invoked once.
+   *
+   * @see ::renderMessages()
+
    * @param array $element
    *   A renderable array.
    *
@@ -46,68 +55,82 @@ class StatusMessages extends RenderElement {
    *   The updated renderable array containing the placeholder.
    */
   public static function generatePlaceholder(array $element) {
-    $build = [
-      '#lazy_builder' => [get_class() . '::renderMessages', [$element['#display']]],
-      '#create_placeholder' => TRUE,
-    ];
+    $plugin_id = 'status_messages';
 
-    // Directly create a placeholder as we need this to be placeholdered
-    // regardless if this is a POST or GET request.
-    // @todo remove this when https://www.drupal.org/node/2367555 lands.
-    $build = \Drupal::service('render_placeholder_generator')->createPlaceholder($build);
-
-    if ($element['#include_fallback']) {
-      return [
-        'fallback' => [
-          '#markup' => '<div data-drupal-messages-fallback class="hidden"></div>',
-        ],
-        'messages' => $build,
-      ];
+    $callback = get_class() . '::renderMessages';
+    try {
+      $hash_salt = Settings::getHashSalt();
     }
-    return $build;
+    catch (\RuntimeException $e) {
+      // Status messages are also shown during the installer, at which time no
+      // hash salt is defined yet.
+      $hash_salt = Crypt::randomBytes(8);
+    }
+    $key = $plugin_id . $element['#display'];
+    $context = [
+      'display' => $element['#display'],
+      'token' => Crypt::hmacBase64($key, $hash_salt),
+    ];
+    $placeholder = static::renderer()->generateCachePlaceholder($callback, $context);
+    $element['#post_render_cache'] = [
+      $callback => [
+        $key => $context,
+      ],
+    ];
+    $element['#markup'] = $placeholder;
+
+    return $element;
   }
 
   /**
-   * #lazy_builder callback; replaces placeholder with messages.
+   * #post_render_cache callback; replaces placeholder with messages.
    *
-   * @param string|null $type
-   *   Limit the messages returned by type. Defaults to NULL, meaning all types.
-   *   Passed on to \Drupal\Core\Messenger\Messenger::deleteByType(). These
-   *   values are supported:
-   *   - NULL
-   *   - 'status'
-   *   - 'warning'
-   *   - 'error'
+   * Note: this is designed to replace all #post_render_cache placeholders for
+   *   messages in a single #post_render_cache callback; hence all placeholders
+   *   must be identical.
+   *
+   * @see ::getInfo()
+   *
+   * @param array $element
+   *   The renderable array that contains the to be replaced placeholder.
+   * @param array $context
+   *   An array with any context information.
    *
    * @return array
    *   A renderable array containing the messages.
-   *
-   * @see \Drupal\Core\Messenger\Messenger::deleteByType()
    */
-  public static function renderMessages($type = NULL) {
-    $render = [];
-    if (isset($type)) {
-      $messages = [
-        $type => \Drupal::messenger()->deleteByType($type),
-      ];
-    }
-    else {
-      $messages = \Drupal::messenger()->deleteAll();
-    }
+  public static function renderMessages(array $element, array $context) {
+    $renderer = static::renderer();
 
-    if ($messages) {
-      // Render the messages.
-      $render = [
-        '#theme' => 'status_messages',
-        '#message_list' => $messages,
-        '#status_headings' => [
-          'status' => t('Status message'),
-          'error' => t('Error message'),
-          'warning' => t('Warning message'),
-        ],
-      ];
-    }
-    return $render;
+    // Render the messages.
+    $messages = [
+      '#theme' => 'status_messages',
+      // @todo Improve when https://www.drupal.org/node/2278383 lands.
+      '#message_list' => drupal_get_messages($context['display']),
+      '#status_headings' => [
+        'status' => t('Status message'),
+        'error' => t('Error message'),
+        'warning' => t('Warning message'),
+      ],
+    ];
+    $markup = $renderer->render($messages);
+
+    // Replace the placeholder.
+    $callback = get_class() . '::renderMessages';
+    $placeholder = $renderer->generateCachePlaceholder($callback, $context);
+    $element['#markup'] = str_replace($placeholder, $markup, $element['#markup']);
+    $element = $renderer->mergeBubbleableMetadata($element, $messages);
+
+    return $element;
+  }
+
+  /**
+   * Wraps the renderer.
+   *
+   * @return \Drupal\Core\Render\RendererInterface
+   */
+  protected static function renderer() {
+    return \Drupal::service('renderer');
   }
 
 }

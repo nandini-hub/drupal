@@ -1,10 +1,17 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\node\Plugin\views\row\Rss.
+ */
+
 namespace Drupal\node\Plugin\views\row;
 
-use Drupal\Core\Entity\EntityDisplayRepositoryInterface;
-use Drupal\Core\Entity\EntityTypeManagerInterface;
+use Drupal\Component\Utility\SafeMarkup;
+use Drupal\Core\Entity\EntityManagerInterface;
 use Drupal\views\Plugin\views\row\RssPluginBase;
+use Symfony\Component\DependencyInjection\ContainerInterface;
+use Drupal\node\NodeStorageInterface;
 
 /**
  * Plugin which performs a node_view on the resulting object
@@ -23,12 +30,12 @@ use Drupal\views\Plugin\views\row\RssPluginBase;
 class Rss extends RssPluginBase {
 
   // Basic properties that let the row style follow relationships.
-  public $base_table = 'node_field_data';
+  var $base_table = 'node_field_data';
 
-  public $base_field = 'nid';
+  var $base_field = 'nid';
 
   // Stores the nodes loaded with preRender.
-  public $nodes = [];
+  var $nodes = array();
 
   /**
    * {@inheritdoc}
@@ -51,14 +58,12 @@ class Rss extends RssPluginBase {
    *   The plugin_id for the plugin instance.
    * @param mixed $plugin_definition
    *   The plugin implementation definition.
-   * @param \Drupal\Core\Entity\EntityTypeManagerInterface $entity_type_manager
-   *   The entity type manager.
-   * @param \Drupal\Core\Entity\EntityDisplayRepositoryInterface $entity_display_repository
-   *   The entity display repository.
+   * @param \Drupal\Core\Entity\EntityManagerInterface $entity_manager
+   *   The entity manager.
    */
-  public function __construct(array $configuration, $plugin_id, $plugin_definition, EntityTypeManagerInterface $entity_type_manager, EntityDisplayRepositoryInterface $entity_display_repository = NULL) {
-    parent::__construct($configuration, $plugin_id, $plugin_definition, $entity_type_manager, $entity_display_repository);
-    $this->nodeStorage = $entity_type_manager->getStorage('node');
+  public function __construct(array $configuration, $plugin_id, $plugin_definition, EntityManagerInterface $entity_manager) {
+    parent::__construct($configuration, $plugin_id, $plugin_definition, $entity_manager);
+    $this->nodeStorage = $entity_manager->getStorage('node');
   }
 
   /**
@@ -73,11 +78,11 @@ class Rss extends RssPluginBase {
 
   public function summaryTitle() {
     $options = $this->buildOptionsForm_summary_options();
-    return $options[$this->options['view_mode']];
+    return SafeMarkup::checkPlain($options[$this->options['view_mode']]);
   }
 
   public function preRender($values) {
-    $nids = [];
+    $nids = array();
     foreach ($values as $row) {
       $nids[] = $row->{$this->field_alias};
     }
@@ -106,32 +111,32 @@ class Rss extends RssPluginBase {
       return;
     }
 
-    $node->link = $node->toUrl('canonical', ['absolute' => TRUE])->toString();
-    $node->rss_namespaces = [];
-    $node->rss_elements = [
-      [
+    $item_text = '';
+
+    $node->link = $node->url('canonical', array('absolute' => TRUE));
+    $node->rss_namespaces = array();
+    $node->rss_elements = array(
+      array(
         'key' => 'pubDate',
         'value' => gmdate('r', $node->getCreatedTime()),
-      ],
-      [
+      ),
+      array(
         'key' => 'dc:creator',
-        'value' => $node->getOwner()->getDisplayName(),
-      ],
-      [
+        'value' => $node->getOwner()->getUsername(),
+      ),
+      array(
         'key' => 'guid',
         'value' => $node->id() . ' at ' . $base_url,
-        'attributes' => ['isPermaLink' => 'false'],
-      ],
-    ];
+        'attributes' => array('isPermaLink' => 'false'),
+      ),
+    );
 
     // The node gets built and modules add to or modify $node->rss_elements
     // and $node->rss_namespaces.
 
     $build_mode = $display_mode;
 
-    $build = \Drupal::entityTypeManager()
-      ->getViewBuilder('node')
-      ->view($node, $build_mode);
+    $build = node_view($node, $build_mode);
     unset($build['#theme']);
 
     if (!empty($node->rss_namespaces)) {
@@ -140,32 +145,31 @@ class Rss extends RssPluginBase {
     elseif (function_exists('rdf_get_namespaces')) {
       // Merge RDF namespaces in the XML namespaces in case they are used
       // further in the RSS content.
-      $xml_rdf_namespaces = [];
+      $xml_rdf_namespaces = array();
       foreach (rdf_get_namespaces() as $prefix => $uri) {
         $xml_rdf_namespaces['xmlns:' . $prefix] = $uri;
       }
       $this->view->style_plugin->namespaces += $xml_rdf_namespaces;
     }
 
-    $item = new \stdClass();
     if ($display_mode != 'title') {
       // We render node contents.
-      $item->description = $build;
+      $item_text .= drupal_render_root($build);
     }
+
+    $item = new \stdClass();
+    $item->description = SafeMarkup::set($item_text);
     $item->title = $node->label();
     $item->link = $node->link;
-    // Provide a reference so that the render call in
-    // template_preprocess_views_view_row_rss() can still access it.
-    $item->elements = &$node->rss_elements;
+    $item->elements = $node->rss_elements;
     $item->nid = $node->id();
-    $build = [
+    $theme_function = array(
       '#theme' => $this->themeFunctions(),
       '#view' => $this->view,
       '#options' => $this->options,
       '#row' => $item,
-    ];
-
-    return $build;
+    );
+    return drupal_render_root($theme_function);
   }
 
 }

@@ -1,7 +1,13 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Entity\FieldableNullStorage.
+ */
+
 namespace Drupal\Core\Entity;
 
+use Drupal\Core\Entity\Query\QueryException;
 use Drupal\Core\Field\FieldDefinitionInterface;
 
 /**
@@ -15,7 +21,7 @@ class ContentEntityNullStorage extends ContentEntityStorageBase {
    * {@inheritdoc}
    */
   public function loadMultiple(array $ids = NULL) {
-    return [];
+    return array();
   }
 
   /**
@@ -41,21 +47,14 @@ class ContentEntityNullStorage extends ContentEntityStorageBase {
   /**
    * {@inheritdoc}
    */
-  public function loadMultipleRevisions(array $revision_ids) {
-    return [];
-  }
-
-  /**
-   * {@inheritdoc}
-   */
   public function deleteRevision($revision_id) {
   }
 
   /**
    * {@inheritdoc}
    */
-  public function loadByProperties(array $values = []) {
-    return [];
+  public function loadByProperties(array $values = array()) {
+    return array();
   }
 
   /**
@@ -80,38 +79,38 @@ class ContentEntityNullStorage extends ContentEntityStorageBase {
    * {@inheritdoc}
    */
   protected function getQueryServiceName() {
-    return 'entity.query.null';
+    throw new QueryException('Null implementation can not be queried.');
   }
 
   /**
    * {@inheritdoc}
    */
-  protected function doLoadRevisionFieldItems($revision_id) {
+  protected function doLoadFieldItems($entities, $age) {
   }
 
   /**
    * {@inheritdoc}
    */
-  protected function doSaveFieldItems(ContentEntityInterface $entity, array $names = []) {
+  protected function doSaveFieldItems(EntityInterface $entity, $update) {
   }
 
   /**
    * {@inheritdoc}
    */
-  protected function doDeleteFieldItems($entities) {
+  protected function doDeleteFieldItems(EntityInterface $entity) {
   }
 
   /**
    * {@inheritdoc}
    */
-  protected function doDeleteRevisionFieldItems(ContentEntityInterface $revision) {
+  protected function doDeleteFieldItemsRevision(EntityInterface $entity) {
   }
 
   /**
    * {@inheritdoc}
    */
   protected function readFieldItemsToPurge(FieldDefinitionInterface $field_definition, $batch_size) {
-    return [];
+    return array();
   }
 
   /**

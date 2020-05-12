@@ -1,8 +1,13 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\user\Plugin\views\field\Permissions.
+ */
+
 namespace Drupal\user\Plugin\views\field;
 
-use Drupal\Core\Entity\EntityTypeManagerInterface;
+use Drupal\Core\Entity\EntityManagerInterface;
 use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\views\Plugin\views\display\DisplayPluginBase;
 use Drupal\views\ViewExecutable;
@@ -33,7 +38,7 @@ class Permissions extends PrerenderList {
   protected $moduleHandler;
 
   /**
-   * Constructs a \Drupal\user\Plugin\views\field\Permissions object.
+   * Constructs a Drupal\Component\Plugin\PluginBase object.
    *
    * @param array $configuration
    *   A configuration array containing information about the plugin instance.
@@ -43,13 +48,13 @@ class Permissions extends PrerenderList {
    *   The plugin implementation definition.
    * @param \Drupal\Core\Extension\ModuleHandlerInterface $module_handler
    *   The module handler.
-   * @param \Drupal\Core\Entity\EntityTypeManagerInterface $entity_type_manager
-   *   The entity type manager.
+   * @param \Drupal\Core\Entity\EntityManagerInterface $entity_manager
+   *   The entity manager
    */
-  public function __construct(array $configuration, $plugin_id, $plugin_definition, ModuleHandlerInterface $module_handler, EntityTypeManagerInterface $entity_type_manager) {
+  public function __construct(array $configuration, $plugin_id, $plugin_definition, ModuleHandlerInterface $module_handler, EntityManagerInterface $entity_manager) {
     parent::__construct($configuration, $plugin_id, $plugin_definition);
 
-    $this->roleStorage = $entity_type_manager->getStorage('user_role');
+    $this->roleStorage = $entity_manager->getStorage('user_role');
     $this->moduleHandler = $module_handler;
   }
 
@@ -57,22 +62,16 @@ class Permissions extends PrerenderList {
    * {@inheritdoc}
    */
   public static function create(ContainerInterface $container, array $configuration, $plugin_id, $plugin_definition) {
-    return new static(
-      $configuration,
-      $plugin_id,
-      $plugin_definition,
-      $container->get('module_handler'),
-      $container->get('entity_type.manager')
-    );
+    return new static($configuration, $plugin_id, $plugin_definition, $container->get('module_handler'), $container->get('entity.manager'));
   }
 
   /**
-   * {@inheritdoc}
+   * Overrides Drupal\views\Plugin\views\field\FieldPluginBase::init().
    */
   public function init(ViewExecutable $view, DisplayPluginBase $display, array &$options = NULL) {
     parent::init($view, $display, $options);
 
-    $this->additional_fields['uid'] = ['table' => 'users_field_data', 'field' => 'uid'];
+    $this->additional_fields['uid'] = array('table' => 'users_field_data', 'field' => 'uid');
   }
 
   public function query() {
@@ -81,11 +80,12 @@ class Permissions extends PrerenderList {
   }
 
   public function preRender(&$values) {
-    $this->items = [];
+    $uids = array();
+    $this->items = array();
 
     $permission_names = \Drupal::service('user.permissions')->getPermissions();
 
-    $rids = [];
+    $rids = array();
     foreach ($values as $result) {
       $user_rids = $this->getEntity($result)->getRoles();
       $uid = $this->getValue($result);
@@ -105,14 +105,28 @@ class Permissions extends PrerenderList {
         }
       }
 
-      foreach ($this->items as &$permission) {
-        ksort($permission);
+      foreach ($uids as $uid) {
+        if (isset($this->items[$uid])) {
+          ksort($this->items[$uid]);
+        }
       }
     }
   }
 
-  public function render_item($count, $item) {
+  function render_item($count, $item) {
     return $item['permission'];
   }
+
+  /*
+  protected function documentSelfTokens(&$tokens) {
+    $tokens['[' . $this->options['id'] . '-role' . ']'] = $this->t('The name of the role.');
+    $tokens['[' . $this->options['id'] . '-rid' . ']'] = $this->t('The role ID of the role.');
+  }
+
+  protected function addSelfTokens(&$tokens, $item) {
+    $tokens['[' . $this->options['id'] . '-role' . ']'] = $item['role'];
+    $tokens['[' . $this->options['id'] . '-rid' . ']'] = $item['rid'];
+  }
+  */
 
 }

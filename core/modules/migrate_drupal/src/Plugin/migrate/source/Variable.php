@@ -1,10 +1,13 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\migrate_drupal\Plugin\migrate\source\Variable.
+ */
+
 namespace Drupal\migrate_drupal\Plugin\migrate\source;
 
-use Drupal\Core\Entity\EntityTypeManagerInterface;
-use Drupal\Core\State\StateInterface;
-use Drupal\migrate\Plugin\MigrationInterface;
+use Drupal\migrate\Entity\MigrationInterface;
 
 /**
  * Drupal variable source from database.
@@ -13,8 +16,7 @@ use Drupal\migrate\Plugin\MigrationInterface;
  * example for any normal source class returning multiple rows.
  *
  * @MigrateSource(
- *   id = "variable",
- *   source_module = "system",
+ *   id = "variable"
  * )
  */
 class Variable extends DrupalSqlBase {
@@ -29,8 +31,8 @@ class Variable extends DrupalSqlBase {
   /**
    * {@inheritdoc}
    */
-  public function __construct(array $configuration, $plugin_id, $plugin_definition, MigrationInterface $migration, StateInterface $state, EntityTypeManagerInterface $entity_type_manager) {
-    parent::__construct($configuration, $plugin_id, $plugin_definition, $migration, $state, $entity_type_manager);
+  public function __construct(array $configuration, $plugin_id, $plugin_definition, MigrationInterface $migration) {
+    parent::__construct($configuration, $plugin_id, $plugin_definition, $migration);
     $this->variables = $this->configuration['variables'];
   }
 
@@ -38,7 +40,7 @@ class Variable extends DrupalSqlBase {
    * {@inheritdoc}
    */
   protected function initializeIterator() {
-    return new \ArrayIterator([$this->values()]);
+    return new \ArrayIterator(array($this->values()));
   }
 
   /**
@@ -50,18 +52,14 @@ class Variable extends DrupalSqlBase {
    *   Only those values are returned that are actually in the database.
    */
   protected function values() {
-    // Create an ID field so we can record migration in the map table.
-    // Arbitrarily, use the first variable name.
-    $values['id'] = reset($this->variables);
-    return $values + array_map('unserialize', $this->prepareQuery()->execute()->fetchAllKeyed());
+    return array_map('unserialize', $this->prepareQuery()->execute()->fetchAllKeyed());
   }
 
   /**
    * {@inheritdoc}
    */
-  public function count($refresh = FALSE) {
-    // Variable always returns a single row with at minimum an 'id' property.
-    return 1;
+  public function count() {
+    return intval($this->query()->countQuery()->execute()->fetchField() > 0);
   }
 
   /**
@@ -77,7 +75,7 @@ class Variable extends DrupalSqlBase {
   public function query() {
     return $this->getDatabase()
       ->select('variable', 'v')
-      ->fields('v', ['name', 'value'])
+      ->fields('v', array('name', 'value'))
       ->condition('name', $this->variables, 'IN');
   }
 
@@ -85,8 +83,7 @@ class Variable extends DrupalSqlBase {
    * {@inheritdoc}
    */
   public function getIds() {
-    $ids['id']['type'] = 'string';
-    return $ids;
+    return array();
   }
 
 }

@@ -1,9 +1,14 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\Core\StreamWrapper\PrivateStream.
+ */
+
 namespace Drupal\Core\StreamWrapper;
 
+use Drupal\Core\Routing\UrlGeneratorTrait;
 use Drupal\Core\Site\Settings;
-use Drupal\Core\Url;
 
 /**
  * Drupal private (private://) stream wrapper class.
@@ -12,6 +17,8 @@ use Drupal\Core\Url;
  * interface.
  */
 class PrivateStream extends LocalStream {
+
+  use UrlGeneratorTrait;
 
   /**
    * {@inheritdoc}
@@ -46,15 +53,11 @@ class PrivateStream extends LocalStream {
    */
   public function getExternalUrl() {
     $path = str_replace('\\', '/', $this->getTarget());
-    return Url::fromRoute('system.private_file_download', ['filepath' => $path], ['absolute' => TRUE, 'path_processing' => FALSE])->toString();
+    return $this->url('system.private_file_download', ['filepath' => $path], ['absolute' => TRUE]);
   }
 
   /**
    * Returns the base path for private://.
-   *
-   * Note that this static method is used by \Drupal\system\Form\FileSystemForm
-   * so you should alter that form or substitute a different form if you change
-   * the class providing the stream_wrapper.private service.
    *
    * @return string
    *   The base path for private://.

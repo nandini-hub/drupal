@@ -1,6 +1,13 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Ajax\SetDialogTitleCommand.
+ */
+
 namespace Drupal\Core\Ajax;
+
+use Drupal\Core\Ajax\SetDialogOptionCommand;
 
 /**
  * Defines an AJAX command that sets jQuery UI dialog properties.
@@ -23,5 +30,4 @@ class SetDialogTitleCommand extends SetDialogOptionCommand {
     $this->optionName = 'title';
     $this->optionValue = $title;
   }
-
 }

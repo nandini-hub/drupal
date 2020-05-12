@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\user\UserInterface.
+ */
+
 namespace Drupal\user;
 
 use Drupal\Core\Entity\EntityChangedInterface;
@@ -12,43 +17,6 @@ use Drupal\Core\Session\AccountInterface;
  * @ingroup user_api
  */
 interface UserInterface extends ContentEntityInterface, EntityChangedInterface, AccountInterface {
-
-  /**
-   * Maximum length of username text field.
-   *
-   * Keep this under 191 characters so we can use a unique constraint in MySQL.
-   */
-  const USERNAME_MAX_LENGTH = 60;
-
-  /**
-   * Only administrators can create user accounts.
-   */
-  const REGISTER_ADMINISTRATORS_ONLY = 'admin_only';
-
-  /**
-   * Visitors can create their own accounts.
-   */
-  const REGISTER_VISITORS = 'visitors';
-
-  /**
-   * Visitors can create accounts that only become active with admin approval.
-   */
-  const REGISTER_VISITORS_ADMINISTRATIVE_APPROVAL = 'visitors_admin_approval';
-
-  /**
-   * New users will be set to the default time zone at registration.
-   */
-  const TIMEZONE_DEFAULT = 0;
-
-  /**
-   * New users will get an empty time zone at registration.
-   */
-  const TIMEZONE_EMPTY = 1;
-
-  /**
-   * New users will select their own timezone at registration.
-   */
-  const TIMEZONE_SELECT = 2;
 
   /**
    * Whether a user has a certain role.
@@ -83,7 +51,7 @@ interface UserInterface extends ContentEntityInterface, EntityChangedInterface, 
    * @param string $username
    *   The new user name.
    *
-   * @return $this
+   * @return \Drupal\user\UserInterface
    *   The called user entity.
    */
   public function setUsername($username);
@@ -102,7 +70,7 @@ interface UserInterface extends ContentEntityInterface, EntityChangedInterface, 
    * @param string $password
    *   The new unhashed password.
    *
-   * @return $this
+   * @return \Drupal\user\UserInterface
    *   The called user entity.
    */
   public function setPassword($password);
@@ -113,7 +81,7 @@ interface UserInterface extends ContentEntityInterface, EntityChangedInterface, 
    * @param string $mail
    *   The new email address of the user.
    *
-   * @return $this
+   * @return \Drupal\user\UserInterface
    *   The called user entity.
    */
   public function setEmail($mail);
@@ -132,7 +100,7 @@ interface UserInterface extends ContentEntityInterface, EntityChangedInterface, 
    * @param int $timestamp
    *   Timestamp of the last access.
    *
-   * @return $this
+   * @return \Drupal\user\UserInterface
    *   The called user entity.
    */
   public function setLastAccessTime($timestamp);
@@ -151,7 +119,7 @@ interface UserInterface extends ContentEntityInterface, EntityChangedInterface, 
    * @param int $timestamp
    *   Timestamp of the last login time.
    *
-   * @return $this
+   * @return \Drupal\user\UserInterface
    *   The called user entity.
    */
   public function setLastLoginTime($timestamp);
@@ -175,7 +143,7 @@ interface UserInterface extends ContentEntityInterface, EntityChangedInterface, 
   /**
    * Activates the user.
    *
-   * @return $this
+   * @return \Drupal\user\UserInterface
    *   The called user entity.
    */
   public function activate();
@@ -183,7 +151,7 @@ interface UserInterface extends ContentEntityInterface, EntityChangedInterface, 
   /**
    * Blocks the user.
    *
-   * @return $this
+   * @return \Drupal\user\UserInterface
    *   The called user entity.
    */
   public function block();
@@ -217,7 +185,7 @@ interface UserInterface extends ContentEntityInterface, EntityChangedInterface, 
    * @return bool
    *   TRUE if the correct existing password was provided.
    *
-   * @see UserInterface::setExistingPassword()
+   * @see UserInterface::setExistingPassword().
    */
   public function checkExistingPassword(UserInterface $account_unchanged);
 

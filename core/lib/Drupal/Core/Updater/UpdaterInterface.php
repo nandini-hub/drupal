@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\Core\Updater\UpdaterInterface.
+ */
+
 namespace Drupal\Core\Updater;
 
 /**
@@ -25,12 +30,12 @@ interface UpdaterInterface {
    * Returns the system name of the project.
    *
    * @param string $directory
-   *   A directory containing a project.
+   *  A directory containing a project.
    */
   public static function getProjectName($directory);
 
   /**
-   * Returns the path to the default install location for the current project.
+   * Returns the path to the default install location.
    *
    * @return string
    *   An absolute path to the default install location.
@@ -38,15 +43,9 @@ interface UpdaterInterface {
   public function getInstallDirectory();
 
   /**
-   * Returns the name of the root directory under which projects will be copied.
-   *
-   * @return string
-   *   A relative path to the root directory.
-   */
-  public static function getRootDirectoryRelativePath();
-
-  /**
    * Determines if the Updater can handle the project provided in $directory.
+   *
+   * @todo Provide something more rational here, like a project spec file.
    *
    * @param string $directory
    *
@@ -64,5 +63,4 @@ interface UpdaterInterface {
    * Actions to run after an update has occurred.
    */
   public function postUpdate();
-
 }

@@ -1,10 +1,16 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\path\Plugin\Field\FieldWidget\PathWidget.
+ */
+
 namespace Drupal\path\Plugin\Field\FieldWidget;
 
 use Drupal\Core\Field\FieldItemListInterface;
 use Drupal\Core\Field\WidgetBase;
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Language\LanguageInterface;
 use Symfony\Component\Validator\ConstraintViolationInterface;
 
 /**
@@ -25,51 +31,47 @@ class PathWidget extends WidgetBase {
    */
   public function formElement(FieldItemListInterface $items, $delta, array $element, array &$form, FormStateInterface $form_state) {
     $entity = $items->getEntity();
+    $path = array();
+    if (!$entity->isNew()) {
+      $conditions = array('source' => $entity->urlInfo()->getInternalPath());
+      if ($items->getLangcode() != LanguageInterface::LANGCODE_NOT_SPECIFIED) {
+        $conditions['langcode'] = $items->getLangcode();
+      }
+      $path = \Drupal::service('path.alias_storage')->load($conditions);
+      if ($path === FALSE) {
+        $path = array();
+      }
+    }
+    $path += array(
+      'pid' => NULL,
+      'source' => !$entity->isNew() ? $entity->urlInfo()->getInternalPath() : NULL,
+      'alias' => '',
+      'langcode' => $items->getLangcode(),
+    );
 
-    $element += [
-      '#element_validate' => [[get_class($this), 'validateFormElement']],
-    ];
-    $element['alias'] = [
+    $element += array(
+      '#element_validate' => array(array(get_class($this), 'validateFormElement')),
+    );
+    $element['alias'] = array(
       '#type' => 'textfield',
       '#title' => $element['#title'],
-      '#default_value' => $items[$delta]->alias,
+      '#default_value' => $path['alias'],
       '#required' => $element['#required'],
       '#maxlength' => 255,
-      '#description' => $this->t('Specify an alternative path by which this data can be accessed. For example, type "/about" when writing an about page.'),
-    ];
-    $element['pid'] = [
+      '#description' => $this->t('The alternative URL for this content. Use a relative path. For example, enter "about" for the about page.'),
+    );
+    $element['pid'] = array(
       '#type' => 'value',
-      '#value' => $items[$delta]->pid,
-    ];
-    $element['source'] = [
+      '#value' => $path['pid'],
+    );
+    $element['source'] = array(
       '#type' => 'value',
-      '#value' => !$entity->isNew() ? '/' . $entity->toUrl()->getInternalPath() : NULL,
-     ];
-    $element['langcode'] = [
+      '#value' => $path['source'],
+    );
+    $element['langcode'] = array(
       '#type' => 'value',
-      '#value' => $items[$delta]->langcode,
-    ];
-
-    // If the advanced settings tabs-set is available (normally rendered in the
-    // second column on wide-resolutions), place the field as a details element
-    // in this tab-set.
-    if (isset($form['advanced'])) {
-      $element += [
-        '#type' => 'details',
-        '#title' => t('URL path settings'),
-        '#open' => !empty($items[$delta]->alias),
-        '#group' => 'advanced',
-        '#access' => $entity->get('path')->access('edit'),
-        '#attributes' => [
-          'class' => ['path-form'],
-        ],
-        '#attached' => [
-          'library' => ['path/drupal.path'],
-        ],
-      ];
-      $element['#weight'] = 30;
-    }
-
+      '#value' => $path['langcode'],
+    );
     return $element;
   }
 
@@ -83,25 +85,14 @@ class PathWidget extends WidgetBase {
    */
   public static function validateFormElement(array &$element, FormStateInterface $form_state) {
     // Trim the submitted value of whitespace and slashes.
-    $alias = rtrim(trim($element['alias']['#value']), " \\/");
+    $alias = trim(trim($element['alias']['#value']), " \\/");
     if (!empty($alias)) {
       $form_state->setValueForElement($element['alias'], $alias);
 
-      /** @var \Drupal\path_alias\PathAliasInterface $path_alias */
-      $path_alias = \Drupal::entityTypeManager()->getStorage('path_alias')->create([
-        'path' => $element['source']['#value'],
-        'alias' => $alias,
-        'langcode' => $element['langcode']['#value'],
-      ]);
-      $violations = $path_alias->validate();
-
-      foreach ($violations as $violation) {
-        // Newly created entities do not have a system path yet, so we need to
-        // disregard some violations.
-        if (!$path_alias->getPath() && $violation->getPropertyPath() === 'path') {
-          continue;
-        }
-        $form_state->setError($element['alias'], $violation->getMessage());
+      // Validate that the submitted alias does not exist yet.
+      $is_exists = \Drupal::service('path.alias_storage')->aliasExists($alias, $element['langcode']['#value'], $element['source']['#value']);
+      if ($is_exists) {
+        $form_state->setError($element, t('The alias is already in use.'));
       }
     }
   }

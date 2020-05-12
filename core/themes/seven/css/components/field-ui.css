@@ -4,10 +4,10 @@
   padding: 1px 8px;
 }
 #field-display-overview tr.field-plugin-settings-changed {
-  background: #ffb;
+  background: #ffffbb;
 }
 #field-display-overview tr.drag {
-  background: #fe7;
+  background: #ffee77;
 }
 #field-display-overview tr.field-plugin-settings-editing {
   background: #d5e9f2;
@@ -23,6 +23,6 @@
   margin-left: 1em; /* LTR */
 }
 [dir="rtl"] #field-display-overview .form-item-fields-field-image-settings-edit-form-settings-image-style .description {
-  margin-right: 1em;
   margin-left: 0;
+  margin-right: 1em;
 }

@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\Core\FileTransfer\FTPExtension.
+ */
+
 namespace Drupal\Core\FileTransfer;
 
 /**
@@ -8,7 +13,7 @@ namespace Drupal\Core\FileTransfer;
 class FTPExtension extends FTP implements ChmodInterface {
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\FileTransfer\FileTransfer::connect().
    */
   public function connect() {
     $this->connection = ftp_connect($this->hostname, $this->port);
@@ -22,34 +27,34 @@ class FTPExtension extends FTP implements ChmodInterface {
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\FileTransfer\FileTransfer::copyFileJailed().
    */
   protected function copyFileJailed($source, $destination) {
-    if (!@ftp_put($this->connection, $destination, $source, FTP_BINARY)) {
-      throw new FileTransferException("Cannot move @source to @destination", NULL, ["@source" => $source, "@destination" => $destination]);
+    if (!@ftp_put($this->connection,  $destination, $source, FTP_BINARY)) {
+      throw new FileTransferException("Cannot move @source to @destination", NULL, array("@source" => $source, "@destination" => $destination));
     }
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\FileTransfer\FileTransfer::createDirectoryJailed().
    */
   protected function createDirectoryJailed($directory) {
     if (!ftp_mkdir($this->connection, $directory)) {
-      throw new FileTransferException("Cannot create directory @directory", NULL, ["@directory" => $directory]);
+      throw new FileTransferException("Cannot create directory @directory", NULL, array("@directory" => $directory));
     }
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\FileTransfer\FileTransfer::removeDirectoryJailed().
    */
   protected function removeDirectoryJailed($directory) {
     $pwd = ftp_pwd($this->connection);
     if (!ftp_chdir($this->connection, $directory)) {
-      throw new FileTransferException("Unable to change the current directory to @directory", NULL, ['@directory' => $directory]);
+      throw new FileTransferException("Unable to change to directory @directory", NULL, array('@directory' => $directory));
     }
     $list = @ftp_nlist($this->connection, '.');
     if (!$list) {
-      $list = [];
+      $list = array();
     }
     foreach ($list as $item) {
       if ($item == '.' || $item == '..') {
@@ -65,21 +70,21 @@ class FTPExtension extends FTP implements ChmodInterface {
     }
     ftp_chdir($this->connection, $pwd);
     if (!ftp_rmdir($this->connection, $directory)) {
-      throw new FileTransferException("Unable to remove the directory @directory", NULL, ['@directory' => $directory]);
+      throw new FileTransferException("Unable to remove to directory @directory", NULL, array('@directory' => $directory));
     }
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\FileTransfer\FileTransfer::removeFileJailed().
    */
   protected function removeFileJailed($destination) {
     if (!ftp_delete($this->connection, $destination)) {
-      throw new FileTransferException("Unable to remove the file @file", NULL, ['@file' => $destination]);
+      throw new FileTransferException("Unable to remove to file @file", NULL, array('@file' => $destination));
     }
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\FileTransfer\FileTransfer::isDirectory().
    */
   public function isDirectory($path) {
     $result = FALSE;
@@ -92,23 +97,23 @@ class FTPExtension extends FTP implements ChmodInterface {
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\FileTransfer\FileTransfer::isFile().
    */
   public function isFile($path) {
     return ftp_size($this->connection, $path) != -1;
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\FileTransfer\ChmodInterface::chmodJailed().
    */
-  public function chmodJailed($path, $mode, $recursive) {
+  function chmodJailed($path, $mode, $recursive) {
     if (!ftp_chmod($this->connection, $mode, $path)) {
-      throw new FileTransferException("Unable to set permissions on %file", NULL, ['%file' => $path]);
+      throw new FileTransferException("Unable to set permissions on %file", NULL, array('%file' => $path));
     }
     if ($this->isDirectory($path) && $recursive) {
       $filelist = @ftp_nlist($this->connection, $path);
       if (!$filelist) {
-        // empty directory - returns false
+        //empty directory - returns false
         return;
       }
       foreach ($filelist as $file) {
@@ -116,5 +121,4 @@ class FTPExtension extends FTP implements ChmodInterface {
       }
     }
   }
-
 }

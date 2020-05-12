@@ -1,8 +1,12 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\history\Plugin\views\filter\HistoryUserTimestamp.
+ */
+
 namespace Drupal\history\Plugin\views\filter;
 
-use Drupal\Core\Cache\UncacheableDependencyTrait;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\views\Plugin\views\filter\FilterPluginBase;
 
@@ -18,12 +22,8 @@ use Drupal\views\Plugin\views\filter\FilterPluginBase;
  */
 class HistoryUserTimestamp extends FilterPluginBase {
 
-  use UncacheableDependencyTrait;
-
-  /**
-   * {@inheritdoc}
-   */
-  public $no_operator = TRUE;
+  // Don't display empty space where the operator would be.
+  var $no_operator = TRUE;
 
   /**
    * {@inheritdoc}
@@ -32,9 +32,6 @@ class HistoryUserTimestamp extends FilterPluginBase {
     return FALSE;
   }
 
-  /**
-   * {@inheritdoc}
-   */
   public function buildExposeForm(&$form, FormStateInterface $form_state) {
     parent::buildExposeForm($form, $form_state);
     // @todo There are better ways of excluding required and multiple (object flags)
@@ -43,9 +40,6 @@ class HistoryUserTimestamp extends FilterPluginBase {
     unset($form['expose']['remember']);
   }
 
-  /**
-   * {@inheritdoc}
-   */
   protected function valueForm(&$form, FormStateInterface $form_state) {
     // Only present a checkbox for the exposed filter itself. There's no way
     // to tell the difference between not checked and the default value, so
@@ -57,17 +51,14 @@ class HistoryUserTimestamp extends FilterPluginBase {
       else {
         $label = $this->t('Has new content');
       }
-      $form['value'] = [
+      $form['value'] = array(
         '#type' => 'checkbox',
         '#title' => $label,
         '#default_value' => $this->value,
-      ];
+      );
     }
   }
 
-  /**
-   * {@inheritdoc}
-   */
   public function query() {
     // This can only work if we're authenticated in.
     if (!\Drupal::currentUser()->isAuthenticated()) {
@@ -81,6 +72,7 @@ class HistoryUserTimestamp extends FilterPluginBase {
 
     // Hey, Drupal kills old history, so nodes that haven't been updated
     // since HISTORY_READ_LIMIT are bzzzzzzzt outta here!
+
     $limit = REQUEST_TIME - HISTORY_READ_LIMIT;
 
     $this->ensureMyTable();
@@ -89,9 +81,10 @@ class HistoryUserTimestamp extends FilterPluginBase {
 
     $clause = '';
     $clause2 = '';
-    if ($alias = $this->query->ensureTable('comment_entity_statistics', $this->relationship)) {
-      $clause = "OR $alias.last_comment_timestamp > (***CURRENT_TIME*** - $limit)";
-      $clause2 = "OR $field < $alias.last_comment_timestamp";
+    if (\Drupal::moduleHandler()->moduleExists('comment')) {
+      $ces = $this->query->ensureTable('comment_entity_statistics', $this->relationship);
+      $clause = ("OR $ces.last_comment_timestamp > (***CURRENT_TIME*** - $limit)");
+      $clause2 = "OR $field < $ces.last_comment_timestamp";
     }
 
     // NULL means a history record doesn't exist. That's clearly new content.
@@ -100,13 +93,18 @@ class HistoryUserTimestamp extends FilterPluginBase {
     $this->query->addWhereExpression($this->options['group'], "($field IS NULL AND ($node.changed > (***CURRENT_TIME*** - $limit) $clause)) OR $field < $node.changed $clause2");
   }
 
-  /**
-   * {@inheritdoc}
-   */
   public function adminSummary() {
     if (!empty($this->options['exposed'])) {
       return $this->t('exposed');
     }
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function isCacheable() {
+    // This filter depends on the current time and therefore is never cacheable.
+    return FALSE;
   }
 
 }

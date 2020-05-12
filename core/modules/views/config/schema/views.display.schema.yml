@@ -34,12 +34,6 @@ views.display.page:
         weight:
           type: integer
           label: 'Weight'
-        enabled:
-          type: boolean
-          label: 'Enabled'
-        expanded:
-          type: boolean
-          label: 'Expanded'
         menu_name:
           type: string
           label: 'Menu name'
@@ -133,7 +127,3 @@ views.display.attachment:
     render_pager:
       type: boolean
       label: 'Render pager'
-
-views.display.entity_reference:
-  type: views_display
-  label: 'Entity Reference'

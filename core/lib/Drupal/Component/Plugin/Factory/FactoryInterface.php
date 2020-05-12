@@ -1,4 +1,8 @@
 <?php
+/**
+ * @file
+ * Contains \Drupal\Component\Plugin\Factory\FactoryInterface.
+ */
 
 namespace Drupal\Component\Plugin\Factory;
 
@@ -8,7 +12,7 @@ namespace Drupal\Component\Plugin\Factory;
 interface FactoryInterface {
 
   /**
-   * Creates a pre-configured instance of a plugin.
+   * Returns a pre-configured instance of a plugin.
    *
    * @param string $plugin_id
    *   The ID of the plugin being instantiated.
@@ -21,6 +25,6 @@ interface FactoryInterface {
    * @throws \Drupal\Component\Plugin\Exception\PluginException
    *   If the instance cannot be created, such as if the ID is invalid.
    */
-  public function createInstance($plugin_id, array $configuration = []);
+  public function createInstance($plugin_id, array $configuration = array());
 
 }

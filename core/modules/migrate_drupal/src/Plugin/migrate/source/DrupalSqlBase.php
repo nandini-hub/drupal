@@ -1,44 +1,29 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\migrate_drupal\Plugin\migrate\source\Drupal6SqlBase.
+ */
+
 namespace Drupal\migrate_drupal\Plugin\migrate\source;
 
-use Drupal\Component\Plugin\DependentPluginInterface;
-use Drupal\Core\DependencyInjection\DeprecatedServicePropertyTrait;
-use Drupal\Core\Entity\DependencyTrait;
-use Drupal\Core\Entity\EntityTypeManagerInterface;
+use Drupal\Component\Utility\SafeMarkup;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
-use Drupal\Core\State\StateInterface;
-use Drupal\migrate\Plugin\MigrationInterface;
+use Drupal\migrate\Entity\MigrationInterface;
 use Drupal\migrate\Exception\RequirementsException;
 use Drupal\migrate\Plugin\migrate\source\SqlBase;
+use Drupal\migrate\Plugin\RequirementsInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
- * A base class for source plugins using a Drupal database as a source.
+ * A base source class for Drupal migrate sources.
  *
- * Provides general purpose helper methods that are commonly needed
- * when writing source plugins that use a Drupal database as a source, for
- * example:
- * - Check if the given module exists in the source database.
- * - Read Drupal configuration variables from the source database.
- *
- * For a full list, refer to the methods of this class.
- *
- * For available configuration keys, refer to the parent classes:
- * @see \Drupal\migrate\Plugin\migrate\source\SqlBase
- * @see \Drupal\migrate\Plugin\migrate\source\SourcePluginBase
+ * Mainly to let children retrieve information from the origin system in an
+ * easier way.
  */
-abstract class DrupalSqlBase extends SqlBase implements ContainerFactoryPluginInterface, DependentPluginInterface {
+abstract class DrupalSqlBase extends SqlBase implements ContainerFactoryPluginInterface, RequirementsInterface {
 
-  use DependencyTrait;
-  use DeprecatedServicePropertyTrait;
-
-  /**
-   * {@inheritdoc}
-   */
-  protected $deprecatedProperties = ['entityManager' => 'entity.manager'];
-
-  /**
+   /**
    * The contents of the system table.
    *
    * @var array
@@ -53,29 +38,14 @@ abstract class DrupalSqlBase extends SqlBase implements ContainerFactoryPluginIn
   protected $requirements = TRUE;
 
   /**
-   * The entity type manager.
-   *
-   * @var \Drupal\Core\Entity\EntityTypeManagerInterface
-   */
-  protected $entityTypeManager;
-
-  /**
-   * {@inheritdoc}
-   */
-  public function __construct(array $configuration, $plugin_id, $plugin_definition, MigrationInterface $migration, StateInterface $state, EntityTypeManagerInterface $entity_type_manager) {
-    parent::__construct($configuration, $plugin_id, $plugin_definition, $migration, $state);
-    $this->entityTypeManager = $entity_type_manager;
-  }
-
-  /**
-   * Retrieves all system data information from the source Drupal database.
-   *
-   * @return array
-   *   List of system table information keyed by type and name.
-   */
-  public function getSystemData() {
+    * Retrieves all system data information from origin system.
+    *
+    * @return array
+    *   List of system table information keyed by type and name.
+    */
+   public function getSystemData() {
     if (!isset($this->systemData)) {
-      $this->systemData = [];
+      $this->systemData = array();
       try {
         $results = $this->select('system', 's')
           ->fields('s')
@@ -99,9 +69,7 @@ abstract class DrupalSqlBase extends SqlBase implements ContainerFactoryPluginIn
       $configuration,
       $plugin_id,
       $plugin_definition,
-      $migration,
-      $container->get('state'),
-      $container->get('entity_type.manager')
+      $migration
     );
   }
 
@@ -109,23 +77,22 @@ abstract class DrupalSqlBase extends SqlBase implements ContainerFactoryPluginIn
    * {@inheritdoc}
    */
   public function checkRequirements() {
-    parent::checkRequirements();
     if ($this->pluginDefinition['requirements_met'] === TRUE) {
-      if (isset($this->pluginDefinition['source_module'])) {
-        if ($this->moduleExists($this->pluginDefinition['source_module'])) {
-          if (isset($this->pluginDefinition['minimum_schema_version']) && !$this->getModuleSchemaVersion($this->pluginDefinition['source_module']) < $this->pluginDefinition['minimum_schema_version']) {
-            throw new RequirementsException('Required minimum schema version ' . $this->pluginDefinition['minimum_schema_version'], ['minimum_schema_version' => $this->pluginDefinition['minimum_schema_version']]);
+      if (isset($this->pluginDefinition['source_provider'])) {
+        if ($this->moduleExists($this->pluginDefinition['source_provider'])) {
+          if (isset($this->pluginDefinition['minimum_schema_version']) && !$this->getModuleSchemaVersion($this->pluginDefinition['source_provider']) < $this->pluginDefinition['minimum_schema_version']) {
+            throw new RequirementsException(SafeMarkup::format('Required minimum schema version @minimum_schema_version', ['@minimum_schema_version' => $this->pluginDefinition['minimum_schema_version']]), ['minimum_schema_version' => $this->pluginDefinition['minimum_schema_version']]);
           }
         }
         else {
-          throw new RequirementsException('The module ' . $this->pluginDefinition['source_module'] . ' is not enabled in the source site.', ['source_module' => $this->pluginDefinition['source_module']]);
+          throw new RequirementsException(SafeMarkup::format('Missing source provider @provider', ['@provider' => $this->pluginDefinition['source_provider']]), ['source_provider' => $this->pluginDefinition['source_provider']]);
         }
       }
     }
   }
 
   /**
-   * Retrieves a module schema_version from the source Drupal database.
+   * Get a module schema_version value in the source installation.
    *
    * @param string $module
    *   Name of module.
@@ -140,7 +107,7 @@ abstract class DrupalSqlBase extends SqlBase implements ContainerFactoryPluginIn
   }
 
   /**
-   * Checks if a given module is enabled in the source Drupal database.
+   * Check to see if a given module is enabled in the source installation.
    *
    * @param string $module
    *   Name of module to check.
@@ -154,7 +121,7 @@ abstract class DrupalSqlBase extends SqlBase implements ContainerFactoryPluginIn
   }
 
   /**
-   * Reads a variable from a source Drupal database.
+   * Read a variable from a Drupal database.
    *
    * @param $name
    *   Name of the variable.
@@ -165,7 +132,7 @@ abstract class DrupalSqlBase extends SqlBase implements ContainerFactoryPluginIn
   protected function variableGet($name, $default) {
     try {
       $result = $this->select('variable', 'v')
-        ->fields('v', ['value'])
+        ->fields('v', array('value'))
         ->condition('name', $name)
         ->execute()
         ->fetchField();
@@ -175,20 +142,6 @@ abstract class DrupalSqlBase extends SqlBase implements ContainerFactoryPluginIn
       $result = FALSE;
     }
     return $result !== FALSE ? unserialize($result) : $default;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function calculateDependencies() {
-    // Generic handling for Drupal source plugin constants.
-    if (isset($this->configuration['constants']['entity_type'])) {
-      $this->addDependency('module', $this->entityTypeManager->getDefinition($this->configuration['constants']['entity_type'])->getProvider());
-    }
-    if (isset($this->configuration['constants']['module'])) {
-      $this->addDependency('module', $this->configuration['constants']['module']);
-    }
-    return $this->dependencies;
   }
 
 }

@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\views_test_data\Plugin\views\area\TestExample
+ */
+
 namespace Drupal\views_test_data\Plugin\views\area;
 
 use Drupal\Core\Form\FormStateInterface;
@@ -23,18 +28,18 @@ class TestExample extends AreaPluginBase {
   }
 
   /**
-   * {@inheritdoc}
+   * Overrides Drupal\views\Plugin\views\area\AreaPluginBase::option_definition().
    */
   public function defineOptions() {
     $options = parent::defineOptions();
-    $options['string'] = ['default' => ''];
-    $options['custom_access'] = ['default' => TRUE];
+    $options['string'] = array('default' => '');
+    $options['custom_access'] = array('default' => TRUE);
 
     return $options;
   }
 
   /**
-   * {@inheritdoc}
+   * Overrides Drupal\views\Plugin\views\area\AreaPluginBase::buildOptionsForm()
    */
   public function buildOptionsForm(&$form, FormStateInterface $form_state) {
     parent::buildOptionsForm($form, $form_state);
@@ -42,15 +47,15 @@ class TestExample extends AreaPluginBase {
   }
 
   /**
-   * {@inheritdoc}
+   * Implements \Drupal\views\Plugin\views\area\AreaPluginBase::render().
    */
   public function render($empty = FALSE) {
     if (!$empty || !empty($this->options['empty'])) {
-      return [
+      return array(
         '#markup' => $this->globalTokenReplace($this->options['string']),
-      ];
+      );
     }
-    return [];
+    return array();
   }
 
 }

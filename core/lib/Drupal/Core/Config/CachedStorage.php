@@ -1,7 +1,13 @@
 <?php
 
+/**
+ * @file
+ * Contains Drupal\Core\Config\CachedStorage.
+ */
+
 namespace Drupal\Core\Config;
 
+use Drupal\Core\Cache\Cache;
 use Drupal\Core\Cache\CacheBackendInterface;
 use Drupal\Core\DependencyInjection\DependencySerializationTrait;
 
@@ -34,7 +40,7 @@ class CachedStorage implements StorageInterface, StorageCacheInterface {
    *
    * @var array
    */
-  protected $findByPrefixCache = [];
+  protected $findByPrefixCache = array();
 
   /**
    * Constructs a new CachedStorage.
@@ -50,7 +56,7 @@ class CachedStorage implements StorageInterface, StorageCacheInterface {
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\Config\StorageInterface::exists().
    */
   public function exists($name) {
     // The cache would read in the entire data (instead of only checking whether
@@ -60,7 +66,7 @@ class CachedStorage implements StorageInterface, StorageCacheInterface {
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\Config\StorageInterface::read().
    */
   public function read($name) {
     $cache_key = $this->getCacheKey($name);
@@ -80,7 +86,7 @@ class CachedStorage implements StorageInterface, StorageCacheInterface {
    * {@inheritdoc}
    */
   public function readMultiple(array $names) {
-    $data_to_return = [];
+    $data_to_return = array();
 
     $cache_keys_map = $this->getCacheKeys($names);
     $cache_keys = array_values($cache_keys_map);
@@ -95,11 +101,11 @@ class CachedStorage implements StorageInterface, StorageCacheInterface {
       $list = $this->storage->readMultiple($names_to_get);
       // Cache configuration objects that were loaded from the storage, cache
       // missing configuration objects as an explicit FALSE.
-      $items = [];
+      $items = array();
       foreach ($names_to_get as $name) {
         $data = isset($list[$name]) ? $list[$name] : FALSE;
         $data_to_return[$name] = $data;
-        $items[$cache_keys_map[$name]] = ['data' => $data];
+        $items[$cache_keys_map[$name]] = array('data' => $data);
       }
 
       $this->cache->setMultiple($items);
@@ -118,35 +124,35 @@ class CachedStorage implements StorageInterface, StorageCacheInterface {
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\Config\StorageInterface::write().
    */
   public function write($name, array $data) {
     if ($this->storage->write($name, $data)) {
       // While not all written data is read back, setting the cache instead of
       // just deleting it avoids cache rebuild stampedes.
       $this->cache->set($this->getCacheKey($name), $data);
-      $this->findByPrefixCache = [];
+      $this->findByPrefixCache = array();
       return TRUE;
     }
     return FALSE;
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\Config\StorageInterface::delete().
    */
   public function delete($name) {
     // If the cache was the first to be deleted, another process might start
     // rebuilding the cache before the storage is gone.
     if ($this->storage->delete($name)) {
       $this->cache->delete($this->getCacheKey($name));
-      $this->findByPrefixCache = [];
+      $this->findByPrefixCache = array();
       return TRUE;
     }
     return FALSE;
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\Config\StorageInterface::rename().
    */
   public function rename($name, $new_name) {
     // If the cache was the first to be deleted, another process might start
@@ -154,21 +160,21 @@ class CachedStorage implements StorageInterface, StorageCacheInterface {
     if ($this->storage->rename($name, $new_name)) {
       $this->cache->delete($this->getCacheKey($name));
       $this->cache->delete($this->getCacheKey($new_name));
-      $this->findByPrefixCache = [];
+      $this->findByPrefixCache = array();
       return TRUE;
     }
     return FALSE;
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\Config\StorageInterface::encode().
    */
   public function encode($data) {
     return $this->storage->encode($data);
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\Config\StorageInterface::decode().
    */
   public function decode($raw) {
     return $this->storage->decode($raw);
@@ -210,7 +216,7 @@ class CachedStorage implements StorageInterface, StorageCacheInterface {
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\Config\StorageInterface::deleteAll().
    */
   public function deleteAll($prefix = '') {
     // If the cache was the first to be deleted, another process might start
@@ -227,7 +233,7 @@ class CachedStorage implements StorageInterface, StorageCacheInterface {
    * Clears the static list cache.
    */
   public function resetListCache() {
-    $this->findByPrefixCache = [];
+    $this->findByPrefixCache = array();
   }
 
   /**
@@ -278,7 +284,7 @@ class CachedStorage implements StorageInterface, StorageCacheInterface {
    */
   protected function getCacheKeys(array $names) {
     $prefix = $this->getCollectionPrefix();
-    $cache_keys = array_map(function ($name) use ($prefix) {
+    $cache_keys = array_map(function($name) use ($prefix) {
       return $prefix . $name;
     }, $names);
 

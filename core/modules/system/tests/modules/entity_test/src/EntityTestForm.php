@@ -1,15 +1,18 @@
 <?php
+/**
+ * @file
+ * Definition of Drupal\entity_test\EntityTestForm.
+ */
 
 namespace Drupal\entity_test;
 
 use Drupal\Component\Utility\Random;
 use Drupal\Core\Entity\ContentEntityForm;
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Language\LanguageInterface;
 
 /**
  * Form controller for the test entity edit forms.
- *
- * @internal
  */
 class EntityTestForm extends ContentEntityForm {
 
@@ -34,11 +37,11 @@ class EntityTestForm extends ContentEntityForm {
 
     // @todo: Is there a better way to check if an entity type is revisionable?
     if ($entity->getEntityType()->hasKey('revision') && !$entity->isNew()) {
-      $form['revision'] = [
+      $form['revision'] = array(
         '#type' => 'checkbox',
         '#title' => t('Create new revision'),
         '#default_value' => $entity->isNewRevision(),
-      ];
+      );
     }
 
     return $form;
@@ -48,40 +51,35 @@ class EntityTestForm extends ContentEntityForm {
    * {@inheritdoc}
    */
   public function save(array $form, FormStateInterface $form_state) {
-    try {
-      $entity = $this->entity;
+    $entity = $this->entity;
 
-      // Save as a new revision if requested to do so.
-      if (!$form_state->isValueEmpty('revision')) {
-        $entity->setNewRevision();
-      }
-
-      $is_new = $entity->isNew();
-      $entity->save();
-
-      if ($is_new) {
-        $message = t('%entity_type @id has been created.', ['@id' => $entity->id(), '%entity_type' => $entity->getEntityTypeId()]);
-      }
-      else {
-        $message = t('%entity_type @id has been updated.', ['@id' => $entity->id(), '%entity_type' => $entity->getEntityTypeId()]);
-      }
-      $this->messenger()->addStatus($message);
-
-      if ($entity->id()) {
-        $entity_type = $entity->getEntityTypeId();
-        $form_state->setRedirect(
-          "entity.$entity_type.edit_form",
-          [$entity_type => $entity->id()]
-        );
-      }
-      else {
-        // Error on save.
-        $this->messenger()->addError($this->t('The entity could not be saved.'));
-        $form_state->setRebuild();
-      }
+    // Save as a new revision if requested to do so.
+    if (!$form_state->isValueEmpty('revision')) {
+      $entity->setNewRevision();
     }
-    catch (\Exception $e) {
-      \Drupal::state()->set('entity_test.form.save.exception', get_class($e) . ': ' . $e->getMessage());
+
+    $is_new = $entity->isNew();
+    $entity->save();
+
+    if ($is_new) {
+     $message = t('%entity_type @id has been created.', array('@id' => $entity->id(), '%entity_type' => $entity->getEntityTypeId()));
+    }
+    else {
+      $message = t('%entity_type @id has been updated.', array('@id' => $entity->id(), '%entity_type' => $entity->getEntityTypeId()));
+    }
+    drupal_set_message($message);
+
+    if ($entity->id()) {
+      $entity_type = $entity->getEntityTypeId();
+      $form_state->setRedirect(
+        "entity.$entity_type.edit_form",
+        array($entity_type => $entity->id())
+      );
+    }
+    else {
+      // Error on save.
+      drupal_set_message(t('The entity could not be saved.'), 'error');
+      $form_state->setRebuild();
     }
   }
 

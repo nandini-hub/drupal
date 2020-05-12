@@ -1,15 +1,17 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\views\Entity\View.
+ */
+
 namespace Drupal\views\Entity;
 
 use Drupal\Component\Utility\NestedArray;
 use Drupal\Core\Cache\Cache;
 use Drupal\Core\Config\Entity\ConfigEntityBase;
-use Drupal\Core\Entity\ContentEntityTypeInterface;
 use Drupal\Core\Entity\EntityStorageInterface;
-use Drupal\Core\Entity\FieldableEntityInterface;
 use Drupal\Core\Language\LanguageInterface;
-use Drupal\views\Plugin\DependentWithRemovalPluginInterface;
 use Drupal\views\Views;
 use Drupal\views\ViewEntityInterface;
 
@@ -18,30 +20,15 @@ use Drupal\views\ViewEntityInterface;
  *
  * @ConfigEntityType(
  *   id = "view",
- *   label = @Translation("View", context = "View entity type"),
- *   label_collection = @Translation("Views", context = "View entity type"),
- *   label_singular = @Translation("view", context = "View entity type"),
- *   label_plural = @Translation("views", context = "View entity type"),
- *   label_count = @PluralTranslation(
- *     singular = "@count view",
- *     plural = "@count views",
- *     context = "View entity type",
- *   ),
+ *   label = @Translation("View"),
+ *   handlers = {
+ *     "access" = "Drupal\views\ViewAccessControlHandler"
+ *   },
  *   admin_permission = "administer views",
  *   entity_keys = {
  *     "id" = "id",
  *     "label" = "label",
  *     "status" = "status"
- *   },
- *   config_export = {
- *     "id",
- *     "label",
- *     "module",
- *     "description",
- *     "tag",
- *     "base_table",
- *     "base_field",
- *     "display",
  *   }
  * )
  */
@@ -63,8 +50,6 @@ class View extends ConfigEntityBase implements ViewEntityInterface {
 
   /**
    * The label of the view.
-   *
-   * @var string
    */
   protected $label;
 
@@ -86,6 +71,13 @@ class View extends ConfigEntityBase implements ViewEntityInterface {
   protected $tag = '';
 
   /**
+   * The core version the view was created for.
+   *
+   * @var string
+   */
+  protected $core = \Drupal::CORE_COMPATIBILITY;
+
+  /**
    * Stores all display handlers of this view.
    *
    * An array containing Drupal\views\Plugin\views\display\DisplayPluginBase
@@ -93,7 +85,7 @@ class View extends ConfigEntityBase implements ViewEntityInterface {
    *
    * @var array
    */
-  protected $display = [];
+  protected $display = array();
 
   /**
    * The name of the base field to use.
@@ -184,15 +176,15 @@ class View extends ConfigEntityBase implements ViewEntityInterface {
       }
     }
 
-    $display_options = [
+    $display_options = array(
       'display_plugin' => $plugin_id,
       'id' => $id,
       // Cast the display title to a string since it is an object.
-      // @see \Drupal\Core\StringTranslation\TranslatableMarkup
+      // @see \Drupal\Core\StringTranslation\TranslationWrapper
       'display_title' => (string) $title,
       'position' => $id === 'default' ? 0 : count($this->display),
-      'display_options' => [],
-    ];
+      'display_options' => array(),
+    );
 
     // Add the display options to the view.
     $this->display[$id] = $display_options;
@@ -247,7 +239,6 @@ class View extends ConfigEntityBase implements ViewEntityInterface {
     $display_duplicate = $displays[$old_display_id];
     unset($display_duplicate['display_title']);
     unset($display_duplicate['display_plugin']);
-    unset($display_duplicate['new_id']);
 
     $displays[$new_display_id] = NestedArray::mergeDeep($displays[$new_display_id], $display_duplicate);
     $displays[$new_display_id]['id'] = $new_display_id;
@@ -284,7 +275,7 @@ class View extends ConfigEntityBase implements ViewEntityInterface {
       $this->calculatePluginDependencies($display);
     }
 
-    return $this;
+    return $this->dependencies;
   }
 
   /**
@@ -293,63 +284,14 @@ class View extends ConfigEntityBase implements ViewEntityInterface {
   public function preSave(EntityStorageInterface $storage) {
     parent::preSave($storage);
 
-    $displays = $this->get('display');
-
-    // @todo Remove this line and support for pre-8.3 table names in Drupal 9.
-    // @see https://www.drupal.org/project/drupal/issues/3069405 .
-    $this->fixTableNames($displays);
-
     // Sort the displays.
-    ksort($displays);
-    $this->set('display', ['default' => $displays['default']] + $displays);
+    $display = $this->get('display');
+    ksort($display);
+    $this->set('display', array('default' => $display['default']) + $display);
 
-    // Calculating the cacheability metadata is only needed when the view is
-    // saved through the UI or API. It should not be done when we are syncing
-    // configuration or installing modules.
-    if (!$this->isSyncing() && !$this->hasTrustedData()) {
+    // @todo Check whether isSyncing is needed.
+    if (!$this->isSyncing()) {
       $this->addCacheMetadata();
-    }
-  }
-
-  /**
-   * Fixes table names for revision metadata fields of revisionable entities.
-   *
-   * Views for revisionable entity types using revision metadata fields might
-   * be using the wrong table to retrieve the fields after system_update_8300
-   * has moved them correctly to the revision table. This method updates the
-   * views to use the correct tables.
-   *
-   * @param array &$displays
-   *   An array containing display handlers of a view.
-   *
-   * @todo Remove this method and its usage in Drupal 9. See
-   *   https://www.drupal.org/project/drupal/issues/3069405.
-   * @see https://www.drupal.org/node/2831499
-   */
-  private function fixTableNames(array &$displays) {
-    // Fix wrong table names for entity revision metadata fields.
-    foreach ($displays as $display => $display_data) {
-      if (isset($display_data['display_options']['fields'])) {
-        foreach ($display_data['display_options']['fields'] as $property_name => $property_data) {
-          if (isset($property_data['entity_type']) && isset($property_data['field']) && isset($property_data['table'])) {
-            $entity_type = $this->entityTypeManager()->getDefinition($property_data['entity_type']);
-            // We need to update the table name only for revisionable entity
-            // types, otherwise the view is already using the correct table.
-            if (($entity_type instanceof ContentEntityTypeInterface) && is_subclass_of($entity_type->getClass(), FieldableEntityInterface::class) && $entity_type->isRevisionable()) {
-              $revision_metadata_fields = $entity_type->getRevisionMetadataKeys();
-              // @see \Drupal\Core\Entity\Sql\SqlContentEntityStorage::initTableLayout()
-              $revision_table = $entity_type->getRevisionTable() ?: $entity_type->id() . '_revision';
-
-              // Check if this is a revision metadata field and if it uses the
-              // wrong table.
-              if (in_array($property_data['field'], $revision_metadata_fields) && $property_data['table'] != $revision_table) {
-                @trigger_error('Support for pre-8.3.0 revision table names in imported views is deprecated in drupal:8.3.0 and is removed from drupal:9.0.0. Imported views must reference the correct tables. See https://www.drupal.org/node/2831499', E_USER_DEPRECATED);
-                $displays[$display]['display_options']['fields'][$property_name]['table'] = $revision_table;
-              }
-            }
-          }
-        }
-      }
     }
   }
 
@@ -358,9 +300,8 @@ class View extends ConfigEntityBase implements ViewEntityInterface {
    *
    * Cache metadata is set per view and per display, and ends up being stored in
    * the view's configuration. This allows Views to determine very efficiently:
-   * - the max-age
-   * - the cache contexts
-   * - the cache tags
+   * - whether a view is cacheable at all
+   * - what the cache key for a given view should be
    *
    * In other words: this allows us to do the (expensive) work of initializing
    * Views plugins and handlers to determine their effect on the cacheability of
@@ -375,10 +316,7 @@ class View extends ConfigEntityBase implements ViewEntityInterface {
       $display =& $this->getDisplay($display_id);
       $executable->setDisplay($display_id);
 
-      $cache_metadata = $executable->getDisplay()->calculateCacheMetadata();
-      $display['cache_metadata']['max-age'] = $cache_metadata->getCacheMaxAge();
-      $display['cache_metadata']['contexts'] = $cache_metadata->getCacheContexts();
-      $display['cache_metadata']['tags'] = $cache_metadata->getCacheTags();
+      list($display['cache_metadata']['cacheable'], $display['cache_metadata']['contexts']) = $executable->getDisplay()->calculateCacheMetadata();
       // Always include at least the 'languages:' context as there will most
       // probably be translatable strings in the view output.
       $display['cache_metadata']['contexts'] = Cache::mergeContexts($display['cache_metadata']['contexts'], ['languages:' . LanguageInterface::TYPE_INTERFACE]);
@@ -395,9 +333,8 @@ class View extends ConfigEntityBase implements ViewEntityInterface {
 
     // @todo Remove if views implements a view_builder controller.
     views_invalidate_cache();
-    $this->invalidateCaches();
 
-    // Rebuild the router if this is a new view, or its status changed.
+    // Rebuild the router if this is a new view, or it's status changed.
     if (!isset($this->original) || ($this->status() != $this->original->status())) {
       \Drupal::service('router.builder')->setRebuildNeeded();
     }
@@ -421,17 +358,17 @@ class View extends ConfigEntityBase implements ViewEntityInterface {
 
     // If there is no information about displays available add at least the
     // default display.
-    $values += [
-      'display' => [
-        'default' => [
+    $values += array(
+      'display' => array(
+        'default' => array(
           'display_plugin' => 'default',
           'id' => 'default',
           'display_title' => 'Master',
           'position' => 0,
-          'display_options' => [],
-        ],
-      ],
-    ];
+          'display_options' => array(),
+        ),
+      )
+    );
   }
 
   /**
@@ -466,7 +403,7 @@ class View extends ConfigEntityBase implements ViewEntityInterface {
   public static function postDelete(EntityStorageInterface $storage, array $entities) {
     parent::postDelete($storage, $entities);
 
-    $tempstore = \Drupal::service('tempstore.shared')->get('views');
+    $tempstore = \Drupal::service('user.shared_tempstore')->get('views');
     foreach ($entities as $entity) {
       $tempstore->delete($entity->id());
     }
@@ -476,15 +413,15 @@ class View extends ConfigEntityBase implements ViewEntityInterface {
    * {@inheritdoc}
    */
   public function mergeDefaultDisplaysOptions() {
-    $displays = [];
+    $displays = array();
     foreach ($this->get('display') as $key => $options) {
-      $options += [
-        'display_options' => [],
+      $options += array(
+        'display_options' => array(),
         'display_plugin' => NULL,
         'id' => NULL,
         'display_title' => '',
         'position' => NULL,
-      ];
+      );
       // Add the defaults for the display.
       $displays[$key] = $options;
     }
@@ -509,72 +446,6 @@ class View extends ConfigEntityBase implements ViewEntityInterface {
     $keys = parent::__sleep();
     unset($keys[array_search('executable', $keys)]);
     return $keys;
-  }
-
-  /**
-   * Invalidates cache tags.
-   */
-  public function invalidateCaches() {
-    // Invalidate cache tags for cached rows.
-    $tags = $this->getCacheTags();
-    \Drupal::service('cache_tags.invalidator')->invalidateTags($tags);
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function onDependencyRemoval(array $dependencies) {
-    $changed = FALSE;
-
-    // Don't intervene if the views module is removed.
-    if (isset($dependencies['module']) && in_array('views', $dependencies['module'])) {
-      return FALSE;
-    }
-
-    // If the base table for the View is provided by a module being removed, we
-    // delete the View because this is not something that can be fixed manually.
-    $views_data = Views::viewsData();
-    $base_table = $this->get('base_table');
-    $base_table_data = $views_data->get($base_table);
-    if (!empty($base_table_data['table']['provider']) && in_array($base_table_data['table']['provider'], $dependencies['module'])) {
-      return FALSE;
-    }
-
-    $current_display = $this->getExecutable()->current_display;
-    $handler_types = Views::getHandlerTypes();
-
-    // Find all the handlers and check whether they want to do something on
-    // dependency removal.
-    foreach ($this->display as $display_id => $display_plugin_base) {
-      $this->getExecutable()->setDisplay($display_id);
-      $display = $this->getExecutable()->getDisplay();
-
-      foreach (array_keys($handler_types) as $handler_type) {
-        $handlers = $display->getHandlers($handler_type);
-        foreach ($handlers as $handler_id => $handler) {
-          if ($handler instanceof DependentWithRemovalPluginInterface) {
-            if ($handler->onDependencyRemoval($dependencies)) {
-              // Remove the handler and indicate we made changes.
-              unset($this->display[$display_id]['display_options'][$handler_types[$handler_type]['plural']][$handler_id]);
-              $changed = TRUE;
-            }
-          }
-        }
-      }
-    }
-
-    // Disable the View if we made changes.
-    // @todo https://www.drupal.org/node/2832558 Give better feedback for
-    // disabled config.
-    if ($changed) {
-      // Force a recalculation of the dependencies if we made changes.
-      $this->getExecutable()->current_display = NULL;
-      $this->calculateDependencies();
-      $this->disable();
-    }
-
-    $this->getExecutable()->setDisplay($current_display);
-    return $changed;
   }
 
 }

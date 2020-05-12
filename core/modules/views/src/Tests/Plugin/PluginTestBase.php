@@ -1,14 +1,16 @@
 <?php
 
-namespace Drupal\views\Tests\Plugin;
+/**
+ * @file
+ * Definition of Drupal\views\Tests\Plugin\PluginTestBase.
+ */
 
-@trigger_error('\Drupal\views\Tests\Plugin\PluginTestBase is deprecated in Drupal 8.4.0 and will be removed before Drupal 9.0.0. Instead, use \Drupal\Tests\views\Functional\ViewTestBase', E_USER_DEPRECATED);
+namespace Drupal\views\Tests\Plugin;
 
 use Drupal\views\Tests\ViewTestBase;
 
 /**
- * @deprecated in drupal:8.4.0 and is removed from drupal:9.0.0.
- *   Use \Drupal\Tests\views\Functional\ViewTestBase.
+ * @todo.
  */
 abstract class PluginTestBase extends ViewTestBase {
 

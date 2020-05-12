@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\plugin_test\Plugin\TestPluginManager.
+ */
+
 namespace Drupal\plugin_test\Plugin;
 
 use Drupal\Component\Plugin\PluginManagerBase;
@@ -10,7 +15,6 @@ use Drupal\Component\Plugin\Factory\DefaultFactory;
  * Defines a plugin manager used by Plugin API unit tests.
  */
 class TestPluginManager extends PluginManagerBase {
-
   public function __construct() {
 
     // Create the object that can be used to return definitions for all the
@@ -20,10 +24,10 @@ class TestPluginManager extends PluginManagerBase {
     $this->discovery = new StaticDiscovery();
 
     // A simple plugin: a mock user login block.
-    $this->discovery->setDefinition('user_login', [
+    $this->discovery->setDefinition('user_login', array(
       'label' => 'User login',
       'class' => 'Drupal\plugin_test\Plugin\plugin_test\mock_block\MockUserLoginBlock',
-    ]);
+    ));
 
     // In addition to finding all of the plugins available for a type, a plugin
     // type must also be able to create instances of that plugin. For example, a
@@ -36,5 +40,4 @@ class TestPluginManager extends PluginManagerBase {
     // so we provide it the discovery object.
     $this->factory = new DefaultFactory($this->discovery);
   }
-
 }

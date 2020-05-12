@@ -1,19 +1,21 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\Core\Database\Driver\pgsql\Update
+ */
+
 namespace Drupal\Core\Database\Driver\pgsql;
 
 use Drupal\Core\Database\Database;
 use Drupal\Core\Database\Query\Update as QueryUpdate;
 use Drupal\Core\Database\Query\SelectInterface;
 
-/**
- * PostgreSQL implementation of \Drupal\Core\Database\Query\Update.
- */
 class Update extends QueryUpdate {
 
   public function execute() {
     $max_placeholder = 0;
-    $blobs = [];
+    $blobs = array();
     $blob_count = 0;
 
     // Because we filter $fields the same way here and in __toString(), the
@@ -75,7 +77,7 @@ class Update extends QueryUpdate {
 
     $this->connection->addSavepoint();
     try {
-      $result = $this->connection->query($stmt, [], $options);
+      $result = $this->connection->query($stmt, array(), $options);
       $this->connection->releaseSavepoint();
       return $result;
     }

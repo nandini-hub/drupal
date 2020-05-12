@@ -1,9 +1,12 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Cache\CacheCollector.
+ */
+
 namespace Drupal\Core\Cache;
 
-use Drupal\Component\Assertion\Inspector;
-use Drupal\Component\Utility\Crypt;
 use Drupal\Core\DestructableInterface;
 use Drupal\Core\Lock\LockBackendInterface;
 
@@ -57,21 +60,21 @@ abstract class CacheCollector implements CacheCollectorInterface, DestructableIn
    *
    * @var array
    */
-  protected $keysToPersist = [];
+  protected $keysToPersist = array();
 
   /**
    * An array of keys to remove from the cache on service termination.
    *
    * @var array
    */
-  protected $keysToRemove = [];
+  protected $keysToRemove = array();
 
   /**
    * Storage for the data itself.
    *
    * @var array
    */
-  protected $storage = [];
+  protected $storage = array();
 
   /**
    * Stores the cache creation time.
@@ -111,8 +114,8 @@ abstract class CacheCollector implements CacheCollectorInterface, DestructableIn
    * @param array $tags
    *   (optional) The tags to specify for the cache item.
    */
-  public function __construct($cid, CacheBackendInterface $cache, LockBackendInterface $lock, array $tags = []) {
-    assert(Inspector::assertAllStrings($tags), 'Cache tags must be strings.');
+  public function __construct($cid, CacheBackendInterface $cache, LockBackendInterface $lock, array $tags = array()) {
+    Cache::validateTags($tags);
     $this->cid = $cid;
     $this->cache = $cache;
     $this->tags = $tags;
@@ -217,7 +220,7 @@ abstract class CacheCollector implements CacheCollectorInterface, DestructableIn
    *   TRUE.
    */
   protected function updateCache($lock = TRUE) {
-    $data = [];
+    $data = array();
     foreach ($this->keysToPersist as $offset => $persist) {
       if ($persist) {
         $data[$offset] = $this->storage[$offset];
@@ -229,7 +232,7 @@ abstract class CacheCollector implements CacheCollectorInterface, DestructableIn
 
     // Lock cache writes to help avoid stampedes.
     $cid = $this->getCid();
-    $lock_name = $this->normalizeLockName($cid . ':' . __CLASS__);
+    $lock_name = $cid . ':' . __CLASS__;
     if (!$lock || $this->lock->acquire($lock_name)) {
       // Set and delete operations invalidate the cache item. Try to also load
       // an eventually invalidated cache entry, only update an invalidated cache
@@ -247,18 +250,6 @@ abstract class CacheCollector implements CacheCollectorInterface, DestructableIn
         }
         $data = array_merge($cache->data, $data);
       }
-      elseif ($this->cacheCreated) {
-        // Getting here indicates that there was a cache entry at the
-        // beginning of the request, but now it's gone (some other process
-        // must have cleared it). We back out to prevent corrupting the cache
-        // with incomplete data, since we won't be able to properly merge
-        // the existing cache data from earlier with the new data.
-        // A future request will properly hydrate the cache from scratch.
-        if ($lock) {
-          $this->lock->release($lock_name);
-        }
-        return;
-      }
       // Remove keys marked for deletion.
       foreach ($this->keysToRemove as $delete_key) {
         unset($data[$delete_key]);
@@ -269,41 +260,17 @@ abstract class CacheCollector implements CacheCollectorInterface, DestructableIn
       }
     }
 
-    $this->keysToPersist = [];
-    $this->keysToRemove = [];
-  }
-
-  /**
-   * Normalizes a cache ID in order to comply with database limitations.
-   *
-   * @param string $cid
-   *   The passed in cache ID.
-   *
-   * @return string
-   *   An ASCII-encoded cache ID that is at most 255 characters long.
-   */
-  protected function normalizeLockName($cid) {
-    // Nothing to do if the ID is a US ASCII string of 255 characters or less.
-    $cid_is_ascii = mb_check_encoding($cid, 'ASCII');
-    if (strlen($cid) <= 255 && $cid_is_ascii) {
-      return $cid;
-    }
-    // Return a string that uses as much as possible of the original cache ID
-    // with the hash appended.
-    $hash = Crypt::hashBase64($cid);
-    if (!$cid_is_ascii) {
-      return $hash;
-    }
-    return substr($cid, 0, 255 - strlen($hash)) . $hash;
+    $this->keysToPersist = array();
+    $this->keysToRemove = array();
   }
 
   /**
    * {@inheritdoc}
    */
   public function reset() {
-    $this->storage = [];
-    $this->keysToPersist = [];
-    $this->keysToRemove = [];
+    $this->storage = array();
+    $this->keysToPersist = array();
+    $this->keysToRemove = array();
     $this->cacheLoaded = FALSE;
   }
 

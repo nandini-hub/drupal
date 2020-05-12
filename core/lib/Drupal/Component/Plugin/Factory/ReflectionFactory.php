@@ -1,4 +1,8 @@
 <?php
+/**
+ * @file
+ * Definition of Drupal\Component\Plugin\Factory\ReflectionFactory.
+ */
 
 namespace Drupal\Component\Plugin\Factory;
 
@@ -11,9 +15,9 @@ namespace Drupal\Component\Plugin\Factory;
 class ReflectionFactory extends DefaultFactory {
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Component\Plugin\Factory\FactoryInterface::createInstance().
    */
-  public function createInstance($plugin_id, array $configuration = []) {
+  public function createInstance($plugin_id, array $configuration = array()) {
     $plugin_definition = $this->discovery->getDefinition($plugin_id);
     $plugin_class = static::getPluginClass($plugin_id, $plugin_definition, $this->interface);
 
@@ -42,7 +46,7 @@ class ReflectionFactory extends DefaultFactory {
    * @param string $plugin_id
    *   The identifier of the plugin implementation.
    * @param mixed $plugin_definition
-   *   The definition associated with the plugin_id.
+   *   The definition associated to the plugin_id.
    * @param array $configuration
    *   An array of configuration that may be passed to the instance.
    *
@@ -51,7 +55,7 @@ class ReflectionFactory extends DefaultFactory {
    */
   protected function getInstanceArguments(\ReflectionClass $reflector, $plugin_id, $plugin_definition, array $configuration) {
 
-    $arguments = [];
+    $arguments = array();
     foreach ($reflector->getMethod('__construct')->getParameters() as $param) {
       $param_name = $param->getName();
 
@@ -76,5 +80,4 @@ class ReflectionFactory extends DefaultFactory {
     }
     return $arguments;
   }
-
 }

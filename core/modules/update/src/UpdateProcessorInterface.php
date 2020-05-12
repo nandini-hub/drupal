@@ -1,6 +1,11 @@
 <?php
+/**
+ * @file
+ * Contains \Drupal\update\UpdateProcessorInterface.
+ */
 
 namespace Drupal\update;
+
 
 /**
  * Processor of project update information.
@@ -10,7 +15,7 @@ interface UpdateProcessorInterface {
   /**
    * Claims an item in the update fetch queue for processing.
    *
-   * @return bool|object
+   * @return bool|\stdClass
    *   On success we return an item object. If the queue is unable to claim an
    *   item it returns false.
    *
@@ -32,9 +37,8 @@ interface UpdateProcessorInterface {
    *
    * @param array $project
    *   Associative array of information about a project as created by
-   *   \Drupal\update\UpdateManager::getProjects(), including keys such as
-   *   'name' (short name), and the 'info' array with data from a .info.yml
-   *   file for the project.
+   *   update_get_projects(), including keys such as 'name' (short name), and
+   *   the 'info' array with data from a .info.yml file for the project.
    *
    * @see \Drupal\update\UpdateManager::getProjects()
    * @see update_get_available()
@@ -71,11 +75,10 @@ interface UpdateProcessorInterface {
   /**
    * Deletes a finished item from the update fetch queue.
    *
-   * @param object $item
+   * @param \stdClass $item
    *   The item returned by \Drupal\Core\Queue\QueueInterface::claimItem().
    *
    * @see \Drupal\Core\Queue\QueueInterface::deleteItem()
    */
   public function deleteQueueItem($item);
-
 }

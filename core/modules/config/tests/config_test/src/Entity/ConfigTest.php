@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\config_test\Entity\ConfigTest.
+ */
+
 namespace Drupal\config_test\Entity;
 
 use Drupal\Core\Config\Entity\ConfigEntityBase;
@@ -27,15 +32,6 @@ use Drupal\Core\Entity\EntityStorageInterface;
  *     "id" = "id",
  *     "label" = "label",
  *     "status" = "status"
- *   },
- *   config_export = {
- *     "id",
- *     "label",
- *     "weight",
- *     "style",
- *     "size",
- *     "size_value",
- *     "protected_property",
  *   },
  *   links = {
  *     "edit-form" = "/admin/structure/config_test/manage/{config_test}",
@@ -84,7 +80,7 @@ class ConfigTest extends ConfigEntityBase implements ConfigTestInterface {
   protected $protected_property;
 
   /**
-   * {@inheritdoc}
+   * Overrides \Drupal\Core\Config\Entity\ConfigEntityBase::sort().
    */
   public static function sort(ConfigEntityInterface $a, ConfigEntityInterface $b) {
     \Drupal::state()->set('config_entity_sort', TRUE);
@@ -97,10 +93,10 @@ class ConfigTest extends ConfigEntityBase implements ConfigTestInterface {
   public function postSave(EntityStorageInterface $storage, $update = TRUE) {
     // Used to test secondary writes during config sync.
     if ($this->id() == 'primary') {
-      $secondary = $storage->create([
+      $secondary = $storage->create(array(
         'id' => 'secondary',
         'label' => 'Secondary Default',
-      ]);
+      ));
       $secondary->save();
     }
     if ($this->id() == 'deleter') {
@@ -125,31 +121,12 @@ class ConfigTest extends ConfigEntityBase implements ConfigTestInterface {
   /**
    * {@inheritdoc}
    */
-  public function calculateDependencies() {
-    parent::calculateDependencies();
-    if ($module = \Drupal::state()->get('config_test_new_dependency', FALSE)) {
-      $this->addDependency('module', $module);
-    }
-    return $this;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
   public function onDependencyRemoval(array $dependencies) {
-    // Record which entities have this method called on and what dependencies
-    // are passed.
-    $called = \Drupal::state()->get('config_test.on_dependency_removal_called', []);
-    $called[$this->id()] = $dependencies;
-    $called[$this->id()]['config'] = array_keys($called[$this->id()]['config']);
-    $called[$this->id()]['content'] = array_keys($called[$this->id()]['content']);
-    \Drupal::state()->set('config_test.on_dependency_removal_called', $called);
-
     $changed = parent::onDependencyRemoval($dependencies);
     if (!isset($this->dependencies['enforced']['config'])) {
       return $changed;
     }
-    $fix_deps = \Drupal::state()->get('config_test.fix_dependencies', []);
+    $fix_deps = \Drupal::state()->get('config_test.fix_dependencies', array());
     foreach ($dependencies['config'] as $entity) {
       if (in_array($entity->getConfigDependencyName(), $fix_deps)) {
         $key = array_search($entity->getConfigDependencyName(), $this->dependencies['enforced']['config']);
@@ -158,10 +135,6 @@ class ConfigTest extends ConfigEntityBase implements ConfigTestInterface {
           unset($this->dependencies['enforced']['config'][$key]);
         }
       }
-    }
-    // If any of the dependencies removed still exists, return FALSE.
-    if (array_intersect_key(array_flip($this->dependencies['enforced']['config']), $dependencies['config'])) {
-      return FALSE;
     }
     return $changed;
   }

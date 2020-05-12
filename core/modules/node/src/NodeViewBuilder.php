@@ -1,55 +1,66 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\node\NodeViewBuilder.
+ */
+
 namespace Drupal\node;
 
+use Drupal\Core\Entity\Display\EntityViewDisplayInterface;
 use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Entity\EntityViewBuilder;
-use Drupal\Core\Render\Element\Link;
-use Drupal\Core\Security\TrustedCallbackInterface;
+use Drupal\node\Entity\Node;
+use Drupal\user\Entity\User;
 
 /**
- * View builder handler for nodes.
+ * Render controller for nodes.
  */
-class NodeViewBuilder extends EntityViewBuilder implements TrustedCallbackInterface {
+class NodeViewBuilder extends EntityViewBuilder {
 
   /**
    * {@inheritdoc}
    */
-  public function buildComponents(array &$build, array $entities, array $displays, $view_mode) {
+  public function buildComponents(array &$build, array $entities, array $displays, $view_mode, $langcode = NULL) {
     /** @var \Drupal\node\NodeInterface[] $entities */
     if (empty($entities)) {
       return;
     }
 
-    parent::buildComponents($build, $entities, $displays, $view_mode);
+    parent::buildComponents($build, $entities, $displays, $view_mode, $langcode);
 
     foreach ($entities as $id => $entity) {
       $bundle = $entity->bundle();
       $display = $displays[$bundle];
 
       if ($display->getComponent('links')) {
-        $build[$id]['links'] = [
-          '#lazy_builder' => [
-            get_called_class() . '::renderLinks', [
-              $entity->id(),
-              $view_mode,
-              $entity->language()->getId(),
-              !empty($entity->in_preview),
-              $entity->isDefaultRevision() ? NULL : $entity->getLoadedRevisionId(),
-            ],
-          ],
-        ];
+        $callback = get_called_class() . '::renderLinks';
+        $context = array(
+          'node_entity_id' => $entity->id(),
+          'view_mode' => $view_mode,
+          'langcode' => $langcode,
+          'in_preview' => !empty($entity->in_preview),
+        );
+        $placeholder = drupal_render_cache_generate_placeholder($callback, $context);
+        $build[$id]['links'] = array(
+          '#post_render_cache' => array(
+            $callback => array(
+              $context,
+            ),
+          ),
+          '#markup' => $placeholder,
+        );
       }
 
       // Add Language field text element to node render array.
       if ($display->getComponent('langcode')) {
-        $build[$id]['langcode'] = [
+        $build[$id]['langcode'] = array(
           '#type' => 'item',
           '#title' => t('Language'),
           '#markup' => $entity->language()->getName(),
           '#prefix' => '<div id="field-language-display">',
-          '#suffix' => '</div>',
-        ];
+          '#suffix' => '</div>'
+        );
       }
     }
   }
@@ -57,8 +68,8 @@ class NodeViewBuilder extends EntityViewBuilder implements TrustedCallbackInterf
   /**
    * {@inheritdoc}
    */
-  protected function getBuildDefaults(EntityInterface $entity, $view_mode) {
-    $defaults = parent::getBuildDefaults($entity, $view_mode);
+  protected function getBuildDefaults(EntityInterface $entity, $view_mode, $langcode) {
+    $defaults = parent::getBuildDefaults($entity, $view_mode, $langcode);
 
     // Don't cache nodes that are in 'preview' mode.
     if (isset($defaults['#cache']) && isset($entity->in_preview)) {
@@ -69,45 +80,47 @@ class NodeViewBuilder extends EntityViewBuilder implements TrustedCallbackInterf
   }
 
   /**
-   * #lazy_builder callback; builds a node's links.
+   * #post_render_cache callback; replaces the placeholder with node links.
    *
-   * @param string $node_entity_id
-   *   The node entity ID.
-   * @param string $view_mode
-   *   The view mode in which the node entity is being viewed.
-   * @param string $langcode
-   *   The language in which the node entity is being viewed.
-   * @param bool $is_in_preview
-   *   Whether the node is currently being previewed.
-   * @param $revision_id
-   *   (optional) The identifier of the node revision to be loaded. If none
-   *   is provided, the default revision will be loaded.
+   * Renders the links on a node.
+   *
+   * @param array $element
+   *   The renderable array that contains the to be replaced placeholder.
+   * @param array $context
+   *   An array with the following keys:
+   *   - node_entity_id: a node entity ID
+   *   - view_mode: the view mode in which the node entity is being viewed
+   *   - langcode: in which language the node entity is being viewed
+   *   - in_preview: whether the node is currently being previewed
    *
    * @return array
    *   A renderable array representing the node links.
    */
-  public static function renderLinks($node_entity_id, $view_mode, $langcode, $is_in_preview, $revision_id = NULL) {
-    $links = [
-      '#theme' => 'links__node',
-      '#pre_render' => [[Link::class, 'preRenderLinks']],
-      '#attributes' => ['class' => ['links', 'inline']],
-    ];
+  public static function renderLinks(array $element, array $context) {
+    $callback = get_called_class() . '::renderLinks';
+    $placeholder = drupal_render_cache_generate_placeholder($callback, $context);
 
-    if (!$is_in_preview) {
-      $storage = \Drupal::entityTypeManager()->getStorage('node');
-      /** @var \Drupal\node\NodeInterface $revision */
-      $revision = !isset($revision_id) ? $storage->load($node_entity_id) : $storage->loadRevision($revision_id);
-      $entity = $revision->getTranslation($langcode);
-      $links['node'] = static::buildLinks($entity, $view_mode);
+    $links = array(
+      '#theme' => 'links__node',
+      '#pre_render' => array('drupal_pre_render_links'),
+      '#attributes' => array('class' => array('links', 'inline')),
+    );
+
+    if (!$context['in_preview']) {
+      $entity = Node::load($context['node_entity_id'])->getTranslation($context['langcode']);
+      $links['node'] = static::buildLinks($entity, $context['view_mode']);
 
       // Allow other modules to alter the node links.
-      $hook_context = [
-        'view_mode' => $view_mode,
-        'langcode' => $langcode,
-      ];
+      $hook_context = array(
+        'view_mode' => $context['view_mode'],
+        'langcode' => $context['langcode'],
+      );
       \Drupal::moduleHandler()->alter('node_links', $links, $entity, $hook_context);
     }
-    return $links;
+    $markup = drupal_render($links);
+    $element['#markup'] = str_replace($placeholder, $markup, $element['#markup']);
+
+    return $element;
   }
 
   /**
@@ -122,39 +135,44 @@ class NodeViewBuilder extends EntityViewBuilder implements TrustedCallbackInterf
    *   An array that can be processed by drupal_pre_render_links().
    */
   protected static function buildLinks(NodeInterface $entity, $view_mode) {
-    $links = [];
+    $links = array();
 
     // Always display a read more link on teasers because we have no way
     // to know when a teaser view is different than a full view.
     if ($view_mode == 'teaser') {
       $node_title_stripped = strip_tags($entity->label());
-      $links['node-readmore'] = [
-        'title' => t('Read more<span class="visually-hidden"> about @title</span>', [
+      $links['node-readmore'] = array(
+        'title' => t('Read more<span class="visually-hidden"> about @title</span>', array(
           '@title' => $node_title_stripped,
-        ]),
-        'url' => $entity->toUrl(),
+        )),
+        'url' => $entity->urlInfo(),
         'language' => $entity->language(),
-        'attributes' => [
+        'attributes' => array(
           'rel' => 'tag',
           'title' => $node_title_stripped,
-        ],
-      ];
+        ),
+      );
     }
 
-    return [
+    return array(
       '#theme' => 'links__node__node',
       '#links' => $links,
-      '#attributes' => ['class' => ['links', 'inline']],
-    ];
+      '#attributes' => array('class' => array('links', 'inline')),
+    );
   }
 
   /**
    * {@inheritdoc}
    */
-  public static function trustedCallbacks() {
-    $callbacks = parent::trustedCallbacks();
-    $callbacks[] = 'renderLinks';
-    return $callbacks;
+  protected function alterBuild(array &$build, EntityInterface $entity, EntityViewDisplayInterface $display, $view_mode, $langcode = NULL) {
+    /** @var \Drupal\node\NodeInterface $entity */
+    parent::alterBuild($build, $entity, $display, $view_mode, $langcode);
+    if ($entity->id()) {
+      $build['#contextual_links']['node'] = array(
+        'route_parameters' =>array('node' => $entity->id()),
+        'metadata' => array('changed' => $entity->getChangedTime()),
+      );
+    }
   }
 
 }

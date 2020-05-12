@@ -1,34 +1,29 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\block_content\Tests\BlockContentTestBase.
+ */
+
 namespace Drupal\block_content\Tests;
 
-@trigger_error(__NAMESPACE__ . '\BlockContentTestBase is deprecated for removal before Drupal 9.0.0. Use Drupal\Tests\block_content\Functional\BlockContentTestBase instead. See https://www.drupal.org/node/2999939', E_USER_DEPRECATED);
-
-use Drupal\block_content\Entity\BlockContent;
-use Drupal\block_content\Entity\BlockContentType;
+use Drupal\field\Entity\FieldStorageConfig;
 use Drupal\simpletest\WebTestBase;
 
 /**
  * Sets up block content types.
- *
- * @deprecated in drupal:8.?.? and is removed from drupal:9.0.0.
- *   Use \Drupal\Tests\block_content\Functional\BlockContentTestBase instead.
- *
- * @see https://www.drupal.org/node/2999939
  */
 abstract class BlockContentTestBase extends WebTestBase {
 
   /**
    * Profile to use.
-   *
-   * @var string
    */
   protected $profile = 'testing';
 
   /**
    * Admin user
    *
-   * @var \Drupal\user\UserInterface
+   * @var object
    */
   protected $adminUser;
 
@@ -37,16 +32,16 @@ abstract class BlockContentTestBase extends WebTestBase {
    *
    * @var array
    */
-  protected $permissions = [
-    'administer blocks',
-  ];
+  protected $permissions = array(
+    'administer blocks'
+  );
 
   /**
    * Modules to enable.
    *
    * @var array
    */
-  public static $modules = ['block', 'block_content'];
+  public static $modules = array('block', 'block_content');
 
   /**
    * Whether or not to auto-create the basic block type during setup.
@@ -65,31 +60,27 @@ abstract class BlockContentTestBase extends WebTestBase {
     }
 
     $this->adminUser = $this->drupalCreateUser($this->permissions);
-    $this->drupalPlaceBlock('local_actions_block');
   }
 
   /**
    * Creates a custom block.
    *
-   * @param bool|string $title
+   * @param string $title
    *   (optional) Title of block. When no value is given uses a random name.
    *   Defaults to FALSE.
    * @param string $bundle
    *   (optional) Bundle name. Defaults to 'basic'.
-   * @param bool $save
-   *   (optional) Whether to save the block. Defaults to TRUE.
    *
    * @return \Drupal\block_content\Entity\BlockContent
    *   Created custom block.
    */
-  protected function createBlockContent($title = FALSE, $bundle = 'basic', $save = TRUE) {
-    $title = $title ?: $this->randomMachineName();
-    $block_content = BlockContent::create([
+  protected function createBlockContent($title = FALSE, $bundle = 'basic') {
+    $title = ($title ? : $this->randomMachineName());
+    if ($block_content = entity_create('block_content', array(
       'info' => $title,
       'type' => $bundle,
-      'langcode' => 'en',
-    ]);
-    if ($block_content && $save === TRUE) {
+      'langcode' => 'en'
+    ))) {
       $block_content->save();
     }
     return $block_content;
@@ -107,11 +98,11 @@ abstract class BlockContentTestBase extends WebTestBase {
    *   Created custom block type.
    */
   protected function createBlockContentType($label, $create_body = FALSE) {
-    $bundle = BlockContentType::create([
+    $bundle = entity_create('block_content_type', array(
       'id' => $label,
       'label' => $label,
       'revision' => FALSE,
-    ]);
+    ));
     $bundle->save();
     if ($create_body) {
       block_content_add_body_field($bundle->id());

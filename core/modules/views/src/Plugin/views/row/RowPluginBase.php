@@ -1,9 +1,15 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\views\Plugin\views\row\RowPluginBase.
+ */
+
 namespace Drupal\views\Plugin\views\row;
 
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\views\Plugin\views\PluginBase;
+use Drupal\views\ViewExecutable;
 use Drupal\views\Views;
 
 /**
@@ -38,12 +44,12 @@ use Drupal\views\Views;
 abstract class RowPluginBase extends PluginBase {
 
   /**
-   * {@inheritdoc}
+   * Overrides Drupal\views\Plugin\Plugin::$usesOptions.
    */
   protected $usesOptions = TRUE;
 
   /**
-   * Does the row plugin support to add fields to its output.
+   * Does the row plugin support to add fields to it's output.
    *
    * @var bool
    */
@@ -54,7 +60,7 @@ abstract class RowPluginBase extends PluginBase {
    *
    * @return bool
    */
-  public function usesFields() {
+  function usesFields() {
     return $this->usesFields;
   }
 
@@ -64,7 +70,7 @@ abstract class RowPluginBase extends PluginBase {
   protected function defineOptions() {
     $options = parent::defineOptions();
     if (isset($this->base_table)) {
-      $options['relationship'] = ['default' => 'none'];
+      $options['relationship'] = array('default' => 'none');
     }
 
     return $options;
@@ -81,7 +87,7 @@ abstract class RowPluginBase extends PluginBase {
       // A whole bunch of code to figure out what relationships are valid for
       // this item.
       $relationships = $executable->display_handler->getOption('relationships');
-      $relationship_options = [];
+      $relationship_options = array();
 
       foreach ($relationships as $relationship) {
         $relationship_handler = Views::handlerManager('relationship')->getHandler($relationship);
@@ -96,25 +102,25 @@ abstract class RowPluginBase extends PluginBase {
       }
 
       if (!empty($relationship_options)) {
-        $relationship_options = array_merge(['none' => $this->t('Do not use a relationship')], $relationship_options);
+        $relationship_options = array_merge(array('none' => $this->t('Do not use a relationship')), $relationship_options);
         $rel = empty($this->options['relationship']) ? 'none' : $this->options['relationship'];
         if (empty($relationship_options[$rel])) {
           // Pick the first relationship.
           $rel = key($relationship_options);
         }
 
-        $form['relationship'] = [
+        $form['relationship'] = array(
           '#type' => 'select',
           '#title' => $this->t('Relationship'),
           '#options' => $relationship_options,
           '#default_value' => $rel,
-        ];
+        );
       }
       else {
-        $form['relationship'] = [
+        $form['relationship'] = array(
           '#type' => 'value',
           '#value' => 'none',
-        ];
+        );
       }
     }
   }
@@ -122,13 +128,13 @@ abstract class RowPluginBase extends PluginBase {
   /**
    * Validate the options form.
    */
-  public function validateOptionsForm(&$form, FormStateInterface $form_state) {}
+  public function validateOptionsForm(&$form, FormStateInterface $form_state) { }
 
   /**
    * Perform any necessary changes to the form values prior to storage.
    * There is no need for this function to actually store the data.
    */
-  public function submitOptionsForm(&$form, FormStateInterface $form_state) {}
+  public function submitOptionsForm(&$form, FormStateInterface $form_state) { }
 
   /**
    * {@inheritdoc}
@@ -151,7 +157,7 @@ abstract class RowPluginBase extends PluginBase {
    * @param $result
    *   The full array of results from the query.
    */
-  public function preRender($result) {}
+  public function preRender($result) { }
 
   /**
    * Render a row object. This usually passes through to a theme template
@@ -164,13 +170,13 @@ abstract class RowPluginBase extends PluginBase {
    *   The rendered output of a single row, used by the style plugin.
    */
   public function render($row) {
-    return [
+    return array(
       '#theme' => $this->themeFunctions(),
       '#view' => $this->view,
       '#options' => $this->options,
       '#row' => $row,
       '#field_alias' => isset($this->field_alias) ? $this->field_alias : '',
-    ];
+    );
   }
 
 }

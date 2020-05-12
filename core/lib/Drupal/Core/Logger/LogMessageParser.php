@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Logger\LogMessageParser.
+ */
+
 namespace Drupal\Core\Logger;
 
 /**
@@ -11,12 +16,12 @@ class LogMessageParser implements LogMessageParserInterface {
    * {@inheritdoc}
    */
   public function parseMessagePlaceholders(&$message, array &$context) {
-    $variables = [];
+    $variables = array();
     $has_psr3 = FALSE;
     if (($start = strpos($message, '{')) !== FALSE && strpos($message, '}') > $start) {
       $has_psr3 = TRUE;
       // Transform PSR3 style messages containing placeholders to
-      // \Drupal\Component\Render\FormattableMarkup style.
+      // \Drupal\Component\Utility\SafeMarkup::format() style.
       $message = preg_replace('/\{(.*)\}/U', '@$1', $message);
     }
     foreach ($context as $key => $variable) {
@@ -30,7 +35,7 @@ class LogMessageParser implements LogMessageParserInterface {
         }
       }
       if (!empty($key) && ($key[0] === '@' || $key[0] === '%' || $key[0] === '!')) {
-        // The key is now in \Drupal\Component\Render\FormattableMarkup style.
+        // The key is now in \Drupal\Component\Utility\SafeMarkup::format() style.
         $variables[$key] = $variable;
       }
     }

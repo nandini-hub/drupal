@@ -11,6 +11,7 @@ description: ''
 tag: ''
 base_table: node_field_data
 base_field: nid
+core: 8.x
 display:
   default:
     display_plugin: default
@@ -23,7 +24,7 @@ display:
         options:
           perm: 'access content'
       cache:
-        type: tag
+        type: none
         options: {  }
       query:
         type: views_query
@@ -165,7 +166,7 @@ display:
           type: language
       filters:
         status:
-          value: '1'
+          value: true
           table: node_field_data
           field: status
           id: status
@@ -195,7 +196,6 @@ display:
           value:
             fr: fr
             es: es
-            und: und
           group: 1
           exposed: false
           expose:

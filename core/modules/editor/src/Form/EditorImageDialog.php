@@ -1,51 +1,25 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\editor\Form\EditorImageDialog.
+ */
+
 namespace Drupal\editor\Form;
 
 use Drupal\Component\Utility\Bytes;
-use Drupal\Component\Utility\Environment;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
-use Drupal\editor\Entity\Editor;
+use Drupal\filter\Entity\FilterFormat;
 use Drupal\Core\Ajax\AjaxResponse;
 use Drupal\Core\Ajax\HtmlCommand;
 use Drupal\editor\Ajax\EditorDialogSave;
 use Drupal\Core\Ajax\CloseModalDialogCommand;
-use Symfony\Component\DependencyInjection\ContainerInterface;
-use Drupal\Core\Entity\EntityStorageInterface;
 
 /**
  * Provides an image dialog for text editors.
- *
- * @internal
  */
 class EditorImageDialog extends FormBase {
-
-  /**
-   * The file storage service.
-   *
-   * @var \Drupal\Core\Entity\EntityStorageInterface
-   */
-  protected $fileStorage;
-
-  /**
-   * Constructs a form object for image dialog.
-   *
-   * @param \Drupal\Core\Entity\EntityStorageInterface $file_storage
-   *   The file storage service.
-   */
-  public function __construct(EntityStorageInterface $file_storage) {
-    $this->fileStorage = $file_storage;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public static function create(ContainerInterface $container) {
-    return new static(
-      $container->get('entity_type.manager')->getStorage('file')
-    );
-  }
 
   /**
    * {@inheritdoc}
@@ -57,26 +31,16 @@ class EditorImageDialog extends FormBase {
   /**
    * {@inheritdoc}
    *
-   * @param \Drupal\editor\Entity\Editor $editor
-   *   The text editor to which this dialog corresponds.
+   * @param \Drupal\filter\Entity\FilterFormat $filter_format
+   *   The filter format for which this dialog corresponds.
    */
-  public function buildForm(array $form, FormStateInterface $form_state, Editor $editor = NULL) {
-    // This form is special, in that the default values do not come from the
-    // server side, but from the client side, from a text editor. We must cache
-    // this data in form state, because when the form is rebuilt, we will be
-    // receiving values from the form, instead of the values from the text
-    // editor. If we don't cache it, this data will be lost.
-    if (isset($form_state->getUserInput()['editor_object'])) {
-      // By convention, the data that the text editor sends to any dialog is in
-      // the 'editor_object' key. And the image dialog for text editors expects
-      // that data to be the attributes for an <img> element.
-      $image_element = $form_state->getUserInput()['editor_object'];
+  public function buildForm(array $form, FormStateInterface $form_state, FilterFormat $filter_format = NULL) {
+    // The default values are set directly from \Drupal::request()->request,
+    // provided by the editor plugin opening the dialog.
+    if (!$image_element = $form_state->get('image_element')) {
+      $user_input = $form_state->getUserInput();
+      $image_element = isset($user_input['editor_object']) ? $user_input['editor_object'] : [];
       $form_state->set('image_element', $image_element);
-      $form_state->setCached(TRUE);
-    }
-    else {
-      // Retrieve the image element's attributes from form state.
-      $image_element = $form_state->get('image_element') ?: [];
     }
 
     $form['#tree'] = TRUE;
@@ -84,38 +48,41 @@ class EditorImageDialog extends FormBase {
     $form['#prefix'] = '<div id="editor-image-dialog-form">';
     $form['#suffix'] = '</div>';
 
+    $editor = editor_load($filter_format->id());
+
     // Construct strings to use in the upload validators.
     $image_upload = $editor->getImageUploadSettings();
-    if (!empty($image_upload['max_dimensions']['width']) || !empty($image_upload['max_dimensions']['height'])) {
-      $max_dimensions = $image_upload['max_dimensions']['width'] . 'x' . $image_upload['max_dimensions']['height'];
+    if (!empty($image_upload['dimensions'])) {
+      $max_dimensions = $image_upload['dimensions']['max_width'] . '×' . $image_upload['dimensions']['max_height'];
     }
     else {
       $max_dimensions = 0;
     }
-    $max_filesize = min(Bytes::toInt($image_upload['max_size']), Environment::getUploadMaxSize());
-    $existing_file = isset($image_element['data-entity-uuid']) ? \Drupal::service('entity.repository')->loadEntityByUuid('file', $image_element['data-entity-uuid']) : NULL;
+    $max_filesize = min(Bytes::toInt($image_upload['max_size']), file_upload_max_size());
+
+    $existing_file = isset($image_element['data-entity-uuid']) ? \Drupal::entityManager()->loadEntityByUuid('file', $image_element['data-entity-uuid']) : NULL;
     $fid = $existing_file ? $existing_file->id() : NULL;
 
-    $form['fid'] = [
+    $form['fid'] = array(
       '#title' => $this->t('Image'),
       '#type' => 'managed_file',
       '#upload_location' => $image_upload['scheme'] . '://' . $image_upload['directory'],
-      '#default_value' => $fid ? [$fid] : NULL,
-      '#upload_validators' => [
-        'file_validate_extensions' => ['gif png jpg jpeg'],
-        'file_validate_size' => [$max_filesize],
-        'file_validate_image_resolution' => [$max_dimensions],
-      ],
+      '#default_value' => $fid ? array($fid) : NULL,
+      '#upload_validators' => array(
+        'file_validate_extensions' => array('gif png jpg jpeg'),
+        'file_validate_size' => array($max_filesize),
+        'file_validate_image_resolution' => array($max_dimensions),
+      ),
       '#required' => TRUE,
-    ];
+    );
 
-    $form['attributes']['src'] = [
+    $form['attributes']['src'] = array(
       '#title' => $this->t('URL'),
       '#type' => 'textfield',
       '#default_value' => isset($image_element['src']) ? $image_element['src'] : '',
       '#maxlength' => 2048,
       '#required' => TRUE,
-    ];
+    );
 
     // If the editor has image uploads enabled, show a managed_file form item,
     // otherwise show a (file URL) text form item.
@@ -139,59 +106,94 @@ class EditorImageDialog extends FormBase {
     if ($alt === '' && !empty($image_element['src'])) {
       $alt = '""';
     }
-    $form['attributes']['alt'] = [
+    $form['attributes']['alt'] = array(
       '#title' => $this->t('Alternative text'),
-      '#description' => $this->t('Short description of the image used by screen readers and displayed when the image is not loaded. This is important for accessibility.'),
+      '#placeholder' => $this->t('Short description for the visually impaired'),
       '#type' => 'textfield',
       '#required' => TRUE,
       '#required_error' => $this->t('Alternative text is required.<br />(Only in rare cases should this be left empty. To create empty alternative text, enter <code>""</code> — two double quotes without any content).'),
       '#default_value' => $alt,
       '#maxlength' => 2048,
-    ];
+    );
+    $form['dimensions'] = array(
+      '#type' => 'fieldset',
+      '#title' => $this->t('Image size'),
+      '#attributes' => array('class' => array(
+        'container-inline',
+        'fieldgroup',
+        'form-composite',
+      )),
+    );
+    $form['dimensions']['width'] = array(
+      '#title' => $this->t('Width'),
+      '#title_display' => 'invisible',
+      '#type' => 'number',
+      '#default_value' => isset($image_element['width']) ? $image_element['width'] : '',
+      '#size' => 8,
+      '#maxlength' => 8,
+      '#min' => 1,
+      '#max' => 99999,
+      '#placeholder' => $this->t('width'),
+      '#field_suffix' => ' × ',
+      '#parents' => array('attributes', 'width'),
+    );
+    $form['dimensions']['height'] = array(
+      '#title' => $this->t('Height'),
+      '#title_display' => 'invisible',
+      '#type' => 'number',
+      '#default_value' => isset($image_element['height']) ? $image_element['height'] : '',
+      '#size' => 8,
+      '#maxlength' => 8,
+      '#min' => 1,
+      '#max' => 99999,
+      '#placeholder' => $this->t('height'),
+      '#field_suffix' => $this->t('pixels'),
+      '#parents' => array('attributes', 'height'),
+    );
 
     // When Drupal core's filter_align is being used, the text editor may
     // offer the ability to change the alignment.
-    if (isset($image_element['data-align']) && $editor->getFilterFormat()->filters('filter_align')->status) {
-      $form['align'] = [
+    if (isset($image_element['data-align']) && $filter_format->filters('filter_align')->status) {
+      $form['align'] = array(
         '#title' => $this->t('Align'),
         '#type' => 'radios',
-        '#options' => [
+        '#options' => array(
           'none' => $this->t('None'),
           'left' => $this->t('Left'),
           'center' => $this->t('Center'),
           'right' => $this->t('Right'),
-        ],
+        ),
         '#default_value' => $image_element['data-align'] === '' ? 'none' : $image_element['data-align'],
-        '#wrapper_attributes' => ['class' => ['container-inline']],
-        '#attributes' => ['class' => ['container-inline']],
-        '#parents' => ['attributes', 'data-align'],
-      ];
+        '#wrapper_attributes' => array('class' => array('container-inline')),
+        '#attributes' => array('class' => array('container-inline')),
+        '#parents' => array('attributes', 'data-align'),
+      );
     }
 
     // When Drupal core's filter_caption is being used, the text editor may
     // offer the ability to in-place edit the image's caption: show a toggle.
-    if (isset($image_element['hasCaption']) && $editor->getFilterFormat()->filters('filter_caption')->status) {
-      $form['caption'] = [
+    if (isset($image_element['hasCaption']) && $filter_format->filters('filter_caption')->status) {
+      $form['caption'] = array(
         '#title' => $this->t('Caption'),
         '#type' => 'checkbox',
         '#default_value' => $image_element['hasCaption'] === 'true',
-        '#parents' => ['attributes', 'hasCaption'],
-      ];
+        '#parents' => array('attributes', 'hasCaption'),
+      );
     }
 
-    $form['actions'] = [
+    $form['actions'] = array(
       '#type' => 'actions',
-    ];
-    $form['actions']['save_modal'] = [
+    );
+    $form['actions']['save_modal'] = array(
       '#type' => 'submit',
       '#value' => $this->t('Save'),
       // No regular submit-handler. This form only works via JavaScript.
-      '#submit' => [],
-      '#ajax' => [
+      '#submit' => array(),
+      '#ajax' => array(
         'callback' => '::submitForm',
         'event' => 'click',
-      ],
-    ];
+      ),
+    );
 
     return $form;
   }
@@ -204,20 +206,22 @@ class EditorImageDialog extends FormBase {
 
     // Convert any uploaded files from the FID values to data-entity-uuid
     // attributes and set data-entity-type to 'file'.
-    $fid = $form_state->getValue(['fid', 0]);
+    $fid = $form_state->getValue(array('fid', 0));
     if (!empty($fid)) {
-      /** @var \Drupal\file\FileInterface $file */
-      $file = $this->fileStorage->load($fid);
-      $file_url = $file->createFileUrl();
-      $form_state->setValue(['attributes', 'src'], $file_url);
-      $form_state->setValue(['attributes', 'data-entity-uuid'], $file->uuid());
-      $form_state->setValue(['attributes', 'data-entity-type'], 'file');
+      $file = file_load($fid);
+      $file_url = file_create_url($file->getFileUri());
+      // Transform absolute image URLs to relative image URLs: prevent problems
+      // on multisite set-ups and prevent mixed content errors.
+      $file_url = file_url_transform_relative($file_url);
+      $form_state->setValue(array('attributes', 'src'), $file_url);
+      $form_state->setValue(array('attributes', 'data-entity-uuid'), $file->uuid());
+      $form_state->setValue(array('attributes', 'data-entity-type'), 'file');
     }
 
     // When the alt attribute is set to two double quotes, transform it to the
     // empty string: two double quotes signify "empty alt attribute". See above.
-    if (trim($form_state->getValue(['attributes', 'alt'])) === '""') {
-      $form_state->setValue(['attributes', 'alt'], '');
+    if (trim($form_state->getValue(array('attributes', 'alt'))) === '""') {
+      $form_state->setValue(array('attributes', 'alt'), '');
     }
 
     if ($form_state->getErrors()) {

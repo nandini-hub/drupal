@@ -2,38 +2,47 @@
 /**
  * @file
  * Default theme implementation for the status report.
-  *
-  * Available variables:
-  * - grouped_requirements: Contains grouped requirements.
-  *   Each group contains:
-  *   - title: The title of the group.
-  *   - type: The severity of the group.
-  *   - items: The requirement instances.
-  *     Each requirement item contains:
-  *     - title: The title of the requirement.
-  *     - value: (optional) The requirement's status.
-  *     - description: (optional) The requirement's description.
-  *     - severity_title: The title of the severity.
-  *     - severity_status: Indicates the severity status.
-  * - requirements: Ungrouped requirements
-  *
-  * @ingroup themeable
-  */
- #}
-{% for group in grouped_requirements %}
-  <h3 id="{{ group.type }}">{{ group.title }}</h3>
-  {% for requirement in group.items %}
-    <details>
-      <summary role="button">
-        {% if requirement.severity_title  %}
-          <span class="visually-hidden">{{ requirement.severity_title }}</span>
-        {% endif %}
-        {{ requirement.title }}
-      </summary>
-      {{ requirement.value }}
-      {% if requirement.description %}
-        <div>{{ requirement.description }}</div>
-      {% endif %}
-    </details>
+ *
+ * Available variables:
+ * - requirements: Contains multiple requirement instances.
+ *   Each requirement contains:
+ *   - title: The title of the requirement.
+ *   - value: (optional) The requirement's status.
+ *   - description: (optional) The requirement's description.
+ *   - severity_title: The title of the severity.
+ *   - severity_status: Indicates the severity status.
+ *
+ * @see template_preprocess_status_report()
+ *
+ * @ingroup themeable
+ */
+#}
+<table class="system-status-report">
+  <thead>
+    <tr class="visually-hidden">
+      <th>{{ 'Status'|t }}</th><th>{{ 'Component'|t }}</th><th>{{ 'Details'|t }}</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for requirement in requirements %}
+    {% if requirement.severity_status in ['warning', 'error'] %}
+      <tr class="system-status-report__entry color-{{ requirement.severity_status }}">
+    {% else %}
+      <tr class="system-status-report__entry">
+    {% endif %}
+        <td class="system-status-report__status-icon system-status-report__status-icon--{{ requirement.severity_status }}">
+          <div title="{{ requirement.severity_title }}">
+            <span class="visually-hidden">{{ requirement.severity_title }}</span>
+          </div>
+        </td>
+        <td class="system-status-report__status-title">{{ requirement.title }}</td>
+        <td>
+          {{ requirement.value }}
+          {% if requirement.description %}
+            <div class="description">{{ requirement.description }}</div>
+          {% endif %}
+        </td>
+      </tr>
   {% endfor %}
-{% endfor %}
+  </tbody>
+</table>

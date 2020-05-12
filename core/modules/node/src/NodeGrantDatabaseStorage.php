@@ -1,21 +1,27 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\node\NodeGrantDatabaseStorage.
+ */
+
 namespace Drupal\node;
 
 use Drupal\Core\Access\AccessResult;
 use Drupal\Core\Database\Connection;
 use Drupal\Core\Database\Query\SelectInterface;
 use Drupal\Core\Database\Query\Condition;
+use Drupal\Core\Entity\ContentEntityBase;
 use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\Core\Language\LanguageManagerInterface;
 use Drupal\Core\Session\AccountInterface;
+use Drupal\user\Entity\User;
+use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
- * Defines a storage handler class that handles the node grants system.
+ * Defines a controller class that handles the node grants system.
  *
  * This is used to build node query access.
- *
- * @ingroup node_access
  */
 class NodeGrantDatabaseStorage implements NodeGrantDatabaseStorageInterface {
 
@@ -59,19 +65,14 @@ class NodeGrantDatabaseStorage implements NodeGrantDatabaseStorageInterface {
   /**
    * {@inheritdoc}
    */
-  public function access(NodeInterface $node, $operation, AccountInterface $account) {
-    // Grants only support these operations.
-    if (!in_array($operation, ['view', 'update', 'delete'])) {
-      return AccessResult::neutral();
-    }
-
+  public function access(NodeInterface $node, $operation, $langcode, AccountInterface $account) {
     // If no module implements the hook or the node does not have an id there is
     // no point in querying the database for access grants.
     if (!$this->moduleHandler->getImplementations('node_grants') || !$node->id()) {
       // Return the equivalent of the default grant, defined by
       // self::writeDefault().
       if ($operation === 'view') {
-        return AccessResult::allowedIf($node->isPublished())->addCacheableDependency($node);
+        return AccessResult::allowedIf($node->getTranslation($langcode)->isPublished())->cacheUntilEntityChanges($node);
       }
       else {
         return AccessResult::neutral();
@@ -86,7 +87,7 @@ class NodeGrantDatabaseStorage implements NodeGrantDatabaseStorageInterface {
     // Check for grants for this node and the correct langcode.
     $nids = $query->andConditionGroup()
       ->condition('nid', $node->id())
-      ->condition('langcode', $node->language()->getId());
+      ->condition('langcode', $langcode);
     // If the node is published, also take the default grant into account. The
     // default is saved with a node ID of 0.
     $status = $node->isPublished();
@@ -138,7 +139,7 @@ class NodeGrantDatabaseStorage implements NodeGrantDatabaseStorageInterface {
 
     $grants = static::buildGrantsQueryCondition(node_access_grants('view', $account));
 
-    if (count($grants) > 0) {
+    if (count($grants) > 0 ) {
       $query->condition($grants);
     }
     return $query->execute()->fetchField();
@@ -156,27 +157,25 @@ class NodeGrantDatabaseStorage implements NodeGrantDatabaseStorageInterface {
     // more than once in the query, and could be aliased. Join each one to
     // the node_access table.
     $grants = node_access_grants($op, $account);
-    // If any grant exists for the specified user, then user has access to the
-    // node for the specified operation.
-    $grant_conditions = static::buildGrantsQueryCondition($grants);
-    $grants_exist = count($grant_conditions->conditions()) > 0;
-
-    $is_multilingual = \Drupal::languageManager()->isMultilingual();
     foreach ($tables as $nalias => $tableinfo) {
       $table = $tableinfo['table'];
       if (!($table instanceof SelectInterface) && $table == $base_table) {
         // Set the subquery.
         $subquery = $this->database->select('node_access', 'na')
-          ->fields('na', ['nid']);
+          ->fields('na', array('nid'));
 
-        // Attach conditions to the sub-query for nodes.
-        if ($grants_exist) {
+        // If any grant exists for the specified user, then user has access to the
+        // node for the specified operation.
+        $grant_conditions = static::buildGrantsQueryCondition($grants);
+
+        // Attach conditions to the subquery for nodes.
+        if (count($grant_conditions->conditions())) {
           $subquery->condition($grant_conditions);
         }
         $subquery->condition('na.grant_' . $op, 1, '>=');
 
         // Add langcode-based filtering if this is a multilingual site.
-        if ($is_multilingual) {
+        if (\Drupal::languageManager()->isMultilingual()) {
           // If no specific langcode to check for is given, use the grant entry
           // which is set as a fallback.
           // If a specific langcode is given, use the grant entry for it.
@@ -204,22 +203,21 @@ class NodeGrantDatabaseStorage implements NodeGrantDatabaseStorageInterface {
     if ($delete) {
       $query = $this->database->delete('node_access')->condition('nid', $node->id());
       if ($realm) {
-        $query->condition('realm', [$realm, 'all'], 'IN');
+        $query->condition('realm', array($realm, 'all'), 'IN');
       }
       $query->execute();
     }
     // Only perform work when node_access modules are active.
     if (!empty($grants) && count($this->moduleHandler->getImplementations('node_grants'))) {
-      $query = $this->database->insert('node_access')->fields(['nid', 'langcode', 'fallback', 'realm', 'gid', 'grant_view', 'grant_update', 'grant_delete']);
+      $query = $this->database->insert('node_access')->fields(array('nid', 'langcode', 'fallback', 'realm', 'gid', 'grant_view', 'grant_update', 'grant_delete'));
       // If we have defined a granted langcode, use it. But if not, add a grant
       // for every language this node is translated to.
-      $fallback_langcode = $node->getUntranslated()->language()->getId();
       foreach ($grants as $grant) {
         if ($realm && $realm != $grant['realm']) {
           continue;
         }
         if (isset($grant['langcode'])) {
-          $grant_languages = [$grant['langcode'] => $this->languageManager->getLanguage($grant['langcode'])];
+          $grant_languages = array($grant['langcode'] => $this->languageManager->getLanguage($grant['langcode']));
         }
         else {
           $grant_languages = $node->getTranslationLanguages(TRUE);
@@ -230,7 +228,7 @@ class NodeGrantDatabaseStorage implements NodeGrantDatabaseStorageInterface {
             $grant['nid'] = $node->id();
             $grant['langcode'] = $grant_langcode;
             // The record with the original langcode is used as the fallback.
-            if ($grant['langcode'] == $fallback_langcode) {
+            if ($grant['langcode'] == $node->language()->getId()) {
               $grant['fallback'] = 1;
             }
             else {
@@ -256,14 +254,14 @@ class NodeGrantDatabaseStorage implements NodeGrantDatabaseStorageInterface {
    */
   public function writeDefault() {
     $this->database->insert('node_access')
-      ->fields([
+      ->fields(array(
           'nid' => 0,
           'realm' => 'all',
           'gid' => 0,
           'grant_view' => 1,
           'grant_update' => 0,
           'grant_delete' => 0,
-        ])
+        ))
       ->execute();
   }
 

@@ -5,9 +5,13 @@
  * Lists available colors and color schemes for the Bartik theme.
  */
 
-$info = [
+// Put the logo path into JavaScript for the live preview.
+$js_attached['#attached']['drupalSettings']['color']['logo'] = theme_get_setting('logo.url', 'bartik');
+drupal_process_attached($js_attached);
+
+$info = array(
   // Available colors and color labels used in theme.
-  'fields' => [
+  'fields' => array(
     'top' => t('Header background top'),
     'bottom' => t('Header background bottom'),
     'bg' => t('Main background'),
@@ -17,12 +21,12 @@ $info = [
     'titleslogan' => t('Title and slogan'),
     'text' => t('Text color'),
     'link' => t('Link color'),
-  ],
+  ),
   // Pre-defined color schemes.
-  'schemes' => [
-    'default' => [
+  'schemes' => array(
+    'default' => array(
       'title' => t('Blue Lagoon (default)'),
-      'colors' => [
+      'colors' => array(
         'top' => '#055a8e',
         'bottom' => '#1d84c3',
         'bg' => '#ffffff',
@@ -31,12 +35,12 @@ $info = [
         'footer' => '#292929',
         'titleslogan' => '#fffeff',
         'text' => '#3b3b3b',
-        'link' => '#0071b3',
-      ],
-    ],
-    'firehouse' => [
+        'link' => '#0071B3',
+      ),
+    ),
+    'firehouse' => array(
       'title' => t('Firehouse'),
-      'colors' => [
+      'colors' => array(
         'top' => '#cd2d2d',
         'bottom' => '#d64e4e',
         'bg' => '#ffffff',
@@ -46,11 +50,11 @@ $info = [
         'titleslogan' => '#fffeff',
         'text' => '#888888',
         'link' => '#d6121f',
-      ],
-    ],
-    'ice' => [
+      ),
+    ),
+    'ice' => array(
       'title' => t('Ice'),
-      'colors' => [
+      'colors' => array(
         'top' => '#d0d0d0',
         'bottom' => '#c2c4c5',
         'bg' => '#ffffff',
@@ -60,11 +64,11 @@ $info = [
         'titleslogan' => '#000000',
         'text' => '#4a4a4a',
         'link' => '#019dbf',
-      ],
-    ],
-    'plum' => [
+      ),
+    ),
+    'plum' => array(
       'title' => t('Plum'),
-      'colors' => [
+      'colors' => array(
         'top' => '#4c1c58',
         'bottom' => '#593662',
         'bg' => '#fffdf7',
@@ -74,11 +78,11 @@ $info = [
         'titleslogan' => '#ffffff',
         'text' => '#301313',
         'link' => '#9d408d',
-      ],
-    ],
-    'slate' => [
+      ),
+    ),
+    'slate' => array(
       'title' => t('Slate'),
-      'colors' => [
+      'colors' => array(
         'top' => '#4a4a4a',
         'bottom' => '#4e4e4e',
         'bg' => '#ffffff',
@@ -88,43 +92,33 @@ $info = [
         'titleslogan' => '#ffffff',
         'text' => '#3b3b3b',
         'link' => '#0073b6',
-      ],
-    ],
-  ],
+      ),
+    ),
+  ),
 
   // CSS files (excluding @import) to rewrite with new color scheme.
-  'css' => [
+  'css' => array(
     'css/colors.css',
-  ],
+  ),
 
   // Files to copy.
-  'copy' => [
+  'copy' => array(
     'logo.svg',
-  ],
+  ),
 
   // Gradient definitions.
-  'gradients' => [
-    [
+  'gradients' => array(
+    array(
       // (x, y, width, height).
-      'dimension' => [0, 0, 0, 0],
+      'dimension' => array(0, 0, 0, 0),
       // Direction of gradient ('vertical' or 'horizontal').
       'direction' => 'vertical',
       // Keys of colors to use for the gradient.
-      'colors' => ['top', 'bottom'],
-    ],
-  ],
+      'colors' => array('top', 'bottom'),
+    ),
+  ),
 
   // Preview files.
   'preview_library' => 'bartik/color.preview',
   'preview_html' => 'color/preview.html',
-
-  // Attachments.
-  '#attached' => [
-    'drupalSettings' => [
-      'color' => [
-        // Put the logo path into JavaScript for the live preview.
-        'logo' => theme_get_setting('logo.url', 'bartik'),
-      ],
-    ],
-  ],
-];
+);

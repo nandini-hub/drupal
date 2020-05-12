@@ -1,19 +1,24 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\views\Entity\Render\RendererBase.
+ */
+
 namespace Drupal\views\Entity\Render;
 
-use Drupal\Core\Cache\Cache;
-use Drupal\Core\Cache\CacheableDependencyInterface;
 use Drupal\Core\Entity\EntityTypeInterface;
+use Drupal\Core\Language\LanguageInterface;
 use Drupal\Core\Language\LanguageManagerInterface;
+use Drupal\views\Plugin\CacheablePluginInterface;
 use Drupal\views\Plugin\views\query\QueryPluginBase;
 use Drupal\views\ResultRow;
 use Drupal\views\ViewExecutable;
 
 /**
- * Defines a base class for entity renderers.
+ * Defines a base class for entity row renderers.
  */
-abstract class RendererBase implements CacheableDependencyInterface {
+abstract class RendererBase implements CacheablePluginInterface {
 
   /**
    * The view executable wrapping the view storage entity.
@@ -32,7 +37,7 @@ abstract class RendererBase implements CacheableDependencyInterface {
   /**
    * The type of the entity being rendered.
    *
-   * @var \Drupal\Core\Entity\EntityTypeInterface
+   * @var string
    */
   protected $entityType;
 
@@ -41,7 +46,7 @@ abstract class RendererBase implements CacheableDependencyInterface {
    *
    * @var array
    */
-  protected $build;
+  protected $build = array();
 
   /**
    * Constructs a renderer object.
@@ -62,8 +67,8 @@ abstract class RendererBase implements CacheableDependencyInterface {
   /**
    * {@inheritdoc}
    */
-  public function getCacheMaxAge() {
-    return Cache::PERMANENT;
+  public function isCacheable() {
+    return TRUE;
   }
 
   /**
@@ -74,11 +79,15 @@ abstract class RendererBase implements CacheableDependencyInterface {
   }
 
   /**
-   * {@inheritdoc}
+   * Returns the language code associated to the given row.
+   *
+   * @param \Drupal\views\ResultRow $row
+   *   The result row.
+   *
+   * @return string
+   *   A language code.
    */
-  public function getCacheTags() {
-    return [];
-  }
+  abstract public function getLangcode(ResultRow $row);
 
   /**
    * Alters the query if needed.
@@ -88,26 +97,38 @@ abstract class RendererBase implements CacheableDependencyInterface {
    * @param string $relationship
    *   (optional) The relationship, used by a field.
    */
-  abstract public function query(QueryPluginBase $query, $relationship = NULL);
+  public function query(QueryPluginBase $query, $relationship = NULL) {
+  }
 
   /**
-   * Runs before each entity is rendered.
+   * Runs before each row is rendered.
    *
    * @param $result
    *   The full array of results from the query.
    */
   public function preRender(array $result) {
+    $view_builder = $this->view->rowPlugin->entityManager->getViewBuilder($this->entityType->id());
+
+    /** @var \Drupal\views\ResultRow $row */
+    foreach ($result as $row) {
+      $entity = $row->_entity;
+      $entity->view = $this->view;
+      $this->build[$entity->id()] = $view_builder->view($entity, $this->view->rowPlugin->options['view_mode'], $this->getLangcode($row));
+    }
   }
 
   /**
-   * Renders entity data.
+   * Renders a row object.
    *
    * @param \Drupal\views\ResultRow $row
    *   A single row of the query result.
    *
    * @return array
-   *   A renderable array for the entity data contained in the result row.
+   *   The renderable array of a single row.
    */
-  abstract public function render(ResultRow $row);
+  public function render(ResultRow $row) {
+    $entity_id = $row->_entity->id();
+    return $this->build[$entity_id];
+  }
 
 }

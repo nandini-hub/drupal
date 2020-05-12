@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\image\ImageEffectBase.
+ */
+
 namespace Drupal\image;
 
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
@@ -65,7 +70,7 @@ abstract class ImageEffectBase extends PluginBase implements ImageEffectInterfac
   /**
    * {@inheritdoc}
    */
-  public function transformDimensions(array &$dimensions, $uri) {
+  public function transformDimensions(array &$dimensions) {
     // Most image effects will not change the dimensions. This base
     // implementation represents this behavior. Override this method if your
     // image effect does change the dimensions.
@@ -85,14 +90,14 @@ abstract class ImageEffectBase extends PluginBase implements ImageEffectInterfac
    * {@inheritdoc}
    */
   public function getSummary() {
-    return [
+    return array(
       '#markup' => '',
-      '#effect' => [
+      '#effect' => array(
         'id' => $this->pluginDefinition['id'],
         'label' => $this->label(),
         'description' => $this->pluginDefinition['description'],
-      ],
-    ];
+      ),
+    );
   }
 
   /**
@@ -128,23 +133,23 @@ abstract class ImageEffectBase extends PluginBase implements ImageEffectInterfac
    * {@inheritdoc}
    */
   public function getConfiguration() {
-    return [
+    return array(
       'uuid' => $this->getUuid(),
       'id' => $this->getPluginId(),
       'weight' => $this->getWeight(),
       'data' => $this->configuration,
-    ];
+    );
   }
 
   /**
    * {@inheritdoc}
    */
   public function setConfiguration(array $configuration) {
-    $configuration += [
-      'data' => [],
+    $configuration += array(
+      'data' => array(),
       'uuid' => '',
       'weight' => '',
-    ];
+    );
     $this->configuration = $configuration['data'] + $this->defaultConfiguration();
     $this->uuid = $configuration['uuid'];
     $this->weight = $configuration['weight'];
@@ -155,14 +160,14 @@ abstract class ImageEffectBase extends PluginBase implements ImageEffectInterfac
    * {@inheritdoc}
    */
   public function defaultConfiguration() {
-    return [];
+    return array();
   }
 
   /**
    * {@inheritdoc}
    */
   public function calculateDependencies() {
-    return [];
+    return array();
   }
 
 }

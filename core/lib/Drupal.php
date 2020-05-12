@@ -2,13 +2,12 @@
 
 /**
  * @file
- * Contains \Drupal.
+ * Contains Drupal.
  */
 
 use Drupal\Core\DependencyInjection\ContainerNotInitializedException;
-use Drupal\Core\Messenger\LegacyMessenger;
-use Drupal\Core\Url;
 use Symfony\Component\DependencyInjection\ContainerInterface;
+use Drupal\Core\Url;
 
 /**
  * Static Service Container wrapper.
@@ -64,8 +63,8 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
  *   class StuffDoingClass implements StuffDoingInterface {
  *     protected $lockBackend;
  *
- *     public function __construct(LockBackendInterface $lock_backend) {
- *       $this->lockBackend = $lock_backend;
+ *     public function __construct(LockBackendInterface $lockBackend) {
+ *       $this->lockBackend = $lockBackend;
  *     }
  *
  *     public function doStuff() {
@@ -82,7 +81,7 @@ class Drupal {
   /**
    * The current system version.
    */
-  const VERSION = '8.8.6-dev';
+  const VERSION = '8.0.0-beta10';
 
   /**
    * Core API compatibility.
@@ -121,9 +120,9 @@ class Drupal {
   /**
    * Returns the currently active global container.
    *
-   * @return \Symfony\Component\DependencyInjection\ContainerInterface
-   *
    * @throws \Drupal\Core\DependencyInjection\ContainerNotInitializedException
+   *
+   * @return \Symfony\Component\DependencyInjection\ContainerInterface|null
    */
   public static function getContainer() {
     if (static::$container === NULL) {
@@ -141,6 +140,7 @@ class Drupal {
     return static::$container !== NULL;
   }
 
+
   /**
    * Retrieves a service from the container.
    *
@@ -150,7 +150,6 @@ class Drupal {
    *
    * @param string $id
    *   The ID of the service to retrieve.
-   *
    * @return mixed
    *   The specified service.
    */
@@ -179,16 +178,6 @@ class Drupal {
    */
   public static function root() {
     return static::getContainer()->get('app.root');
-  }
-
-  /**
-   * Gets the active install profile.
-   *
-   * @return string|null
-   *   The name of the active install profile.
-   */
-  public static function installProfile() {
-    return static::getContainer()->getParameter('install_profile');
   }
 
   /**
@@ -229,7 +218,7 @@ class Drupal {
   }
 
   /**
-   * Retrieves the request stack.
+   * Retrives the request stack.
    *
    * @return \Symfony\Component\HttpFoundation\RequestStack
    *   The request stack
@@ -251,13 +240,6 @@ class Drupal {
   /**
    * Gets the current active user.
    *
-   * This method will return the \Drupal\Core\Session\AccountProxy object of the
-   * current user. You can use the \Drupal\user\Entity\User::load() method to
-   * load the full user entity object. For example:
-   * @code
-   *   $user = \Drupal\user\Entity\User::load(\Drupal::currentUser()->id());
-   * @endcode
-   *
    * @return \Drupal\Core\Session\AccountProxyInterface
    */
   public static function currentUser() {
@@ -269,26 +251,9 @@ class Drupal {
    *
    * @return \Drupal\Core\Entity\EntityManagerInterface
    *   The entity manager service.
-   *
-   * @deprecated in drupal:8.0.0 and is removed from drupal:9.0.0.
-   *   Use \Drupal::entityTypeManager() instead in most cases. If the needed
-   *   method is not on \Drupal\Core\Entity\EntityTypeManagerInterface, see the
-   *   deprecated \Drupal\Core\Entity\EntityManager to find the
-   *   correct interface or service.
    */
   public static function entityManager() {
-    @trigger_error("\Drupal::entityManager() is deprecated in Drupal 8.0.0 and will be removed before Drupal 9.0.0. Use \Drupal::entityTypeManager() instead in most cases. If the needed method is not on \Drupal\Core\Entity\EntityTypeManagerInterface, see the deprecated \Drupal\Core\Entity\EntityManager to find the correct interface or service. See https://www.drupal.org/node/2549139", E_USER_DEPRECATED);
     return static::getContainer()->get('entity.manager');
-  }
-
-  /**
-   * Retrieves the entity type manager.
-   *
-   * @return \Drupal\Core\Entity\EntityTypeManagerInterface
-   *   The entity type manager.
-   */
-  public static function entityTypeManager() {
-    return static::getContainer()->get('entity_type.manager');
   }
 
   /**
@@ -315,33 +280,6 @@ class Drupal {
    */
   public static function cache($bin = 'default') {
     return static::getContainer()->get('cache.' . $bin);
-  }
-
-  /**
-   * Retrieves the class resolver.
-   *
-   * This is to be used in procedural code such as module files to instantiate
-   * an object of a class that implements
-   * \Drupal\Core\DependencyInjection\ContainerInjectionInterface.
-   *
-   * One common usecase is to provide a class which contains the actual code
-   * of a hook implementation, without having to create a service.
-   *
-   * @param string $class
-   *   (optional) A class name to instantiate.
-   *
-   * @return \Drupal\Core\DependencyInjection\ClassResolverInterface|object
-   *   The class resolver or if $class is provided, a class instance with a
-   *   given class definition.
-   *
-   * @throws \InvalidArgumentException
-   *   If $class does not exist.
-   */
-  public static function classResolver($class = NULL) {
-    if ($class) {
-      return static::getContainer()->get('class_resolver')->getInstanceFromDefinition($class);
-    }
-    return static::getContainer()->get('class_resolver');
   }
 
   /**
@@ -373,14 +311,12 @@ class Drupal {
    *
    * This is the main entry point to the configuration API. Calling
    * @code \Drupal::config('book.admin') @endcode will return a configuration
-   * object the Book module can use to read its administrative settings.
+   * object in which the book module can store its administrative settings.
    *
    * @param string $name
-   *   The name of the configuration object to retrieve, which typically
-   *   corresponds to a configuration file. For
-   *   @code \Drupal::config('book.admin') @endcode, the configuration
-   *   object returned will contain the content of the book.admin
-   *   configuration file.
+   *   The name of the configuration object to retrieve. The name corresponds to
+   *   a configuration file. For @code \Drupal::config('book.admin') @endcode, the config
+   *   object returned will contain the contents of book.admin configuration file.
    *
    * @return \Drupal\Core\Config\ImmutableConfig
    *   An immutable configuration object.
@@ -459,7 +395,7 @@ class Drupal {
   /**
    * Returns the default http client.
    *
-   * @return \GuzzleHttp\Client
+   * @return \GuzzleHttp\ClientInterface
    *   A guzzle http client instance.
    */
   public static function httpClient() {
@@ -470,34 +406,34 @@ class Drupal {
    * Returns the entity query object for this entity type.
    *
    * @param string $entity_type
-   *   The entity type (for example, node) for which the query object should be
+   *   The entity type, e.g. node, for which the query object should be
    *   returned.
    * @param string $conjunction
-   *   (optional) Either 'AND' if all conditions in the query need to apply, or
-   *   'OR' if any of them is sufficient. Defaults to 'AND'.
+   *   AND if all conditions in the query need to apply, OR if any of them is
+   *   enough. Optional, defaults to AND.
    *
    * @return \Drupal\Core\Entity\Query\QueryInterface
    *   The query object that can query the given entity type.
    */
   public static function entityQuery($entity_type, $conjunction = 'AND') {
-    return static::entityTypeManager()->getStorage($entity_type)->getQuery($conjunction);
+    return static::getContainer()->get('entity.query')->get($entity_type, $conjunction);
   }
 
   /**
    * Returns the entity query aggregate object for this entity type.
    *
    * @param string $entity_type
-   *   The entity type (for example, node) for which the query object should be
+   *   The entity type, e.g. node, for which the query object should be
    *   returned.
    * @param string $conjunction
-   *   (optional) Either 'AND' if all conditions in the query need to apply, or
-   *   'OR' if any of them is sufficient. Defaults to 'AND'.
+   *   AND if all conditions in the query need to apply, OR if any of them is
+   *   enough. Optional, defaults to AND.
    *
    * @return \Drupal\Core\Entity\Query\QueryAggregateInterface
    *   The query object that can query the given entity type.
    */
   public static function entityQueryAggregate($entity_type, $conjunction = 'AND') {
-    return static::entityTypeManager()->getStorage($entity_type)->getAggregateQuery($conjunction);
+    return static::getContainer()->get('entity.query')->getAggregate($entity_type, $conjunction);
   }
 
   /**
@@ -523,7 +459,7 @@ class Drupal {
    *
    * Use the typed data manager service for creating typed data objects.
    *
-   * @return \Drupal\Core\TypedData\TypedDataManagerInterface
+   * @return \Drupal\Core\TypedData\TypedDataManager
    *   The typed data manager.
    *
    * @see \Drupal\Core\TypedData\TypedDataManager::create()
@@ -568,27 +504,17 @@ class Drupal {
    *   (optional) An associative array of parameter names and values.
    * @param array $options
    *   (optional) An associative array of additional options.
-   * @param bool $collect_bubbleable_metadata
-   *   (optional) Defaults to FALSE. When TRUE, both the generated URL and its
-   *   associated bubbleable metadata are returned.
    *
-   * @return string|\Drupal\Core\GeneratedUrl
-   *   A string containing a URL to the given path.
-   *   When $collect_bubbleable_metadata is TRUE, a GeneratedUrl object is
-   *   returned, containing the generated URL plus bubbleable metadata.
+   * @return string
+   *   The generated URL for the given route.
    *
    * @see \Drupal\Core\Routing\UrlGeneratorInterface::generateFromRoute()
    * @see \Drupal\Core\Url
    * @see \Drupal\Core\Url::fromRoute()
    * @see \Drupal\Core\Url::fromUri()
-   *
-   * @deprecated in drupal:8.0.0 and is removed from drupal:9.0.0.
-   *   Instead create a \Drupal\Core\Url object directly, for example using
-   *   Url::fromRoute().
    */
-  public static function url($route_name, $route_parameters = [], $options = [], $collect_bubbleable_metadata = FALSE) {
-    @trigger_error('Drupal::url() is deprecated as of Drupal 8.0.x, will be removed before Drupal 9.0.0. Instead create a \Drupal\Core\Url object directly, for example using Url::fromRoute()', E_USER_DEPRECATED);
-    return static::getContainer()->get('url_generator')->generateFromRoute($route_name, $route_parameters, $options, $collect_bubbleable_metadata);
+  public static function url($route_name, $route_parameters = array(), $options = array()) {
+    return static::getContainer()->get('url_generator')->generateFromRoute($route_name, $route_parameters, $options);
   }
 
   /**
@@ -604,26 +530,21 @@ class Drupal {
    * Renders a link with a given link text and Url object.
    *
    * This method is a convenience wrapper for the link generator service's
-   * generate() method.
+   * generate() method. For detailed documentation, see
+   * \Drupal\Core\Routing\LinkGeneratorInterface::generate().
    *
    * @param string $text
    *   The link text for the anchor tag.
    * @param \Drupal\Core\Url $url
    *   The URL object used for the link.
    *
-   * @return \Drupal\Core\GeneratedLink
-   *   A GeneratedLink object containing a link to the given route and
-   *   parameters and bubbleable metadata.
+   * @return string
+   *   An HTML string containing a link to the given route and parameters.
    *
-   * @deprecated in drupal:8.0.0 and is removed from drupal:9.0.0. Use
-   * \Drupal\Core\Link::fromTextAndUrl() instead.
-   *
-   * @see https://www.drupal.org/node/2614344
    * @see \Drupal\Core\Utility\LinkGeneratorInterface::generate()
    * @see \Drupal\Core\Url
    */
   public static function l($text, Url $url) {
-    @trigger_error('\Drupal::l() is deprecated in drupal:8.0.0 and is removed from drupal:9.0.0. Use \Drupal\Core\Link::fromTextAndUrl() instead. See https://www.drupal.org/node/2614344', E_USER_DEPRECATED);
     return static::getContainer()->get('link_generator')->generate($text, $url);
   }
 
@@ -754,38 +675,6 @@ class Drupal {
    */
   public static function destination() {
     return static::getContainer()->get('redirect.destination');
-  }
-
-  /**
-   * Returns the entity definition update manager.
-   *
-   * @return \Drupal\Core\Entity\EntityDefinitionUpdateManagerInterface
-   *   The entity definition update manager.
-   */
-  public static function entityDefinitionUpdateManager() {
-    return static::getContainer()->get('entity.definition_update_manager');
-  }
-
-  /**
-   * Returns the time service.
-   *
-   * @return \Drupal\Component\Datetime\TimeInterface
-   *   The time service.
-   */
-  public static function time() {
-    return static::getContainer()->get('datetime.time');
-  }
-
-  /**
-   * Returns the messenger.
-   *
-   * @return \Drupal\Core\Messenger\MessengerInterface
-   *   The messenger.
-   */
-  public static function messenger() {
-    // @todo Replace with service once LegacyMessenger is removed in 9.0.0.
-    // @see https://www.drupal.org/node/2928994
-    return new LegacyMessenger();
   }
 
 }

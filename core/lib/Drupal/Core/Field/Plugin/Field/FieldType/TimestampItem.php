@@ -1,10 +1,14 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Entity\Plugin\Field\FieldType\TimestampItem.
+ */
+
 namespace Drupal\Core\Field\Plugin\Field\FieldType;
 
-use Drupal\Core\Field\FieldDefinitionInterface;
-use Drupal\Core\Field\FieldItemBase;
 use Drupal\Core\Field\FieldStorageDefinitionInterface;
+use Drupal\Core\Field\FieldItemBase;
 use Drupal\Core\TypedData\DataDefinition;
 
 /**
@@ -14,7 +18,7 @@ use Drupal\Core\TypedData\DataDefinition;
  *   id = "timestamp",
  *   label = @Translation("Timestamp"),
  *   description = @Translation("An entity field containing a UNIX timestamp value."),
- *   default_widget = "datetime_timestamp",
+ *   no_ui = TRUE,
  *   default_formatter = "timestamp",
  *   constraints = {
  *     "ComplexData" = {
@@ -26,6 +30,7 @@ use Drupal\Core\TypedData\DataDefinition;
  *       }
  *     }
  *   }
+ * )
  * )
  */
 class TimestampItem extends FieldItemBase {
@@ -44,23 +49,13 @@ class TimestampItem extends FieldItemBase {
    * {@inheritdoc}
    */
   public static function schema(FieldStorageDefinitionInterface $field_definition) {
-    return [
-      'columns' => [
-        'value' => [
+    return array(
+      'columns' => array(
+        'value' => array(
           'type' => 'int',
-        ],
-      ],
-    ];
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public static function generateSampleValue(FieldDefinitionInterface $field_definition) {
-    // Pick a random timestamp in the past year.
-    $timestamp = \Drupal::time()->getRequestTime() - mt_rand(0, 86400 * 365);
-    $values['value'] = $timestamp;
-    return $values;
+        ),
+      ),
+    );
   }
 
 }

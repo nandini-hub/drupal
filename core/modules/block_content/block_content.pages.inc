@@ -5,8 +5,11 @@
  * Provides page callbacks for custom blocks.
  */
 
-use Drupal\Core\Link;
+use Drupal\Component\Utility\Xss;
 use Drupal\Core\Url;
+use Drupal\block_content\Entity\BlockContentType;
+use Drupal\block_content\Entity\BlockContent;
+use Symfony\Component\HttpFoundation\RedirectResponse;
 
 /**
  * Prepares variables for a custom block type creation list templates.
@@ -20,18 +23,16 @@ use Drupal\Core\Url;
  * @see block_content_add_page()
  */
 function template_preprocess_block_content_add_list(&$variables) {
-  $variables['types'] = [];
+  $variables['types'] = array();
   $query = \Drupal::request()->query->all();
   foreach ($variables['content'] as $type) {
-    $variables['types'][$type->id()] = [
-      'link' => Link::fromTextAndUrl($type->label(), Url::fromRoute('block_content.add_form', ['block_content_type' => $type->id()], ['query' => $query]))->toString(),
-      'description' => [
-        '#markup' => $type->getDescription(),
-      ],
+    $variables['types'][$type->id()] = array(
+      'link' => \Drupal::l($type->label(), new Url('block_content.add_form', array('block_content_type' => $type->id()), array('query' => $query))),
+      'description' => Xss::filterAdmin($type->getDescription()),
       'title' => $type->label(),
-      'localized_options' => [
+      'localized_options' => array(
         'query' => $query,
-      ],
-    ];
+      ),
+    );
   }
 }

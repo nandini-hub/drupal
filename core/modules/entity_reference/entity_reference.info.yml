@@ -1,7 +1,14 @@
 name: 'Entity Reference'
 type: module
-description: 'Deprecated. All the functionality has been moved to Core.'
+description: 'Provides a field that can reference other entities.'
 package: Field types
-version: VERSION
-core: 8.x
-hidden: true
+# version: VERSION
+# core: 8.x
+dependencies:
+  - field
+
+# Information added by Drupal.org packaging script on 2015-04-29
+version: '8.0.0-beta10'
+core: '8.x'
+project: 'drupal'
+datestamp: 1430314871

@@ -1,6 +1,12 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\Core\Database\StatementEmpty
+ */
+
 namespace Drupal\Core\Database;
+
 
 /**
  * Empty implementation of a database statement.
@@ -22,23 +28,14 @@ class StatementEmpty implements \Iterator, StatementInterface {
    */
   public $allowRowCount = FALSE;
 
-  /**
-   * {@inheritdoc}
-   */
-  public function execute($args = [], $options = []) {
+  public function execute($args = array(), $options = array()) {
     return FALSE;
   }
 
-  /**
-   * {@inheritdoc}
-   */
   public function getQueryString() {
     return '';
   }
 
-  /**
-   * {@inheritdoc}
-   */
   public function rowCount() {
     if ($this->allowRowCount) {
       return 0;
@@ -46,102 +43,61 @@ class StatementEmpty implements \Iterator, StatementInterface {
     throw new RowCountException();
   }
 
-  /**
-   * {@inheritdoc}
-   */
-  public function setFetchMode($mode, $a1 = NULL, $a2 = []) {
+  public function setFetchMode($mode, $a1 = NULL, $a2 = array()) {
     return;
   }
 
-  /**
-   * {@inheritdoc}
-   */
   public function fetch($mode = NULL, $cursor_orientation = NULL, $cursor_offset = NULL) {
     return NULL;
   }
 
-  /**
-   * {@inheritdoc}
-   */
   public function fetchField($index = 0) {
     return NULL;
   }
 
-  /**
-   * {@inheritdoc}
-   */
   public function fetchObject() {
     return NULL;
   }
 
-  /**
-   * {@inheritdoc}
-   */
   public function fetchAssoc() {
     return NULL;
   }
 
-  /**
-   * {@inheritdoc}
-   */
-  public function fetchAll($mode = NULL, $column_index = NULL, $constructor_arguments = NULL) {
-    return [];
+  function fetchAll($mode = NULL, $column_index = NULL, array $constructor_arguments = array()) {
+    return array();
   }
 
-  /**
-   * {@inheritdoc}
-   */
   public function fetchCol($index = 0) {
-    return [];
+    return array();
   }
 
-  /**
-   * {@inheritdoc}
-   */
   public function fetchAllKeyed($key_index = 0, $value_index = 1) {
-    return [];
+    return array();
   }
 
-  /**
-   * {@inheritdoc}
-   */
   public function fetchAllAssoc($key, $fetch = NULL) {
-    return [];
+    return array();
   }
 
-  /**
-   * {@inheritdoc}
-   */
+  /* Implementations of Iterator. */
+
   public function current() {
     return NULL;
   }
 
-  /**
-   * {@inheritdoc}
-   */
   public function key() {
     return NULL;
   }
 
-  /**
-   * {@inheritdoc}
-   */
   public function rewind() {
     // Nothing to do: our DatabaseStatement can't be rewound.
   }
 
-  /**
-   * {@inheritdoc}
-   */
   public function next() {
     // Do nothing, since this is an always-empty implementation.
   }
 
-  /**
-   * {@inheritdoc}
-   */
   public function valid() {
     return FALSE;
   }
-
 }

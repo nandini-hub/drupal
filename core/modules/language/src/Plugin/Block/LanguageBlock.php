@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\language\Plugin\Block\LanguageBlock.
+ */
+
 namespace Drupal\language\Plugin\Block;
 
 use Drupal\Core\Access\AccessResult;
@@ -57,6 +62,7 @@ class LanguageBlock extends BlockBase implements ContainerFactoryPluginInterface
     $this->pathMatcher = $path_matcher;
   }
 
+
   /**
    * {@inheritdoc}
    */
@@ -70,6 +76,7 @@ class LanguageBlock extends BlockBase implements ContainerFactoryPluginInterface
     );
   }
 
+
   /**
    * {@inheritdoc}
    */
@@ -82,22 +89,22 @@ class LanguageBlock extends BlockBase implements ContainerFactoryPluginInterface
    * {@inheritdoc}
    */
   public function build() {
-    $build = [];
+    $build = array();
     $route_name = $this->pathMatcher->isFrontPage() ? '<front>' : '<current>';
     $type = $this->getDerivativeId();
     $links = $this->languageManager->getLanguageSwitchLinks($type, Url::fromRoute($route_name));
 
     if (isset($links->links)) {
-      $build = [
+      $build = array(
         '#theme' => 'links__language_block',
         '#links' => $links->links,
-        '#attributes' => [
-          'class' => [
+        '#attributes' => array(
+          'class' => array(
             "language-switcher-{$links->method_id}",
-          ],
-        ],
+          ),
+        ),
         '#set_active_class' => TRUE,
-      ];
+      );
     }
     return $build;
   }
@@ -105,7 +112,7 @@ class LanguageBlock extends BlockBase implements ContainerFactoryPluginInterface
   /**
    * {@inheritdoc}
    *
-   * @todo Make cacheable in https://www.drupal.org/node/2232375.
+   * @todo Make cacheable in https://drupal.org/node/2232375.
    */
   public function getCacheMaxAge() {
     return 0;

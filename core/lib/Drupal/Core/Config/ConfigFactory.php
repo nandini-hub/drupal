@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Config\ConfigFactory.
+ */
+
 namespace Drupal\Core\Config;
 
 use Drupal\Component\Utility\NestedArray;
@@ -43,7 +48,7 @@ class ConfigFactory implements ConfigFactoryInterface, EventSubscriberInterface 
    *
    * @var \Drupal\Core\Config\Config[]
    */
-  protected $cache = [];
+  protected $cache = array();
 
   /**
    * The typed config manager.
@@ -57,7 +62,7 @@ class ConfigFactory implements ConfigFactoryInterface, EventSubscriberInterface 
    *
    * @var \Drupal\Core\Config\ConfigFactoryOverrideInterface[]
    */
-  protected $configFactoryOverrides = [];
+  protected $configFactoryOverrides = array();
 
   /**
    * Constructs the Config factory.
@@ -101,31 +106,27 @@ class ConfigFactory implements ConfigFactoryInterface, EventSubscriberInterface 
    *   A configuration object.
    */
   protected function doGet($name, $immutable = TRUE) {
-    if ($config = $this->doLoadMultiple([$name], $immutable)) {
+    if ($config = $this->doLoadMultiple(array($name), $immutable)) {
       return $config[$name];
     }
     else {
       // If the configuration object does not exist in the configuration
-      // storage, create a new object.
-      $config = $this->createConfigObject($name, $immutable);
+      // storage, create a new object and add it to the static cache.
+      $cache_key = $this->getConfigCacheKey($name, $immutable);
+      $this->cache[$cache_key] = $this->createConfigObject($name, $immutable);
 
       if ($immutable) {
         // Get and apply any overrides.
-        $overrides = $this->loadOverrides([$name]);
+        $overrides = $this->loadOverrides(array($name));
         if (isset($overrides[$name])) {
-          $config->setModuleOverride($overrides[$name]);
+          $this->cache[$cache_key]->setModuleOverride($overrides[$name]);
         }
         // Apply any settings.php overrides.
         if (isset($GLOBALS['config'][$name])) {
-          $config->setSettingsOverride($GLOBALS['config'][$name]);
+          $this->cache[$cache_key]->setSettingsOverride($GLOBALS['config'][$name]);
         }
       }
-
-      foreach ($this->configFactoryOverrides as $override) {
-        $config->addCacheableDependency($override->getCacheableMetadata($name));
-      }
-
-      return $config;
+      return $this->cache[$cache_key];
     }
   }
 
@@ -148,7 +149,7 @@ class ConfigFactory implements ConfigFactoryInterface, EventSubscriberInterface 
    *   List of successfully loaded configuration objects, keyed by name.
    */
   protected function doLoadMultiple(array $names, $immutable = TRUE) {
-    $list = [];
+    $list = array();
 
     foreach ($names as $key => $name) {
       $cache_key = $this->getConfigCacheKey($name, $immutable);
@@ -161,7 +162,7 @@ class ConfigFactory implements ConfigFactoryInterface, EventSubscriberInterface 
     // Pre-load remaining configuration files.
     if (!empty($names)) {
       // Initialise override information.
-      $module_overrides = [];
+      $module_overrides = array();
       $storage_data = $this->storage->readMultiple($names);
 
       if ($immutable && !empty($storage_data)) {
@@ -182,9 +183,6 @@ class ConfigFactory implements ConfigFactoryInterface, EventSubscriberInterface 
             $this->cache[$cache_key]->setSettingsOverride($GLOBALS['config'][$name]);
           }
         }
-
-        $this->propagateConfigOverrideCacheability($cache_key, $name);
-
         $list[$name] = $this->cache[$cache_key];
       }
     }
@@ -202,27 +200,13 @@ class ConfigFactory implements ConfigFactoryInterface, EventSubscriberInterface 
    *   An array of overrides keyed by the configuration object name.
    */
   protected function loadOverrides(array $names) {
-    $overrides = [];
+    $overrides = array();
     foreach ($this->configFactoryOverrides as $override) {
       // Existing overrides take precedence since these will have been added
       // by events with a higher priority.
-      $overrides = NestedArray::mergeDeepArray([$override->loadOverrides($names), $overrides], TRUE);
+      $overrides = NestedArray::mergeDeepArray(array($override->loadOverrides($names), $overrides), TRUE);
     }
     return $overrides;
-  }
-
-  /**
-   * Propagates cacheability of config overrides to cached config objects.
-   *
-   * @param string $cache_key
-   *   The key of the cached config object to update.
-   * @param string $name
-   *   The name of the configuration object to construct.
-   */
-  protected function propagateConfigOverrideCacheability($cache_key, $name) {
-    foreach ($this->configFactoryOverrides as $override) {
-      $this->cache[$cache_key]->addCacheableDependency($override->getCacheableMetadata($name));
-    }
   }
 
   /**
@@ -236,7 +220,7 @@ class ConfigFactory implements ConfigFactoryInterface, EventSubscriberInterface 
       }
     }
     else {
-      $this->cache = [];
+      $this->cache = array();
     }
 
     // Clear the static list cache if supported by the storage.
@@ -271,8 +255,8 @@ class ConfigFactory implements ConfigFactoryInterface, EventSubscriberInterface 
     // Because get() adds overrides both from $GLOBALS and from
     // $this->configFactoryOverrides, add cache keys for each.
     $keys[] = 'global_overrides';
-    foreach ($this->configFactoryOverrides as $override) {
-      $keys[] = $override->getCacheSuffix();
+    foreach($this->configFactoryOverrides as $override) {
+      $keys[] =  $override->getCacheSuffix();
     }
     return $keys;
   }
@@ -306,7 +290,7 @@ class ConfigFactory implements ConfigFactoryInterface, EventSubscriberInterface 
    *   An array of cache keys that match the provided config name.
    */
   protected function getConfigCacheKeys($name) {
-    return array_filter(array_keys($this->cache), function ($key) use ($name) {
+    return array_filter(array_keys($this->cache), function($key) use ($name) {
       // Return TRUE if the key is the name or starts with the configuration
       // name plus the delimiter.
       return $key === $name || strpos($key, $name . ':') === 0;
@@ -317,7 +301,7 @@ class ConfigFactory implements ConfigFactoryInterface, EventSubscriberInterface 
    * {@inheritdoc}
    */
   public function clearStaticCache() {
-    $this->cache = [];
+    $this->cache = array();
     return $this;
   }
 
@@ -335,18 +319,10 @@ class ConfigFactory implements ConfigFactoryInterface, EventSubscriberInterface 
    *   The configuration event.
    */
   public function onConfigSave(ConfigCrudEvent $event) {
-    $saved_config = $event->getConfig();
-
-    // We are only concerned with config objects that belong to the collection
-    // that matches the storage we depend on. Skip if the event was fired for a
-    // config object belonging to a different collection.
-    if ($saved_config->getStorage()->getCollectionName() !== $this->storage->getCollectionName()) {
-      return;
-    }
-
     // Ensure that the static cache contains up to date configuration objects by
     // replacing the data on any entries for the configuration object apart
     // from the one that references the actual config object being saved.
+    $saved_config = $event->getConfig();
     foreach ($this->getConfigCacheKeys($saved_config->getName()) as $cache_key) {
       $cached_config = $this->cache[$cache_key];
       if ($cached_config !== $saved_config) {
@@ -364,17 +340,8 @@ class ConfigFactory implements ConfigFactoryInterface, EventSubscriberInterface 
    *   The configuration event.
    */
   public function onConfigDelete(ConfigCrudEvent $event) {
-    $deleted_config = $event->getConfig();
-
-    // We are only concerned with config objects that belong to the collection
-    // that matches the storage we depend on. Skip if the event was fired for a
-    // config object belonging to a different collection.
-    if ($deleted_config->getStorage()->getCollectionName() !== $this->storage->getCollectionName()) {
-      return;
-    }
-
     // Ensure that the static cache does not contain deleted configuration.
-    foreach ($this->getConfigCacheKeys($deleted_config->getName()) as $cache_key) {
+    foreach ($this->getConfigCacheKeys($event->getConfig()->getName()) as $cache_key) {
       unset($this->cache[$cache_key]);
     }
   }
@@ -382,9 +349,9 @@ class ConfigFactory implements ConfigFactoryInterface, EventSubscriberInterface 
   /**
    * {@inheritdoc}
    */
-  public static function getSubscribedEvents() {
-    $events[ConfigEvents::SAVE][] = ['onConfigSave', 255];
-    $events[ConfigEvents::DELETE][] = ['onConfigDelete', 255];
+  static function getSubscribedEvents() {
+    $events[ConfigEvents::SAVE][] = array('onConfigSave', 255);
+    $events[ConfigEvents::DELETE][] = array('onConfigDelete', 255);
     return $events;
   }
 

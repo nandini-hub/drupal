@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\aggregator\Entity\Item.
+ */
+
 namespace Drupal\aggregator\Entity;
 
 use Drupal\Core\Cache\Cache;
@@ -16,13 +21,6 @@ use Drupal\Core\Url;
  * @ContentEntityType(
  *   id = "aggregator_item",
  *   label = @Translation("Aggregator feed item"),
- *   label_collection = @Translation("Aggregator feed items"),
- *   label_singular = @Translation("aggregator feed item"),
- *   label_plural = @Translation("aggregator feed items"),
- *   label_count = @PluralTranslation(
- *     singular = "@count aggregator feed item",
- *     plural = "@count aggregator feed items",
- *   ),
  *   handlers = {
  *     "storage" = "Drupal\aggregator\ItemStorage",
  *     "storage_schema" = "Drupal\aggregator\ItemStorageSchema",
@@ -44,7 +42,7 @@ use Drupal\Core\Url;
 class Item extends ContentEntityBase implements ItemInterface {
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\Entity\EntityInterface::label().
    */
   public function label() {
     return $this->get('title')->value;
@@ -54,46 +52,46 @@ class Item extends ContentEntityBase implements ItemInterface {
    * {@inheritdoc}
    */
   public static function baseFieldDefinitions(EntityTypeInterface $entity_type) {
-    /** @var \Drupal\Core\Field\BaseFieldDefinition[] $fields */
-    $fields = parent::baseFieldDefinitions($entity_type);
-
-    $fields['iid']->setLabel(t('Aggregator item ID'))
-      ->setDescription(t('The ID of the feed item.'));
-
-    $fields['langcode']->setLabel(t('Language code'))
-      ->setDescription(t('The feed item language code.'));
+    $fields['iid'] = BaseFieldDefinition::create('integer')
+      ->setLabel(t('Aggregator item ID'))
+      ->setDescription(t('The ID of the feed item.'))
+      ->setReadOnly(TRUE)
+      ->setSetting('unsigned', TRUE);
 
     $fields['fid'] = BaseFieldDefinition::create('entity_reference')
       ->setLabel(t('Source feed'))
-      ->setRequired(TRUE)
       ->setDescription(t('The aggregator feed entity associated with this item.'))
       ->setSetting('target_type', 'aggregator_feed')
-      ->setDisplayOptions('view', [
+      ->setDisplayOptions('view', array(
         'label' => 'hidden',
         'type' => 'entity_reference_label',
         'weight' => 0,
-      ])
+      ))
       ->setDisplayConfigurable('form', TRUE);
 
     $fields['title'] = BaseFieldDefinition::create('string')
       ->setLabel(t('Title'))
       ->setDescription(t('The title of the feed item.'));
 
+    $fields['langcode'] = BaseFieldDefinition::create('language')
+      ->setLabel(t('Language code'))
+      ->setDescription(t('The feed item language code.'));
+
     $fields['link'] = BaseFieldDefinition::create('uri')
       ->setLabel(t('Link'))
       ->setDescription(t('The link of the feed item.'))
-      ->setDisplayOptions('view', [
-        'region' => 'hidden',
-      ])
+      ->setDisplayOptions('view', array(
+        'type' => 'hidden',
+      ))
       ->setDisplayConfigurable('view', TRUE);
 
     $fields['author'] = BaseFieldDefinition::create('string')
       ->setLabel(t('Author'))
       ->setDescription(t('The author of the feed item.'))
-      ->setDisplayOptions('view', [
+      ->setDisplayOptions('view', array(
         'label' => 'hidden',
         'weight' => 3,
-      ])
+      ))
       ->setDisplayConfigurable('view', TRUE);
 
     $fields['description'] = BaseFieldDefinition::create('string_long')
@@ -103,15 +101,14 @@ class Item extends ContentEntityBase implements ItemInterface {
     $fields['timestamp'] = BaseFieldDefinition::create('created')
       ->setLabel(t('Posted on'))
       ->setDescription(t('Posted date of the feed item, as a Unix timestamp.'))
-      ->setDisplayOptions('view', [
+      ->setDisplayOptions('view', array(
         'label' => 'hidden',
         'type' => 'timestamp_ago',
         'weight' => 1,
-      ])
+      ))
       ->setDisplayConfigurable('view', TRUE);
 
-    // @todo Convert to a real UUID field in
-    //   https://www.drupal.org/node/2149851.
+    // @todo Convert to a real UUID field in https://drupal.org/node/2149851.
     $fields['guid'] = BaseFieldDefinition::create('string_long')
       ->setLabel(t('GUID'))
       ->setDescription(t('Unique identifier for the feed item.'));
@@ -227,17 +224,16 @@ class Item extends ContentEntityBase implements ItemInterface {
     // handles the regular cases. The Item entity has one special case: a newly
     // created Item is *also* associated with a Feed, so we must invalidate the
     // associated Feed's cache tag.
-    if (!$update) {
-      Cache::invalidateTags($this->getCacheTagsToInvalidate());
-    }
+    Cache::invalidateTags($this->getCacheTags());
   }
 
   /**
    * {@inheritdoc}
    */
-  public function getCacheTagsToInvalidate() {
+  public function getCacheTags() {
     return Feed::load($this->getFeedId())->getCacheTags();
   }
+
 
   /**
    * Entity URI callback.

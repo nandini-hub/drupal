@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\Core\Database\Connection
+ */
+
 namespace Drupal\Core\Database;
 
 /**
@@ -19,7 +24,7 @@ abstract class Connection {
    *
    * We need this information for later auditing and logging.
    *
-   * @var string|null
+   * @var string
    */
   protected $target = NULL;
 
@@ -30,14 +35,14 @@ abstract class Connection {
    * connection can be a single server or a cluster of primary and replicas
    * (use target to pick between primary and replica).
    *
-   * @var string|null
+   * @var string
    */
   protected $key = NULL;
 
   /**
    * The current database logging object for this connection.
    *
-   * @var \Drupal\Core\Database\Log|null
+   * @var Log
    */
   protected $logger = NULL;
 
@@ -50,14 +55,14 @@ abstract class Connection {
    *
    * @var array
    */
-  protected $transactionLayers = [];
+  protected $transactionLayers = array();
 
   /**
    * Index of what driver-specific class to use for various operations.
    *
    * @var array
    */
-  protected $driverClasses = [];
+  protected $driverClasses = array();
 
   /**
    * The name of the Statement class for this connection.
@@ -85,7 +90,7 @@ abstract class Connection {
   /**
    * An index used to generate unique temporary table names.
    *
-   * @var int
+   * @var integer
    */
   protected $temporaryNameIndex = 0;
 
@@ -101,14 +106,12 @@ abstract class Connection {
    *
    * @var array
    */
-  protected $connectionOptions = [];
+  protected $connectionOptions = array();
 
   /**
    * The schema object for this connection.
    *
-   * Set to NULL when the schema is destroyed.
-   *
-   * @var \Drupal\Core\Database\Schema|null
+   * @var object
    */
   protected $schema = NULL;
 
@@ -117,60 +120,24 @@ abstract class Connection {
    *
    * @var array
    */
-  protected $prefixes = [];
+  protected $prefixes = array();
 
   /**
    * List of search values for use in prefixTables().
    *
    * @var array
    */
-  protected $prefixSearch = [];
+  protected $prefixSearch = array();
 
   /**
    * List of replacement values for use in prefixTables().
    *
    * @var array
    */
-  protected $prefixReplace = [];
-
-  /**
-   * List of un-prefixed table names, keyed by prefixed table names.
-   *
-   * @var array
-   */
-  protected $unprefixedTablesMap = [];
-
-  /**
-   * List of escaped database, table, and field names, keyed by unescaped names.
-   *
-   * @var array
-   */
-  protected $escapedNames = [];
-
-  /**
-   * List of escaped aliases names, keyed by unescaped aliases.
-   *
-   * @var array
-   */
-  protected $escapedAliases = [];
-
-  /**
-   * Post-root (non-nested) transaction commit callbacks.
-   *
-   * @var callable[]
-   */
-  protected $rootTransactionEndCallbacks = [];
+  protected $prefixReplace = array();
 
   /**
    * Constructs a Connection object.
-   *
-   * @param \PDO $connection
-   *   An object of the PDO class representing a database connection.
-   * @param array $connection_options
-   *   An array of options for the connection. May include the following:
-   *   - prefix
-   *   - namespace
-   *   - Other driver-specific options.
    */
   public function __construct(\PDO $connection, array $connection_options) {
     // Initialize and prepare the connection prefix.
@@ -178,7 +145,7 @@ abstract class Connection {
 
     // Set a Statement class, unless the driver opted out.
     if (!empty($this->statementClass)) {
-      $connection->setAttribute(\PDO::ATTR_STATEMENT_CLASS, [$this->statementClass, [$this]]);
+      $connection->setAttribute(\PDO::ATTR_STATEMENT_CLASS, array($this->statementClass, array($this)));
     }
 
     $this->connection = $connection;
@@ -194,7 +161,7 @@ abstract class Connection {
    * @return \PDO
    *   A \PDO object.
    */
-  public static function open(array &$connection_options = []) {}
+  public static function open(array &$connection_options = array()) { }
 
   /**
    * Destroys this Connection object.
@@ -208,9 +175,7 @@ abstract class Connection {
     // Destroy all references to this connection by setting them to NULL.
     // The Statement class attribute only accepts a new value that presents a
     // proper callable, so we reset it to PDOStatement.
-    if (!empty($this->statementClass)) {
-      $this->connection->setAttribute(\PDO::ATTR_STATEMENT_CLASS, ['PDOStatement', []]);
-    }
+    $this->connection->setAttribute(\PDO::ATTR_STATEMENT_CLASS, array('PDOStatement', array()));
     $this->schema = NULL;
   }
 
@@ -219,6 +184,12 @@ abstract class Connection {
    *
    * A given query can be customized with a number of option flags in an
    * associative array:
+   * - target: The database "target" against which to execute a query. Valid
+   *   values are "default" or "replica". The system will first try to open a
+   *   connection to a database specified with the user-supplied key. If one
+   *   is not available, it will silently fall back to the "default" target.
+   *   If multiple databases connections are specified with the same target,
+   *   one will be selected at random for the duration of the request.
    * - fetch: This element controls how rows from a result set will be
    *   returned. Legal values include PDO::FETCH_ASSOC, PDO::FETCH_BOTH,
    *   PDO::FETCH_OBJ, PDO::FETCH_NUM, or a string representing the name of a
@@ -249,23 +220,17 @@ abstract class Connection {
    *   further up the call chain can take an appropriate action. To suppress
    *   that behavior and simply return NULL on failure, set this option to
    *   FALSE.
-   * - allow_delimiter_in_query: By default, queries which have the ; delimiter
-   *   any place in them will cause an exception. This reduces the chance of SQL
-   *   injection attacks that terminate the original query and add one or more
-   *   additional queries (such as inserting new user accounts). In rare cases,
-   *   such as creating an SQL function, a ; is needed and can be allowed by
-   *   changing this option to TRUE.
    *
-   * @return array
+   * @return
    *   An array of default query options.
    */
   protected function defaultOptions() {
-    return [
+    return array(
+      'target' => 'default',
       'fetch' => \PDO::FETCH_OBJ,
       'return' => Database::RETURN_STATEMENT,
       'throw_exception' => TRUE,
-      'allow_delimiter_in_query' => FALSE,
-    ];
+    );
   }
 
   /**
@@ -276,7 +241,7 @@ abstract class Connection {
    * is for requesting the connection information of this specific
    * open connection object.
    *
-   * @return array
+   * @return
    *   An array of the connection information. The exact list of
    *   properties is driver-dependent.
    */
@@ -287,22 +252,22 @@ abstract class Connection {
   /**
    * Set the list of prefixes used by this database connection.
    *
-   * @param array|string $prefix
-   *   Either a single prefix, or an array of prefixes, in any of the multiple
-   *   forms documented in default.settings.php.
+   * @param $prefix
+   *   The prefixes, in any of the multiple forms documented in
+   *   default.settings.php.
    */
   protected function setPrefix($prefix) {
     if (is_array($prefix)) {
-      $this->prefixes = $prefix + ['default' => ''];
+      $this->prefixes = $prefix + array('default' => '');
     }
     else {
-      $this->prefixes = ['default' => $prefix];
+      $this->prefixes = array('default' => $prefix);
     }
 
     // Set up variables for use in prefixTables(). Replace table-specific
     // prefixes first.
-    $this->prefixSearch = [];
-    $this->prefixReplace = [];
+    $this->prefixSearch = array();
+    $this->prefixReplace = array();
     foreach ($this->prefixes as $key => $val) {
       if ($key != 'default') {
         $this->prefixSearch[] = '{' . $key . '}';
@@ -314,13 +279,6 @@ abstract class Connection {
     $this->prefixReplace[] = $this->prefixes['default'];
     $this->prefixSearch[] = '}';
     $this->prefixReplace[] = '';
-
-    // Set up a map of prefixed => un-prefixed tables.
-    foreach ($this->prefixes as $table_name => $prefix) {
-      if ($table_name !== 'default') {
-        $this->unprefixedTablesMap[$prefix . $table_name] = $table_name;
-      }
-    }
   }
 
   /**
@@ -331,10 +289,10 @@ abstract class Connection {
    * tables, allowing Drupal to coexist with other systems in the same database
    * and/or schema if necessary.
    *
-   * @param string $sql
+   * @param $sql
    *   A string containing a partial or entire SQL query.
    *
-   * @return string
+   * @return
    *   The properly-prefixed string.
    */
   public function prefixTables($sql) {
@@ -346,9 +304,6 @@ abstract class Connection {
    *
    * This function is for when you want to know the prefix of a table. This
    * is not used in prefixTables due to performance reasons.
-   *
-   * @param string $table
-   *   (optional) The table to find the prefix for.
    */
   public function tablePrefix($table = 'default') {
     if (isset($this->prefixes[$table])) {
@@ -357,17 +312,6 @@ abstract class Connection {
     else {
       return $this->prefixes['default'];
     }
-  }
-
-  /**
-   * Gets a list of individually prefixed table names.
-   *
-   * @return array
-   *   An array of un-prefixed table names, keyed by their fully qualified table
-   *   names (i.e. prefix + table_name).
-   */
-  public function getUnprefixedTablesMap() {
-    return $this->unprefixedTablesMap;
   }
 
   /**
@@ -411,8 +355,9 @@ abstract class Connection {
    * signature. We therefore also ensure that this function is only ever
    * called once.
    *
-   * @param string $target
-   *   (optional) The target this connection is for.
+   * @param $target
+   *   The target this connection is for. Set to NULL (default) to disable
+   *   logging entirely.
    */
   public function setTarget($target = NULL) {
     if (!isset($this->target)) {
@@ -423,8 +368,8 @@ abstract class Connection {
   /**
    * Returns the target this connection is associated with.
    *
-   * @return string|null
-   *   The target string of this connection, or NULL if no target is set.
+   * @return
+   *   The target string of this connection.
    */
   public function getTarget() {
     return $this->target;
@@ -433,7 +378,7 @@ abstract class Connection {
   /**
    * Tells this connection object what its key is.
    *
-   * @param string $key
+   * @param $target
    *   The key this connection is for.
    */
   public function setKey($key) {
@@ -445,8 +390,8 @@ abstract class Connection {
   /**
    * Returns the key this connection is associated with.
    *
-   * @return string|null
-   *   The key of this connection, or NULL if no key is set.
+   * @return
+   *   The key of this connection.
    */
   public function getKey() {
     return $this->key;
@@ -455,7 +400,7 @@ abstract class Connection {
   /**
    * Associates a logging object with this connection.
    *
-   * @param \Drupal\Core\Database\Log $logger
+   * @param $logger
    *   The logging object we want to use.
    */
   public function setLogger(Log $logger) {
@@ -465,7 +410,7 @@ abstract class Connection {
   /**
    * Gets the current logging object for this connection.
    *
-   * @return \Drupal\Core\Database\Log|null
+   * @return \Drupal\Core\Database\Log
    *   The current logging object for this connection. If there isn't one,
    *   NULL is returned.
    */
@@ -479,18 +424,12 @@ abstract class Connection {
    * This information is exposed to all database drivers, although it is only
    * useful on some of them. This method is table prefix-aware.
    *
-   * Note that if a sequence was generated automatically by the database, its
-   * name might not match the one returned by this function. Therefore, in those
-   * cases, it is generally advised to use a database-specific way of retrieving
-   * the name of an auto-created sequence. For example, PostgreSQL provides a
-   * dedicated function for this purpose: pg_get_serial_sequence().
-   *
-   * @param string $table
+   * @param $table
    *   The table name to use for the sequence.
-   * @param string $field
+   * @param $field
    *   The field name to use for the sequence.
    *
-   * @return string
+   * @return
    *   A table prefix-parsed string for the sequence name.
    */
   public function makeSequenceName($table, $field) {
@@ -502,19 +441,18 @@ abstract class Connection {
    *
    * The comment string will be sanitized to avoid SQL injection attacks.
    *
-   * @param string[] $comments
+   * @param $comments
    *   An array of query comment strings.
    *
-   * @return string
+   * @return
    *   A sanitized comment string.
    */
   public function makeComment($comments) {
-    if (empty($comments)) {
+    if (empty($comments))
       return '';
-    }
 
     // Flatten the array of comments.
-    $comment = implode('. ', $comments);
+    $comment = implode('; ', $comments);
 
     // Sanitize the comment string so as to avoid SQL injection attacks.
     return '/* ' . $this->filterComment($comment) . ' */ ';
@@ -530,7 +468,7 @@ abstract class Connection {
    *
    * For example, the comment:
    * @code
-   * \Drupal::database()->update('example')
+   * db_update('example')
    *  ->condition('id', $id)
    *  ->fields(array('field2' => 10))
    *  ->comment('Exploit * / DROP TABLE node; --')
@@ -539,21 +477,20 @@ abstract class Connection {
    *
    * Would result in the following SQL statement being generated:
    * @code
-   * "/ * Exploit * / DROP TABLE node. -- * / UPDATE example SET field2=..."
+   * "/ * Exploit * / DROP TABLE node; -- * / UPDATE example SET field2=..."
    * @endcode
    *
    * Unless the comment is sanitised first, the SQL server would drop the
    * node table and ignore the rest of the SQL statement.
    *
-   * @param string $comment
+   * @param $comment
    *   A query comment string.
    *
-   * @return string
+   * @return
    *   A sanitized version of the query comment string.
    */
   protected function filterComment($comment = '') {
-    // Change semicolons to period to avoid triggering multi-statement check.
-    return strtr($comment, ['*' => ' * ', ';' => '.']);
+    return preg_replace('/(\/\*\s*)|(\s*\*\/)/', '', $comment);
   }
 
   /**
@@ -563,7 +500,7 @@ abstract class Connection {
    * query. All queries executed by Drupal are executed as PDO prepared
    * statements.
    *
-   * @param string|\Drupal\Core\Database\StatementInterface $query
+   * @param $query
    *   The query to execute. In most cases this will be a string containing
    *   an SQL query with placeholders. An already-prepared instance of
    *   StatementInterface may also be passed in order to allow calling
@@ -572,43 +509,30 @@ abstract class Connection {
    *   It is extremely rare that module code will need to pass a statement
    *   object to this method. It is used primarily for database drivers for
    *   databases that require special LOB field handling.
-   * @param array $args
+   * @param $args
    *   An array of arguments for the prepared statement. If the prepared
    *   statement uses ? placeholders, this array must be an indexed array.
    *   If it contains named placeholders, it must be an associative array.
-   * @param array $options
-   *   An associative array of options to control how the query is run. The
-   *   given options will be merged with self::defaultOptions(). See the
-   *   documentation for self::defaultOptions() for details.
-   *   Typically, $options['return'] will be set by a default or by a query
-   *   builder, and should not be set by a user.
+   * @param $options
+   *   An associative array of options to control how the query is run. See
+   *   the documentation for DatabaseConnection::defaultOptions() for details.
    *
    * @return \Drupal\Core\Database\StatementInterface|int|null
-   *   This method will return one of the following:
-   *   - If either $options['return'] === self::RETURN_STATEMENT, or
-   *     $options['return'] is not set (due to self::defaultOptions()),
-   *     returns the executed statement.
-   *   - If $options['return'] === self::RETURN_AFFECTED,
-   *     returns the number of rows affected by the query
-   *     (not the number matched).
-   *   - If $options['return'] === self::RETURN_INSERT_ID,
-   *     returns the generated insert ID of the last query.
-   *   - If either $options['return'] === self::RETURN_NULL, or
-   *     an exception occurs and $options['throw_exception'] evaluates to FALSE,
-   *     returns NULL.
+   *   This method will return one of: the executed statement, the number of
+   *   rows affected by the query (not the number matched), or the generated
+   *   insert ID of the last query, depending on the value of
+   *   $options['return']. Typically that value will be set by default or a
+   *   query builder and should not be set by a user. If there is an error,
+   *   this method will return NULL and may throw an exception if
+   *   $options['throw_exception'] is TRUE.
    *
    * @throws \Drupal\Core\Database\DatabaseExceptionWrapper
    * @throws \Drupal\Core\Database\IntegrityConstraintViolationException
    * @throws \InvalidArgumentException
-   *
-   * @see \Drupal\Core\Database\Connection::defaultOptions()
    */
-  public function query($query, array $args = [], $options = []) {
+  public function query($query, array $args = array(), $options = array()) {
     // Use default values if not already set.
     $options += $this->defaultOptions();
-    if (isset($options['target'])) {
-      @trigger_error('Passing a \'target\' key to \\Drupal\\Core\\Database\\Connection::query $options argument is deprecated in drupal:8.0.x and will be removed before drupal:9.0.0. Instead, use \\Drupal\\Core\\Database\\Database::getConnection($target)->query(). See https://www.drupal.org/node/2993033', E_USER_DEPRECATED);
-    }
 
     try {
       // We allow either a pre-bound statement object or a literal string.
@@ -620,16 +544,6 @@ abstract class Connection {
       }
       else {
         $this->expandArguments($query, $args);
-        // To protect against SQL injection, Drupal only supports executing one
-        // statement at a time.  Thus, the presence of a SQL delimiter (the
-        // semicolon) is not allowed unless the option is set.  Allowing
-        // semicolons should only be needed for special cases like defining a
-        // function or stored procedure in SQL. Trim any trailing delimiter to
-        // minimize false positives.
-        $query = rtrim($query, ";  \t\n\r\0\x0B");
-        if (strpos($query, ';') !== FALSE && empty($options['allow_delimiter_in_query'])) {
-          throw new \InvalidArgumentException('; is not supported in SQL strings. Use only one statement at a time.');
-        }
         $stmt = $this->prepareQuery($query);
         $stmt->execute($args, $options);
       }
@@ -680,7 +594,7 @@ abstract class Connection {
    * @throws \Drupal\Core\Database\DatabaseExceptionWrapper
    * @throws \Drupal\Core\Database\IntegrityConstraintViolationException
    */
-  protected function handleQueryException(\PDOException $e, $query, array $args = [], $options = []) {
+  protected function handleQueryException(\PDOException $e, $query, array $args = array(), $options = array()) {
     if ($options['throw_exception']) {
       // Wrap the exception in another exception, because PHP does not allow
       // overriding Exception::getMessage(). Its message is the extra database
@@ -714,13 +628,6 @@ abstract class Connection {
    *
    * @return bool
    *   TRUE if the query was modified, FALSE otherwise.
-   *
-   * @throws \InvalidArgumentException
-   *   This exception is thrown when:
-   *   - A placeholder that ends in [] is supplied, and the supplied value is
-   *     not an array.
-   *   - A placeholder that does not end in [] is supplied, and the supplied
-   *     value is an array.
    */
   protected function expandArguments(&$query, &$args) {
     $modified = FALSE;
@@ -742,7 +649,7 @@ abstract class Connection {
       }
       // Handle expansion of arrays.
       $key_name = str_replace('[]', '__', $key);
-      $new_keys = [];
+      $new_keys = array();
       // We require placeholders to have trailing brackets if the developer
       // intends them to be expanded to an array to make the intent explicit.
       foreach (array_values($data) as $i => $value) {
@@ -777,11 +684,14 @@ abstract class Connection {
    */
   public function getDriverClass($class) {
     if (empty($this->driverClasses[$class])) {
-      if (empty($this->connectionOptions['namespace'])) {
-        // Fallback for Drupal 7 settings.php and the test runner script.
-        $this->connectionOptions['namespace'] = (new \ReflectionObject($this))->getNamespaceName();
+      $driver = $this->driver();
+      if (!empty($this->connectionOptions['namespace'])) {
+        $driver_class  = $this->connectionOptions['namespace'] . '\\' . $class;
       }
-      $driver_class = $this->connectionOptions['namespace'] . '\\' . $class;
+      else {
+        // Fallback for Drupal 7 settings.php.
+        $driver_class = "Drupal\\Core\\Database\\Driver\\{$driver}\\{$class}";
+      }
       $this->driverClasses[$class] = class_exists($driver_class) ? $driver_class : $class;
     }
     return $this->driverClasses[$class];
@@ -790,12 +700,12 @@ abstract class Connection {
   /**
    * Prepares and returns a SELECT query object.
    *
-   * @param string $table
+   * @param $table
    *   The base table for this query, that is, the first table in the FROM
    *   clause. This table will also be used as the "base" table for query_alter
    *   hook implementations.
-   * @param string $alias
-   *   (optional) The alias of the base table of this query.
+   * @param $alias
+   *   The alias of the base table of this query.
    * @param $options
    *   An array of options on the query.
    *
@@ -806,7 +716,7 @@ abstract class Connection {
    *
    * @see \Drupal\Core\Database\Query\Select
    */
-  public function select($table, $alias = NULL, array $options = []) {
+  public function select($table, $alias = NULL, array $options = array()) {
     $class = $this->getDriverClass('Select');
     return new $class($table, $alias, $this, $options);
   }
@@ -814,20 +724,15 @@ abstract class Connection {
   /**
    * Prepares and returns an INSERT query object.
    *
-   * @param string $table
-   *   The table to use for the insert statement.
-   * @param array $options
-   *   (optional) An associative array of options to control how the query is
-   *   run. The given options will be merged with
-   *   \Drupal\Core\Database\Connection::defaultOptions().
+   * @param $options
+   *   An array of options on the query.
    *
    * @return \Drupal\Core\Database\Query\Insert
    *   A new Insert query object.
    *
    * @see \Drupal\Core\Database\Query\Insert
-   * @see \Drupal\Core\Database\Connection::defaultOptions()
    */
-  public function insert($table, array $options = []) {
+  public function insert($table, array $options = array()) {
     $class = $this->getDriverClass('Insert');
     return new $class($this, $table, $options);
   }
@@ -835,56 +740,32 @@ abstract class Connection {
   /**
    * Prepares and returns a MERGE query object.
    *
-   * @param string $table
-   *   The table to use for the merge statement.
-   * @param array $options
-   *   (optional) An array of options on the query.
+   * @param $options
+   *   An array of options on the query.
    *
    * @return \Drupal\Core\Database\Query\Merge
    *   A new Merge query object.
    *
    * @see \Drupal\Core\Database\Query\Merge
    */
-  public function merge($table, array $options = []) {
+  public function merge($table, array $options = array()) {
     $class = $this->getDriverClass('Merge');
     return new $class($this, $table, $options);
   }
 
-  /**
-   * Prepares and returns an UPSERT query object.
-   *
-   * @param string $table
-   *   The table to use for the upsert query.
-   * @param array $options
-   *   (optional) An array of options on the query.
-   *
-   * @return \Drupal\Core\Database\Query\Upsert
-   *   A new Upsert query object.
-   *
-   * @see \Drupal\Core\Database\Query\Upsert
-   */
-  public function upsert($table, array $options = []) {
-    $class = $this->getDriverClass('Upsert');
-    return new $class($this, $table, $options);
-  }
 
   /**
    * Prepares and returns an UPDATE query object.
    *
-   * @param string $table
-   *   The table to use for the update statement.
-   * @param array $options
-   *   (optional) An associative array of options to control how the query is
-   *   run. The given options will be merged with
-   *   \Drupal\Core\Database\Connection::defaultOptions().
+   * @param $options
+   *   An array of options on the query.
    *
    * @return \Drupal\Core\Database\Query\Update
    *   A new Update query object.
    *
    * @see \Drupal\Core\Database\Query\Update
-   * @see \Drupal\Core\Database\Connection::defaultOptions()
    */
-  public function update($table, array $options = []) {
+  public function update($table, array $options = array()) {
     $class = $this->getDriverClass('Update');
     return new $class($this, $table, $options);
   }
@@ -892,20 +773,15 @@ abstract class Connection {
   /**
    * Prepares and returns a DELETE query object.
    *
-   * @param string $table
-   *   The table to use for the delete statement.
-   * @param array $options
-   *   (optional) An associative array of options to control how the query is
-   *   run. The given options will be merged with
-   *   \Drupal\Core\Database\Connection::defaultOptions().
+   * @param $options
+   *   An array of options on the query.
    *
    * @return \Drupal\Core\Database\Query\Delete
    *   A new Delete query object.
    *
    * @see \Drupal\Core\Database\Query\Delete
-   * @see \Drupal\Core\Database\Connection::defaultOptions()
    */
-  public function delete($table, array $options = []) {
+  public function delete($table, array $options = array()) {
     $class = $this->getDriverClass('Delete');
     return new $class($this, $table, $options);
   }
@@ -913,17 +789,15 @@ abstract class Connection {
   /**
    * Prepares and returns a TRUNCATE query object.
    *
-   * @param string $table
-   *   The table to use for the truncate statement.
-   * @param array $options
-   *   (optional) An array of options on the query.
+   * @param $options
+   *   An array of options on the query.
    *
    * @return \Drupal\Core\Database\Query\Truncate
    *   A new Truncate query object.
    *
    * @see \Drupal\Core\Database\Query\Truncate
    */
-  public function truncate($table, array $options = []) {
+  public function truncate($table, array $options = array()) {
     $class = $this->getDriverClass('Truncate');
     return new $class($this, $table, $options);
   }
@@ -951,17 +825,11 @@ abstract class Connection {
    * For some database drivers, it may also wrap the database name in
    * database-specific escape characters.
    *
-   * @param string $database
-   *   An unsanitized database name.
-   *
    * @return string
-   *   The sanitized database name.
+   *   The sanitized database name string.
    */
   public function escapeDatabase($database) {
-    if (!isset($this->escapedNames[$database])) {
-      $this->escapedNames[$database] = preg_replace('/[^A-Za-z0-9_.]+/', '', $database);
-    }
-    return $this->escapedNames[$database];
+    return preg_replace('/[^A-Za-z0-9_.]+/', '', $database);
   }
 
   /**
@@ -971,17 +839,11 @@ abstract class Connection {
    * For some database drivers, it may also wrap the table name in
    * database-specific escape characters.
    *
-   * @param string $table
-   *   An unsanitized table name.
-   *
-   * @return string
-   *   The sanitized table name.
+   * @return
+   *   The sanitized table name string.
    */
   public function escapeTable($table) {
-    if (!isset($this->escapedNames[$table])) {
-      $this->escapedNames[$table] = preg_replace('/[^A-Za-z0-9_.]+/', '', $table);
-    }
-    return $this->escapedNames[$table];
+    return preg_replace('/[^A-Za-z0-9_.]+/', '', $table);
   }
 
   /**
@@ -991,17 +853,11 @@ abstract class Connection {
    * For some database drivers, it may also wrap the field name in
    * database-specific escape characters.
    *
-   * @param string $field
-   *   An unsanitized field name.
-   *
-   * @return string
-   *   The sanitized field name.
+   * @return
+   *   The sanitized field name string.
    */
   public function escapeField($field) {
-    if (!isset($this->escapedNames[$field])) {
-      $this->escapedNames[$field] = preg_replace('/[^A-Za-z0-9_.]+/', '', $field);
-    }
-    return $this->escapedNames[$field];
+    return preg_replace('/[^A-Za-z0-9_.]+/', '', $field);
   }
 
   /**
@@ -1012,17 +868,11 @@ abstract class Connection {
    * DatabaseConnection::escapeTable(), this doesn't allow the period (".")
    * because that is not allowed in aliases.
    *
-   * @param string $field
-   *   An unsanitized alias name.
-   *
-   * @return string
-   *   The sanitized alias name.
+   * @return
+   *   The sanitized field name string.
    */
   public function escapeAlias($field) {
-    if (!isset($this->escapedAliases[$field])) {
-      $this->escapedAliases[$field] = preg_replace('/[^A-Za-z0-9_]+/', '', $field);
-    }
-    return $this->escapedAliases[$field];
+    return preg_replace('/[^A-Za-z0-9_]+/', '', $field);
   }
 
   /**
@@ -1035,19 +885,19 @@ abstract class Connection {
    * For example, the following does a case-insensitive query for all rows whose
    * name starts with $prefix:
    * @code
-   * $result = $injected_connection->query(
+   * $result = db_query(
    *   'SELECT * FROM person WHERE name LIKE :pattern',
-   *   array(':pattern' => $injected_connection->escapeLike($prefix) . '%')
+   *   array(':pattern' => db_like($prefix) . '%')
    * );
    * @endcode
    *
    * Backslash is defined as escape character for LIKE patterns in
    * Drupal\Core\Database\Query\Condition::mapConditionOperator().
    *
-   * @param string $string
+   * @param $string
    *   The string to escape.
    *
-   * @return string
+   * @return
    *   The escaped string.
    */
   public function escapeLike($string) {
@@ -1057,7 +907,7 @@ abstract class Connection {
   /**
    * Determines if there is an active transaction open.
    *
-   * @return bool
+   * @return
    *   TRUE if we're currently in a transaction, FALSE otherwise.
    */
   public function inTransaction() {
@@ -1065,10 +915,7 @@ abstract class Connection {
   }
 
   /**
-   * Determines the current transaction depth.
-   *
-   * @return int
-   *   The current transaction depth.
+   * Determines current transaction depth.
    */
   public function transactionDepth() {
     return count($this->transactionLayers);
@@ -1077,8 +924,8 @@ abstract class Connection {
   /**
    * Returns a new DatabaseTransaction object on this connection.
    *
-   * @param string $name
-   *   (optional) The name of the savepoint.
+   * @param $name
+   *   Optional name of the savepoint.
    *
    * @return \Drupal\Core\Database\Transaction
    *   A Transaction object.
@@ -1095,16 +942,15 @@ abstract class Connection {
    *
    * This method throws an exception if no transaction is active.
    *
-   * @param string $savepoint_name
-   *   (optional) The name of the savepoint. The default, 'drupal_transaction',
-   *    will roll the entire transaction back.
+   * @param $savepoint_name
+   *   The name of the savepoint. The default, 'drupal_transaction', will roll
+   *   the entire transaction back.
    *
-   * @throws \Drupal\Core\Database\TransactionOutOfOrderException
    * @throws \Drupal\Core\Database\TransactionNoActiveException
    *
-   * @see \Drupal\Core\Database\Transaction::rollBack()
+   * @see \Drupal\Core\Database\Transaction::rollback()
    */
-  public function rollBack($savepoint_name = 'drupal_transaction') {
+  public function rollback($savepoint_name = 'drupal_transaction') {
     if (!$this->supportsTransactions()) {
       return;
     }
@@ -1140,14 +986,6 @@ abstract class Connection {
         $rolled_back_other_active_savepoints = TRUE;
       }
     }
-
-    // Notify the callbacks about the rollback.
-    $callbacks = $this->rootTransactionEndCallbacks;
-    $this->rootTransactionEndCallbacks = [];
-    foreach ($callbacks as $callback) {
-      call_user_func($callback, FALSE);
-    }
-
     $this->connection->rollBack();
     if ($rolled_back_other_active_savepoints) {
       throw new TransactionOutOfOrderException();
@@ -1158,9 +996,6 @@ abstract class Connection {
    * Increases the depth of transaction nesting.
    *
    * If no transaction is already active, we begin a new transaction.
-   *
-   * @param string $name
-   *   The name of the transaction.
    *
    * @throws \Drupal\Core\Database\TransactionNameNonUniqueException
    *
@@ -1191,8 +1026,8 @@ abstract class Connection {
    * back the transaction as necessary. If no transaction is active, we return
    * because the transaction may have manually been rolled back.
    *
-   * @param string $name
-   *   The name of the savepoint.
+   * @param $name
+   *   The name of the savepoint
    *
    * @throws \Drupal\Core\Database\TransactionNoActiveException
    * @throws \Drupal\Core\Database\TransactionCommitFailedException
@@ -1206,7 +1041,7 @@ abstract class Connection {
     // The transaction has already been committed earlier. There is nothing we
     // need to do. If this transaction was part of an earlier out-of-order
     // rollback, an exception would already have been thrown by
-    // Database::rollBack().
+    // Database::rollback().
     if (!isset($this->transactionLayers[$name])) {
       return;
     }
@@ -1217,37 +1052,7 @@ abstract class Connection {
   }
 
   /**
-   * Adds a root transaction end callback.
-   *
-   * These callbacks are invoked immediately after the transaction has been
-   * committed.
-   *
-   * It can for example be used to avoid deadlocks on write-heavy tables that
-   * do not need to be part of the transaction, like cache tag invalidations.
-   *
-   * Another use case is that services using alternative backends like Redis and
-   * Memcache cache implementations can replicate the transaction-behavior of
-   * the database cache backend and avoid race conditions.
-   *
-   * An argument is passed to the callbacks that indicates whether the
-   * transaction was successful or not.
-   *
-   * @param callable $callback
-   *   The callback to invoke.
-   *
-   * @see \Drupal\Core\Database\Connection::doCommit()
-   */
-  public function addRootTransactionEndCallback(callable $callback) {
-    if (!$this->transactionLayers) {
-      throw new \LogicException('Root transaction end callbacks can only be added when there is an active transaction.');
-    }
-    $this->rootTransactionEndCallbacks[] = $callback;
-  }
-
-  /**
-   * Commit all the transaction layers that can commit.
-   *
-   * @internal
+   * Internal function: commit all the transaction layers that can commit.
    */
   protected function popCommittableTransactions() {
     // Commit all the committable layers.
@@ -1260,31 +1065,13 @@ abstract class Connection {
       // If there are no more layers left then we should commit.
       unset($this->transactionLayers[$name]);
       if (empty($this->transactionLayers)) {
-        $this->doCommit();
+        if (!$this->connection->commit()) {
+          throw new TransactionCommitFailedException();
+        }
       }
       else {
         $this->query('RELEASE SAVEPOINT ' . $name);
       }
-    }
-  }
-
-  /**
-   * Do the actual commit, invoke post-commit callbacks.
-   *
-   * @internal
-   */
-  protected function doCommit() {
-    $success = $this->connection->commit();
-    if (!empty($this->rootTransactionEndCallbacks)) {
-      $callbacks = $this->rootTransactionEndCallbacks;
-      $this->rootTransactionEndCallbacks = [];
-      foreach ($callbacks as $callback) {
-        call_user_func($callback, $success);
-      }
-    }
-
-    if (!$success) {
-      throw new TransactionCommitFailedException();
     }
   }
 
@@ -1296,28 +1083,27 @@ abstract class Connection {
    * separate parameters so that they can be properly escaped to avoid SQL
    * injection attacks.
    *
-   * @param string $query
+   * @param $query
    *   A string containing an SQL query.
-   * @param int $from
+   * @param $args
+   *   An array of values to substitute into the query at placeholder markers.
+   * @param $from
    *   The first result row to return.
-   * @param int $count
+   * @param $count
    *   The maximum number of result rows to return.
-   * @param array $args
-   *   (optional) An array of values to substitute into the query at placeholder
-   *    markers.
-   * @param array $options
-   *   (optional) An array of options on the query.
+   * @param $options
+   *   An array of options on the query.
    *
    * @return \Drupal\Core\Database\StatementInterface
    *   A database query result resource, or NULL if the query was not executed
    *   correctly.
    */
-  abstract public function queryRange($query, $from, $count, array $args = [], array $options = []);
+  abstract public function queryRange($query, $from, $count, array $args = array(), array $options = array());
 
   /**
    * Generates a temporary table name.
    *
-   * @return string
+   * @return
    *   A table name.
    */
   protected function generateTemporaryTableName() {
@@ -1336,20 +1122,18 @@ abstract class Connection {
    * Note that if you need to know how many results were returned, you should do
    * a SELECT COUNT(*) on the temporary table afterwards.
    *
-   * @param string $query
+   * @param $query
    *   A string containing a normal SELECT SQL query.
-   * @param array $args
-   *   (optional) An array of values to substitute into the query at placeholder
-   *   markers.
-   * @param array $options
-   *   (optional) An associative array of options to control how the query is
-   *   run. See the documentation for DatabaseConnection::defaultOptions() for
-   *   details.
+   * @param $args
+   *   An array of values to substitute into the query at placeholder markers.
+   * @param $options
+   *   An associative array of options to control how the query is run. See
+   *   the documentation for DatabaseConnection::defaultOptions() for details.
    *
-   * @return string
+   * @return
    *   The name of the temporary table.
    */
-  abstract public function queryTemporary($query, array $args = [], array $options = []);
+  abstract function queryTemporary($query, array $args = array(), array $options = array());
 
   /**
    * Returns the type of database driver.
@@ -1358,9 +1142,6 @@ abstract class Connection {
    * instance, there could be two MySQL drivers, mysql and mysql_mock. This
    * function would return different values for each, but both would return
    * "mysql" for databaseType().
-   *
-   * @return string
-   *   The type of database driver.
    */
   abstract public function driver();
 
@@ -1372,16 +1153,9 @@ abstract class Connection {
   }
 
   /**
-   * Returns the version of the database client.
-   */
-  public function clientVersion() {
-    return $this->connection->getAttribute(\PDO::ATTR_CLIENT_VERSION);
-  }
-
-  /**
    * Determines if this driver supports transactions.
    *
-   * @return bool
+   * @return
    *   TRUE if this connection supports transactions, FALSE otherwise.
    */
   public function supportsTransactions() {
@@ -1393,7 +1167,7 @@ abstract class Connection {
    *
    * DDL queries are those that change the schema, such as ALTER queries.
    *
-   * @return bool
+   * @return
    *   TRUE if this connection supports transactions for DDL queries, FALSE
    *   otherwise.
    */
@@ -1425,7 +1199,7 @@ abstract class Connection {
    * overridable lookup function. Database connections should define only
    * those operators they wish to be handled differently than the default.
    *
-   * @param string $operator
+   * @param $operator
    *   The condition operator, such as "IN", "BETWEEN", etc. Case-sensitive.
    *
    * @return
@@ -1452,7 +1226,7 @@ abstract class Connection {
   }
 
   /**
-   * Retrieves an unique ID from a given sequence.
+   * Retrieves an unique id from a given sequence.
    *
    * Use this function if for some reason you can't use a serial field. For
    * example, MySQL has no ways of reading of the current value of a sequence
@@ -1460,9 +1234,9 @@ abstract class Connection {
    * value. Or sometimes you just need a unique integer.
    *
    * @param $existing_id
-   *   (optional) After a database import, it might be that the sequences table
-   *   is behind, so by passing in the maximum existing ID, it can be assured
-   *   that we never issue the same ID.
+   *   After a database import, it might be that the sequences table is behind,
+   *   so by passing in the maximum existing id, it can be assured that we
+   *   never issue the same id.
    *
    * @return
    *   An integer number larger than any number returned by earlier calls and
@@ -1496,7 +1270,7 @@ abstract class Connection {
    *
    * @see \PDO::prepare()
    */
-  public function prepare($statement, array $driver_options = []) {
+  public function prepare($statement, array $driver_options = array()) {
     return $this->connection->prepare($statement, $driver_options);
   }
 
@@ -1520,142 +1294,10 @@ abstract class Connection {
   }
 
   /**
-   * Extracts the SQLSTATE error from the PDOException.
-   *
-   * @param \Exception $e
-   *   The exception
-   *
-   * @return string
-   *   The five character error code.
-   */
-  protected static function getSQLState(\Exception $e) {
-    // The PDOException code is not always reliable, try to see whether the
-    // message has something usable.
-    if (preg_match('/^SQLSTATE\[(\w{5})\]/', $e->getMessage(), $matches)) {
-      return $matches[1];
-    }
-    else {
-      return $e->getCode();
-    }
-  }
-
-  /**
    * Prevents the database connection from being serialized.
    */
   public function __sleep() {
     throw new \LogicException('The database connection is not serializable. This probably means you are serializing an object that has an indirect reference to the database connection. Adjust your code so that is not necessary. Alternatively, look at DependencySerializationTrait as a temporary solution.');
-  }
-
-  /**
-   * Creates an array of database connection options from a URL.
-   *
-   * @internal
-   *   This method should not be called. Use
-   *   \Drupal\Core\Database\Database::convertDbUrlToConnectionInfo() instead.
-   *
-   * @param string $url
-   *   The URL.
-   * @param string $root
-   *   The root directory of the Drupal installation. Some database drivers,
-   *   like for example SQLite, need this information.
-   *
-   * @return array
-   *   The connection options.
-   *
-   * @throws \InvalidArgumentException
-   *   Exception thrown when the provided URL does not meet the minimum
-   *   requirements.
-   *
-   * @see \Drupal\Core\Database\Database::convertDbUrlToConnectionInfo()
-   */
-  public static function createConnectionOptionsFromUrl($url, $root) {
-    $url_components = parse_url($url);
-    if (!isset($url_components['scheme'], $url_components['host'], $url_components['path'])) {
-      throw new \InvalidArgumentException('Minimum requirement: driver://host/database');
-    }
-
-    $url_components += [
-      'user' => '',
-      'pass' => '',
-      'fragment' => '',
-    ];
-
-    // Remove leading slash from the URL path.
-    if ($url_components['path'][0] === '/') {
-      $url_components['path'] = substr($url_components['path'], 1);
-    }
-
-    // Use reflection to get the namespace of the class being called.
-    $reflector = new \ReflectionClass(get_called_class());
-
-    $database = [
-      'driver' => $url_components['scheme'],
-      'username' => $url_components['user'],
-      'password' => $url_components['pass'],
-      'host' => $url_components['host'],
-      'database' => $url_components['path'],
-      'namespace' => $reflector->getNamespaceName(),
-    ];
-
-    if (isset($url_components['port'])) {
-      $database['port'] = $url_components['port'];
-    }
-
-    if (!empty($url_components['fragment'])) {
-      $database['prefix']['default'] = $url_components['fragment'];
-    }
-
-    return $database;
-  }
-
-  /**
-   * Creates a URL from an array of database connection options.
-   *
-   * @internal
-   *   This method should not be called. Use
-   *   \Drupal\Core\Database\Database::getConnectionInfoAsUrl() instead.
-   *
-   * @param array $connection_options
-   *   The array of connection options for a database connection.
-   *
-   * @return string
-   *   The connection info as a URL.
-   *
-   * @throws \InvalidArgumentException
-   *   Exception thrown when the provided array of connection options does not
-   *   meet the minimum requirements.
-   *
-   * @see \Drupal\Core\Database\Database::getConnectionInfoAsUrl()
-   */
-  public static function createUrlFromConnectionOptions(array $connection_options) {
-    if (!isset($connection_options['driver'], $connection_options['database'])) {
-      throw new \InvalidArgumentException("As a minimum, the connection options array must contain at least the 'driver' and 'database' keys");
-    }
-
-    $user = '';
-    if (isset($connection_options['username'])) {
-      $user = $connection_options['username'];
-      if (isset($connection_options['password'])) {
-        $user .= ':' . $connection_options['password'];
-      }
-      $user .= '@';
-    }
-
-    $host = empty($connection_options['host']) ? 'localhost' : $connection_options['host'];
-
-    $db_url = $connection_options['driver'] . '://' . $user . $host;
-
-    if (isset($connection_options['port'])) {
-      $db_url .= ':' . $connection_options['port'];
-    }
-
-    $db_url .= '/' . $connection_options['database'];
-
-    if (isset($connection_options['prefix']['default']) && $connection_options['prefix']['default'] !== '') {
-      $db_url .= '#' . $connection_options['prefix']['default'];
-    }
-
-    return $db_url;
   }
 
 }

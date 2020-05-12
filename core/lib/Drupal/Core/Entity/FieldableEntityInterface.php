@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Entity\FieldableEntityInterface.
+ */
+
 namespace Drupal\Core\Entity;
 
 /**
@@ -49,7 +54,7 @@ interface FieldableEntityInterface extends EntityInterface {
    *   An array of base field definitions for the entity type, keyed by field
    *   name.
    *
-   * @see \Drupal\Core\Entity\EntityFieldManagerInterface::getFieldDefinitions()
+   * @see \Drupal\Core\Entity\EntityManagerInterface::getFieldDefinitions()
    * @see \Drupal\Core\Entity\FieldableEntityInterface::bundleFieldDefinitions()
    */
   public static function baseFieldDefinitions(EntityTypeInterface $entity_type);
@@ -85,7 +90,7 @@ interface FieldableEntityInterface extends EntityInterface {
    * @return \Drupal\Core\Field\FieldDefinitionInterface[]
    *   An array of bundle field definitions, keyed by field name.
    *
-   * @see \Drupal\Core\Entity\EntityFieldManagerInterface::getFieldDefinitions()
+   * @see \Drupal\Core\Entity\EntityManagerInterface::getFieldDefinitions()
    * @see \Drupal\Core\Entity\FieldableEntityInterface::baseFieldDefinitions()
    *
    * @todo WARNING: This method will be changed in
@@ -94,7 +99,7 @@ interface FieldableEntityInterface extends EntityInterface {
   public static function bundleFieldDefinitions(EntityTypeInterface $entity_type, $bundle, array $base_field_definitions);
 
   /**
-   * Determines whether the entity has a field with the given name.
+   * Returns whether the entity has a field with the given name.
    *
    * @param string $field_name
    *   The field name.
@@ -121,12 +126,12 @@ interface FieldableEntityInterface extends EntityInterface {
    * @return \Drupal\Core\Field\FieldDefinitionInterface[]
    *   An array of field definitions, keyed by field name.
    *
-   * @see \Drupal\Core\Entity\EntityFieldManagerInterface::getFieldDefinitions()
+   * @see \Drupal\Core\Entity\EntityManagerInterface::getFieldDefinitions()
    */
   public function getFieldDefinitions();
 
   /**
-   * Gets an array of all field values.
+   * Returns an array of all field values.
    *
    * Gets an array of plain field values, including only non-computed values.
    * Note that the structure varies by entity type and bundle.
@@ -142,11 +147,11 @@ interface FieldableEntityInterface extends EntityInterface {
    * @param string $field_name
    *   The name of the field to get; e.g., 'title' or 'name'.
    *
-   * @return \Drupal\Core\Field\FieldItemListInterface
-   *   The field item list, containing the field items.
-   *
    * @throws \InvalidArgumentException
    *   If an invalid field name is given.
+   *
+   * @return \Drupal\Core\Field\FieldItemListInterface
+   *   The field item list, containing the field items.
    */
   public function get($field_name);
 
@@ -162,15 +167,15 @@ interface FieldableEntityInterface extends EntityInterface {
    *   TRUE. If the update stems from the entity, set it to FALSE to avoid
    *   being notified again.
    *
-   * @return $this
-   *
    * @throws \InvalidArgumentException
    *   If the specified field does not exist.
+   *
+   * @return $this
    */
   public function set($field_name, $value, $notify = TRUE);
 
   /**
-   * Gets an array of all field item lists.
+   * Gets an array of field item lists.
    *
    * @param bool $include_computed
    *   If set to TRUE, computed fields are included. Defaults to TRUE.
@@ -179,17 +184,6 @@ interface FieldableEntityInterface extends EntityInterface {
    *   An array of field item lists implementing, keyed by field name.
    */
   public function getFields($include_computed = TRUE);
-
-  /**
-   * Gets an array of field item lists for translatable fields.
-   *
-   * @param bool $include_computed
-   *   If set to TRUE, computed fields are included. Defaults to TRUE.
-   *
-   * @return \Drupal\Core\Field\FieldItemListInterface[]
-   *   An array of field item lists implementing, keyed by field name.
-   */
-  public function getTranslatableFields($include_computed = TRUE);
 
   /**
    * Reacts to changes to a field.
@@ -212,28 +206,10 @@ interface FieldableEntityInterface extends EntityInterface {
   /**
    * Validates the currently set values.
    *
-   * @return \Drupal\Core\Entity\EntityConstraintViolationListInterface
+   * @return \Symfony\Component\Validator\ConstraintViolationListInterface
    *   A list of constraint violations. If the list is empty, validation
    *   succeeded.
    */
   public function validate();
-
-  /**
-   * Checks whether entity validation is required before saving the entity.
-   *
-   * @return bool
-   *   TRUE if validation is required, FALSE if not.
-   */
-  public function isValidationRequired();
-
-  /**
-   * Sets whether entity validation is required before saving the entity.
-   *
-   * @param bool $required
-   *   TRUE if validation is required, FALSE otherwise.
-   *
-   * @return $this
-   */
-  public function setValidationRequired($required);
 
 }

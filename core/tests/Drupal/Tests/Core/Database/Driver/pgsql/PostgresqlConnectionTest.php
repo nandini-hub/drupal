@@ -1,8 +1,13 @@
 <?php
+/**
+ * @file
+ * Contains Drupal\Tests\Core\Database\Driver\pgsql\PostgresqlConnectionTest
+ */
 
 namespace Drupal\Tests\Core\Database\Driver\pgsql;
 
 use Drupal\Core\Database\Driver\pgsql\Connection;
+use Drupal\Tests\Core\Database\Stub\StubPDO;
 use Drupal\Tests\UnitTestCase;
 
 /**
@@ -14,7 +19,7 @@ class PostgresqlConnectionTest extends UnitTestCase {
   /**
    * Mock PDO object for use in tests.
    *
-   * @var \PHPUnit\Framework\MockObject\MockObject|\Drupal\Tests\Core\Database\Stub\StubPDO
+   * @var \PHPUnit_Framework_MockObject_MockObject|\Drupal\Tests\Core\Database\Stub\StubPDO
    */
   protected $mockPdo;
 
@@ -23,67 +28,62 @@ class PostgresqlConnectionTest extends UnitTestCase {
    */
   protected function setUp() {
     parent::setUp();
-    $this->mockPdo = $this->createMock('Drupal\Tests\Core\Database\Stub\StubPDO');
+    $this->mockPdo = $this->getMock('Drupal\Tests\Core\Database\Stub\StubPDO');
   }
 
   /**
    * Data provider for testEscapeTable.
    *
-   * @return array
+   * @return []
    *   An indexed array of where each value is an array of arguments to pass to
    *   testEscapeField. The first value is the expected value, and the second
    *   value is the value to test.
    */
   public function providerEscapeTables() {
-    return [
-      ['nocase', 'nocase'],
-      ['"camelCase"', 'camelCase'],
-      ['"camelCase"', '"camelCase"'],
-      ['"camelCase"', 'camel/Case'],
-      // Sometimes, table names are following the pattern database.schema.table.
-      ['"camelCase".nocase.nocase', 'camelCase.nocase.nocase'],
-      ['nocase."camelCase".nocase', 'nocase.camelCase.nocase'],
-      ['nocase.nocase."camelCase"', 'nocase.nocase.camelCase'],
-      ['"camelCase"."camelCase"."camelCase"', 'camelCase.camelCase.camelCase'],
-    ];
+    return array(
+      array('nocase', 'nocase'),
+      array('"camelCase"', 'camelCase'),
+      array('"camelCase"', '"camelCase"'),
+      array('"camelCase"', 'camel/Case'),
+    );
   }
 
   /**
    * Data provider for testEscapeAlias.
    *
-   * @return array
+   * @return []
    *   Array of arrays with the following elements:
    *   - Expected escaped string.
    *   - String to escape.
    */
   public function providerEscapeAlias() {
-    return [
-      ['nocase', 'nocase'],
-      ['"camelCase"', '"camelCase"'],
-      ['"camelCase"', 'camelCase'],
-      ['"camelCase"', 'camel.Case'],
-    ];
+    return array(
+      array('nocase', 'nocase'),
+      array('"camelCase"', '"camelCase"'),
+      array('"camelCase"', 'camelCase'),
+      array('"camelCase"', 'camel.Case'),
+    );
   }
 
   /**
    * Data provider for testEscapeField.
    *
-   * @return array
+   * @return []
    *   Array of arrays with the following elements:
    *   - Expected escaped string.
    *   - String to escape.
    */
   public function providerEscapeFields() {
-    return [
-      ['title', 'title'],
-      ['"isDefaultRevision"', 'isDefaultRevision'],
-      ['"isDefaultRevision"', '"isDefaultRevision"'],
-      ['entity_test."isDefaultRevision"', 'entity_test.isDefaultRevision'],
-      ['entity_test."isDefaultRevision"', '"entity_test"."isDefaultRevision"'],
-      ['"entityTest"."isDefaultRevision"', '"entityTest"."isDefaultRevision"'],
-      ['"entityTest"."isDefaultRevision"', 'entityTest.isDefaultRevision'],
-      ['entity_test."isDefaultRevision"', 'entity_test.is.Default.Revision'],
-    ];
+    return array(
+      array('title', 'title'),
+      array('"isDefaultRevision"', 'isDefaultRevision'),
+      array('"isDefaultRevision"', '"isDefaultRevision"'),
+      array('entity_test."isDefaultRevision"', 'entity_test.isDefaultRevision'),
+      array('entity_test."isDefaultRevision"', '"entity_test"."isDefaultRevision"'),
+      array('"entityTest"."isDefaultRevision"', '"entityTest"."isDefaultRevision"'),
+      array('"entityTest"."isDefaultRevision"', 'entityTest.isDefaultRevision'),
+      array('entity_test."isDefaultRevision"', 'entity_test.is.Default.Revision'),
+    );
   }
 
   /**

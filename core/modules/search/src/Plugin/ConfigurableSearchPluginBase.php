@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\search\Plugin\ConfigurableSearchPluginBase.
+ */
+
 namespace Drupal\search\Plugin;
 
 use Drupal\Component\Utility\NestedArray;
@@ -23,14 +28,14 @@ abstract class ConfigurableSearchPluginBase extends SearchPluginBase implements 
   public function __construct(array $configuration, $plugin_id, $plugin_definition) {
     parent::__construct($configuration, $plugin_id, $plugin_definition);
 
-    $this->setConfiguration($configuration);
+    $this->configuration = NestedArray::mergeDeep($this->defaultConfiguration(), $this->configuration);
   }
 
   /**
    * {@inheritdoc}
    */
   public function defaultConfiguration() {
-    return [];
+    return array();
   }
 
   /**
@@ -44,7 +49,7 @@ abstract class ConfigurableSearchPluginBase extends SearchPluginBase implements 
    * {@inheritdoc}
    */
   public function setConfiguration(array $configuration) {
-    $this->configuration = NestedArray::mergeDeep($this->defaultConfiguration(), $configuration);
+    $this->configuration = $configuration;
   }
 
   /**
@@ -57,7 +62,7 @@ abstract class ConfigurableSearchPluginBase extends SearchPluginBase implements 
    * {@inheritdoc}
    */
   public function calculateDependencies() {
-    return [];
+    return array();
   }
 
   /**

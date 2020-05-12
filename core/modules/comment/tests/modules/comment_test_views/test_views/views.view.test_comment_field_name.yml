@@ -11,6 +11,7 @@ description: ''
 tag: ''
 base_table: comment_field_data
 base_field: cid
+core: 8.x
 display:
   default:
     display_plugin: default
@@ -23,7 +24,7 @@ display:
         options:
           perm: 'access comments'
       cache:
-        type: tag
+        type: none
         options: {  }
       query:
         type: views_query
@@ -59,10 +60,10 @@ display:
             offset: false
             offset_label: Offset
           tags:
-            previous: '‹ Previous'
-            next: 'Next ›'
-            first: '« First'
-            last: 'Last »'
+            previous: '‹ previous'
+            next: 'next ›'
+            first: '« first'
+            last: 'last »'
           quantity: 9
       style:
         type: default
@@ -199,4 +200,4 @@ display:
       contexts:
         - languages
         - user
-      max-age: 0
+      cacheable: false

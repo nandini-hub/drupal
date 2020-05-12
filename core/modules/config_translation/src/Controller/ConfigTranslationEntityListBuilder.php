@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\config_translation\Controller\ConfigTranslationEntityListBuilder.
+ */
+
 namespace Drupal\config_translation\Controller;
 
 use Drupal\Core\Entity\EntityInterface;
@@ -16,10 +21,10 @@ class ConfigTranslationEntityListBuilder extends ConfigEntityListBuilder impleme
    * @return array
    */
   protected function getFilterLabels() {
-    return [
+    return array(
       'placeholder' => $this->t('Enter label'),
       'description' => $this->t('Enter a part of the label or description to filter by.'),
-    ];
+    );
   }
 
   /**
@@ -29,31 +34,29 @@ class ConfigTranslationEntityListBuilder extends ConfigEntityListBuilder impleme
     $build = parent::render();
     $filter = $this->getFilterLabels();
 
-    usort($build['table']['#rows'], [$this, 'sortRows']);
+    usort($build['table']['#rows'], array($this, 'sortRows'));
 
-    $build['filters'] = [
+    $build['filters'] = array(
       '#type' => 'container',
-      '#attributes' => [
-        'class' => ['table-filter', 'js-show'],
-      ],
-      '#weight' => -10,
-    ];
+      '#attributes' => array(
+        'class' => array('table-filter', 'js-show'),
+      ),
+    );
 
-    $build['filters']['text'] = [
+    $build['filters']['text'] = array(
       '#type' => 'search',
       '#title' => $this->t('Search'),
       '#size' => 30,
       '#placeholder' => $filter['placeholder'],
-      '#attributes' => [
-        'class' => ['table-filter-text'],
+      '#attributes' => array(
+        'class' => array('table-filter-text'),
         'data-table' => '.config-translation-entity-list',
         'autocomplete' => 'off',
         'title' => $filter['description'],
-      ],
-    ];
+      ),
+    );
 
     $build['table']['#attributes']['class'][] = 'config-translation-entity-list';
-    $build['table']['#weight'] = 0;
     $build['#attached']['library'][] = 'system/drupal.system.modules';
 
     return $build;
@@ -63,7 +66,7 @@ class ConfigTranslationEntityListBuilder extends ConfigEntityListBuilder impleme
    * {@inheritdoc}
    */
   public function buildRow(EntityInterface $entity) {
-    $row['label']['data'] = $entity->label();
+    $row['label']['data'] = $this->getLabel($entity);
     $row['label']['class'][] = 'table-filter-text-source';
     return $row + parent::buildRow($entity);
   }
@@ -79,8 +82,8 @@ class ConfigTranslationEntityListBuilder extends ConfigEntityListBuilder impleme
   /**
    * {@inheritdoc}
    */
-  public function getOperations(EntityInterface $entity) {
-    $operations = parent::getOperations($entity);
+  public function getDefaultOperations(EntityInterface $entity) {
+    $operations = parent::getDefaultOperations($entity);
     foreach (array_keys($operations) as $operation) {
       // This is a translation UI for translators. Show the translation
       // operation only.
@@ -95,7 +98,7 @@ class ConfigTranslationEntityListBuilder extends ConfigEntityListBuilder impleme
    * {@inheritdoc}
    */
   public function sortRows($a, $b) {
-    return $this->sortRowsMultiple($a, $b, ['label']);
+    return $this->sortRowsMultiple($a, $b, array('label'));
   }
 
   /**

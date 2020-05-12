@@ -21,26 +21,21 @@ class ViewsLocalTaskTest extends UnitTestCase {
   /**
    * The mocked route provider.
    *
-   * @var \Drupal\Core\Routing\RouteProviderInterface|\PHPUnit\Framework\MockObject\MockObject
+   * @var \Drupal\Core\Routing\RouteProviderInterface|\PHPUnit_Framework_MockObject_MockObject
    */
   protected $routeProvider;
 
   /**
    * The mocked key value storage.
    *
-   * @var \Drupal\Core\KeyValueStore\KeyValueStoreInterface|\PHPUnit\Framework\MockObject\MockObject
+   * @var \Drupal\Core\KeyValueStore\KeyValueStoreInterface|\PHPUnit_Framework_MockObject_MockObject
    */
   protected $state;
 
-  /**
-   * @var \Drupal\Core\Entity\EntityStorageInterface|\PHPUnit\Framework\MockObject\MockObject
-   */
-  protected $viewStorage;
-
-  protected $baseDefinition = [
+  protected $baseDefinition = array(
     'class' => '\Drupal\views\Plugin\Menu\LocalTask\ViewsLocalTask',
-    'deriver' => '\Drupal\views\Plugin\Derivative\ViewsLocalTask',
-  ];
+    'deriver' => '\Drupal\views\Plugin\Derivative\ViewsLocalTask'
+  );
 
   /**
    * The tested local task derivative class.
@@ -50,11 +45,10 @@ class ViewsLocalTaskTest extends UnitTestCase {
   protected $localTaskDerivative;
 
   protected function setUp() {
-    $this->routeProvider = $this->createMock('Drupal\Core\Routing\RouteProviderInterface');
-    $this->state = $this->createMock('Drupal\Core\State\StateInterface');
-    $this->viewStorage = $this->createMock('Drupal\Core\Entity\EntityStorageInterface');
+    $this->routeProvider = $this->getMock('Drupal\Core\Routing\RouteProviderInterface');
+    $this->state = $this->getMock('Drupal\Core\State\StateInterface');
 
-    $this->localTaskDerivative = new TestViewsLocalTask($this->routeProvider, $this->state, $this->viewStorage);
+    $this->localTaskDerivative = new TestViewsLocalTask($this->routeProvider, $this->state);
   }
 
   /**
@@ -63,11 +57,11 @@ class ViewsLocalTaskTest extends UnitTestCase {
    * @see \Drupal\views\Plugin\Derivative\ViewsLocalTask::getDerivativeDefinitions()
    */
   public function testGetDerivativeDefinitionsWithoutHookMenuViews() {
-    $result = [];
+    $result = array();
     $this->localTaskDerivative->setApplicableMenuViews($result);
 
     $definitions = $this->localTaskDerivative->getDerivativeDefinitions($this->baseDefinition);
-    $this->assertEquals([], $definitions);
+    $this->assertEquals(array(), $definitions);
   }
 
   /**
@@ -78,35 +72,20 @@ class ViewsLocalTaskTest extends UnitTestCase {
       ->disableOriginalConstructor()
       ->getMock();
     $display_plugin = $this->getMockBuilder('Drupal\views\Plugin\views\display\PathPluginBase')
-      ->setMethods(['getOption'])
+      ->setMethods(array('getOption'))
       ->disableOriginalConstructor()
       ->getMockForAbstractClass();
     $display_plugin->expects($this->once())
       ->method('getOption')
       ->with('menu')
-      ->will($this->returnValue(['type' => 'normal']));
+      ->will($this->returnValue(array('type' => 'normal')));
     $executable->display_handler = $display_plugin;
 
-    $storage = $this->getMockBuilder('Drupal\views\Entity\View')
-      ->disableOriginalConstructor()
-      ->getMock();
-    $storage->expects($this->any())
-      ->method('id')
-      ->will($this->returnValue('example_view'));
-    $storage->expects($this->any())
-      ->method('getExecutable')
-      ->willReturn($executable);
-
-    $this->viewStorage->expects($this->any())
-      ->method('load')
-      ->with('example_view')
-      ->willReturn($storage);
-
-    $result = [['example_view', 'page_1']];
+    $result = array(array($executable, 'page_1'));
     $this->localTaskDerivative->setApplicableMenuViews($result);
 
     $definitions = $this->localTaskDerivative->getDerivativeDefinitions($this->baseDefinition);
-    $this->assertEquals([], $definitions);
+    $this->assertEquals(array(), $definitions);
   }
 
   /**
@@ -122,31 +101,23 @@ class ViewsLocalTaskTest extends UnitTestCase {
     $storage->expects($this->any())
       ->method('id')
       ->will($this->returnValue('example_view'));
-    $storage->expects($this->any())
-      ->method('getExecutable')
-      ->willReturn($executable);
     $executable->storage = $storage;
 
-    $this->viewStorage->expects($this->any())
-      ->method('load')
-      ->with('example_view')
-      ->willReturn($storage);
-
     $display_plugin = $this->getMockBuilder('Drupal\views\Plugin\views\display\PathPluginBase')
-      ->setMethods(['getOption'])
+      ->setMethods(array('getOption'))
       ->disableOriginalConstructor()
       ->getMockForAbstractClass();
     $display_plugin->expects($this->once())
       ->method('getOption')
       ->with('menu')
-      ->will($this->returnValue(['type' => 'tab', 'weight' => 12, 'title' => 'Example title']));
+      ->will($this->returnValue(array('type' => 'tab', 'weight' => 12, 'title' => 'Example title')));
     $executable->display_handler = $display_plugin;
 
-    $result = [['example_view', 'page_1']];
+    $result = array(array($executable, 'page_1'));
     $this->localTaskDerivative->setApplicableMenuViews($result);
 
     // Mock the view route names state.
-    $view_route_names = [];
+    $view_route_names = array();
     $view_route_names['example_view.page_1'] = 'view.example_view.page_1';
     $this->state->expects($this->once())
       ->method('get')
@@ -175,31 +146,23 @@ class ViewsLocalTaskTest extends UnitTestCase {
     $storage->expects($this->any())
       ->method('id')
       ->will($this->returnValue('example_view'));
-    $storage->expects($this->any())
-      ->method('getExecutable')
-      ->willReturn($executable);
     $executable->storage = $storage;
 
-    $this->viewStorage->expects($this->any())
-      ->method('load')
-      ->with('example_view')
-      ->willReturn($storage);
-
     $display_plugin = $this->getMockBuilder('Drupal\views\Plugin\views\display\PathPluginBase')
-      ->setMethods(['getOption'])
+      ->setMethods(array('getOption'))
       ->disableOriginalConstructor()
       ->getMockForAbstractClass();
     $display_plugin->expects($this->once())
       ->method('getOption')
       ->with('menu')
-      ->will($this->returnValue(['type' => 'tab', 'weight' => 12]));
+      ->will($this->returnValue(array('type' => 'tab', 'weight' => 12)));
     $executable->display_handler = $display_plugin;
 
-    $result = [['example_view', 'page_1']];
+    $result = array(array($executable, 'page_1'));
     $this->localTaskDerivative->setApplicableMenuViews($result);
 
     // Mock the view route names state.
-    $view_route_names = [];
+    $view_route_names = array();
     // Setup a view which overrides an existing route.
     $view_route_names['example_view.page_1'] = 'example_overridden_route';
     $this->state->expects($this->once())
@@ -224,31 +187,23 @@ class ViewsLocalTaskTest extends UnitTestCase {
     $storage->expects($this->any())
       ->method('id')
       ->will($this->returnValue('example_view'));
-    $storage->expects($this->any())
-      ->method('getExecutable')
-      ->willReturn($executable);
     $executable->storage = $storage;
 
-    $this->viewStorage->expects($this->any())
-      ->method('load')
-      ->with('example_view')
-      ->willReturn($storage);
-
     $display_plugin = $this->getMockBuilder('Drupal\views\Plugin\views\display\PathPluginBase')
-      ->setMethods(['getOption'])
+      ->setMethods(array('getOption'))
       ->disableOriginalConstructor()
       ->getMockForAbstractClass();
     $display_plugin->expects($this->exactly(2))
       ->method('getOption')
       ->with('menu')
-      ->will($this->returnValue(['type' => 'default tab', 'weight' => 12, 'title' => 'Example title']));
+      ->will($this->returnValue(array('type' => 'default tab', 'weight' => 12, 'title' => 'Example title')));
     $executable->display_handler = $display_plugin;
 
-    $result = [['example_view', 'page_1']];
+    $result = array(array($executable, 'page_1'));
     $this->localTaskDerivative->setApplicableMenuViews($result);
 
     // Mock the view route names state.
-    $view_route_names = [];
+    $view_route_names = array();
     $view_route_names['example_view.page_1'] = 'view.example_view.page_1';
     $this->state->expects($this->exactly(2))
       ->method('get')
@@ -293,34 +248,26 @@ class ViewsLocalTaskTest extends UnitTestCase {
     $storage->expects($this->any())
       ->method('id')
       ->will($this->returnValue('example_view'));
-    $storage->expects($this->any())
-      ->method('getExecutable')
-      ->willReturn($executable);
     $executable->storage = $storage;
 
-    $this->viewStorage->expects($this->any())
-      ->method('load')
-      ->with('example_view')
-      ->willReturn($storage);
-
     $display_plugin = $this->getMockBuilder('Drupal\views\Plugin\views\display\PathPluginBase')
-      ->setMethods(['getOption', 'getPath'])
+      ->setMethods(array('getOption', 'getPath'))
       ->disableOriginalConstructor()
       ->getMockForAbstractClass();
     $display_plugin->expects($this->exactly(2))
       ->method('getOption')
       ->with('menu')
-      ->will($this->returnValue(['type' => 'tab', 'weight' => 12, 'title' => 'Example title']));
+      ->will($this->returnValue(array('type' => 'tab', 'weight' => 12, 'title' => 'Example title')));
     $display_plugin->expects($this->once())
       ->method('getPath')
       ->will($this->returnValue('path/example'));
     $executable->display_handler = $display_plugin;
 
-    $result = [['example_view', 'page_1']];
+    $result = array(array($executable, 'page_1'));
     $this->localTaskDerivative->setApplicableMenuViews($result);
 
     // Mock the view route names state.
-    $view_route_names = [];
+    $view_route_names = array();
     $view_route_names['example_view.page_1'] = 'view.example_view.page_1';
     $this->state->expects($this->exactly(2))
       ->method('get')
@@ -336,11 +283,11 @@ class ViewsLocalTaskTest extends UnitTestCase {
       ->will($this->returnValue($route_collection));
 
     // Setup the existing local task of the test_route.
-    $definitions['test_route_tab'] = $other_tab = [
+    $definitions['test_route_tab'] = $other_tab = array(
       'route_name' => 'test_route',
       'title' => 'Test route',
       'base_route' => 'test_route',
-    ];
+    );
 
     $definitions += $this->localTaskDerivative->getDerivativeDefinitions($this->baseDefinition);
 

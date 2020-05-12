@@ -1,8 +1,13 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Component\Plugin\ContextAwarePluginInterface.
+ */
+
 namespace Drupal\Component\Plugin;
 
-use Drupal\Component\Plugin\Context\ContextInterface;
+use \Drupal\Component\Plugin\Context\ContextInterface;
 
 /**
  * Interface for defining context aware plugins.
@@ -28,22 +33,22 @@ interface ContextAwarePluginInterface extends PluginInspectionInterface {
    * @param string $name
    *   The name of the context in the plugin definition.
    *
-   * @return \Drupal\Component\Plugin\Context\ContextDefinitionInterface
-   *   The definition against which the context value must validate.
-   *
    * @throws \Drupal\Component\Plugin\Exception\PluginException
    *   If the requested context is not defined.
+   *
+   * @return \Drupal\Component\Plugin\Context\ContextDefinitionInterface.
+   *   The definition against which the context value must validate.
    */
   public function getContextDefinition($name);
 
   /**
    * Gets the defined contexts.
    *
-   * @return array
-   *   The set context objects.
-   *
    * @throws \Drupal\Component\Plugin\Exception\PluginException
    *   If contexts are defined but not set.
+   *
+   * @return array
+   *   The set context objects.
    */
   public function getContexts();
 
@@ -53,11 +58,11 @@ interface ContextAwarePluginInterface extends PluginInspectionInterface {
    * @param string $name
    *   The name of the context in the plugin definition.
    *
-   * @return \Drupal\Component\Plugin\Context\ContextInterface
-   *   The context object.
-   *
    * @throws \Drupal\Component\Plugin\Exception\PluginException
    *   If the requested context is not set.
+   *
+   * @return \Drupal\Component\Plugin\Context\ContextInterface
+   *   The context object.
    */
   public function getContext($name);
 
@@ -76,11 +81,11 @@ interface ContextAwarePluginInterface extends PluginInspectionInterface {
    * @param string $name
    *   The name of the context in the plugin configuration.
    *
-   * @return mixed
-   *   The currently set context value.
-   *
    * @throws \Drupal\Component\Plugin\Exception\PluginException
    *   If the requested context is not set.
+   *
+   * @return mixed
+   *   The currently set context value.
    */
   public function getContextValue($name);
 
@@ -103,11 +108,11 @@ interface ContextAwarePluginInterface extends PluginInspectionInterface {
    *   The value to set the context to. The value has to validate against the
    *   provided context definition.
    *
-   * @return $this
-   *   A context aware plugin object for chaining.
-   *
    * @throws \Drupal\Component\Plugin\Exception\PluginException
    *   If the value does not pass validation.
+   *
+   * @return \Drupal\Component\Plugin\ContextAwarePluginInterface.
+   *   A context aware plugin object for chaining.
    */
   public function setContextValue($name, $value);
 
@@ -121,7 +126,7 @@ interface ContextAwarePluginInterface extends PluginInspectionInterface {
   public function validateContexts();
 
   /**
-   * Gets a mapping of the expected assignment names to their context names.
+   * Returns a mapping of the expected assignment names to their context names.
    *
    * @return array
    *   A mapping of the expected assignment names to their context names. For

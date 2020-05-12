@@ -1,10 +1,6 @@
-langcode: en
-status: true
-dependencies:
-  module:
-    - node
 id: node_publish_action
 label: 'Publish content'
+status: true
+langcode: en
 type: node
-plugin: entity:publish_action:node
-configuration: {  }
+plugin: node_publish_action

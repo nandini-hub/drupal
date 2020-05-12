@@ -1,8 +1,12 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\twig_theme_test\TwigThemeTestController.
+ */
+
 namespace Drupal\twig_theme_test;
 
-use Drupal\Core\Template\Attribute;
 use Drupal\Core\Url;
 
 /**
@@ -14,49 +18,35 @@ class TwigThemeTestController {
    * Menu callback for testing PHP variables in a Twig template.
    */
   public function phpVariablesRender() {
-    return ['#markup' => \Drupal::theme()->render('twig_theme_test_php_variables', [])];
+    return ['#markup' => \Drupal::theme()->render('twig_theme_test_php_variables', array())];
   }
 
   /**
    * Menu callback for testing translation blocks in a Twig template.
    */
   public function transBlockRender() {
-    return [
+    return array(
       '#theme' => 'twig_theme_test_trans',
-    ];
-  }
-
-  /**
-   * Controller for testing the twig placeholder filter outside of {% trans %}
-   */
-  public function placeholderOutsideTransRender() {
-    return [
-      '#theme' => 'twig_theme_test_placeholder_outside_trans',
-      '#var' => '<script>alert(123);</script>',
-    ];
+    );
   }
 
   /**
    * Renders for testing url_generator functions in a Twig template.
    */
   public function urlGeneratorRender() {
-    return [
+    return array(
       '#theme' => 'twig_theme_test_url_generator',
-    ];
+    );
   }
 
   /**
    * Renders for testing link_generator functions in a Twig template.
    */
   public function linkGeneratorRender() {
-    return [
+    return array(
       '#theme' => 'twig_theme_test_link_generator',
-      '#test_url' => new Url('user.register', [], ['absolute' => TRUE]),
-      '#test_url_attribute' => new Url('user.register', [], ['attributes' => ['foo' => 'bar']]),
-      // Explicitly creating an Attribute object to avoid false positives when
-      // testing Attribute object merging with the twig link() function.
-      '#attributes' => new Attribute(['class' => ['llama', 'kitten', 'panda']]),
-    ];
+      '#test_url' => new Url('user.register'),
+    );
   }
 
   /**
@@ -73,42 +63,25 @@ class TwigThemeTestController {
    * Renders for testing file_url functions in a Twig template.
    */
   public function fileUrlRender() {
-    return [
+    return array(
       '#theme' => 'twig_theme_test_file_url',
-    ];
+    );
   }
 
   /**
    * Renders for testing attach_library functions in a Twig template.
    */
   public function attachLibraryRender() {
-    return [
+    return array(
       '#theme' => 'twig_theme_test_attach_library',
-    ];
+    );
   }
 
   /**
    * Menu callback for testing the Twig registry loader.
    */
   public function registryLoaderRender() {
-    return ['#theme' => 'twig_registry_loader_test'];
-  }
-
-  /**
-   * Controller for testing a renderable inside a template.
-   */
-  public function renderable() {
-    return [
-      '#theme' => 'twig_theme_test_renderable',
-      '#renderable' => new ExampleRenderable(),
-    ];
-  }
-
-  /**
-   * Renders for testing the embed tag in a Twig template.
-   */
-  public function embedTagRender() {
-    return ['#theme' => 'twig_theme_test_embed_tag'];
+    return array('#theme' => 'twig_registry_loader_test');
   }
 
 }

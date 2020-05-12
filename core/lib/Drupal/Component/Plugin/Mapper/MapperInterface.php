@@ -1,4 +1,8 @@
 <?php
+/**
+ * @file
+ * Contains \Drupal\Component\Plugin\Mapper\MapperInterface.
+ */
 
 namespace Drupal\Component\Plugin\Mapper;
 
@@ -14,7 +18,7 @@ namespace Drupal\Component\Plugin\Mapper;
 interface MapperInterface {
 
   /**
-   * Gets a preconfigured instance of a plugin.
+   * Returns a preconfigured instance of a plugin.
    *
    * @param array $options
    *   An array of options that can be used to determine a suitable plugin to
@@ -22,7 +26,7 @@ interface MapperInterface {
    *
    * @return object|false
    *   A fully configured plugin instance. The interface of the plugin instance
-   *   will depend on the plugin type. If no instance can be retrieved, FALSE
+   *   will depends on the plugin type. If no instance can be retrieved, FALSE
    *   will be returned.
    */
   public function getInstance(array $options);

@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Field\EntityReferenceFieldItemList.
+ */
+
 namespace Drupal\Core\Field;
 
 use Drupal\Core\Entity\FieldableEntityInterface;
@@ -13,37 +18,27 @@ class EntityReferenceFieldItemList extends FieldItemList implements EntityRefere
   /**
    * {@inheritdoc}
    */
-  public function getConstraints() {
-    $constraints = parent::getConstraints();
-    $constraint_manager = $this->getTypedDataManager()->getValidationConstraintManager();
-    $constraints[] = $constraint_manager->create('ValidReference', []);
-    return $constraints;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
   public function referencedEntities() {
-    if ($this->isEmpty()) {
-      return [];
+    if (empty($this->list)) {
+      return array();
     }
 
     // Collect the IDs of existing entities to load, and directly grab the
     // "autocreate" entities that are already populated in $item->entity.
-    $target_entities = $ids = [];
+    $target_entities = $ids = array();
     foreach ($this->list as $delta => $item) {
-      if ($item->target_id !== NULL) {
-        $ids[$delta] = $item->target_id;
-      }
-      elseif ($item->hasNewEntity()) {
+      if ($item->hasNewEntity()) {
         $target_entities[$delta] = $item->entity;
+      }
+      elseif ($item->target_id !== NULL) {
+        $ids[$delta] = $item->target_id;
       }
     }
 
     // Load and add the existing entities.
     if ($ids) {
       $target_type = $this->getFieldDefinition()->getSetting('target_type');
-      $entities = \Drupal::entityTypeManager()->getStorage($target_type)->loadMultiple($ids);
+      $entities = \Drupal::entityManager()->getStorage($target_type)->loadMultiple($ids);
       foreach ($ids as $delta => $target_id) {
         if (isset($entities[$target_id])) {
           $target_entities[$delta] = $entities[$target_id];
@@ -64,7 +59,7 @@ class EntityReferenceFieldItemList extends FieldItemList implements EntityRefere
 
     if ($default_value) {
       // Convert UUIDs to numeric IDs.
-      $uuids = [];
+      $uuids = array();
       foreach ($default_value as $delta => $properties) {
         if (isset($properties['target_uuid'])) {
           $uuids[$delta] = $properties['target_uuid'];
@@ -75,11 +70,11 @@ class EntityReferenceFieldItemList extends FieldItemList implements EntityRefere
         $entity_ids = \Drupal::entityQuery($target_type)
           ->condition('uuid', $uuids, 'IN')
           ->execute();
-        $entities = \Drupal::entityTypeManager()
+        $entities = \Drupal::entityManager()
           ->getStorage($target_type)
           ->loadMultiple($entity_ids);
 
-        $entity_uuids = [];
+        $entity_uuids = array();
         foreach ($entities as $id => $entity) {
           $entity_uuids[$entity->uuid()] = $id;
         }
@@ -107,17 +102,11 @@ class EntityReferenceFieldItemList extends FieldItemList implements EntityRefere
     $default_value = parent::defaultValuesFormSubmit($element, $form, $form_state);
 
     // Convert numeric IDs to UUIDs to ensure config deployability.
-    $ids = [];
+    $ids = array();
     foreach ($default_value as $delta => $properties) {
-      if (isset($properties['entity']) && $properties['entity']->isNew()) {
-        // This may be a newly created term.
-        $properties['entity']->save();
-        $default_value[$delta]['target_id'] = $properties['entity']->id();
-        unset($default_value[$delta]['entity']);
-      }
-      $ids[] = $default_value[$delta]['target_id'];
+      $ids[] = $properties['target_id'];
     }
-    $entities = \Drupal::entityTypeManager()
+    $entities = \Drupal::entityManager()
       ->getStorage($this->getSetting('target_type'))
       ->loadMultiple($ids);
 

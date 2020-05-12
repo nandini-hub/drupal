@@ -1,9 +1,12 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\search\Plugin\views\argument\Search.
+ */
+
 namespace Drupal\search\Plugin\views\argument;
 
-use Drupal\Core\Database\Query\Condition;
-use Drupal\search\ViewsSearchQuery;
 use Drupal\views\Plugin\views\argument\ArgumentPluginBase;
 use Drupal\views\Plugin\views\display\DisplayPluginBase;
 use Drupal\views\ViewExecutable;
@@ -49,7 +52,7 @@ class Search extends ArgumentPluginBase {
    */
   protected function queryParseSearchExpression($input) {
     if (!isset($this->searchQuery)) {
-      $this->searchQuery = \Drupal::service('database.replica')->select('search_index', 'i')->extend(ViewsSearchQuery::class);
+      $this->searchQuery = db_select('search_index', 'i', array('target' => 'replica'))->extend('Drupal\search\ViewsSearchQuery');
       $this->searchQuery->searchExpression($input, $this->searchType);
       $this->searchQuery->publicParseSearchExpression();
     }
@@ -78,27 +81,26 @@ class Search extends ArgumentPluginBase {
     else {
       $search_index = $this->ensureMyTable();
 
-      $search_condition = new Condition('AND');
+      $search_condition = db_and();
 
       // Create a new join to relate the 'search_total' table to our current 'search_index' table.
-      $definition = [
+      $definition = array(
         'table' => 'search_total',
         'field' => 'word',
         'left_table' => $search_index,
         'left_field' => 'word',
-      ];
+      );
       $join = Views::pluginManager('join')->createInstance('standard', $definition);
       $search_total = $this->query->addRelationship('search_total', $join, $search_index);
 
-      // Add the search score field to the query.
-      $this->search_score = $this->query->addField('', "$search_index.score * $search_total.count", 'score', ['function' => 'sum']);
+      $this->search_score = $this->query->addField('', "$search_index.score * $search_total.count", 'score', array('function' => 'sum'));
 
-      // Add the conditions set up by the search query to the views query.
       $search_condition->condition("$search_index.type", $this->searchType);
+
       $search_dataset = $this->query->addTable('node_search_dataset');
       $conditions = $this->searchQuery->conditions();
       $condition_conditions =& $conditions->conditions();
-      foreach ($condition_conditions as $key => &$condition) {
+      foreach ($condition_conditions  as $key => &$condition) {
         // Make sure we just look at real conditions.
         if (is_numeric($key)) {
           // Replace the conditions with the table alias of views.
@@ -108,21 +110,11 @@ class Search extends ArgumentPluginBase {
       $search_conditions =& $search_condition->conditions();
       $search_conditions = array_merge($search_conditions, $condition_conditions);
 
-      // Add the keyword conditions, as is done in
-      // SearchQuery::prepareAndNormalize(), but simplified because we are
-      // only concerned with relevance ranking so we do not need to normalize.
-      $or = new Condition('OR');
-      foreach ($words as $word) {
-        $or->condition("$search_index.word", $word);
-      }
-      $search_condition->condition($or);
-
-      // Add the GROUP BY and HAVING expressions to the query.
       $this->query->addWhere(0, $search_condition);
       $this->query->addGroupBy("$search_index.sid");
       $matches = $this->searchQuery->matches();
       $placeholder = $this->placeholder();
-      $this->query->addHavingExpression(0, "COUNT(*) >= $placeholder", [$placeholder => $matches]);
+      $this->query->addHavingExpression(0, "COUNT(*) >= $placeholder", array($placeholder => $matches));
     }
 
     // Set to NULL to prevent PDO exception when views object is cached

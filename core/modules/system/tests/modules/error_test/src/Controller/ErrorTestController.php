@@ -1,4 +1,8 @@
 <?php
+/**
+ * @file
+ * Contains \Drupal\error_test\Controller\ErrorTestController.
+ */
 
 namespace Drupal\error_test\Controller;
 
@@ -14,7 +18,7 @@ class ErrorTestController extends ControllerBase {
   /**
    * The database connection.
    *
-   * @var \Drupal\Core\Database\Connection
+   * @var \Drupal\Core\Database\Connection;
    */
   protected $database;
 
@@ -46,9 +50,9 @@ class ErrorTestController extends ControllerBase {
     // This will generate a notice.
     $monkey_love = $bananas;
     // This will generate a warning.
-    $awesomely_big = 1 / 0;
-    // This will generate a user error. Use & to check for double escaping.
-    trigger_error("Drupal & awesome", E_USER_WARNING);
+    $awesomely_big = 1/0;
+    // This will generate a user error.
+    trigger_error("Drupal is awesome", E_USER_WARNING);
     return [];
   }
 
@@ -56,7 +60,7 @@ class ErrorTestController extends ControllerBase {
    * Generate fatals to test the error handler.
    */
   public function generateFatals() {
-    $function = function (array $test) {
+    $function = function(array $test) {
     };
 
     $function("test-string");
@@ -68,7 +72,7 @@ class ErrorTestController extends ControllerBase {
    */
   public function triggerException() {
     define('SIMPLETEST_COLLECT_ERRORS', FALSE);
-    throw new \Exception("Drupal & awesome");
+    throw new \Exception("Drupal is awesome");
   }
 
   /**
@@ -88,7 +92,7 @@ class ErrorTestController extends ControllerBase {
       '#post_render' => [
         function () {
           throw new \Exception('This is an exception that occurs during rendering');
-        },
+        }
       ],
     ];
   }

@@ -1,8 +1,12 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\File\MimeType\MimeTypeGuesser.
+ */
+
 namespace Drupal\Core\File\MimeType;
 
-use Drupal\Core\StreamWrapper\StreamWrapperManagerInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpFoundation\File\MimeType\MimeTypeGuesser as SymfonyMimeTypeGuesser;
 use Symfony\Component\HttpFoundation\File\MimeType\MimeTypeGuesserInterface;
@@ -17,7 +21,7 @@ class MimeTypeGuesser implements MimeTypeGuesserInterface {
    *
    * @var array
    */
-  protected $guessers = [];
+  protected $guessers = array();
 
   /**
    * Holds the array of guessers sorted by priority.
@@ -32,33 +36,12 @@ class MimeTypeGuesser implements MimeTypeGuesserInterface {
   protected $sortedGuessers = NULL;
 
   /**
-   * The stream wrapper manager.
-   *
-   * @var \Drupal\Core\StreamWrapper\StreamWrapperManagerInterface
-   */
-  protected $streamWrapperManager;
-
-  /**
-   * Constructs a MimeTypeGuesser object.
-   *
-   * @param \Drupal\Core\StreamWrapper\StreamWrapperManagerInterface $stream_wrapper_manager
-   *   The stream wrapper manager.
-   */
-  public function __construct(StreamWrapperManagerInterface $stream_wrapper_manager) {
-    $this->streamWrapperManager = $stream_wrapper_manager;
-  }
-
-  /**
    * {@inheritdoc}
    */
   public function guess($path) {
-    if ($wrapper = $this->streamWrapperManager->getViaUri($path)) {
-      // Get the real path from the stream wrapper, if available. Files stored
-      // in remote file systems will not have one.
-      $real_path = $wrapper->realpath();
-      if ($real_path !== FALSE) {
-        $path = $real_path;
-      }
+    if ($wrapper = file_stream_wrapper_get_instance_by_uri($path)) {
+      // Get the real path from the stream wrapper.
+      $path = $wrapper->realpath();
     }
 
     if ($this->sortedGuessers === NULL) {
@@ -98,7 +81,7 @@ class MimeTypeGuesser implements MimeTypeGuesserInterface {
    *   A sorted array of MIME type guesser objects.
    */
   protected function sortGuessers() {
-    $sorted = [];
+    $sorted = array();
     krsort($this->guessers);
 
     foreach ($this->guessers as $guesser) {
@@ -108,7 +91,7 @@ class MimeTypeGuesser implements MimeTypeGuesserInterface {
   }
 
   /**
-   * A helper function to register with Symfony's singleton MIME type guesser.
+   * A helper function to register with Symfony's singleton mime type guesser.
    *
    * Symfony's default mimetype guessers have dependencies on PHP's fileinfo
    * extension or being able to run the system command file. Drupal's guesser
@@ -117,8 +100,6 @@ class MimeTypeGuesser implements MimeTypeGuesserInterface {
    * @see \Symfony\Component\HttpFoundation\File\MimeType\MimeTypeGuesser
    */
   public static function registerWithSymfonyGuesser(ContainerInterface $container) {
-    // Reset state, so we do not store more and more services during test runs.
-    SymfonyMimeTypeGuesser::reset();
     $singleton = SymfonyMimeTypeGuesser::getInstance();
     $singleton->register($container->get('file.mime_type.guesser'));
   }

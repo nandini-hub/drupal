@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\Core\Flood\FloodInterface.
+ */
+
 namespace Drupal\Core\Flood;
 
 /**

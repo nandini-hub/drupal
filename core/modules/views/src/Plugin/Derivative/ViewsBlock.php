@@ -1,16 +1,20 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\views\Plugin\Derivative\ViewsBlock.
+ */
+
 namespace Drupal\views\Plugin\Derivative;
 
 use Drupal\Core\Entity\EntityStorageInterface;
 use Drupal\Core\Plugin\Discovery\ContainerDeriverInterface;
-use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
  * Provides block plugin definitions for all Views block displays.
  *
- * @see \Drupal\views\Plugin\Block\ViewsBlock
+ * @see \Drupal\views\Plugin\block\block\ViewsBlock
  */
 class ViewsBlock implements ContainerDeriverInterface {
 
@@ -19,7 +23,7 @@ class ViewsBlock implements ContainerDeriverInterface {
    *
    * @var array
    */
-  protected $derivatives = [];
+  protected $derivatives = array();
 
   /**
    * The base plugin ID.
@@ -41,7 +45,7 @@ class ViewsBlock implements ContainerDeriverInterface {
   public static function create(ContainerInterface $container, $base_plugin_id) {
     return new static(
       $base_plugin_id,
-      $container->get('entity_type.manager')->getStorage('view')
+      $container->get('entity.manager')->getStorage('view')
     );
   }
 
@@ -82,43 +86,28 @@ class ViewsBlock implements ContainerDeriverInterface {
       $executable = $view->getExecutable();
       $executable->initDisplay();
       foreach ($executable->displayHandlers as $display) {
-        /** @var \Drupal\views\Plugin\views\display\DisplayPluginInterface $display */
         // Add a block plugin definition for each block display.
         if (isset($display) && !empty($display->definition['uses_hook_block'])) {
           $delta = $view->id() . '-' . $display->display['id'];
+          $desc = $display->getOption('block_description');
 
-          $admin_label = $display->getOption('block_description');
-          if (empty($admin_label)) {
+          if (empty($desc)) {
             if ($display->display['display_title'] == $display->definition['title']) {
-              $admin_label = $view->label();
+              $desc = t('!view', array('!view' => $view->label()));
             }
             else {
-              // Allow translators to control the punctuation. Plugin
-              // definitions get cached, so use TranslatableMarkup() instead of
-              // t() to avoid double escaping when $admin_label is rendered
-              // during requests that use the cached definition.
-              $admin_label = new TranslatableMarkup('@view: @display', ['@view' => $view->label(), '@display' => $display->display['display_title']]);
+              $desc = t('!view: !display', array('!view' => $view->label(), '!display' => $display->display['display_title']));
             }
           }
-
-          $this->derivatives[$delta] = [
+          $this->derivatives[$delta] = array(
             'category' => $display->getOption('block_category'),
-            'admin_label' => $admin_label,
-            'config_dependencies' => [
-              'config' => [
+            'admin_label' => $desc,
+            'config_dependencies' => array(
+              'config' => array(
                 $view->getConfigDependencyName(),
-              ],
-            ],
-          ];
-
-          // Look for arguments and expose them as context.
-          foreach ($display->getHandlers('argument') as $argument_name => $argument) {
-            /** @var \Drupal\views\Plugin\views\argument\ArgumentPluginBase $argument */
-            if ($context_definition = $argument->getContextDefinition()) {
-              $this->derivatives[$delta]['context_definitions'][$argument_name] = $context_definition;
-            }
-          }
-
+              )
+            )
+          );
           $this->derivatives[$delta] += $base_plugin_definition;
         }
       }

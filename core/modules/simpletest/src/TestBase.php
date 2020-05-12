@@ -1,45 +1,51 @@
 <?php
 
+/**
+ * @file
+ * Definition of \Drupal\simpletest\TestBase.
+ */
+
 namespace Drupal\simpletest;
 
-use Drupal\Component\Assertion\Handle;
-use Drupal\Component\Render\FormattableMarkup;
-use Drupal\Component\Render\MarkupInterface;
 use Drupal\Component\Utility\Crypt;
-use Drupal\Component\Utility\Environment;
+use Drupal\Component\Utility\Random;
+use Drupal\Component\Utility\SafeMarkup;
 use Drupal\Core\Database\Database;
-use Drupal\Core\File\FileSystemInterface;
+use Drupal\Core\Config\ConfigImporter;
+use Drupal\Core\Config\StorageComparer;
+use Drupal\Core\DependencyInjection\ContainerBuilder;
+use Drupal\Core\Database\ConnectionNotDefinedException;
+use Drupal\Core\Config\StorageInterface;
+use Drupal\Core\Language\Language;
+use Drupal\Core\Session\AccountProxy;
+use Drupal\Core\Session\AnonymousUserSession;
 use Drupal\Core\Site\Settings;
 use Drupal\Core\StreamWrapper\PublicStream;
-use Drupal\Core\Test\TestDatabase;
-use Drupal\Core\Test\TestDiscovery;
-use Drupal\Core\Test\TestSetupTrait;
 use Drupal\Core\Utility\Error;
-use Drupal\Tests\AssertHelperTrait as BaseAssertHelperTrait;
-use Drupal\Tests\ConfigTestTrait;
-use Drupal\Tests\RandomGeneratorTrait;
-use Drupal\Tests\Traits\Core\GeneratePermutationsTrait;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\RequestStack;
+use Symfony\Component\DependencyInjection\Reference;
 
 /**
  * Base class for Drupal tests.
  *
- * Do not extend this class directly; use \Drupal\simpletest\WebTestBase.
- *
- * @deprecated in drupal:8.8.0 and is removed from drupal:9.0.0. Instead,
- *   use one of the phpunit base test classes like
- *   Drupal\Tests\BrowserTestBase. See https://www.drupal.org/node/3030340.
+ * Do not extend this class directly; use either
+ * \Drupal\simpletest\WebTestBase or \Drupal\simpletest\KernelTestBase.
  */
 abstract class TestBase {
+  /**
+   * The test run ID.
+   *
+   * @var string
+   */
+  protected $testId;
 
-  use BaseAssertHelperTrait;
-  use TestSetupTrait;
-  use RandomGeneratorTrait;
-  use GeneratePermutationsTrait;
-  // For backwards compatibility switch the visibility of the methods to public.
-  use ConfigTestTrait {
-    configImporter as public;
-    copyConfig as public;
-  }
+  /**
+   * The site directory of this test run.
+   *
+   * @var string
+   */
+  protected $siteDirectory = NULL;
 
   /**
    * The database prefix of this test run.
@@ -50,29 +56,27 @@ abstract class TestBase {
 
   /**
    * Time limit for the test.
-   *
-   * @var int
    */
   protected $timeLimit = 500;
 
   /**
    * Current results of this test case.
    *
-   * @var array
+   * @var Array
    */
-  public $results = [
+  public $results = array(
     '#pass' => 0,
     '#fail' => 0,
     '#exception' => 0,
     '#debug' => 0,
-  ];
+  );
 
   /**
    * Assertions thrown in that test case.
    *
-   * @var array
+   * @var Array
    */
-  protected $assertions = [];
+  protected $assertions = array();
 
   /**
    * This class is skipped when looking for the source of an assertion.
@@ -82,7 +86,7 @@ abstract class TestBase {
    * that called it. So we need to skip the classes defining these helper
    * methods.
    */
-  protected $skipClasses = [__CLASS__ => TRUE];
+  protected $skipClasses = array(__CLASS__ => TRUE);
 
   /**
    * TRUE if verbose debugging is enabled.
@@ -94,7 +98,7 @@ abstract class TestBase {
   /**
    * Incrementing identifier for verbose output filenames.
    *
-   * @var int
+   * @var integer
    */
   protected $verboseId = 0;
 
@@ -126,7 +130,7 @@ abstract class TestBase {
    *
    * @var string
    * @todo Remove all remnants of $GLOBALS['conf'].
-   * @see https://www.drupal.org/node/2183323
+   * @see https://drupal.org/node/2183323
    */
   protected $originalConf;
 
@@ -176,7 +180,14 @@ abstract class TestBase {
   protected $originalPrefix;
 
   /**
-   * The name of the session cookie of the test-runner.
+   * The original installation profile.
+   *
+   * @var string
+   */
+  protected $originalProfile;
+
+  /**
+   * The name of the session cookie.
    *
    * @var string
    */
@@ -197,11 +208,45 @@ abstract class TestBase {
   protected $originalShutdownCallbacks;
 
   /**
+   * The site directory of the original parent site.
+   *
+   * @var string
+   */
+  protected $originalSite;
+
+  /**
    * The original user, before testing began.
    *
    * @var \Drupal\Core\Session\AccountProxyInterface
    */
   protected $originalUser;
+
+  /**
+   * The public file directory for the test environment.
+   *
+   * This is set in TestBase::prepareEnvironment().
+   *
+   * @var string
+   */
+  protected $publicFilesDirectory;
+
+  /**
+   * The private file directory for the test environment.
+   *
+   * This is set in TestBase::prepareEnvironment().
+   *
+   * @var string
+   */
+  protected $privateFilesDirectory;
+
+  /**
+   * The temporary file directory for the test environment.
+   *
+   * This is set in TestBase::prepareEnvironment().
+   *
+   * @var string
+   */
+  protected $tempFilesDirectory;
 
   /**
    * The translation file directory for the test environment.
@@ -222,6 +267,20 @@ abstract class TestBase {
   public $dieOnFail = FALSE;
 
   /**
+   * The DrupalKernel instance used in the test.
+   *
+   * @var \Drupal\Core\DrupalKernel
+   */
+  protected $kernel;
+
+  /**
+   * The dependency injection container used in the test.
+   *
+   * @var \Symfony\Component\DependencyInjection\ContainerInterface
+   */
+  protected $container;
+
+  /**
    * The config importer that can used in a test.
    *
    * @var \Drupal\Core\Config\ConfigImporter
@@ -229,10 +288,26 @@ abstract class TestBase {
   protected $configImporter;
 
   /**
+   * The random generator.
+   *
+   * @var \Drupal\Component\Utility\Random
+   */
+  protected $randomGenerator;
+
+  /**
+   * Set to TRUE to strict check all configuration saved.
+   *
+   * @see \Drupal\Core\Config\Testing\ConfigSchemaChecker
+   *
+   * @var bool
+   */
+  protected $strictConfigSchema = TRUE;
+
+  /**
    * HTTP authentication method (specified as a CURLAUTH_* constant).
    *
    * @var int
-   * @see http://php.net/manual/function.curl-setopt.php
+   * @see http://php.net/manual/en/function.curl-setopt.php
    */
   protected $httpAuthMethod = CURLAUTH_BASIC;
 
@@ -254,20 +329,6 @@ abstract class TestBase {
   }
 
   /**
-   * Fail the test if it belongs to a PHPUnit-based framework.
-   *
-   * This would probably be caused by automated test conversions such as those
-   * in https://www.drupal.org/project/drupal/issues/2770921.
-   */
-  public function checkTestHierarchyMismatch() {
-    // We can use getPhpunitTestSuite() because it uses a regex on the class'
-    // namespace to deduce the PHPUnit test suite.
-    if (TestDiscovery::getPhpunitTestSuite(get_class($this)) !== FALSE) {
-      $this->fail(get_class($this) . ' incorrectly subclasses ' . __CLASS__ . ', it should probably extend \Drupal\Tests\BrowserTestBase instead.');
-    }
-  }
-
-  /**
    * Performs setup tasks before each individual test method is run.
    */
   abstract protected function setUp();
@@ -279,7 +340,7 @@ abstract class TestBase {
    *   Array of errors containing a list of unmet requirements.
    */
   protected function checkRequirements() {
-    return [];
+    return array();
   }
 
   /**
@@ -308,9 +369,9 @@ abstract class TestBase {
    * @param $status
    *   Can be 'pass', 'fail', 'exception', 'debug'.
    *   TRUE is a synonym for 'pass', FALSE for 'fail'.
-   * @param string|\Drupal\Component\Render\MarkupInterface $message
+   * @param $message
    *   (optional) A message to display with the assertion. Do not translate
-   *   messages: use \Drupal\Component\Render\FormattableMarkup to embed
+   *   messages: use \Drupal\Component\Utility\SafeMarkup::format() to embed
    *   variables in the message text, not t(). If left blank, a default message
    *   will be displayed.
    * @param $group
@@ -326,9 +387,6 @@ abstract class TestBase {
    *   is the caller function itself.
    */
   protected function assert($status, $message = '', $group = 'Other', array $caller = NULL) {
-    if ($message instanceof MarkupInterface) {
-      $message = (string) $message;
-    }
     // Convert boolean status to string status.
     if (is_bool($status)) {
       $status = $status ? 'pass' : 'fail';
@@ -343,7 +401,7 @@ abstract class TestBase {
     }
 
     // Creation assertion array that can be displayed while tests are running.
-    $assertion = [
+    $assertion = array(
       'test_id' => $this->testId,
       'test_class' => get_class($this),
       'status' => $status,
@@ -352,7 +410,7 @@ abstract class TestBase {
       'function' => $caller['function'],
       'line' => $caller['line'],
       'file' => $caller['file'],
-    ];
+    );
 
     // Store assertion for display after the test has completed.
     $message_id = $this->storeAssertion($assertion);
@@ -385,26 +443,22 @@ abstract class TestBase {
    * @return
    *   Message ID of the stored assertion.
    *
-   * @deprecated in drupal:8.8.0 and is removed from drupal:9.0.0. Use
-   *   simpletest_insert_assert() instead.
-   *
-   * @see https://www.drupal.org/node/3030340
    * @see \Drupal\simpletest\TestBase::assert()
    * @see \Drupal\simpletest\TestBase::deleteAssert()
    */
-  public static function insertAssert($test_id, $test_class, $status, $message = '', $group = 'Other', array $caller = []) {
+  public static function insertAssert($test_id, $test_class, $status, $message = '', $group = 'Other', array $caller = array()) {
     // Convert boolean status to string status.
     if (is_bool($status)) {
       $status = $status ? 'pass' : 'fail';
     }
 
-    $caller += [
+    $caller += array(
       'function' => 'Unknown',
       'line' => 0,
       'file' => 'Unknown',
-    ];
+    );
 
-    $assertion = [
+    $assertion = array(
       'test_id' => $test_id,
       'test_class' => $test_class,
       'status' => $status,
@@ -413,7 +467,7 @@ abstract class TestBase {
       'function' => $caller['function'],
       'line' => $caller['line'],
       'file' => $caller['file'],
-    ];
+    );
 
     // We can't use storeAssertion() because this method is static.
     return self::getDatabaseConnection()
@@ -442,6 +496,35 @@ abstract class TestBase {
   }
 
   /**
+   * Returns the database connection to the site running Simpletest.
+   *
+   * @return \Drupal\Core\Database\Connection
+   *   The database connection to use for inserting assertions.
+   */
+  public static function getDatabaseConnection() {
+    // Check whether there is a test runner connection.
+    // @see run-tests.sh
+    // @todo Convert Simpletest UI runner to create + use this connection, too.
+    try {
+      $connection = Database::getConnection('default', 'test-runner');
+    }
+    catch (ConnectionNotDefinedException $e) {
+      // Check whether there is a backup of the original default connection.
+      // @see TestBase::prepareEnvironment()
+      try {
+        $connection = Database::getConnection('default', 'simpletest_original_default');
+      }
+      catch (ConnectionNotDefinedException $e) {
+        // If TestBase::prepareEnvironment() or TestBase::restoreEnvironment()
+        // failed, the test-specific database connection does not exist
+        // yet/anymore, so fall back to the default of the (UI) test runner.
+        $connection = Database::getConnection('default', 'default');
+      }
+    }
+    return $connection;
+  }
+
+  /**
    * Cycles through backtrace until the first non-assertion method is found.
    *
    * @return
@@ -453,7 +536,7 @@ abstract class TestBase {
     // The first element is the call. The second element is the caller.
     // We skip calls that occurred in one of the methods of our base classes
     // or in an assertion function.
-    while (($caller = $backtrace[1]) &&
+   while (($caller = $backtrace[1]) &&
          ((isset($caller['class']) && isset($this->skipClasses[$caller['class']])) ||
            substr($caller['function'], 0, 6) == 'assert')) {
       // We remove that call.
@@ -472,7 +555,7 @@ abstract class TestBase {
    *   The value on which the assertion is to be done.
    * @param $message
    *   (optional) A message to display with the assertion. Do not translate
-   *   messages: use \Drupal\Component\Render\FormattableMarkup to embed
+   *   messages: use \Drupal\Component\Utility\SafeMarkup::format() to embed
    *   variables in the message text, not t(). If left blank, a default message
    *   will be displayed.
    * @param $group
@@ -485,7 +568,7 @@ abstract class TestBase {
    *   TRUE if the assertion succeeded, FALSE otherwise.
    */
   protected function assertTrue($value, $message = '', $group = 'Other') {
-    return $this->assert((bool) $value, $message ? $message : new FormattableMarkup('Value @value is TRUE.', ['@value' => var_export($value, TRUE)]), $group);
+    return $this->assert((bool) $value, $message ? $message : SafeMarkup::format('Value @value is TRUE.', array('@value' => var_export($value, TRUE))), $group);
   }
 
   /**
@@ -497,7 +580,7 @@ abstract class TestBase {
    *   The value on which the assertion is to be done.
    * @param $message
    *   (optional) A message to display with the assertion. Do not translate
-   *   messages: use \Drupal\Component\Render\FormattableMarkup to embed
+   *   messages: use \Drupal\Component\Utility\SafeMarkup::format() to embed
    *   variables in the message text, not t(). If left blank, a default message
    *   will be displayed.
    * @param $group
@@ -510,7 +593,7 @@ abstract class TestBase {
    *   TRUE if the assertion succeeded, FALSE otherwise.
    */
   protected function assertFalse($value, $message = '', $group = 'Other') {
-    return $this->assert(!$value, $message ? $message : new FormattableMarkup('Value @value is FALSE.', ['@value' => var_export($value, TRUE)]), $group);
+    return $this->assert(!$value, $message ? $message : SafeMarkup::format('Value @value is FALSE.', array('@value' => var_export($value, TRUE))), $group);
   }
 
   /**
@@ -520,7 +603,7 @@ abstract class TestBase {
    *   The value on which the assertion is to be done.
    * @param $message
    *   (optional) A message to display with the assertion. Do not translate
-   *   messages: use \Drupal\Component\Render\FormattableMarkup to embed
+   *   messages: use \Drupal\Component\Utility\SafeMarkup::format() to embed
    *   variables in the message text, not t(). If left blank, a default message
    *   will be displayed.
    * @param $group
@@ -533,7 +616,7 @@ abstract class TestBase {
    *   TRUE if the assertion succeeded, FALSE otherwise.
    */
   protected function assertNull($value, $message = '', $group = 'Other') {
-    return $this->assert(!isset($value), $message ? $message : new FormattableMarkup('Value @value is NULL.', ['@value' => var_export($value, TRUE)]), $group);
+    return $this->assert(!isset($value), $message ? $message : SafeMarkup::format('Value @value is NULL.', array('@value' => var_export($value, TRUE))), $group);
   }
 
   /**
@@ -543,7 +626,7 @@ abstract class TestBase {
    *   The value on which the assertion is to be done.
    * @param $message
    *   (optional) A message to display with the assertion. Do not translate
-   *   messages: use \Drupal\Component\Render\FormattableMarkup to embed
+   *   messages: use \Drupal\Component\Utility\SafeMarkup::format() to embed
    *   variables in the message text, not t(). If left blank, a default message
    *   will be displayed.
    * @param $group
@@ -556,7 +639,7 @@ abstract class TestBase {
    *   TRUE if the assertion succeeded, FALSE otherwise.
    */
   protected function assertNotNull($value, $message = '', $group = 'Other') {
-    return $this->assert(isset($value), $message ? $message : new FormattableMarkup('Value @value is not NULL.', ['@value' => var_export($value, TRUE)]), $group);
+    return $this->assert(isset($value), $message ? $message : SafeMarkup::format('Value @value is not NULL.', array('@value' => var_export($value, TRUE))), $group);
   }
 
   /**
@@ -568,7 +651,7 @@ abstract class TestBase {
    *   The second value to check.
    * @param $message
    *   (optional) A message to display with the assertion. Do not translate
-   *   messages: use \Drupal\Component\Render\FormattableMarkup to embed
+   *   messages: use \Drupal\Component\Utility\SafeMarkup::format() to embed
    *   variables in the message text, not t(). If left blank, a default message
    *   will be displayed.
    * @param $group
@@ -581,17 +664,7 @@ abstract class TestBase {
    *   TRUE if the assertion succeeded, FALSE otherwise.
    */
   protected function assertEqual($first, $second, $message = '', $group = 'Other') {
-    // Cast objects implementing MarkupInterface to string instead of
-    // relying on PHP casting them to string depending on what they are being
-    // comparing with.
-    $first = $this->castSafeStrings($first);
-    $second = $this->castSafeStrings($second);
-    $is_equal = $first == $second;
-    if (!$is_equal || !$message) {
-      $default_message = new FormattableMarkup('Value @first is equal to value @second.', ['@first' => var_export($first, TRUE), '@second' => var_export($second, TRUE)]);
-      $message = $message ? $message . PHP_EOL . $default_message : $default_message;
-    }
-    return $this->assert($is_equal, $message, $group);
+    return $this->assert($first == $second, $message ? $message : SafeMarkup::format('Value @first is equal to value @second.', array('@first' => var_export($first, TRUE), '@second' => var_export($second, TRUE))), $group);
   }
 
   /**
@@ -603,7 +676,7 @@ abstract class TestBase {
    *   The second value to check.
    * @param $message
    *   (optional) A message to display with the assertion. Do not translate
-   *   messages: use \Drupal\Component\Render\FormattableMarkup to embed
+   *   messages: use \Drupal\Component\Utility\SafeMarkup::format() to embed
    *   variables in the message text, not t(). If left blank, a default message
    *   will be displayed.
    * @param $group
@@ -616,17 +689,7 @@ abstract class TestBase {
    *   TRUE if the assertion succeeded, FALSE otherwise.
    */
   protected function assertNotEqual($first, $second, $message = '', $group = 'Other') {
-    // Cast objects implementing MarkupInterface to string instead of
-    // relying on PHP casting them to string depending on what they are being
-    // comparing with.
-    $first = $this->castSafeStrings($first);
-    $second = $this->castSafeStrings($second);
-    $not_equal = $first != $second;
-    if (!$not_equal || !$message) {
-      $default_message = new FormattableMarkup('Value @first is not equal to value @second.', ['@first' => var_export($first, TRUE), '@second' => var_export($second, TRUE)]);
-      $message = $message ? $message . PHP_EOL . $default_message : $default_message;
-    }
-    return $this->assert($not_equal, $message, $group);
+    return $this->assert($first != $second, $message ? $message : SafeMarkup::format('Value @first is not equal to value @second.', array('@first' => var_export($first, TRUE), '@second' => var_export($second, TRUE))), $group);
   }
 
   /**
@@ -638,7 +701,7 @@ abstract class TestBase {
    *   The second value to check.
    * @param $message
    *   (optional) A message to display with the assertion. Do not translate
-   *   messages: use \Drupal\Component\Render\FormattableMarkup to embed
+   *   messages: use \Drupal\Component\Utility\SafeMarkup::format() to embed
    *   variables in the message text, not t(). If left blank, a default message
    *   will be displayed.
    * @param $group
@@ -651,12 +714,7 @@ abstract class TestBase {
    *   TRUE if the assertion succeeded, FALSE otherwise.
    */
   protected function assertIdentical($first, $second, $message = '', $group = 'Other') {
-    $is_identical = $first === $second;
-    if (!$is_identical || !$message) {
-      $default_message = new FormattableMarkup('Value @first is identical to value @second.', ['@first' => var_export($first, TRUE), '@second' => var_export($second, TRUE)]);
-      $message = $message ? $message . PHP_EOL . $default_message : $default_message;
-    }
-    return $this->assert($is_identical, $message, $group);
+    return $this->assert($first === $second, $message ? $message : SafeMarkup::format('Value @first is identical to value @second.', array('@first' => var_export($first, TRUE), '@second' => var_export($second, TRUE))), $group);
   }
 
   /**
@@ -668,7 +726,7 @@ abstract class TestBase {
    *   The second value to check.
    * @param $message
    *   (optional) A message to display with the assertion. Do not translate
-   *   messages: use \Drupal\Component\Render\FormattableMarkup to embed
+   *   messages: use \Drupal\Component\Utility\SafeMarkup::format() to embed
    *   variables in the message text, not t(). If left blank, a default message
    *   will be displayed.
    * @param $group
@@ -681,12 +739,7 @@ abstract class TestBase {
    *   TRUE if the assertion succeeded, FALSE otherwise.
    */
   protected function assertNotIdentical($first, $second, $message = '', $group = 'Other') {
-    $not_identical = $first !== $second;
-    if (!$not_identical || !$message) {
-      $default_message = new FormattableMarkup('Value @first is not identical to value @second.', ['@first' => var_export($first, TRUE), '@second' => var_export($second, TRUE)]);
-      $message = $message ? $message . PHP_EOL . $default_message : $default_message;
-    }
-    return $this->assert($not_identical, $message, $group);
+    return $this->assert($first !== $second, $message ? $message : SafeMarkup::format('Value @first is not identical to value @second.', array('@first' => var_export($first, TRUE), '@second' => var_export($second, TRUE))), $group);
   }
 
   /**
@@ -698,7 +751,7 @@ abstract class TestBase {
    *   The second object to check.
    * @param $message
    *   (optional) A message to display with the assertion. Do not translate
-   *   messages: use \Drupal\Component\Render\FormattableMarkup to embed
+   *   messages: use \Drupal\Component\Utility\SafeMarkup::format() to embed
    *   variables in the message text, not t(). If left blank, a default message
    *   will be displayed.
    * @param $group
@@ -711,10 +764,10 @@ abstract class TestBase {
    *   TRUE if the assertion succeeded, FALSE otherwise.
    */
   protected function assertIdenticalObject($object1, $object2, $message = '', $group = 'Other') {
-    $message = $message ?: new FormattableMarkup('@object1 is identical to @object2', [
-      '@object1' => var_export($object1, TRUE),
-      '@object2' => var_export($object2, TRUE),
-    ]);
+    $message = $message ?: SafeMarkup::format('!object1 is identical to !object2', array(
+      '!object1' => var_export($object1, TRUE),
+      '!object2' => var_export($object2, TRUE),
+    ));
     $identical = TRUE;
     foreach ($object1 as $key => $value) {
       $identical = $identical && isset($object2->$key) && $object2->$key === $value;
@@ -728,7 +781,7 @@ abstract class TestBase {
    * @return bool
    *   TRUE if the assertion succeeded, FALSE otherwise.
    *
-   * @see \Drupal\simpletest\TestBase::prepareEnvironment()
+   * @see TestBase::prepareEnvironment()
    * @see \Drupal\Core\DrupalKernel::bootConfiguration()
    */
   protected function assertNoErrorsLogged() {
@@ -738,47 +791,11 @@ abstract class TestBase {
   }
 
   /**
-   * Asserts that a specific error has been logged to the PHP error log.
-   *
-   * @param string $error_message
-   *   The expected error message.
-   *
-   * @return bool
-   *   TRUE if the assertion succeeded, FALSE otherwise.
-   *
-   * @see \Drupal\simpletest\TestBase::prepareEnvironment()
-   * @see \Drupal\Core\DrupalKernel::bootConfiguration()
-   */
-  protected function assertErrorLogged($error_message) {
-    $error_log_filename = DRUPAL_ROOT . '/' . $this->siteDirectory . '/error.log';
-    if (!file_exists($error_log_filename)) {
-      $this->error('No error logged yet.');
-    }
-
-    $content = file_get_contents($error_log_filename);
-    $rows = explode(PHP_EOL, $content);
-
-    // We iterate over the rows in order to be able to remove the logged error
-    // afterwards.
-    $found = FALSE;
-    foreach ($rows as $row_index => $row) {
-      if (strpos($content, $error_message) !== FALSE) {
-        $found = TRUE;
-        unset($rows[$row_index]);
-      }
-    }
-
-    file_put_contents($error_log_filename, implode("\n", $rows));
-
-    return $this->assertTrue($found, sprintf('The %s error message was logged.', $error_message));
-  }
-
-  /**
    * Fire an assertion that is always positive.
    *
    * @param $message
    *   (optional) A message to display with the assertion. Do not translate
-   *   messages: use \Drupal\Component\Render\FormattableMarkup to embed
+   *   messages: use \Drupal\Component\Utility\SafeMarkup::format() to embed
    *   variables in the message text, not t(). If left blank, a default message
    *   will be displayed.
    * @param $group
@@ -799,7 +816,7 @@ abstract class TestBase {
    *
    * @param $message
    *   (optional) A message to display with the assertion. Do not translate
-   *   messages: use \Drupal\Component\Render\FormattableMarkup to embed
+   *   messages: use \Drupal\Component\Utility\SafeMarkup::format() to embed
    *   variables in the message text, not t(). If left blank, a default message
    *   will be displayed.
    * @param $group
@@ -820,7 +837,7 @@ abstract class TestBase {
    *
    * @param $message
    *   (optional) A message to display with the assertion. Do not translate
-   *   messages: use \Drupal\Component\Render\FormattableMarkup to embed
+   *   messages: use \Drupal\Component\Utility\SafeMarkup::format() to embed
    *   variables in the message text, not t(). If left blank, a default message
    *   will be displayed.
    * @param $group
@@ -862,11 +879,10 @@ abstract class TestBase {
     }
 
     $message = '<hr />ID #' . $this->verboseId . ' (<a href="' . $this->verboseClassName . '-' . ($this->verboseId - 1) . '-' . $this->testId . '.html">Previous</a> | <a href="' . $this->verboseClassName . '-' . ($this->verboseId + 1) . '-' . $this->testId . '.html">Next</a>)<hr />' . $message;
-    $verbose_filename = $this->verboseClassName . '-' . $this->verboseId . '-' . $this->testId . '.html';
+    $verbose_filename =  $this->verboseClassName . '-' . $this->verboseId . '-' . $this->testId . '.html';
     if (file_put_contents($this->verboseDirectory . '/' . $verbose_filename, $message)) {
       $url = $this->verboseDirectoryUrl . '/' . $verbose_filename;
-      // Not using \Drupal\Core\Utility\LinkGeneratorInterface::generate()
-      // to avoid invoking the theme system, so that unit tests
+      // Not using _l() to avoid invoking the theme system, so that unit tests
       // can use verbose() as well.
       $url = '<a href="' . $url . '" target="_blank">Verbose message</a>';
       $this->error($url, 'User notice');
@@ -886,15 +902,14 @@ abstract class TestBase {
    *   taken into account, but it can be useful to only run a few selected test
    *   methods during debugging.
    */
-  public function run(array $methods = []) {
-    $this->checkTestHierarchyMismatch();
+  public function run(array $methods = array()) {
     $class = get_class($this);
 
     if ($missing_requirements = $this->checkRequirements()) {
       $object_info = new \ReflectionObject($this);
-      $caller = [
+      $caller = array(
         'file' => $object_info->getFileName(),
-      ];
+      );
       foreach ($missing_requirements as $missing_requirement) {
         TestBase::insertAssert($this->testId, $class, FALSE, $missing_requirement, 'Requirements check', $caller);
       }
@@ -914,7 +929,7 @@ abstract class TestBase {
       $this->verbose = TRUE;
       $this->verboseDirectory = PublicStream::basePath() . '/simpletest/verbose';
       $this->verboseDirectoryUrl = file_create_url($this->verboseDirectory);
-      if (\Drupal::service('file_system')->prepareDirectory($this->verboseDirectory, FileSystemInterface::CREATE_DIRECTORY) && !file_exists($this->verboseDirectory . '/.htaccess')) {
+      if (file_prepare_directory($this->verboseDirectory, FILE_CREATE_DIRECTORY) && !file_exists($this->verboseDirectory . '/.htaccess')) {
         file_put_contents($this->verboseDirectory . '/.htaccess', "<IfModule mod_expires.c>\nExpiresActive Off\n</IfModule>\n");
       }
       $this->verboseClassName = str_replace("\\", "_", $class);
@@ -928,10 +943,7 @@ abstract class TestBase {
       $this->httpAuthCredentials = $username . ':' . $password;
     }
 
-    // Force assertion failures to be thrown as exceptions.
-    Handle::register();
-
-    set_error_handler([$this, 'errorHandler']);
+    set_error_handler(array($this, 'errorHandler'));
     // Iterate through all the methods in this class, unless a specific list of
     // methods to run was passed.
     $test_methods = array_filter(get_class_methods($class), function ($method) {
@@ -940,7 +952,7 @@ abstract class TestBase {
     if (empty($test_methods)) {
       // Call $this->assert() here because we need to pass along custom caller
       // information, lest the wrong originating code file/line be identified.
-      $this->assert(FALSE, 'No test methods found.', 'Requirements', ['function' => __METHOD__ . '()', 'file' => __FILE__, 'line' => __LINE__]);
+      $this->assert(FALSE, 'No test methods found.', 'Requirements', array('function' => __METHOD__ . '()', 'file' => __FILE__, 'line' => __LINE__));
     }
     if ($methods) {
       $test_methods = array_intersect($test_methods, $methods);
@@ -949,11 +961,11 @@ abstract class TestBase {
       // Insert a fail record. This will be deleted on completion to ensure
       // that testing completed.
       $method_info = new \ReflectionMethod($class, $method);
-      $caller = [
+      $caller = array(
         'file' => $method_info->getFileName(),
         'line' => $method_info->getStartLine(),
         'function' => $class . '->' . $method . '()',
-      ];
+      );
       $test_completion_check_id = TestBase::insertAssert($this->testId, $class, FALSE, 'The test did not complete due to a fatal error.', 'Completion check', $caller);
 
       try {
@@ -1008,7 +1020,7 @@ abstract class TestBase {
 
     TestServiceProvider::$currentTest = NULL;
     // Clear out the error messages and restore error handler.
-    \Drupal::messenger()->deleteAll();
+    drupal_get_messages();
     restore_error_handler();
   }
 
@@ -1034,20 +1046,55 @@ abstract class TestBase {
    * @see drupal_valid_test_ua()
    */
   private function prepareDatabasePrefix() {
-    $test_db = new TestDatabase();
-    $this->siteDirectory = $test_db->getTestSitePath();
-    $this->databasePrefix = $test_db->getDatabasePrefix();
+    // Ensure that the generated test site directory does not exist already,
+    // which may happen with a large amount of concurrent threads and
+    // long-running tests.
+    do {
+      $suffix = mt_rand(100000, 999999);
+      $this->siteDirectory = 'sites/simpletest/' . $suffix;
+      $this->databasePrefix = 'simpletest' . $suffix;
+    } while (is_dir(DRUPAL_ROOT . '/' . $this->siteDirectory));
 
     // As soon as the database prefix is set, the test might start to execute.
     // All assertions as well as the SimpleTest batch operations are associated
     // with the testId, so the database prefix has to be associated with it.
     $affected_rows = self::getDatabaseConnection()->update('simpletest_test_id')
-      ->fields(['last_prefix' => $this->databasePrefix])
+      ->fields(array('last_prefix' => $this->databasePrefix))
       ->condition('test_id', $this->testId)
       ->execute();
     if (!$affected_rows) {
       throw new \RuntimeException('Failed to set up database prefix.');
     }
+  }
+
+  /**
+   * Changes the database connection to the prefixed one.
+   *
+   * @see TestBase::prepareEnvironment()
+   */
+  private function changeDatabasePrefix() {
+    if (empty($this->databasePrefix)) {
+      $this->prepareDatabasePrefix();
+    }
+    // If the backup already exists, something went terribly wrong.
+    // This case is possible, because database connection info is a static
+    // global state construct on the Database class, which at least persists
+    // for all test methods executed in one PHP process.
+    if (Database::getConnectionInfo('simpletest_original_default')) {
+      throw new \RuntimeException("Bad Database connection state: 'simpletest_original_default' connection key already exists. Broken test?");
+    }
+
+    // Clone the current connection and replace the current prefix.
+    $connection_info = Database::getConnectionInfo('default');
+    Database::renameConnection('default', 'simpletest_original_default');
+    foreach ($connection_info as $target => $value) {
+      // Replace the full table prefix definition to ensure that no table
+      // prefixes of the test runner leak into the test.
+      $connection_info[$target]['prefix'] = array(
+        'default' => $value['prefix']['default'] . $this->databasePrefix,
+      );
+    }
+    Database::addConnectionInfo('default', 'default', $connection_info['default']);
   }
 
   /**
@@ -1093,22 +1140,23 @@ abstract class TestBase {
     }
 
     // Backup current in-memory configuration.
-    $site_path = \Drupal::service('site.path');
-    $this->originalSite = $site_path;
+    $this->originalSite = conf_path();
     $this->originalSettings = Settings::getAll();
     $this->originalConfig = $GLOBALS['config'];
     // @todo Remove all remnants of $GLOBALS['conf'].
-    // @see https://www.drupal.org/node/2183323
+    // @see https://drupal.org/node/2183323
     $this->originalConf = isset($GLOBALS['conf']) ? $GLOBALS['conf'] : NULL;
 
     // Backup statics and globals.
-    $this->originalContainer = \Drupal::getContainer();
+    $this->originalContainer = clone \Drupal::getContainer();
     $this->originalLanguage = $language_interface;
+    $this->originalConfigDirectories = $GLOBALS['config_directories'];
 
     // Save further contextual information.
     // Use the original files directory to avoid nesting it within an existing
     // simpletest directory if a test is executed within a test.
-    $this->originalFileDirectory = Settings::get('file_public_path', $site_path . '/files');
+    $this->originalFileDirectory = Settings::get('file_public_path', conf_path() . '/files');
+    $this->originalProfile = drupal_get_profile();
     $this->originalUser = isset($user) ? clone $user : NULL;
 
     // Prevent that session data is leaked into the UI test runner by closing
@@ -1129,11 +1177,11 @@ abstract class TestBase {
     // handlers defined by the original one.
     $callbacks = &drupal_register_shutdown_function();
     $this->originalShutdownCallbacks = $callbacks;
-    $callbacks = [];
+    $callbacks = array();
 
     // Create test directory ahead of installation so fatal errors and debug
     // information can be logged during installation process.
-    \Drupal::service('file_system')->prepareDirectory($this->siteDirectory, FileSystemInterface::CREATE_DIRECTORY | FileSystemInterface::MODIFY_PERMISSIONS);
+    file_prepare_directory($this->siteDirectory, FILE_CREATE_DIRECTORY | FILE_MODIFY_PERMISSIONS);
 
     // Prepare filesystem directory paths.
     $this->publicFilesDirectory = $this->siteDirectory . '/files';
@@ -1177,15 +1225,16 @@ abstract class TestBase {
     // After preparing the environment and changing the database prefix, we are
     // in a valid test environment.
     drupal_valid_test_ua($this->databasePrefix);
+    conf_path(FALSE, TRUE);
 
     // Reset settings.
-    new Settings([
+    new Settings(array(
       // For performance, simply use the database prefix as hash salt.
       'hash_salt' => $this->databasePrefix,
       'container_yamls' => [],
-    ]);
+    ));
 
-    Environment::setTimeLimit($this->timeLimit);
+    drupal_set_time_limit($this->timeLimit);
   }
 
   /**
@@ -1207,7 +1256,7 @@ abstract class TestBase {
    */
   private function restoreEnvironment() {
     // Destroy the session if one was started during the test-run.
-    $_SESSION = [];
+    $_SESSION = array();
     if (PHP_SAPI !== 'cli' && session_status() === PHP_SESSION_ACTIVE) {
       session_destroy();
       $params = session_get_cookie_params();
@@ -1223,7 +1272,7 @@ abstract class TestBase {
     drupal_static_reset();
 
     if ($this->container && $this->container->has('state') && $state = $this->container->get('state')) {
-      $captured_emails = $state->get('system.test_mail_collector') ?: [];
+      $captured_emails = $state->get('system.test_mail_collector') ?: array();
       $emailCount = count($captured_emails);
       if ($emailCount) {
         $message = $emailCount == 1 ? '1 email was sent during this test.' : $emailCount . ' emails were sent during this test.';
@@ -1232,7 +1281,7 @@ abstract class TestBase {
     }
 
     // Sleep for 50ms to allow shutdown functions and terminate events to
-    // complete. Further information: https://www.drupal.org/node/2194357.
+    // complete. Further information: https://drupal.org/node/2194357.
     usleep(50000);
 
     // Remove all prefixed tables.
@@ -1241,9 +1290,10 @@ abstract class TestBase {
     $test_connection_info = Database::getConnectionInfo('default');
     $test_prefix = $test_connection_info['default']['prefix']['default'];
     if ($original_prefix != $test_prefix) {
-      $tables = Database::getConnection()->schema()->findTables('%');
+      $tables = Database::getConnection()->schema()->findTables($test_prefix . '%');
+      $prefix_length = strlen($test_prefix);
       foreach ($tables as $table) {
-        if (Database::getConnection()->schema()->dropTable($table)) {
+        if (Database::getConnection()->schema()->dropTable(substr($table, $prefix_length))) {
           unset($tables[$table]);
         }
       }
@@ -1251,14 +1301,14 @@ abstract class TestBase {
 
     // In case a fatal error occurred that was not in the test process read the
     // log to pick up any fatal errors.
-    (new TestDatabase($this->databasePrefix))->logRead($this->testId, get_class($this));
+    simpletest_log_read($this->testId, $this->databasePrefix, get_class($this));
 
     // Restore original dependency injection container.
     $this->container = $this->originalContainer;
     \Drupal::setContainer($this->originalContainer);
 
     // Delete test site directory.
-    \Drupal::service('file_system')->deleteRecursive($this->siteDirectory, [$this, 'filePreDeleteCallback']);
+    file_unmanaged_delete_recursive($this->siteDirectory, array($this, 'filePreDeleteCallback'));
 
     // Restore original database connection.
     Database::removeConnection('default');
@@ -1274,6 +1324,9 @@ abstract class TestBase {
     $GLOBALS['conf'] = $this->originalConf;
     new Settings($this->originalSettings);
 
+    // Restore original statics and globals.
+    $GLOBALS['config_directories'] = $this->originalConfigDirectories;
+
     // Re-initialize original stream wrappers of the parent site.
     // This must happen after static variables have been reset and the original
     // container and $config_directories are restored, as simpletest_log_read()
@@ -1286,6 +1339,7 @@ abstract class TestBase {
     else {
       drupal_valid_test_ua(FALSE);
     }
+    conf_path(TRUE, TRUE);
 
     // Restore original shutdown callbacks.
     $callbacks = &drupal_register_shutdown_function();
@@ -1301,7 +1355,7 @@ abstract class TestBase {
    */
   public function errorHandler($severity, $message, $file = NULL, $line = NULL) {
     if ($severity & error_reporting()) {
-      $error_map = [
+      $error_map = array(
         E_STRICT => 'Run-time notice',
         E_WARNING => 'Warning',
         E_NOTICE => 'Notice',
@@ -1313,7 +1367,7 @@ abstract class TestBase {
         E_RECOVERABLE_ERROR => 'Recoverable error',
         E_DEPRECATED => 'Deprecated',
         E_USER_DEPRECATED => 'User deprecated',
-      ];
+      );
 
       $backtrace = debug_backtrace();
 
@@ -1338,15 +1392,17 @@ abstract class TestBase {
     $backtrace = $exception->getTrace();
     $verbose_backtrace = $backtrace;
     // Push on top of the backtrace the call that generated the exception.
-    array_unshift($backtrace, [
+    array_unshift($backtrace, array(
       'line' => $exception->getLine(),
       'file' => $exception->getFile(),
-    ]);
+    ));
+    // \Drupal\Core\Utility\Error::decodeException() runs the exception
+    // message through \Drupal\Component\Utility\SafeMarkup::checkPlain().
     $decoded_exception = Error::decodeException($exception);
     unset($decoded_exception['backtrace']);
-    $message = new FormattableMarkup('%type: @message in %function (line %line of %file). <pre class="backtrace">@backtrace</pre>', $decoded_exception + [
-      '@backtrace' => Error::formatBacktrace($verbose_backtrace),
-    ]);
+    $message = SafeMarkup::format('%type: !message in %function (line %line of %file). <pre class="backtrace">!backtrace</pre>', $decoded_exception + array(
+      '!backtrace' => Error::formatBacktrace($verbose_backtrace),
+    ));
     $this->error($message, 'Uncaught exception', Error::getLastCaller($backtrace));
   }
 
@@ -1367,24 +1423,224 @@ abstract class TestBase {
   }
 
   /**
-   * Ensures test files are deletable.
+   * Generates a pseudo-random string of ASCII characters of codes 32 to 126.
+   *
+   * Do not use this method when special characters are not possible (e.g., in
+   * machine or file names that have already been validated); instead, use
+   * \Drupal\simpletest\TestBase::randomMachineName(). If $length is greater
+   * than 2 the random string will include at least one ampersand ('&')
+   * character to ensure coverage for special characters and avoid the
+   * introduction of random test failures.
+   *
+   * @param int $length
+   *   Length of random string to generate.
+   *
+   * @return string
+   *   Pseudo-randomly generated unique string including special characters.
+   *
+   * @see \Drupal\Component\Utility\Random::string()
+   */
+  public function randomString($length = 8) {
+    if ($length < 3) {
+      return $this->getRandomGenerator()->string($length, TRUE, array($this, 'randomStringValidate'));
+    }
+
+    // To prevent the introduction of random test failures, ensure that the
+    // returned string contains a character that needs to be escaped in HTML by
+    // injecting an ampersand into it.
+    $replacement_pos = floor($length / 2);
+    // Remove 1 from the length to account for the ampersand character.
+    $string = $this->getRandomGenerator()->string($length - 1, TRUE, array($this, 'randomStringValidate'));
+    return substr_replace($string, '&', $replacement_pos, 0);
+  }
+
+  /**
+   * Callback for random string validation.
+   *
+   * @see \Drupal\Component\Utility\Random::string()
+   *
+   * @param string $string
+   *   The random string to validate.
+   *
+   * @return bool
+   *   TRUE if the random string is valid, FALSE if not.
+   */
+  public function randomStringValidate($string) {
+    // Consecutive spaces causes issues for
+    // Drupal\simpletest\WebTestBase::assertLink().
+    if (preg_match('/\s{2,}/', $string)) {
+      return FALSE;
+    }
+
+    // Starting with a space means that length might not be what is expected.
+    // Starting with an @ sign causes CURL to fail if used in conjunction with a
+    // file upload, see https://drupal.org/node/2174997.
+    if (preg_match('/^(\s|@)/', $string)) {
+      return FALSE;
+    }
+
+    // Ending with a space means that length might not be what is expected.
+    if (preg_match('/\s$/', $string)) {
+      return FALSE;
+    }
+
+    return TRUE;
+  }
+
+  /**
+   * Generates a unique random string containing letters and numbers.
+   *
+   * Do not use this method when testing unvalidated user input. Instead, use
+   * \Drupal\simpletest\TestBase::randomString().
+   *
+   * @param int $length
+   *   Length of random string to generate.
+   *
+   * @return string
+   *   Randomly generated unique string.
+   *
+   * @see \Drupal\Component\Utility\Random::name()
+   */
+  public function randomMachineName($length = 8) {
+    return $this->getRandomGenerator()->name($length, TRUE);
+  }
+
+  /**
+   * Generates a random PHP object.
+   *
+   * @param int $size
+   *   The number of random keys to add to the object.
+   *
+   * @return \stdClass
+   *   The generated object, with the specified number of random keys. Each key
+   *   has a random string value.
+   *
+   * @see \Drupal\Component\Utility\Random::object()
+   */
+  public function randomObject($size = 4) {
+    return $this->getRandomGenerator()->object($size);
+  }
+
+  /**
+   * Gets the random generator for the utility methods.
+   *
+   * @return \Drupal\Component\Utility\Random
+   *   The random generator
+   */
+  protected function getRandomGenerator() {
+    if (!is_object($this->randomGenerator)) {
+      $this->randomGenerator = new Random();
+    }
+    return $this->randomGenerator;
+  }
+
+  /**
+   * Converts a list of possible parameters into a stack of permutations.
+   *
+   * Takes a list of parameters containing possible values, and converts all of
+   * them into a list of items containing every possible permutation.
+   *
+   * Example:
+   * @code
+   * $parameters = array(
+   *   'one' => array(0, 1),
+   *   'two' => array(2, 3),
+   * );
+   * $permutations = TestBase::generatePermutations($parameters);
+   * // Result:
+   * $permutations == array(
+   *   array('one' => 0, 'two' => 2),
+   *   array('one' => 1, 'two' => 2),
+   *   array('one' => 0, 'two' => 3),
+   *   array('one' => 1, 'two' => 3),
+   * )
+   * @endcode
+   *
+   * @param $parameters
+   *   An associative array of parameters, keyed by parameter name, and whose
+   *   values are arrays of parameter values.
+   *
+   * @return
+   *   A list of permutations, which is an array of arrays. Each inner array
+   *   contains the full list of parameters that have been passed, but with a
+   *   single value only.
+   */
+  public static function generatePermutations($parameters) {
+    $all_permutations = array(array());
+    foreach ($parameters as $parameter => $values) {
+      $new_permutations = array();
+      // Iterate over all values of the parameter.
+      foreach ($values as $value) {
+        // Iterate over all existing permutations.
+        foreach ($all_permutations as $permutation) {
+          // Add the new parameter value to existing permutations.
+          $new_permutations[] = $permutation + array($parameter => $value);
+        }
+      }
+      // Replace the old permutations with the new permutations.
+      $all_permutations = $new_permutations;
+    }
+    return $all_permutations;
+  }
+
+  /**
+   * Ensures test files are deletable within file_unmanaged_delete_recursive().
    *
    * Some tests chmod generated files to be read only. During
    * TestBase::restoreEnvironment() and other cleanup operations, these files
    * need to get deleted too.
-   *
-   * @see \Drupal\Core\File\FileSystemInterface::deleteRecursive()
    */
   public static function filePreDeleteCallback($path) {
-    // When the webserver runs with the same system user as the test runner, we
-    // can make read-only files writable again. If not, chmod will fail while
-    // the file deletion still works if file permissions have been configured
-    // correctly. Thus, we ignore any problems while running chmod.
-    @chmod($path, 0700);
+    chmod($path, 0700);
   }
 
   /**
-   * Configuration accessor for tests. Returns non-overridden configuration.
+   * Returns a ConfigImporter object to import test importing of configuration.
+   *
+   * @return \Drupal\Core\Config\ConfigImporter
+   *   The ConfigImporter object.
+   */
+  public function configImporter() {
+    if (!$this->configImporter) {
+      // Set up the ConfigImporter object for testing.
+      $storage_comparer = new StorageComparer(
+        $this->container->get('config.storage.staging'),
+        $this->container->get('config.storage'),
+        $this->container->get('config.manager')
+      );
+      $this->configImporter = new ConfigImporter(
+        $storage_comparer,
+        $this->container->get('event_dispatcher'),
+        $this->container->get('config.manager'),
+        $this->container->get('lock'),
+        $this->container->get('config.typed'),
+        $this->container->get('module_handler'),
+        $this->container->get('module_installer'),
+        $this->container->get('theme_handler'),
+        $this->container->get('string_translation')
+      );
+    }
+    // Always recalculate the changelist when called.
+    return $this->configImporter->reset();
+  }
+
+  /**
+   * Copies configuration objects from source storage to target storage.
+   *
+   * @param \Drupal\Core\Config\StorageInterface $source_storage
+   *   The source config storage service.
+   * @param \Drupal\Core\Config\StorageInterface $target_storage
+   *   The target config storage service.
+   */
+  public function copyConfig(StorageInterface $source_storage, StorageInterface $target_storage) {
+    $target_storage->deleteAll();
+    foreach ($source_storage->listAll() as $name) {
+      $target_storage->write($name, $source_storage->read($name));
+    }
+  }
+
+  /**
+   * Configuration accessor for tests. Returns non-overriden configuration.
    *
    * @param $name
    *   Configuration name.

@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Component\Plugin\LazyPluginCollection.
+ */
+
 namespace Drupal\Component\Plugin;
 
 /**
@@ -14,14 +19,14 @@ abstract class LazyPluginCollection implements \IteratorAggregate, \Countable {
    *
    * @var array
    */
-  protected $pluginInstances = [];
+  protected $pluginInstances = array();
 
   /**
    * Stores the IDs of all potential plugin instances.
    *
    * @var array
    */
-  protected $instanceIDs = [];
+  protected $instanceIDs = array();
 
   /**
    * Initializes and stores a plugin.
@@ -32,7 +37,7 @@ abstract class LazyPluginCollection implements \IteratorAggregate, \Countable {
   abstract protected function initializePlugin($instance_id);
 
   /**
-   * Gets the current configuration of all plugins in this collection.
+   * Returns the current configuration of all plugins in this collection.
    *
    * @return array
    *   An array of up-to-date plugin configuration.
@@ -53,7 +58,7 @@ abstract class LazyPluginCollection implements \IteratorAggregate, \Countable {
    * Clears all instantiated plugins.
    */
   public function clear() {
-    $this->pluginInstances = [];
+    $this->pluginInstances = array();
   }
 
   /**
@@ -70,7 +75,7 @@ abstract class LazyPluginCollection implements \IteratorAggregate, \Countable {
   }
 
   /**
-   * Gets a plugin instance, initializing it if necessary.
+   * Retrieves a plugin instance, initializing it if necessary.
    *
    * @param string $instance_id
    *   The ID of the plugin instance being retrieved.
@@ -122,7 +127,7 @@ abstract class LazyPluginCollection implements \IteratorAggregate, \Countable {
   }
 
   /**
-   * Gets all instance IDs.
+   * Returns all instance IDs.
    *
    * @return array
    *   An array of all available instance IDs.

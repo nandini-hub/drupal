@@ -1,21 +1,23 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\EventSubscriber\PathSubscriber.
+ */
+
 namespace Drupal\Core\EventSubscriber;
 
 use Drupal\Core\Path\AliasManagerInterface;
 use Drupal\Core\Path\CurrentPathStack;
+use Drupal\Core\PathProcessor\InboundPathProcessorInterface;
+use Symfony\Component\HttpKernel\HttpKernelInterface;
 use Symfony\Component\HttpKernel\KernelEvents;
-use Symfony\Component\HttpKernel\Event\FilterControllerEvent;
+use Symfony\Component\HttpKernel\Event\GetResponseEvent;
 use Symfony\Component\HttpKernel\Event\PostResponseEvent;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 
 /**
  * Provides a path subscriber that converts path aliases.
- *
- * @deprecated in drupal:8.8.0 and is removed from drupal:9.0.0. Use
- *   \Drupal\path_alias\EventSubscriber\PathAliasSubscriber instead.
- *
- * @see https://www.drupal.org/node/3092086
  */
 class PathSubscriber implements EventSubscriberInterface {
 
@@ -25,6 +27,13 @@ class PathSubscriber implements EventSubscriberInterface {
    * @var \Drupal\Core\Path\AliasManagerInterface
    */
   protected $aliasManager;
+
+  /**
+   * A path processor manager for resolving the system path.
+   *
+   * @var \Drupal\Core\PathProcessor\InboundPathProcessorInterface
+   */
+  protected $pathProcessor;
 
   /**
    * The current path.
@@ -37,34 +46,31 @@ class PathSubscriber implements EventSubscriberInterface {
    * Constructs a new PathSubscriber instance.
    *
    * @param \Drupal\Core\Path\AliasManagerInterface $alias_manager
-   *   The alias manager.
+   * @param \Drupal\Core\PathProcessor\InboundPathProcessorInterface $path_processor
    * @param \Drupal\Core\Path\CurrentPathStack $current_path
    *   The current path.
    */
-  public function __construct(AliasManagerInterface $alias_manager, CurrentPathStack $current_path) {
+  public function __construct(AliasManagerInterface $alias_manager, InboundPathProcessorInterface $path_processor, CurrentPathStack $current_path) {
     $this->aliasManager = $alias_manager;
+    $this->pathProcessor = $path_processor;
     $this->currentPath = $current_path;
-
-    // This is used as base class by the new class, so we do not trigger
-    // deprecation notices when that or any child class is instantiated.
-    $new_class = 'Drupal\path_alias\EventSubscriber\PathAliasSubscriber';
-    if (!is_a($this, $new_class) && class_exists($new_class)) {
-      @trigger_error('The \\' . __CLASS__ . ' class is deprecated in drupal:8.8.0 and is removed from drupal:9.0.0. Instead, use \\' . $new_class . '. See https://drupal.org/node/3092086', E_USER_DEPRECATED);
-    }
   }
 
   /**
-   * Sets the cache key on the alias manager cache decorator.
+   * Converts the request path to a system path.
    *
-   * KernelEvents::CONTROLLER is used in order to be executed after routing.
-   *
-   * @param \Symfony\Component\HttpKernel\Event\FilterControllerEvent $event
+   * @param Symfony\Component\HttpKernel\Event\GetResponseEvent $event
    *   The Event to process.
    */
-  public function onKernelController(FilterControllerEvent $event) {
+  public function onKernelRequestConvertPath(GetResponseEvent $event) {
+    $request = $event->getRequest();
+    $path = trim($request->getPathInfo(), '/');
+    $path = $this->pathProcessor->processInbound($path, $request);
+    $this->currentPath->setPath('/' . $path, $request);
+
     // Set the cache key on the alias manager cache decorator.
-    if ($event->isMasterRequest()) {
-      $this->aliasManager->setCacheKey(rtrim($this->currentPath->getPath($event->getRequest()), '/'));
+    if ($event->getRequestType() == HttpKernelInterface::MASTER_REQUEST) {
+      $this->aliasManager->setCacheKey($path);
     }
   }
 
@@ -81,10 +87,9 @@ class PathSubscriber implements EventSubscriberInterface {
    * @return array
    *   An array of event listener definitions.
    */
-  public static function getSubscribedEvents() {
-    $events[KernelEvents::CONTROLLER][] = ['onKernelController', 200];
-    $events[KernelEvents::TERMINATE][] = ['onKernelTerminate', 200];
+  static function getSubscribedEvents() {
+    $events[KernelEvents::REQUEST][] = array('onKernelRequestConvertPath', 200);
+    $events[KernelEvents::TERMINATE][] = array('onKernelTerminate', 200);
     return $events;
   }
-
 }

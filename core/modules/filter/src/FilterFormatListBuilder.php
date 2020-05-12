@@ -1,14 +1,19 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\filter\FilterFormatListBuilder.
+ */
+
 namespace Drupal\filter;
 
+use Drupal\Component\Utility\SafeMarkup;
 use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Config\Entity\DraggableListBuilder;
 use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Entity\EntityStorageInterface;
 use Drupal\Core\Entity\EntityTypeInterface;
 use Drupal\Core\Form\FormStateInterface;
-use Drupal\Core\Messenger\MessengerInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
@@ -31,13 +36,6 @@ class FilterFormatListBuilder extends DraggableListBuilder {
   protected $configFactory;
 
   /**
-   * The messenger.
-   *
-   * @var \Drupal\Core\Messenger\MessengerInterface
-   */
-  protected $messenger;
-
-  /**
    * Constructs a new FilterFormatListBuilder.
    *
    * @param \Drupal\Core\Entity\EntityTypeInterface $entity_type
@@ -46,14 +44,11 @@ class FilterFormatListBuilder extends DraggableListBuilder {
    *   The entity storage class.
    * @param \Drupal\Core\Config\ConfigFactoryInterface $config_factory
    *   The config factory.
-   * @param \Drupal\Core\Messenger\MessengerInterface $messenger
-   *   The messenger.
    */
-  public function __construct(EntityTypeInterface $entity_type, EntityStorageInterface $storage, ConfigFactoryInterface $config_factory, MessengerInterface $messenger) {
+  public function __construct(EntityTypeInterface $entity_type, EntityStorageInterface $storage, ConfigFactoryInterface $config_factory) {
     parent::__construct($entity_type, $storage);
 
     $this->configFactory = $config_factory;
-    $this->messenger = $messenger;
   }
 
   /**
@@ -62,9 +57,8 @@ class FilterFormatListBuilder extends DraggableListBuilder {
   public static function createInstance(ContainerInterface $container, EntityTypeInterface $entity_type) {
     return new static(
       $entity_type,
-      $container->get('entity_type.manager')->getStorage($entity_type->id()),
-      $container->get('config.factory'),
-      $container->get('messenger')
+      $container->get('entity.manager')->getStorage($entity_type->id()),
+      $container->get('config.factory')
     );
   }
 
@@ -100,30 +94,24 @@ class FilterFormatListBuilder extends DraggableListBuilder {
   public function buildRow(EntityInterface $entity) {
     // Check whether this is the fallback text format. This format is available
     // to all roles and cannot be disabled via the admin interface.
-    $row['label'] = $entity->label();
-    $row['roles'] = [];
     if ($entity->isFallbackFormat()) {
+      $row['label'] = SafeMarkup::placeholder($entity->label());
+
       $fallback_choice = $this->configFactory->get('filter.settings')->get('always_show_fallback_choice');
       if ($fallback_choice) {
-        $row['roles']['#markup'] = $this->t('All roles may use this format');
+        $roles_markup = SafeMarkup::placeholder($this->t('All roles may use this format'));
       }
       else {
-        $row['roles']['#markup'] = $this->t('This format is shown when no other formats are available');
+        $roles_markup = SafeMarkup::placeholder($this->t('This format is shown when no other formats are available'));
       }
-      // Emphasize the fallback role text since it is important to understand
-      // how it works which configuring filter formats. Additionally, it is not
-      // a list of roles unlike the other values in this column.
-      $row['roles']['#prefix'] = '<em>';
-      $row['roles']['#suffix'] = '</em>';
     }
     else {
-      $row['roles'] = [
-        '#theme' => 'item_list',
-        '#items' => filter_get_roles_by_format($entity),
-        '#empty' => $this->t('No roles may use this format'),
-        '#context' => ['list_style' => 'comma-list'],
-      ];
+      $row['label'] = $this->getLabel($entity);
+      $roles = array_map('\Drupal\Component\Utility\SafeMarkup::checkPlain', filter_get_roles_by_format($entity));
+      $roles_markup = $roles ? implode(', ', $roles) : $this->t('No roles may use this format');
     }
+
+    $row['roles'] = !empty($this->weightKey) ? array('#markup' => $roles_markup) : $roles_markup;
 
     return $row + parent::buildRow($entity);
   }
@@ -151,7 +139,7 @@ class FilterFormatListBuilder extends DraggableListBuilder {
    */
   public function buildForm(array $form, FormStateInterface $form_state) {
     $form = parent::buildForm($form, $form_state);
-    $form['actions']['submit']['#value'] = $this->t('Save');
+    $form['actions']['submit']['#value'] = $this->t('Save changes');
     return $form;
   }
 
@@ -162,7 +150,7 @@ class FilterFormatListBuilder extends DraggableListBuilder {
     parent::submitForm($form, $form_state);
 
     filter_formats_reset();
-    $this->messenger->addStatus($this->t('The text format ordering has been saved.'));
+    drupal_set_message($this->t('The text format ordering has been saved.'));
   }
 
 }

@@ -1,4 +1,8 @@
 <?php
+/**
+ * @file
+ * Contains \Drupal\user\Plugin\Validation\Constraint\ProtectedUserFieldConstraintValidator.
+ */
 
 namespace Drupal\user\Plugin\Validation\Constraint;
 
@@ -46,7 +50,7 @@ class ProtectedUserFieldConstraintValidator extends ConstraintValidator implemen
    */
   public static function create(ContainerInterface $container) {
     return new static(
-      $container->get('entity_type.manager')->getStorage('user'),
+      $container->get('entity.manager')->getStorage('user'),
       $container->get('current_user')
     );
   }
@@ -86,7 +90,7 @@ class ProtectedUserFieldConstraintValidator extends ConstraintValidator implemen
         $changed = $items->getValue() != $account_unchanged->get($field->getName())->getValue();
       }
       if ($changed && (!$account->checkExistingPassword($account_unchanged))) {
-        $this->context->addViolation($constraint->message, ['%name' => $field->getLabel()]);
+        $this->context->addViolation($constraint->message, array('%name' => $field->getLabel()));
       }
     }
   }

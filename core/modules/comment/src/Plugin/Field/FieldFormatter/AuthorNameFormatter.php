@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\comment\Plugin\Field\FieldFormatter\AuthorNameFormatter.
+ */
+
 namespace Drupal\comment\Plugin\Field\FieldFormatter;
 
 use Drupal\Core\Field\FieldDefinitionInterface;
@@ -23,20 +28,20 @@ class AuthorNameFormatter extends FormatterBase {
   /**
    * {@inheritdoc}
    */
-  public function viewElements(FieldItemListInterface $items, $langcode) {
-    $elements = [];
+  public function viewElements(FieldItemListInterface $items) {
+    $elements = array();
 
     foreach ($items as $delta => $item) {
       /** @var $comment \Drupal\comment\CommentInterface */
       $comment = $item->getEntity();
       $account = $comment->getOwner();
-      $elements[$delta] = [
+      $elements[$delta] = array(
         '#theme' => 'username',
         '#account' => $account,
-        '#cache' => [
+        '#cache' => array(
           'tags' => $account->getCacheTags() + $comment->getCacheTags(),
-        ],
-      ];
+        ),
+      );
     }
 
     return $elements;

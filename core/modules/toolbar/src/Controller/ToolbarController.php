@@ -1,29 +1,30 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\toolbar\Controller\ToolbarController.
+ */
+
 namespace Drupal\toolbar\Controller;
 
 use Drupal\Core\Access\AccessResult;
-use Drupal\Core\Ajax\AjaxResponse;
-use Drupal\Core\Cache\CacheableMetadata;
 use Drupal\Core\Controller\ControllerBase;
-use Drupal\Core\Menu\MenuTreeParameters;
-use Drupal\Core\Security\TrustedCallbackInterface;
-use Drupal\toolbar\Ajax\SetSubtreesCommand;
+use Symfony\Component\HttpFoundation\JsonResponse;
 
 /**
  * Defines a controller for the toolbar module.
  */
-class ToolbarController extends ControllerBase implements TrustedCallbackInterface {
+class ToolbarController extends ControllerBase {
 
   /**
-   * Returns an AJAX response to render the toolbar subtrees.
+   * Returns the rendered subtree of each top-level toolbar link.
    *
-   * @return \Drupal\Core\Ajax\AjaxResponse
+   * @return \Symfony\Component\HttpFoundation\JsonResponse
    */
-  public function subtreesAjax() {
-    list($subtrees, $cacheability) = toolbar_get_rendered_subtrees();
-    $response = new AjaxResponse();
-    $response->addCommand(new SetSubtreesCommand($subtrees));
+  public function subtreesJsonp() {
+    $subtrees = toolbar_get_rendered_subtrees();
+    $response = new JsonResponse($subtrees);
+    $response->setCallback('Drupal.toolbar.setSubtrees.resolve');
 
     // The Expires HTTP header is the heart of the client-side HTTP caching. The
     // additional server-side page cache only takes effect when the client
@@ -45,99 +46,14 @@ class ToolbarController extends ControllerBase implements TrustedCallbackInterfa
    *
    * @param string $hash
    *   The hash of the toolbar subtrees.
+   * @param string $langcode
+   *   The langcode of the requested site, NULL if none given.
    *
    * @return \Drupal\Core\Access\AccessResultInterface
    *   The access result.
    */
-  public function checkSubTreeAccess($hash) {
-    $expected_hash = _toolbar_get_subtrees_hash()[0];
-    return AccessResult::allowedIf($this->currentUser()->hasPermission('access toolbar') && hash_equals($expected_hash, $hash))->cachePerPermissions();
-  }
-
-  /**
-   * Renders the toolbar's administration tray.
-   *
-   * @param array $element
-   *   A renderable array.
-   *
-   * @return array
-   *   The updated renderable array.
-   *
-   * @see \Drupal\Core\Render\RendererInterface::render()
-   */
-  public static function preRenderAdministrationTray(array $element) {
-    $menu_tree = \Drupal::service('toolbar.menu_tree');
-    // Load the administrative menu. The first level is the "Administration"
-    // link. In order to load the children of that link, start and end on the
-    // second level.
-    $parameters = new MenuTreeParameters();
-    $parameters->setMinDepth(2)->setMaxDepth(2)->onlyEnabledLinks();
-    // @todo Make the menu configurable in https://www.drupal.org/node/1869638.
-    $tree = $menu_tree->load('admin', $parameters);
-    $manipulators = [
-      ['callable' => 'menu.default_tree_manipulators:checkAccess'],
-      ['callable' => 'menu.default_tree_manipulators:generateIndexAndSort'],
-      ['callable' => 'toolbar_menu_navigation_links'],
-    ];
-    $tree = $menu_tree->transform($tree, $manipulators);
-    $element['administration_menu'] = $menu_tree->build($tree);
-    return $element;
-  }
-
-  /**
-   * #pre_render callback for toolbar_get_rendered_subtrees().
-   *
-   * @internal
-   */
-  public static function preRenderGetRenderedSubtrees(array $data) {
-    $menu_tree = \Drupal::service('toolbar.menu_tree');
-    // Load the administration menu. The first level is the "Administration"
-    // link. In order to load the children of that link and the subsequent two
-    // levels, start at the second level and end at the fourth.
-    $parameters = new MenuTreeParameters();
-    $parameters->setMinDepth(2)->setMaxDepth(4)->onlyEnabledLinks();
-    // @todo Make the menu configurable in https://www.drupal.org/node/1869638.
-    $tree = $menu_tree->load('admin', $parameters);
-    $manipulators = [
-      ['callable' => 'menu.default_tree_manipulators:checkAccess'],
-      ['callable' => 'menu.default_tree_manipulators:generateIndexAndSort'],
-      ['callable' => 'toolbar_menu_navigation_links'],
-    ];
-    $tree = $menu_tree->transform($tree, $manipulators);
-    $subtrees = [];
-    // Calculated the combined cacheability of all subtrees.
-    $cacheability = new CacheableMetadata();
-    foreach ($tree as $element) {
-      /** @var \Drupal\Core\Menu\MenuLinkInterface $link */
-      $link = $element->link;
-      if ($element->subtree) {
-        $subtree = $menu_tree->build($element->subtree);
-        $output = \Drupal::service('renderer')->renderPlain($subtree);
-        $cacheability = $cacheability->merge(CacheableMetadata::createFromRenderArray($subtree));
-      }
-      else {
-        $output = '';
-      }
-      // Many routes have dots as route name, while some special ones like
-      // <front> have <> characters in them.
-      $url = $link->getUrlObject();
-      $id = str_replace(['.', '<', '>'], ['-', '', ''], $url->isRouted() ? $url->getRouteName() : $url->getUri());
-
-      $subtrees[$id] = $output;
-    }
-
-    // Store the subtrees, along with the cacheability metadata.
-    $cacheability->applyTo($data);
-    $data['#subtrees'] = $subtrees;
-
-    return $data;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public static function trustedCallbacks() {
-    return ['preRenderAdministrationTray', 'preRenderGetRenderedSubtrees'];
+  public function checkSubTreeAccess($hash, $langcode) {
+    return AccessResult::allowedIf($this->currentUser()->hasPermission('access toolbar') && $hash == _toolbar_get_subtrees_hash($langcode))->cachePerPermissions();
   }
 
 }

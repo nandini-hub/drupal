@@ -1,11 +1,14 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Component\Plugin\Context\ContextDefinitionInterface.
+ */
+
 namespace Drupal\Component\Plugin\Context;
 
 /**
- * Interface used to define definition objects found in ContextInterface.
- *
- * @see \Drupal\Component\Plugin\Context\ContextInterface
+ * Interface for context definitions.
  *
  * @todo WARNING: This interface is going to receive some additions as part of
  * https://www.drupal.org/node/2346999.
@@ -13,7 +16,7 @@ namespace Drupal\Component\Plugin\Context;
 interface ContextDefinitionInterface {
 
   /**
-   * Gets a human readable label.
+   * Returns a human readable label.
    *
    * @return string
    *   The label.
@@ -31,7 +34,7 @@ interface ContextDefinitionInterface {
   public function setLabel($label);
 
   /**
-   * Gets a human readable description.
+   * Returns a human readable description.
    *
    * @return string|null
    *   The description, or NULL if no description is available.
@@ -49,7 +52,7 @@ interface ContextDefinitionInterface {
   public function setDescription($description);
 
   /**
-   * Gets the data type needed by the context.
+   * Returns the data type needed by the context.
    *
    * If the context is multiple-valued, this represents the type of each value.
    *
@@ -69,7 +72,7 @@ interface ContextDefinitionInterface {
   public function setDataType($data_type);
 
   /**
-   * Determines whether the data is multi-valued, i.e. a list of data items.
+   * Returns whether the data is multi-valued, i.e. a list of data items.
    *
    * @return bool
    *   Whether the data is multi-valued; i.e. a list of data items.
@@ -107,25 +110,7 @@ interface ContextDefinitionInterface {
   public function setRequired($required = TRUE);
 
   /**
-   * Gets the default value for this context definition.
-   *
-   * @return mixed
-   *   The default value or NULL if no default value is set.
-   */
-  public function getDefaultValue();
-
-  /**
-   * Sets the default data value.
-   *
-   * @param mixed $default_value
-   *   The default value to be set or NULL to remove any default value.
-   *
-   * @return $this
-   */
-  public function setDefaultValue($default_value);
-
-  /**
-   * Gets an array of validation constraints.
+   * Returns an array of validation constraints.
    *
    * @return array
    *   An array of validation constraint definitions, keyed by constraint name.
@@ -162,7 +147,7 @@ interface ContextDefinitionInterface {
   public function addConstraint($constraint_name, $options = NULL);
 
   /**
-   * Gets a validation constraint.
+   * Returns a validation constraint.
    *
    * @param string $constraint_name
    *   The name of the constraint, i.e. its plugin id.

@@ -1,8 +1,16 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\views\Plugin\views\relationship\EntityReverse.
+ */
+
 namespace Drupal\views\Plugin\views\relationship;
 
 use Drupal\views\Plugin\ViewsHandlerManager;
+use Drupal\views\Plugin\views\display\DisplayPluginBase;
+use Drupal\views\Plugin\views\relationship\RelationshipPluginBase;
+use Drupal\views\ViewExecutable;
 use Drupal\views\Views;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
@@ -13,7 +21,7 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
  *
  * @ViewsRelationship("entity_reverse")
  */
-class EntityReverse extends RelationshipPluginBase {
+class EntityReverse extends RelationshipPluginBase  {
 
   /**
    * Constructs an EntityReverse object.
@@ -48,13 +56,13 @@ class EntityReverse extends RelationshipPluginBase {
     $views_data = Views::viewsData()->get($this->table);
     $left_field = $views_data['table']['base']['field'];
 
-    $first = [
+    $first = array(
       'left_table' => $this->tableAlias,
       'left_field' => $left_field,
       'table' => $this->definition['field table'],
       'field' => $this->definition['field field'],
-      'adjusted' => TRUE,
-    ];
+      'adjusted' => TRUE
+    );
     if (!empty($this->options['required'])) {
       $first['type'] = 'INNER';
     }
@@ -71,17 +79,18 @@ class EntityReverse extends RelationshipPluginBase {
     }
     $first_join = $this->joinManager->createInstance($id, $first);
 
+
     $this->first_alias = $this->query->addTable($this->definition['field table'], $this->relationship, $first_join);
 
     // Second, relate the field table to the entity specified using
     // the entity id on the field table and the entity's id field.
-    $second = [
+    $second = array(
       'left_table' => $this->first_alias,
       'left_field' => 'entity_id',
       'table' => $this->definition['base'],
       'field' => $this->definition['base field'],
-      'adjusted' => TRUE,
-    ];
+      'adjusted' => TRUE
+    );
 
     if (!empty($this->options['required'])) {
       $second['type'] = 'INNER';

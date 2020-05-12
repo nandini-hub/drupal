@@ -1,10 +1,14 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Config\StorableConfigBase.
+ */
+
 namespace Drupal\Core\Config;
 
+use Drupal\Component\Utility\SafeMarkup;
 use Drupal\Core\Config\Schema\Ignore;
-use Drupal\Core\Config\Schema\Sequence;
-use Drupal\Core\Config\Schema\SequenceDataDefinition;
 use Drupal\Core\TypedData\PrimitiveInterface;
 use Drupal\Core\TypedData\Type\FloatInterface;
 use Drupal\Core\TypedData\Type\IntegerInterface;
@@ -57,23 +61,16 @@ abstract class StorableConfigBase extends ConfigBase {
    *
    * @var array
    */
-  protected $originalData = [];
+  protected $originalData = array();
 
   /**
    * Saves the configuration object.
    *
    * Must invalidate the cache tags associated with the configuration object.
    *
-   * @param bool $has_trusted_data
-   *   Set to TRUE if the configuration data has already been checked to ensure
-   *   it conforms to schema. Generally this is only used during module and
-   *   theme installation.
-   *
    * @return $this
-   *
-   * @see \Drupal\Core\Config\ConfigInstaller::createConfiguration()
    */
-  abstract public function save($has_trusted_data = FALSE);
+  abstract public function save();
 
   /**
    * Deletes the configuration object.
@@ -95,7 +92,7 @@ abstract class StorableConfigBase extends ConfigBase {
    */
   public function initWithData(array $data) {
     $this->isNew = FALSE;
-    $this->data = $data;
+    $this->setData($data, FALSE);
     $this->originalData = $this->data;
     return $this;
   }
@@ -131,7 +128,9 @@ abstract class StorableConfigBase extends ConfigBase {
    */
   protected function getSchemaWrapper() {
     if (!isset($this->schemaWrapper)) {
-      $this->schemaWrapper = $this->typedConfigManager->createFromNameAndData($this->name, $this->data);
+      $definition = $this->typedConfigManager->getDefinition($this->name);
+      $data_definition = $this->typedConfigManager->buildDataDefinition($definition, $this->data);
+      $this->schemaWrapper = $this->typedConfigManager->create($data_definition, $this->data);
     }
     return $this->schemaWrapper;
   }
@@ -157,7 +156,10 @@ abstract class StorableConfigBase extends ConfigBase {
       }
     }
     elseif ($value !== NULL && !is_scalar($value)) {
-      throw new UnsupportedDataTypeConfigException("Invalid data type for config element {$this->getName()}:$key");
+      throw new UnsupportedDataTypeConfigException(SafeMarkup::format('Invalid data type for config element @name:@key', array(
+        '@name' => $this->getName(),
+        '@key' => $key,
+      )));
     }
   }
 
@@ -191,7 +193,7 @@ abstract class StorableConfigBase extends ConfigBase {
         // we have to special case the meaning of an empty string for numeric
         // types. In PHP this would be casted to a 0 but for the purposes of
         // configuration we need to treat this as a NULL.
-        $empty_value = $value === '' && ($element instanceof IntegerInterface || $element instanceof FloatInterface);
+        $empty_value =  $value === '' && ($element instanceof IntegerInterface || $element instanceof FloatInterface);
 
         if ($value === NULL || $empty_value) {
           $value = NULL;
@@ -204,34 +206,14 @@ abstract class StorableConfigBase extends ConfigBase {
     else {
       // Throw exception on any non-scalar or non-array value.
       if (!is_array($value)) {
-        throw new UnsupportedDataTypeConfigException("Invalid data type for config element {$this->getName()}:$key");
+        throw new UnsupportedDataTypeConfigException(SafeMarkup::format('Invalid data type for config element @name:@key', array(
+          '@name' => $this->getName(),
+          '@key' => $key,
+        )));
       }
       // Recurse into any nested keys.
       foreach ($value as $nested_value_key => $nested_value) {
         $value[$nested_value_key] = $this->castValue($key . '.' . $nested_value_key, $nested_value);
-      }
-
-      if ($element instanceof Sequence) {
-        $data_definition = $element->getDataDefinition();
-        if ($data_definition instanceof SequenceDataDefinition) {
-          // Apply any sorting defined on the schema.
-          switch ($data_definition->getOrderBy()) {
-            case 'key':
-              ksort($value);
-              break;
-
-            case 'value':
-              // The PHP documentation notes that "Be careful when sorting
-              // arrays with mixed types values because sort() can produce
-              // unpredictable results". There is no risk here because
-              // \Drupal\Core\Config\StorableConfigBase::castValue() has
-              // already cast all values to the same type using the
-              // configuration schema.
-              sort($value);
-              break;
-
-          }
-        }
       }
     }
     return $value;

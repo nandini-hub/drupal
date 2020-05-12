@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\user\Plugin\views\wizard\Users.
+ */
+
 namespace Drupal\user\Plugin\views\wizard;
 
 use Drupal\views\Plugin\views\wizard\WizardPluginBase;
@@ -21,27 +26,25 @@ class Users extends WizardPluginBase {
 
   /**
    * Set the created column.
-   *
-   * @var string
    */
   protected $createdColumn = 'created';
 
   /**
    * Set default values for the filters.
    */
-  protected $filters = [
-    'status' => [
+  protected $filters = array(
+    'status' => array(
       'value' => TRUE,
       'table' => 'users_field_data',
       'field' => 'status',
       'plugin_id' => 'boolean',
       'entity_type' => 'user',
       'entity_field' => 'status',
-    ],
-  ];
+    )
+  );
 
   /**
-   * {@inheritdoc}
+   * Overrides Drupal\views\Plugin\views\wizard\WizardPluginBase::defaultDisplayOptions().
    */
   protected function defaultDisplayOptions() {
     $display_options = parent::defaultDisplayOptions();

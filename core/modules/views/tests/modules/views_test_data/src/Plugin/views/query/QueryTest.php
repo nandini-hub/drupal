@@ -1,11 +1,15 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\views_test_data\Plugin\views\query\QueryTest.
+ */
+
 namespace Drupal\views_test_data\Plugin\views\query;
 
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\views\Plugin\views\query\QueryPluginBase;
 use Drupal\views\Plugin\views\join\JoinPluginBase;
-use Drupal\views\ResultRow;
 use Drupal\views\ViewExecutable;
 
 /**
@@ -18,32 +22,32 @@ use Drupal\views\ViewExecutable;
  * )
  */
 class QueryTest extends QueryPluginBase {
-  protected $conditions = [];
-  protected $fields = [];
-  protected $allItems = [];
-  protected $orderBy = [];
+  protected $conditions = array();
+  protected $fields = array();
+  protected $allItems = array();
+  protected $orderBy = array();
 
   /**
-   * {@inheritdoc}
+   * Implements \Drupal\views\Plugin\views\query\QueryPluginBase::defineOptions().
    */
   protected function defineOptions() {
     $options = parent::defineOptions();
-    $options['test_setting'] = ['default' => ''];
+    $options['test_setting'] = array('default' => '');
 
     return $options;
   }
 
   /**
-   * {@inheritdoc}
+   * Implements \Drupal\views\Plugin\views\query\QueryPluginBase::buildOptionsForm().
    */
   public function buildOptionsForm(&$form, FormStateInterface $form_state) {
     parent::buildOptionsForm($form, $form_state);
 
-    $form['test_setting'] = [
+    $form['test_setting'] = array(
       '#title' => $this->t('Test setting'),
       '#type' => 'textfield',
       '#default_value' => $this->options['test_setting'],
-    ];
+    );
   }
 
   /**
@@ -57,22 +61,23 @@ class QueryTest extends QueryPluginBase {
   }
 
   public function addWhere($group, $field, $value = NULL, $operator = NULL) {
-    $this->conditions[] = [
+    $this->conditions[] = array(
       'field' => $field,
       'value' => $value,
-      'operator' => $operator,
-    ];
+      'operator' => $operator
+    );
 
   }
 
-  public function addField($table, $field, $alias = '', $params = []) {
+  public function addField($table, $field, $alias = '', $params = array()) {
     $this->fields[$field] = $field;
     return $field;
   }
 
-  public function addOrderBy($table, $field = NULL, $order = 'ASC', $alias = '', $params = []) {
-    $this->orderBy = ['field' => $field, 'order' => $order];
+  public function addOrderBy($table, $field = NULL, $order = 'ASC', $alias = '', $params = array()) {
+    $this->orderBy = array('field' => $field, 'order' => $order);
   }
+
 
   public function ensureTable($table, $relationship = NULL, JoinPluginBase $join = NULL) {
     // There is no concept of joins.
@@ -89,13 +94,13 @@ class QueryTest extends QueryPluginBase {
     // @todo You could add a string representation of the query.
     $this->view->build_info['query'] = "";
     $this->view->build_info['count_query'] = "";
-  }
+}
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\views\Plugin\views\query\QueryPluginBase::execute().
    */
   public function execute(ViewExecutable $view) {
-    $result = [];
+    $result = array();
     foreach ($this->allItems as $element) {
       // Run all conditions on the element, and add it to the result if they
       // match.
@@ -109,7 +114,7 @@ class QueryTest extends QueryPluginBase {
         if ($this->fields) {
           $element = array_intersect_key($element, $this->fields);
         }
-        $result[] = new ResultRow($element);
+        $result[] = (object) $element;
       }
     }
     $this->view->result = $result;
@@ -149,10 +154,5 @@ class QueryTest extends QueryPluginBase {
       'content' => ['QueryTest'],
     ];
   }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function setFieldTimezoneOffset(&$field, $offset) {}
 
 }

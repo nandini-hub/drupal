@@ -1,22 +1,19 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Render\Element\Fieldset.
+ */
+
 namespace Drupal\Core\Render\Element;
+
+use Drupal\Core\Render\Element;
 
 /**
  * Provides a render element for a group of form elements.
  *
- * Usage example:
- * @code
- * $form['author'] = array(
- *   '#type' => 'fieldset',
- *   '#title' => $this->t('Author'),
- * );
- *
- * $form['author']['name'] = array(
- *   '#type' => 'textfield',
- *   '#title' => $this->t('Name'),
- * );
- * @endcode
+ * In default rendering, the only difference between a 'fieldgroup' and a
+ * 'fieldset' is the CSS class applied to the containing HTML element.
  *
  * @see \Drupal\Core\Render\Element\Fieldgroup
  * @see \Drupal\Core\Render\Element\Details
@@ -30,17 +27,17 @@ class Fieldset extends RenderElement {
    */
   public function getInfo() {
     $class = get_class($this);
-    return [
-      '#process' => [
-        [$class, 'processGroup'],
-        [$class, 'processAjaxForm'],
-      ],
-      '#pre_render' => [
-        [$class, 'preRenderGroup'],
-      ],
+    return array(
+      '#process' => array(
+        array($class, 'processGroup'),
+        array($class, 'processAjaxForm'),
+      ),
+      '#pre_render' => array(
+        array($class, 'preRenderGroup'),
+      ),
       '#value' => NULL,
-      '#theme_wrappers' => ['fieldset'],
-    ];
+      '#theme_wrappers' => array('fieldset'),
+    );
   }
 
 }

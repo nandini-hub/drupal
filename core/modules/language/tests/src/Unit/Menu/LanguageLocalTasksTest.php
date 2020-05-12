@@ -1,20 +1,25 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Tests\language\Unit\Menu\LanguageLocalTasksTest.
+ */
+
 namespace Drupal\Tests\language\Unit\Menu;
 
-use Drupal\Tests\Core\Menu\LocalTaskIntegrationTestBase;
+use Drupal\Tests\Core\Menu\LocalTaskIntegrationTest;
 
 /**
  * Tests existence of language local tasks.
  *
  * @group language
  */
-class LanguageLocalTasksTest extends LocalTaskIntegrationTestBase {
+class LanguageLocalTasksTest extends LocalTaskIntegrationTest {
 
   protected function setUp() {
-    $this->directoryList = [
+    $this->directoryList = array(
       'language' => 'core/modules/language',
-    ];
+    );
     parent::setUp();
   }
 
@@ -31,19 +36,19 @@ class LanguageLocalTasksTest extends LocalTaskIntegrationTestBase {
    * Provides a list of routes to test.
    */
   public function getLanguageAdminOverviewRoutes() {
-    return [
-      ['entity.configurable_language.collection', [['entity.configurable_language.collection', 'language.negotiation']]],
-      ['language.negotiation', [['entity.configurable_language.collection', 'language.negotiation']]],
-    ];
+    return array(
+      array('entity.configurable_language.collection', array(array('entity.configurable_language.collection', 'language.negotiation'))),
+      array('language.negotiation', array(array('entity.configurable_language.collection', 'language.negotiation'))),
+    );
   }
 
   /**
    * Tests language edit local tasks existence.
    */
   public function testLanguageEditLocalTasks() {
-    $this->assertLocalTasks('entity.configurable_language.edit_form', [
-      0 => ['entity.configurable_language.edit_form'],
-    ]);
+    $this->assertLocalTasks('entity.configurable_language.edit_form', array(
+      0 => array('entity.configurable_language.edit_form'),
+    ));
   }
 
 }

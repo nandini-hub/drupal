@@ -1,18 +1,19 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\aggregator\FeedStorageInterface.
+ */
+
 namespace Drupal\aggregator;
 
-use Drupal\Core\Entity\ContentEntityStorageInterface;
+use Drupal\aggregator\FeedInterface;
+use Drupal\Core\Entity\EntityStorageInterface;
 
 /**
  * Defines an interface for aggregator feed entity storage classes.
  */
-interface FeedStorageInterface extends ContentEntityStorageInterface {
-
-  /**
-   * Denotes that a feed's items should never expire.
-   */
-  const CLEAR_NEVER = 0;
+interface FeedStorageInterface extends EntityStorageInterface {
 
   /**
    * Returns the fids of feeds that need to be refreshed.

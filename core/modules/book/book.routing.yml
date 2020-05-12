@@ -29,7 +29,6 @@ book.export:
   requirements:
     _permission: 'access printer-friendly version'
     _entity_access: 'node.view'
-    node: \d+
 
 entity.node.book_outline_form:
   path: '/node/{node}/outline'
@@ -39,14 +38,13 @@ entity.node.book_outline_form:
   requirements:
     _permission: 'administer book outlines'
     _entity_access: 'node.view'
-    node: \d+
   options:
     _node_operation_route: TRUE
 
 book.admin_edit:
   path: '/admin/structure/book/{node}'
   defaults:
-    _form: '\Drupal\book\Form\BookAdminEditForm'
+    _form: 'Drupal\book\Form\BookAdminEditForm'
     _title: 'Re-order book pages and change titles'
   requirements:
     _permission: 'administer book outlines'
@@ -64,4 +62,3 @@ entity.node.book_remove_form:
     _permission: 'administer book outlines'
     _entity_access: 'node.view'
     _access_book_removable: 'TRUE'
-    node: \d+

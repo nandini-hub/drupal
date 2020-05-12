@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\shortcut\ShortcutSetAccessControlHandler.
+ */
+
 namespace Drupal\shortcut;
 
 use Drupal\Core\Access\AccessResult;
@@ -17,10 +22,8 @@ class ShortcutSetAccessControlHandler extends EntityAccessControlHandler {
   /**
    * {@inheritdoc}
    */
-  protected function checkAccess(EntityInterface $entity, $operation, AccountInterface $account) {
+  protected function checkAccess(EntityInterface $entity, $operation, $langcode, AccountInterface $account) {
     switch ($operation) {
-      case 'view':
-        return AccessResult::allowedIfHasPermission($account, 'access shortcuts');
       case 'update':
         if ($account->hasPermission('administer shortcuts')) {
           return AccessResult::allowed()->cachePerPermissions();
@@ -28,7 +31,7 @@ class ShortcutSetAccessControlHandler extends EntityAccessControlHandler {
         if (!$account->hasPermission('access shortcuts')) {
           return AccessResult::neutral()->cachePerPermissions();
         }
-        return AccessResult::allowedIf($account->hasPermission('customize shortcut links') && $entity == shortcut_current_displayed_set($account))->cachePerPermissions()->addCacheableDependency($entity);
+        return AccessResult::allowedIf($account->hasPermission('customize shortcut links') && $entity == shortcut_current_displayed_set($account))->cachePerPermissions()->cacheUntilEntityChanges($entity);
 
       case 'delete':
         return AccessResult::allowedIf($account->hasPermission('administer shortcuts') && $entity->id() != 'default')->cachePerPermissions();

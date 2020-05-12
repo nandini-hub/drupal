@@ -1,10 +1,16 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\locale\PoDatabaseReader.
+ */
+
 namespace Drupal\locale;
 
 use Drupal\Component\Gettext\PoHeader;
 use Drupal\Component\Gettext\PoItem;
 use Drupal\Component\Gettext\PoReaderInterface;
+use Drupal\locale\TranslationString;
 
 /**
  * Gettext PO reader working with the locale module database.
@@ -45,18 +51,18 @@ class PoDatabaseReader implements PoReaderInterface {
    * Constructor, initializes with default options.
    */
   public function __construct() {
-    $this->setOptions([]);
+    $this->setOptions(array());
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Component\Gettext\PoMetadataInterface::getLangcode().
    */
   public function getLangcode() {
     return $this->langcode;
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Component\Gettext\PoMetadataInterface::setLangcode().
    */
   public function setLangcode($langcode) {
     $this->langcode = $langcode;
@@ -73,16 +79,16 @@ class PoDatabaseReader implements PoReaderInterface {
    * Set the options for the current reader.
    */
   public function setOptions(array $options) {
-    $options += [
+    $options += array(
       'customized' => FALSE,
       'not_customized' => FALSE,
       'not_translated' => FALSE,
-    ];
+    );
     $this->options = $options;
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Component\Gettext\PoMetadataInterface::getHeader().
    */
   public function getHeader() {
     return new PoHeader($this->getLangcode());
@@ -104,7 +110,7 @@ class PoDatabaseReader implements PoReaderInterface {
   private function loadStrings() {
     $langcode = $this->langcode;
     $options = $this->options;
-    $conditions = [];
+    $conditions = array();
 
     if (array_sum($options) == 0) {
       // If user asked to not include anything in the translation files,
@@ -157,7 +163,7 @@ class PoDatabaseReader implements PoReaderInterface {
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Component\Gettext\PoReaderInterface::readItem().
    */
   public function readItem() {
     if ($string = $this->readString()) {

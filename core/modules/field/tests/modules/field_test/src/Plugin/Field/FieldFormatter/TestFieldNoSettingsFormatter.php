@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ *
+ * Contains \Drupal\field_test\Plugin\Field\FieldFormatter\TestFieldNoSettingsFormatter.
+ */
 namespace Drupal\field_test\Plugin\Field\FieldFormatter;
 
 use Drupal\Core\Field\FieldItemListInterface;
@@ -22,12 +27,12 @@ class TestFieldNoSettingsFormatter extends FormatterBase {
   /**
    * {@inheritdoc}
    */
-  public function viewElements(FieldItemListInterface $items, $langcode) {
-    $elements = [];
+  public function viewElements(FieldItemListInterface $items) {
+    $elements = array();
 
     foreach ($items as $delta => $item) {
       // This formatter only needs to output raw for testing.
-      $elements[$delta] = ['#markup' => $item->value];
+      $elements[$delta] = array('#markup' => $item->value);
     }
 
     return $elements;

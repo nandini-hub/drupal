@@ -1,9 +1,13 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\image\PathProcessor\PathProcessorImageStyles.
+ */
+
 namespace Drupal\image\PathProcessor;
 
 use Drupal\Core\PathProcessor\InboundPathProcessorInterface;
-use Drupal\Core\StreamWrapper\StreamWrapperManagerInterface;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
@@ -24,42 +28,22 @@ use Symfony\Component\HttpFoundation\Request;
 class PathProcessorImageStyles implements InboundPathProcessorInterface {
 
   /**
-   * The stream wrapper manager service.
-   *
-   * @var \Drupal\Core\StreamWrapper\StreamWrapperManagerInterface
-   */
-  protected $streamWrapperManager;
-
-  /**
-   * Constructs a new PathProcessorImageStyles object.
-   *
-   * @param \Drupal\Core\StreamWrapper\StreamWrapperManagerInterface $stream_wrapper_manager
-   *   The stream wrapper manager service.
-   */
-  public function __construct(StreamWrapperManagerInterface $stream_wrapper_manager) {
-    $this->streamWrapperManager = $stream_wrapper_manager;
-  }
-
-  /**
    * {@inheritdoc}
    */
   public function processInbound($path, Request $request) {
-    $directory_path = $this->streamWrapperManager->getViaScheme('public')->getDirectoryPath();
-    if (strpos($path, '/' . $directory_path . '/styles/') === 0) {
-      $path_prefix = '/' . $directory_path . '/styles/';
+    $directory_path = file_stream_wrapper_get_instance_by_scheme('public')->getDirectoryPath();
+    if (strpos($path, $directory_path . '/styles/') === 0) {
+      $path_prefix = $directory_path . '/styles/';
     }
-    // Check if the string '/system/files/styles/' exists inside the path,
-    // that means we have a case of private file's image style.
-    elseif (strpos($path, '/system/files/styles/') !== FALSE) {
-      $path_prefix = '/system/files/styles/';
-      $path = substr($path, strpos($path, $path_prefix), strlen($path));
+    elseif (strpos($path, 'system/files/styles/') === 0) {
+      $path_prefix = 'system/files/styles/';
     }
     else {
       return $path;
     }
 
     // Strip out path prefix.
-    $rest = preg_replace('|^' . preg_quote($path_prefix, '|') . '|', '', $path);
+    $rest = preg_replace('|^' . $path_prefix . '|', '', $path);
 
     // Get the image style, scheme and path.
     if (substr_count($rest, '/') >= 2) {

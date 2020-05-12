@@ -10,6 +10,7 @@ description: ''
 tag: ''
 base_table: views_test_data
 base_field: id
+core: 8.x
 display:
   default:
     display_plugin: default
@@ -20,7 +21,7 @@ display:
       access:
         type: perm
       cache:
-        type: tag
+        type: none
       query:
         type: views_query
       exposed_form:

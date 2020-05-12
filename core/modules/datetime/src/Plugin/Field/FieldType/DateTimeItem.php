@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\datetime\Plugin\Field\FieldType\DateTimeItem.
+ */
+
 namespace Drupal\datetime\Plugin\Field\FieldType;
 
 use Drupal\Core\Field\FieldDefinitionInterface;
@@ -17,19 +22,18 @@ use Drupal\Core\Field\FieldItemBase;
  *   description = @Translation("Create and store date values."),
  *   default_widget = "datetime_default",
  *   default_formatter = "datetime_default",
- *   list_class = "\Drupal\datetime\Plugin\Field\FieldType\DateTimeFieldItemList",
- *   constraints = {"DateTimeFormat" = {}}
+ *   list_class = "\Drupal\datetime\Plugin\Field\FieldType\DateTimeFieldItemList"
  * )
  */
-class DateTimeItem extends FieldItemBase implements DateTimeItemInterface {
+class DateTimeItem extends FieldItemBase {
 
   /**
    * {@inheritdoc}
    */
   public static function defaultStorageSettings() {
-    return [
+    return array(
       'datetime_type' => 'datetime',
-    ] + parent::defaultStorageSettings();
+    ) + parent::defaultStorageSettings();
   }
 
   /**
@@ -64,37 +68,36 @@ class DateTimeItem extends FieldItemBase implements DateTimeItemInterface {
    * {@inheritdoc}
    */
   public static function schema(FieldStorageDefinitionInterface $field_definition) {
-    return [
-      'columns' => [
-        'value' => [
+    return array(
+      'columns' => array(
+        'value' => array(
           'description' => 'The date value.',
           'type' => 'varchar',
           'length' => 20,
-        ],
-      ],
-      'indexes' => [
-        'value' => ['value'],
-      ],
-    ];
+        ),
+      ),
+      'indexes' => array(
+        'value' => array('value'),
+      ),
+    );
   }
 
   /**
    * {@inheritdoc}
    */
   public function storageSettingsForm(array &$form, FormStateInterface $form_state, $has_data) {
-    $element = [];
+    $element = array();
 
-    $element['datetime_type'] = [
+    $element['datetime_type'] = array(
       '#type' => 'select',
       '#title' => t('Date type'),
       '#description' => t('Choose the type of date to create.'),
       '#default_value' => $this->getSetting('datetime_type'),
-      '#options' => [
+      '#options' => array(
         static::DATETIME_TYPE_DATETIME => t('Date and time'),
         static::DATETIME_TYPE_DATE => t('Date only'),
-      ],
-      '#disabled' => $has_data,
-    ];
+      ),
+    );
 
     return $element;
   }
@@ -107,12 +110,12 @@ class DateTimeItem extends FieldItemBase implements DateTimeItemInterface {
 
     // Just pick a date in the past year. No guidance is provided by this Field
     // type.
-    $timestamp = REQUEST_TIME - mt_rand(0, 86400 * 365);
+    $timestamp = REQUEST_TIME - mt_rand(0, 86400*365);
     if ($type == DateTimeItem::DATETIME_TYPE_DATE) {
-      $values['value'] = gmdate(static::DATE_STORAGE_FORMAT, $timestamp);
+      $values['value'] = gmdate(DATETIME_DATE_STORAGE_FORMAT, $timestamp);
     }
     else {
-      $values['value'] = gmdate(static::DATETIME_STORAGE_FORMAT, $timestamp);
+      $values['value'] = gmdate(DATETIME_DATETIME_STORAGE_FORMAT, $timestamp);
     }
     return $values;
   }

@@ -1,8 +1,11 @@
 <?php
 
-namespace Drupal\quickedit\Ajax;
+/**
+ * @file
+ * Contains \Drupal\quickedit\Ajax\FieldFormSavedCommand.
+ */
 
-use Drupal\Core\Ajax\BaseCommand;
+namespace Drupal\quickedit\Ajax;
 
 /**
  * AJAX command to indicate a field was saved into PrivateTempStore without
@@ -27,7 +30,7 @@ class FieldFormSavedCommand extends BaseCommand {
    *   The same re-rendered edited field, but in different view modes, for other
    *   instances of the same field on the user's page. Keyed by view mode.
    */
-  public function __construct($data, $other_view_modes = []) {
+  public function __construct($data, $other_view_modes = array()) {
     parent::__construct('quickeditFieldFormSaved', $data);
 
     $this->other_view_modes = $other_view_modes;
@@ -37,11 +40,11 @@ class FieldFormSavedCommand extends BaseCommand {
    * {@inheritdoc}
    */
   public function render() {
-    return [
+    return array(
       'command' => $this->command,
       'data' => $this->data,
       'other_view_modes' => $this->other_view_modes,
-    ];
+    );
   }
 
 }

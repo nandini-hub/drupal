@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\comment\CommentAccessControlHandler.
+ */
+
 namespace Drupal\comment;
 
 use Drupal\Core\Access\AccessResult;
@@ -19,38 +24,21 @@ class CommentAccessControlHandler extends EntityAccessControlHandler {
   /**
    * {@inheritdoc}
    */
-  protected function checkAccess(EntityInterface $entity, $operation, AccountInterface $account) {
-    /** @var \Drupal\comment\CommentInterface|\Drupal\user\EntityOwnerInterface $entity */
+  protected function checkAccess(EntityInterface $entity, $operation, $langcode, AccountInterface $account) {
+    /** @var \Drupal\Core\Entity\EntityInterface|\Drupal\user\EntityOwnerInterface $entity */
 
-    $comment_admin = $account->hasPermission('administer comments');
-    if ($operation == 'approve') {
-      return AccessResult::allowedIf($comment_admin && !$entity->isPublished())
-        ->cachePerPermissions()
-        ->addCacheableDependency($entity);
-    }
-
-    if ($comment_admin) {
+    if ($account->hasPermission('administer comments')) {
       $access = AccessResult::allowed()->cachePerPermissions();
       return ($operation != 'view') ? $access : $access->andIf($entity->getCommentedEntity()->access($operation, $account, TRUE));
     }
 
     switch ($operation) {
       case 'view':
-        $access_result = AccessResult::allowedIf($account->hasPermission('access comments') && $entity->isPublished())->cachePerPermissions()->addCacheableDependency($entity)
+        return AccessResult::allowedIf($account->hasPermission('access comments') && $entity->isPublished())->cachePerPermissions()->cacheUntilEntityChanges($entity)
           ->andIf($entity->getCommentedEntity()->access($operation, $account, TRUE));
-        if (!$access_result->isAllowed()) {
-          $access_result->setReason("The 'access comments' permission is required and the comment must be published.");
-        }
-
-        return $access_result;
 
       case 'update':
-        $access_result = AccessResult::allowedIf($account->id() && $account->id() == $entity->getOwnerId() && $entity->isPublished() && $account->hasPermission('edit own comments'))
-          ->cachePerPermissions()->cachePerUser()->addCacheableDependency($entity);
-        if (!$access_result->isAllowed()) {
-          $access_result->setReason("The 'edit own comments' permission is required, the user must be the comment author, and the comment must be published.");
-        }
-        return $access_result;
+        return AccessResult::allowedIf($account->id() && $account->id() == $entity->getOwnerId() && $entity->isPublished() && $account->hasPermission('edit own comments'))->cachePerPermissions()->cachePerUser()->cacheUntilEntityChanges($entity);
 
       default:
         // No opinion.
@@ -72,39 +60,28 @@ class CommentAccessControlHandler extends EntityAccessControlHandler {
     if ($operation == 'edit') {
       // Only users with the "administer comments" permission can edit
       // administrative fields.
-      $administrative_fields = [
+      $administrative_fields = array(
         'uid',
         'status',
         'created',
         'date',
-      ];
+      );
       if (in_array($field_definition->getName(), $administrative_fields, TRUE)) {
         return AccessResult::allowedIfHasPermission($account, 'administer comments');
       }
 
       // No user can change read-only fields.
-      $read_only_fields = [
+      $read_only_fields = array(
         'hostname',
-        'changed',
+        'uuid',
         'cid',
         'thread',
-      ];
-      // These fields can be edited during comment creation.
-      $create_only_fields = [
         'comment_type',
-        'uuid',
+        'pid',
         'entity_id',
         'entity_type',
         'field_name',
-        'pid',
-      ];
-      if ($items && ($entity = $items->getEntity()) && $entity->isNew() && in_array($field_definition->getName(), $create_only_fields, TRUE)) {
-        // We are creating a new comment, user can edit create only fields.
-        return AccessResult::allowedIfHasPermission($account, 'post comments')->addCacheableDependency($entity);
-      }
-      // We are editing an existing comment - create only fields are now read
-      // only.
-      $read_only_fields = array_merge($read_only_fields, $create_only_fields);
+      );
       if (in_array($field_definition->getName(), $read_only_fields, TRUE)) {
         return AccessResult::forbidden();
       }
@@ -120,30 +97,33 @@ class CommentAccessControlHandler extends EntityAccessControlHandler {
           // access.
           return AccessResult::forbidden();
         }
-        $is_name = $field_definition->getName() === 'name';
         /** @var \Drupal\comment\CommentInterface $entity */
         $entity = $items->getEntity();
         $commented_entity = $entity->getCommentedEntity();
         $anonymous_contact = $commented_entity->get($entity->getFieldName())->getFieldDefinition()->getSetting('anonymous');
         $admin_access = AccessResult::allowedIfHasPermission($account, 'administer comments');
-        $anonymous_access = AccessResult::allowedIf($entity->isNew() && $account->isAnonymous() && ($anonymous_contact != CommentInterface::ANONYMOUS_MAYNOT_CONTACT || $is_name) && $account->hasPermission('post comments'))
+        $anonymous_access = AccessResult::allowedIf($entity->isNew() && $account->isAnonymous() && $anonymous_contact != COMMENT_ANONYMOUS_MAYNOT_CONTACT && $account->hasPermission('post comments'))
           ->cachePerPermissions()
-          ->addCacheableDependency($entity)
-          ->addCacheableDependency($field_definition->getConfig($commented_entity->bundle()))
-          ->addCacheableDependency($commented_entity);
+          ->cacheUntilEntityChanges($entity)
+          ->cacheUntilEntityChanges($field_definition->getConfig($commented_entity->bundle()))
+          ->cacheUntilEntityChanges($commented_entity);
         return $admin_access->orIf($anonymous_access);
       }
     }
 
     if ($operation == 'view') {
-      // Nobody has access to the hostname.
-      if ($field_definition->getName() == 'hostname') {
-        return AccessResult::forbidden();
+      $entity = $items ? $items->getEntity() : NULL;
+      // Admins can view any fields except hostname, other users need both the
+      // "access comments" permission and for the comment to be published. The
+      // mail field is hidden from non-admins.
+      $admin_access = AccessResult::allowedIf($account->hasPermission('administer comments') && $field_definition->getName() != 'hostname')
+        ->cachePerPermissions();
+      $anonymous_access = AccessResult::allowedIf($account->hasPermission('access comments') && (!$entity || $entity->isPublished()) && !in_array($field_definition->getName(), array('mail', 'hostname'), TRUE))
+        ->cachePerPermissions();
+      if ($entity) {
+        $anonymous_access->cacheUntilEntityChanges($entity);
       }
-      // The mail field is hidden from non-admins.
-      if ($field_definition->getName() == 'mail') {
-        return AccessResult::allowedIfHasPermission($account, 'administer comments');
-      }
+      return $admin_access->orIf($anonymous_access);
     }
     return parent::checkFieldAccess($operation, $field_definition, $account, $items);
   }

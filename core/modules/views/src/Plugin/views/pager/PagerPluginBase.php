@@ -1,9 +1,15 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\views\Plugin\views\pager\PagerPluginBase.
+ */
+
 namespace Drupal\views\Plugin\views\pager;
 
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\views\Plugin\views\PluginBase;
+use Drupal\views\ViewExecutable;
 
 /**
  * @defgroup views_pager_plugins Views pager plugins
@@ -27,12 +33,12 @@ use Drupal\views\Plugin\views\PluginBase;
  */
 abstract class PagerPluginBase extends PluginBase {
 
-  public $current_page = NULL;
+  var $current_page = NULL;
 
-  public $total_items = 0;
+  var $total_items = 0;
 
   /**
-   * {@inheritdoc}
+   * Overrides Drupal\views\Plugin\Plugin::$usesOptions.
    */
   protected $usesOptions = TRUE;
 
@@ -114,12 +120,12 @@ abstract class PagerPluginBase extends PluginBase {
   /**
    * Provide the default form form for validating options
    */
-  public function validateOptionsForm(&$form, FormStateInterface $form_state) {}
+  public function validateOptionsForm(&$form, FormStateInterface $form_state) { }
 
   /**
    * Provide the default form form for submitting options
    */
-  public function submitOptionsForm(&$form, FormStateInterface $form_state) {}
+  public function submitOptionsForm(&$form, FormStateInterface $form_state) { }
 
   /**
    * Return a string to display as the clickable title for the
@@ -156,8 +162,6 @@ abstract class PagerPluginBase extends PluginBase {
     if (!empty($this->options['offset'])) {
       $this->total_items -= $this->options['offset'];
     }
-    // Prevent from being negative.
-    $this->total_items = max(0, $this->total_items);
 
     return $this->total_items;
   }
@@ -175,22 +179,22 @@ abstract class PagerPluginBase extends PluginBase {
    *
    * This is called during the build phase and can directly modify the query.
    */
-  public function query() {}
+  public function query() { }
 
   /**
    * Perform any needed actions just prior to the query executing.
    */
-  public function preExecute(&$query) {}
+  public function preExecute(&$query) { }
 
   /**
    * Perform any needed actions just after the query executing.
    */
-  public function postExecute(&$result) {}
+  public function postExecute(&$result) { }
 
   /**
    * Perform any needed actions just before rendering.
    */
-  public function preRender(&$result) {}
+  public function preRender(&$result) { }
 
   /**
    * Return the renderable array of the pager.
@@ -201,7 +205,7 @@ abstract class PagerPluginBase extends PluginBase {
    *   Any extra GET parameters that should be retained, such as exposed
    *   input.
    */
-  public function render($input) {}
+  public function render($input) { }
 
   /**
    * Determine if there are more records available.
@@ -213,11 +217,11 @@ abstract class PagerPluginBase extends PluginBase {
       && $this->total_items > (intval($this->current_page) + 1) * $this->getItemsPerPage();
   }
 
-  public function exposedFormAlter(&$form, FormStateInterface $form_state) {}
+  public function exposedFormAlter(&$form, FormStateInterface $form_state) { }
 
-  public function exposedFormValidate(&$form, FormStateInterface $form_state) {}
+  public function exposedFormValidate(&$form, FormStateInterface $form_state) { }
 
-  public function exposedFormSubmit(&$form, FormStateInterface $form_state, &$exclude) {}
+  public function exposedFormSubmit(&$form, FormStateInterface $form_state, &$exclude) { }
 
   public function usesExposed() {
     return FALSE;

@@ -1,9 +1,14 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\node\Access\NodeRevisionAccessCheck.
+ */
+
 namespace Drupal\node\Access;
 
 use Drupal\Core\Access\AccessResult;
-use Drupal\Core\Entity\EntityTypeManagerInterface;
+use Drupal\Core\Entity\EntityManagerInterface;
 use Drupal\Core\Routing\Access\AccessInterface;
 use Drupal\Core\Session\AccountInterface;
 use Drupal\node\NodeInterface;
@@ -11,8 +16,6 @@ use Symfony\Component\Routing\Route;
 
 /**
  * Provides an access checker for node revisions.
- *
- * @ingroup node_access
  */
 class NodeRevisionAccessCheck implements AccessInterface {
 
@@ -35,17 +38,19 @@ class NodeRevisionAccessCheck implements AccessInterface {
    *
    * @var array
    */
-  protected $access = [];
+  protected $access = array();
 
   /**
    * Constructs a new NodeRevisionAccessCheck.
    *
-   * @param \Drupal\Core\Entity\EntityTypeManagerInterface $entity_type_manager
-   *   The entity type manager.
+   * @param \Drupal\Core\Entity\EntityManagerInterface $entity_manager
+   *   The entity manager.
+   * @param \Drupal\Core\Database\Connection $connection
+   *   The database connection.
    */
-  public function __construct(EntityTypeManagerInterface $entity_type_manager) {
-    $this->nodeStorage = $entity_type_manager->getStorage('node');
-    $this->nodeAccess = $entity_type_manager->getAccessControlHandler('node');
+  public function __construct(EntityManagerInterface $entity_manager) {
+    $this->nodeStorage = $entity_manager->getStorage('node');
+    $this->nodeAccess = $entity_manager->getAccessControlHandler('node');
   }
 
   /**
@@ -72,7 +77,7 @@ class NodeRevisionAccessCheck implements AccessInterface {
       $node = $this->nodeStorage->loadRevision($node_revision);
     }
     $operation = $route->getRequirement('_access_node_revision');
-    return AccessResult::allowedIf($node && $this->checkAccess($node, $account, $operation))->cachePerPermissions()->addCacheableDependency($node);
+    return AccessResult::allowedIf($node && $this->checkAccess($node, $account, $operation))->cachePerPermissions();
   }
 
   /**
@@ -85,22 +90,26 @@ class NodeRevisionAccessCheck implements AccessInterface {
    *   performed.
    * @param string $op
    *   (optional) The specific operation being checked. Defaults to 'view.'
+   * @param string|null $langcode
+   *   (optional) Language code for the variant of the node. Different language
+   *   variants might have different permissions associated. If NULL, the
+   *   original langcode of the node is used. Defaults to NULL.
    *
    * @return bool
    *   TRUE if the operation may be performed, FALSE otherwise.
    */
-  public function checkAccess(NodeInterface $node, AccountInterface $account, $op = 'view') {
-    $map = [
+  public function checkAccess(NodeInterface $node, AccountInterface $account, $op = 'view', $langcode = NULL) {
+    $map = array(
       'view' => 'view all revisions',
       'update' => 'revert all revisions',
       'delete' => 'delete all revisions',
-    ];
+    );
     $bundle = $node->bundle();
-    $type_map = [
+    $type_map = array(
       'view' => "view $bundle revisions",
       'update' => "revert $bundle revisions",
       'delete' => "delete $bundle revisions",
-    ];
+    );
 
     if (!$node || !isset($map[$op]) || !isset($type_map[$op])) {
       // If there was no node to check against, or the $op was not one of the
@@ -108,9 +117,13 @@ class NodeRevisionAccessCheck implements AccessInterface {
       return FALSE;
     }
 
+    // If no language code was provided, default to the node revision's langcode.
+    if (empty($langcode)) {
+      $langcode = $node->language()->getId();
+    }
+
     // Statically cache access by revision ID, language code, user account ID,
     // and operation.
-    $langcode = $node->language()->getId();
     $cid = $node->getRevisionId() . ':' . $langcode . ':' . $account->id() . ':' . $op;
 
     if (!isset($this->access[$cid])) {
@@ -119,31 +132,22 @@ class NodeRevisionAccessCheck implements AccessInterface {
         $this->access[$cid] = FALSE;
         return FALSE;
       }
-      // If the revisions checkbox is selected for the content type, display the
-      // revisions tab.
-      $bundle_entity_type = $node->getEntityType()->getBundleEntityType();
-      $bundle_entity = \Drupal::entityTypeManager()->getStorage($bundle_entity_type)->load($bundle);
-      if ($bundle_entity->shouldCreateNewRevision() && $op === 'view') {
+
+      // There should be at least two revisions. If the vid of the given node
+      // and the vid of the default revision differ, then we already have two
+      // different revisions so there is no need for a separate database check.
+      // Also, if you try to revert to or delete the default revision, that's
+      // not good.
+      if ($node->isDefaultRevision() && ($this->nodeStorage->countDefaultLanguageRevisions($node) == 1 || $op == 'update' || $op == 'delete')) {
+        $this->access[$cid] = FALSE;
+      }
+      elseif ($account->hasPermission('administer nodes')) {
         $this->access[$cid] = TRUE;
       }
       else {
-        // There should be at least two revisions. If the vid of the given node
-        // and the vid of the default revision differ, then we already have two
-        // different revisions so there is no need for a separate database
-        // check. Also, if you try to revert to or delete the default revision,
-        // that's not good.
-        if ($node->isDefaultRevision() && ($this->nodeStorage->countDefaultLanguageRevisions($node) == 1 || $op === 'update' || $op === 'delete')) {
-          $this->access[$cid] = FALSE;
-        }
-        elseif ($account->hasPermission('administer nodes')) {
-          $this->access[$cid] = TRUE;
-        }
-        else {
-          // First check the access to the default revision and finally, if the
-          // node passed in is not the default revision then check access to
-          // that, too.
-          $this->access[$cid] = $this->nodeAccess->access($this->nodeStorage->load($node->id()), $op, $account) && ($node->isDefaultRevision() || $this->nodeAccess->access($node, $op, $account));
-        }
+        // First check the access to the default revision and finally, if the
+        // node passed in is not the default revision then access to that, too.
+        $this->access[$cid] = $this->nodeAccess->access($this->nodeStorage->load($node->id()), $op, $langcode, $account) && ($node->isDefaultRevision() || $this->nodeAccess->access($node, $op, $langcode, $account));
       }
     }
 

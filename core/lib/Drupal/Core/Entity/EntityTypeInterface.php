@@ -1,27 +1,21 @@
 <?php
 
-namespace Drupal\Core\Entity;
+/**
+ * @file
+ * Contains \Drupal\Core\Entity\EntityTypeInterface.
+ */
 
-use Drupal\Component\Plugin\Definition\PluginDefinitionInterface;
+namespace Drupal\Core\Entity;
 
 /**
  * Provides an interface for an entity type and its metadata.
  *
- * Entity type classes can provide docblock annotations. The entity type manager
- * will use these annotations to populate the entity type object with
- * properties.
- *
- * Additional properties can be defined by module implementations of
- * hook_entity_type_build(). Existing data can be altered in implementations of
- * hook_entity_type_alter(), which can also be used to fill in defaults.
- * Module-specific properties should be documented in the hook implementations
- * defining them.
- *
- * @see \Drupal\Core\Entity\EntityTypeManagerInterface
- * @see hook_entity_type_build()
- * @see hook_entity_type_alter()
+ * Additional information can be provided by modules: hook_entity_type_build() can be
+ * implemented to define new properties, while hook_entity_type_alter() can be
+ * implemented to alter existing data and fill-in defaults. Module-specific
+ * properties should be documented in the hook implementations defining them.
  */
-interface EntityTypeInterface extends PluginDefinitionInterface {
+interface EntityTypeInterface {
 
   /**
    * The maximum length of ID, in characters.
@@ -57,7 +51,31 @@ interface EntityTypeInterface extends PluginDefinitionInterface {
   public function set($property, $value);
 
   /**
-   * Gets the name of the original entity type class.
+   * Returns the unique identifier of the entity type.
+   *
+   * @return string
+   *   The unique identifier of the entity type.
+   */
+  public function id();
+
+  /**
+   * Returns the name of the provider of this entity type.
+   *
+   * @return string
+   *   The name of the provider of this entity type.
+   */
+  public function getProvider();
+
+  /**
+   * Returns the name of the entity type class.
+   *
+   * @return string
+   *   The name of the entity type class.
+   */
+  public function getClass();
+
+  /**
+   * Returns the name of the original entity type class.
    *
    * In case the class name was changed with setClass(), this will return
    * the initial value. Useful when trying to identify the entity type ID based
@@ -69,7 +87,7 @@ interface EntityTypeInterface extends PluginDefinitionInterface {
   public function getOriginalClass();
 
   /**
-   * Gets an array of entity keys.
+   * Returns an array of entity keys.
    *
    * @return array
    *   An array describing how the Field API can extract certain information
@@ -90,8 +108,8 @@ interface EntityTypeInterface extends PluginDefinitionInterface {
    *   - label: (optional) The name of the property that contains the entity
    *     label. For example, if the entity's label is located in
    *     $entity->subject, then 'subject' should be specified here. If complex
-   *     logic is required to build the label,
-   *     \Drupal\Core\Entity\EntityInterface::label() should be used.
+   *     logic is required to build the label, a 'label_callback' should be
+   *     defined instead (see the $label_callback block above for details).
    *   - langcode: (optional) The name of the property that contains the
    *     language code. For instance, if the entity's language is located in
    *     $entity->langcode, then 'langcode' should be specified here.
@@ -102,7 +120,7 @@ interface EntityTypeInterface extends PluginDefinitionInterface {
   public function getKeys();
 
   /**
-   * Gets a specific entity key.
+   * Returns a specific entity key.
    *
    * @param string $key
    *   The name of the entity key to return.
@@ -153,6 +171,16 @@ interface EntityTypeInterface extends PluginDefinitionInterface {
   public function isPersistentlyCacheable();
 
   /**
+   * Sets the name of the entity type class.
+   *
+   * @param string $class
+   *   The name of the entity type class.
+   *
+   * @return $this
+   */
+  public function setClass($class);
+
+  /**
    * Determines if there is a handler for a given type.
    *
    * @param string $handler_type
@@ -175,7 +203,7 @@ interface EntityTypeInterface extends PluginDefinitionInterface {
   public function getHandlerClass($handler_type);
 
   /**
-   * Gets an array of handlers.
+   * Returns an array of handlers.
    *
    * @return array
    *   An associative array where the keys are the names of different handler
@@ -205,7 +233,7 @@ interface EntityTypeInterface extends PluginDefinitionInterface {
   public function getHandlerClasses();
 
   /**
-   * Gets the storage class.
+   * Returns the storage class.
    *
    * @return string
    *   The class for this entity type's storage.
@@ -223,7 +251,7 @@ interface EntityTypeInterface extends PluginDefinitionInterface {
   public function setStorageClass($class);
 
   /**
-   * Gets the form class for a specific operation.
+   * Returns the form class for a specific operation.
    *
    * @param string $operation
    *   The name of the operation to use, e.g., 'default'.
@@ -275,7 +303,7 @@ interface EntityTypeInterface extends PluginDefinitionInterface {
   public function getRouteProviderClasses();
 
   /**
-   * Gets the list class.
+   * Returns the list class.
    *
    * @return string
    *   The class for this entity type's list.
@@ -301,7 +329,7 @@ interface EntityTypeInterface extends PluginDefinitionInterface {
   public function hasListBuilderClass();
 
   /**
-   * Gets the view builder class.
+   * Returns the view builder class.
    *
    * @return string
    *   The class for this entity type's view builder.
@@ -309,7 +337,7 @@ interface EntityTypeInterface extends PluginDefinitionInterface {
   public function getViewBuilderClass();
 
   /**
-   * Gets the view builder class.
+   * Returns the view builder class.
    *
    * @param string $class
    *   The class for this entity type's view builder.
@@ -327,7 +355,7 @@ interface EntityTypeInterface extends PluginDefinitionInterface {
   public function hasViewBuilderClass();
 
   /**
-   * Gets the access control class.
+   * Returns the access control class.
    *
    * @return string
    *   The class for this entity type's access control.
@@ -335,25 +363,14 @@ interface EntityTypeInterface extends PluginDefinitionInterface {
   public function getAccessControlClass();
 
   /**
-   * Sets the access control handler class.
+   * Returns the access class.
    *
    * @param string $class
-   *   The class for this entity type's access control handler.
+   *   The class for this entity type's access.
    *
    * @return $this
    */
   public function setAccessClass($class);
-
-  /**
-   * Indicates if the entity type class implements the given interface.
-   *
-   * @param string $interface
-   *   The class or interface to check.
-   *
-   * @return bool
-   *   TRUE if the entity type class implements the given interface.
-   */
-  public function entityClassImplements($interface);
 
   /**
    * Indicates if the entity type is a subclass of the given class or interface.
@@ -363,10 +380,6 @@ interface EntityTypeInterface extends PluginDefinitionInterface {
    *
    * @return bool
    *   TRUE if the entity type is a subclass of the class or interface.
-   *
-   * @deprecated in drupal:8.3.0 and is removed from drupal:9.0.0.
-   *   Use Drupal\Core\Entity\EntityTypeInterface::entityClassImplements()
-   *   instead.
    */
   public function isSubclassOf($class);
 
@@ -383,7 +396,7 @@ interface EntityTypeInterface extends PluginDefinitionInterface {
   public function setHandlerClass($handler_type, $value);
 
   /**
-   * Gets the name of the default administrative permission.
+   * Returns the name of the default administrative permission.
    *
    * The default \Drupal\Core\Entity\EntityAccessControlHandler class checks this
    * permission for all operations in its checkAccess() method. Entities with
@@ -395,7 +408,7 @@ interface EntityTypeInterface extends PluginDefinitionInterface {
   public function getAdminPermission();
 
   /**
-   * Gets the permission granularity level.
+   * Returns the permission granularity level.
    *
    * The allowed values are respectively "entity_type" or "bundle".
    *
@@ -406,7 +419,7 @@ interface EntityTypeInterface extends PluginDefinitionInterface {
   public function getPermissionGranularity();
 
   /**
-   * Gets the link templates using the URI template syntax.
+   * Returns link templates using the URI template syntax.
    *
    * Links are an array of standard link relations to the URI template that
    * should be used for them. Where possible, link relationships should use
@@ -436,7 +449,7 @@ interface EntityTypeInterface extends PluginDefinitionInterface {
   public function getLinkTemplates();
 
   /**
-   * Gets the link template for a given key.
+   * Returns the link template for a given key.
    *
    * @param string $key
    *   The link type.
@@ -480,20 +493,15 @@ interface EntityTypeInterface extends PluginDefinitionInterface {
    * entity label is the main string associated with an entity; for example, the
    * title of a node or the subject of a comment. If there is an entity object
    * property that defines the label, use the 'label' element of the
-   * 'entity_keys' return value component to provide this information. If more
-   * complex logic is needed to determine the label of an entity, you can
-   * instead specify a callback function here, which will be called to determine
-   * the entity label.
+   * 'entity_keys' return value component to provide this information (see
+   * below). If more complex logic is needed to determine the label of an
+   * entity, you can instead specify a callback function here, which will be
+   * called to determine the entity label. See also the
+   * \Drupal\Core\Entity\EntityInterface::label() method, which implements this
+   * logic.
    *
    * @return callable|null
    *   The callback, or NULL if none exists.
-   *
-   * @deprecated in drupal:8.0.0 and is removed from drupal:9.0.0. Override the
-   *   EntityInterface::label() method instead for dynamic labels.
-   *
-   * @see \Drupal\Core\Entity\EntityInterface::label()
-   * @see \Drupal\Core\Entity\EntityTypeInterface::setLabelCallback()
-   * @see \Drupal\Core\Entity\EntityTypeInterface::hasLabelCallback()
    */
   public function getLabelCallback();
 
@@ -504,13 +512,6 @@ interface EntityTypeInterface extends PluginDefinitionInterface {
    *   A callable that returns the label of the entity.
    *
    * @return $this
-   *
-   * @deprecated in drupal:8.0.0 and is removed from drupal:9.0.0. Override the
-   *   EntityInterface::label() method instead for dynamic labels.
-   *
-   * @see \Drupal\Core\Entity\EntityInterface::label()
-   * @see \Drupal\Core\Entity\EntityTypeInterface::getLabelCallback()
-   * @see \Drupal\Core\Entity\EntityTypeInterface::hasLabelCallback()
    */
   public function setLabelCallback($callback);
 
@@ -518,27 +519,18 @@ interface EntityTypeInterface extends PluginDefinitionInterface {
    * Indicates if a label callback exists.
    *
    * @return bool
-   *
-   * @deprecated in drupal:8.0.0 and is removed from drupal:9.0.0. Override the
-   *   EntityInterface::label() method instead for dynamic labels.
-   *
-   * @see \Drupal\Core\Entity\EntityInterface::label()
-   * @see \Drupal\Core\Entity\EntityTypeInterface::getLabelCallback()
-   * @see \Drupal\Core\Entity\EntityTypeInterface::setLabelCallback()
    */
   public function hasLabelCallback();
 
   /**
-   * Gets the name of the entity type which provides bundles.
+   * Returns the name of the entity type which provides bundles.
    *
-   * @return string|null
-   *   The name of the entity type which provides bundles, or NULL if the entity
-   *   type does not have a bundle entity type.
+   * @return string
    */
   public function getBundleEntityType();
 
   /**
-   * Gets the entity type for which this entity provides bundles.
+   * Returns the entity type for which this entity provides bundles.
    *
    * It can be used by other modules to act accordingly; for example,
    * the Field UI module uses it to add operation links to manage fields and
@@ -551,15 +543,15 @@ interface EntityTypeInterface extends PluginDefinitionInterface {
   public function getBundleOf();
 
   /**
-   * Gets the label for the bundle.
+   * Returns the label for the bundle.
    *
-   * @return string
-   *   The bundle label.
+   * @return string|null
+   *   The bundle label, or NULL if none exists.
    */
   public function getBundleLabel();
 
   /**
-   * Gets the name of the entity's base table.
+   * Returns the name of the entity's base table.
    *
    * @todo Used by SqlContentEntityStorage only.
    *
@@ -567,24 +559,6 @@ interface EntityTypeInterface extends PluginDefinitionInterface {
    *   The name of the entity's base table, or NULL if none exists.
    */
   public function getBaseTable();
-
-  /**
-   * Indicates whether the entity data is internal.
-   *
-   * This can be used in a scenario when it is not desirable to expose data of
-   * this entity type to an external system.
-   *
-   * The implications of this method are left to the discretion of the caller.
-   * For example, a module providing an HTTP API may not expose entities of
-   * this type or a custom entity reference field settings form may deprioritize
-   * entities of this type in a select list.
-   *
-   * @return bool
-   *   TRUE if the entity data is internal, FALSE otherwise.
-   *
-   * @see \Drupal\Core\TypedData\DataDefinitionInterface::isInternal()
-   */
-  public function isInternal();
 
   /**
    * Indicates whether entities of this type have multilingual support.
@@ -597,14 +571,6 @@ interface EntityTypeInterface extends PluginDefinitionInterface {
   public function isTranslatable();
 
   /**
-   * Indicates whether the revision form fields should be added to the form.
-   *
-   * @return bool
-   *   TRUE if the form field should be added, FALSE otherwise.
-   */
-  public function showRevisionUi();
-
-  /**
    * Indicates whether entities of this type have revision support.
    *
    * @return bool
@@ -612,7 +578,17 @@ interface EntityTypeInterface extends PluginDefinitionInterface {
   public function isRevisionable();
 
   /**
-   * Gets the name of the entity's revision data table.
+   * Returns the config prefix used by the configuration entity type.
+   *
+   * @todo Used for configuration entities only.
+   *
+   * @return string|bool
+   *   The config prefix, or FALSE if not a configuration entity type.
+   */
+  public function getConfigPrefix();
+
+  /**
+   * Returns the name of the entity's revision data table.
    *
    * @todo Used by SqlContentEntityStorage only.
    *
@@ -623,7 +599,7 @@ interface EntityTypeInterface extends PluginDefinitionInterface {
   public function getRevisionDataTable();
 
   /**
-   * Gets the name of the entity's revision table.
+   * Returns the name of the entity's revision table.
    *
    * @todo Used by SqlContentEntityStorage only.
    *
@@ -633,7 +609,7 @@ interface EntityTypeInterface extends PluginDefinitionInterface {
   public function getRevisionTable();
 
   /**
-   * Gets the name of the entity's data table.
+   * Returns the name of the entity's data table.
    *
    * @todo Used by SqlContentEntityStorage only.
    *
@@ -643,90 +619,23 @@ interface EntityTypeInterface extends PluginDefinitionInterface {
   public function getDataTable();
 
   /**
-   * Gets the human-readable name of the entity type.
+   * Returns the human-readable name of the entity type.
    *
-   * This label should be used to present a human-readable name of the
-   * entity type.
-   *
-   * @return string|\Drupal\Core\StringTranslation\TranslatableMarkup
+   * @return string
    *   The human-readable name of the entity type.
    */
   public function getLabel();
 
   /**
-   * Gets the lowercase form of the human-readable entity type name.
+   * Returns the lowercase form of the human-readable entity type name.
    *
    * @return string
    *   The lowercase form of the human-readable entity type name.
-   *
-   * @deprecated in drupal:8.8.0 and is removed from drupal:9.0.0.
-   *   Instead, you should call getSingularLabel().
-   *   See https://www.drupal.org/node/3075567
-   *
-   * @see \Drupal\Core\Entity\EntityTypeInterface::getLabel()
    */
   public function getLowercaseLabel();
 
   /**
-   * Gets the uppercase plural form of the name of the entity type.
-   *
-   * This should return a human-readable version of the name that can refer
-   * to all the entities of the given type, collectively. An example usage of
-   * this is the page title of a page devoted to a collection of entities such
-   * as "Workflows" (instead of "Workflow entities").
-   *
-   * @return string|\Drupal\Core\StringTranslation\TranslatableMarkup
-   *   The collection label.
-   */
-  public function getCollectionLabel();
-
-  /**
-   * Gets the indefinite singular form of the name of the entity type.
-   *
-   * This should return the human-readable name for a single instance of
-   * the entity type. For example: "opportunity" (with the plural as
-   * "opportunities"), "child" (with the plural as "children"), or "content
-   * item" (with the plural as "content items").
-   *
-   * Think of it as an "in a full sentence, this is what we call this" label. As
-   * a consequence, the English version is lowercase.
-   *
-   * @return string|\Drupal\Core\StringTranslation\TranslatableMarkup
-   *   The singular label.
-   */
-  public function getSingularLabel();
-
-  /**
-   * Gets the indefinite plural form of the name of the entity type.
-   *
-   * This should return the human-readable name for more than one instance of
-   * the entity type. For example: "opportunities" (with the singular as
-   * "opportunity"), "children" (with the singular as "child"), or "content
-   * items" (with the singular as "content item").
-   *
-   * @return string|\Drupal\Core\StringTranslation\TranslatableMarkup
-   *   The plural label.
-   */
-  public function getPluralLabel();
-
-  /**
-   * Gets the label's definite article form for use with a count of entities.
-   *
-   * This label should be used when the quantity of entities is provided. The
-   * name should be returned in a form usable with a count of the
-   * entities. For example: "1 opportunity", "5 opportunities", "1 child",
-   * "6 children", "1 content item", "25 content items".
-   *
-   * @param int $count
-   *   The item count to display if the plural form was requested.
-   *
-   * @return string|\Drupal\Core\StringTranslation\TranslatableMarkup
-   *   The count label.
-   */
-  public function getCountLabel($count);
-
-  /**
-   * Gets a callable that can be used to provide the entity URI.
+   * Returns a callable that can be used to provide the entity URI.
    *
    * This is only called if there is no matching link template for the link
    * relationship type, and there is no bundle-specific callback provided.
@@ -745,21 +654,6 @@ interface EntityTypeInterface extends PluginDefinitionInterface {
    * @return $this
    */
   public function setUriCallback($callback);
-
-  /**
-   * Gets the machine name of the entity type group.
-   *
-   * @return string
-   */
-  public function getGroup();
-
-  /**
-   * Gets the human-readable name of the entity type group.
-   *
-   * @return string|\Drupal\Core\StringTranslation\TranslatableMarkup
-   *   The group label.
-   */
-  public function getGroupLabel();
 
   /**
    * The list cache contexts associated with this entity type.
@@ -800,7 +694,7 @@ interface EntityTypeInterface extends PluginDefinitionInterface {
   public function isCommonReferenceTarget();
 
   /**
-   * Gets an array of validation constraints.
+   * Returns an array of validation constraints.
    *
    * See \Drupal\Core\TypedData\DataDefinitionInterface::getConstraints() for
    * details on how constraints are defined.
@@ -847,18 +741,5 @@ interface EntityTypeInterface extends PluginDefinitionInterface {
    * @return $this
    */
   public function addConstraint($constraint_name, $options = NULL);
-
-  /**
-   * Gets the config dependency info for this entity, if any exists.
-   *
-   * @param string $bundle
-   *   The bundle name.
-   *
-   * @return array
-   *   An associative array containing the following keys:
-   *   - 'type': The config dependency type (e.g. 'module', 'config').
-   *   - 'name': The name of the config dependency.
-   */
-  public function getBundleConfigDependency($bundle);
 
 }

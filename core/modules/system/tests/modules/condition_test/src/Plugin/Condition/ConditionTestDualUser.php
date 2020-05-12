@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\condition_test\Plugin\Condition\ConditionTestDualUser.
+ */
+
 namespace Drupal\condition_test\Plugin\Condition;
 
 use Drupal\Core\Condition\ConditionPluginBase;
@@ -10,7 +15,7 @@ use Drupal\Core\Condition\ConditionPluginBase;
  * @Condition(
  *   id = "condition_test_dual_user",
  *   label = @Translation("Dual user"),
- *   context_definitions = {
+ *   context = {
  *     "user1" = @ContextDefinition("entity:user", label = @Translation("User 1")),
  *     "user2" = @ContextDefinition("entity:user", label = @Translation("User 2"))
  *   }

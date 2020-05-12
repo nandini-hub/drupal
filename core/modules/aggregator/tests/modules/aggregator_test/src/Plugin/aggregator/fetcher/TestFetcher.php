@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\aggregator_test\Plugin\aggregator\fetcher\TestFetcher.
+ */
+
 namespace Drupal\aggregator_test\Plugin\aggregator\fetcher;
 
 use Drupal\aggregator\Plugin\FetcherInterface;
@@ -20,7 +25,7 @@ use Drupal\aggregator\FeedInterface;
 class TestFetcher extends DefaultFetcher implements FetcherInterface {
 
   /**
-   * {@inheritdoc}
+   * Implements \Drupal\aggregator\Plugin\FetcherInterface::fetch().
    */
   public function fetch(FeedInterface $feed) {
     if ($feed->label() == 'Do not fetch') {
@@ -28,5 +33,4 @@ class TestFetcher extends DefaultFetcher implements FetcherInterface {
     }
     return parent::fetch($feed);
   }
-
 }

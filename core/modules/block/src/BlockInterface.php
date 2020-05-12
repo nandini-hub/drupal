@@ -1,8 +1,12 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\block\Entity\BlockInterface.
+ */
+
 namespace Drupal\block;
 
-use Drupal\Core\Block\BlockPluginInterface;
 use Drupal\Core\Config\Entity\ConfigEntityInterface;
 
 /**
@@ -12,18 +16,11 @@ interface BlockInterface extends ConfigEntityInterface {
 
   /**
    * Indicates the block label (title) should be displayed to end users.
-   *
-   * @deprecated in drupal:8.3.0 and is removed from drupal:9.0.0.
-   *   Use \Drupal\Core\Block\BlockPluginInterface::BLOCK_LABEL_VISIBLE.
-   *
-   * @see https://www.drupal.org/node/2829775
    */
-  const BLOCK_LABEL_VISIBLE = BlockPluginInterface::BLOCK_LABEL_VISIBLE;
+  const BLOCK_LABEL_VISIBLE = 'visible';
 
   /**
    * Denotes that a block is not enabled in any region and should not be shown.
-   *
-   * @deprecated in drupal:8.?.? and is removed from drupal:9.0.0.
    */
   const BLOCK_REGION_NONE = -1;
 
@@ -97,6 +94,24 @@ interface BlockInterface extends ConfigEntityInterface {
    * @return $this
    */
   public function setVisibilityConfig($instance_id, array $configuration);
+
+  /**
+   * Get all available contexts.
+   *
+   * @return \Drupal\Component\Plugin\Context\ContextInterface[]
+   *   An array of set contexts, keyed by context name.
+   */
+  public function getContexts();
+
+  /**
+   * Set the contexts that are available for use within the block entity.
+   *
+   * @param \Drupal\Component\Plugin\Context\ContextInterface[] $contexts
+   *   An array of contexts to set on the block.
+   *
+   * @return $this
+   */
+  public function setContexts(array $contexts);
 
   /**
    * Returns the weight of this block (used for sorting).

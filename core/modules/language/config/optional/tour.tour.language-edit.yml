@@ -1,11 +1,7 @@
-langcode: en
-status: true
-dependencies:
-  module:
-    - language
 id: language-edit
-label: 'Editing languages'
 module: language
+label: Editing languages
+langcode: en
 routes:
   - route_name: entity.configurable_language.edit_form
 tips:
@@ -43,5 +39,5 @@ tips:
     id: language-edit-continue
     plugin: text
     label: 'Continuing on'
-    body: '<p>Now that you have an overview of the "Edit language" feature, you can continue by:<ul><li>Editing a language</li><li><a href="[site:url]admin/config/regional/language">Viewing configured languages</a></li></ul></p>'
+    body: '<p>Now that you have an overview of the "Edit language" feature, you can continue by:<ul><li>Editing a language</li><li><a href="[site:url]/admin/config/regional/language">Viewing configured languages</a></li></ul></p>'
     weight: 5

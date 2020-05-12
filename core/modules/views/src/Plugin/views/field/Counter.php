@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\views\Plugin\views\field\Counter.
+ */
+
 namespace Drupal\views\Plugin\views\field;
 
 use Drupal\Core\Form\FormStateInterface;
@@ -14,8 +19,6 @@ use Drupal\views\ResultRow;
  */
 class Counter extends FieldPluginBase {
 
-  use UncacheableFieldHandlerTrait;
-
   /**
    * {@inheritdoc}
    */
@@ -28,7 +31,7 @@ class Counter extends FieldPluginBase {
    */
   protected function defineOptions() {
     $options = parent::defineOptions();
-    $options['counter_start'] = ['default' => 1];
+    $options['counter_start'] = array('default' => 1);
     return $options;
   }
 
@@ -36,13 +39,13 @@ class Counter extends FieldPluginBase {
    * {@inheritdoc}
    */
   public function buildOptionsForm(&$form, FormStateInterface $form_state) {
-    $form['counter_start'] = [
+    $form['counter_start'] = array(
       '#type' => 'textfield',
       '#title' => $this->t('Starting value'),
       '#default_value' => $this->options['counter_start'],
       '#description' => $this->t('Specify the number the counter should start at.'),
       '#size' => 2,
-    ];
+    );
 
     parent::buildOptionsForm($form, $form_state);
   }

@@ -1,11 +1,17 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\shortcut\Controller\ShortcutSetController.
+ */
+
 namespace Drupal\shortcut\Controller;
 
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Path\PathValidatorInterface;
 use Drupal\shortcut\ShortcutSetInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
+use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
@@ -55,20 +61,20 @@ class ShortcutSetController extends ControllerBase {
     $link = $request->query->get('link');
     $name = $request->query->get('name');
     if (parse_url($link, PHP_URL_SCHEME) === NULL && $this->pathValidator->isValid($link)) {
-      $shortcut = $this->entityTypeManager()->getStorage('shortcut')->create([
+      $shortcut = $this->entityManager()->getStorage('shortcut')->create(array(
         'title' => $name,
         'shortcut_set' => $shortcut_set->id(),
-        'link' => [
+        'link' => array(
           'uri' => 'internal:/' . $link,
-        ],
-      ]);
+        ),
+      ));
 
       try {
         $shortcut->save();
-        $this->messenger()->addStatus($this->t('Added a shortcut for %title.', ['%title' => $shortcut->label()]));
+        drupal_set_message($this->t('Added a shortcut for %title.', array('%title' => $shortcut->label())));
       }
       catch (\Exception $e) {
-        $this->messenger()->addError($this->t('Unable to add a shortcut for %title.', ['%title' => $shortcut->label()]));
+        drupal_set_message($this->t('Unable to add a shortcut for %title.', array('%title' => $shortcut->label())), 'error');
       }
 
       return $this->redirect('<front>');

@@ -1,24 +1,18 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\aggregator\Tests\AggregatorTestBase.
+ */
+
 namespace Drupal\aggregator\Tests;
 
-@trigger_error(__NAMESPACE__ . '\AggregatorTestBase is deprecated for removal before Drupal 9.0.0. Use \Drupal\Tests\aggregator\Functional\AggregatorTestBase instead. See https://www.drupal.org/node/2999939', E_USER_DEPRECATED);
-
-use Drupal\Component\Render\FormattableMarkup;
-use Drupal\Core\Url;
 use Drupal\aggregator\Entity\Feed;
-use Drupal\Component\Utility\Html;
-use Drupal\node\NodeInterface;
 use Drupal\simpletest\WebTestBase;
 use Drupal\aggregator\FeedInterface;
 
 /**
  * Defines a base class for testing the Aggregator module.
- *
- * @deprecated in drupal:8.?.? and is removed from drupal:9.0.0.
- *   Use \Drupal\Tests\aggregator\Functional\AggregatorTestBase instead.
- *
- * @see https://www.drupal.org/node/2999939
  */
 abstract class AggregatorTestBase extends WebTestBase {
 
@@ -34,13 +28,7 @@ abstract class AggregatorTestBase extends WebTestBase {
    *
    * @var array
    */
-  public static $modules = [
-    'block',
-    'node',
-    'aggregator',
-    'aggregator_test',
-    'views',
-  ];
+  public static $modules = array('node', 'aggregator', 'aggregator_test', 'views');
 
   /**
    * {@inheritdoc}
@@ -50,12 +38,11 @@ abstract class AggregatorTestBase extends WebTestBase {
 
     // Create an Article node type.
     if ($this->profile != 'standard') {
-      $this->drupalCreateContentType(['type' => 'article', 'name' => 'Article']);
+      $this->drupalCreateContentType(array('type' => 'article', 'name' => 'Article'));
     }
 
-    $this->adminUser = $this->drupalCreateUser(['access administration pages', 'administer news feeds', 'access news feeds', 'create article content']);
+    $this->adminUser = $this->drupalCreateUser(array('access administration pages', 'administer news feeds', 'access news feeds', 'create article content'));
     $this->drupalLogin($this->adminUser);
-    $this->drupalPlaceBlock('local_tasks_block');
   }
 
   /**
@@ -74,18 +61,14 @@ abstract class AggregatorTestBase extends WebTestBase {
    *
    * @see getFeedEditArray()
    */
-  public function createFeed($feed_url = NULL, array $edit = []) {
+  public function createFeed($feed_url = NULL, array $edit = array()) {
     $edit = $this->getFeedEditArray($feed_url, $edit);
     $this->drupalPostForm('aggregator/sources/add', $edit, t('Save'));
-    $this->assertText(t('The feed @name has been added.', ['@name' => $edit['title[0][value]']]), new FormattableMarkup('The feed @name has been added.', ['@name' => $edit['title[0][value]']]));
+    $this->assertRaw(t('The feed %name has been added.', array('%name' => $edit['title[0][value]'])), format_string('The feed !name has been added.', array('!name' => $edit['title[0][value]'])));
 
-    // Verify that the creation message contains a link to a feed.
-    $view_link = $this->xpath('//div[@class="messages"]//a[contains(@href, :href)]', [':href' => 'aggregator/sources/']);
-    $this->assert(isset($view_link), 'The message area contains a link to a feed');
-
-    $fids = \Drupal::entityQuery('aggregator_feed')->condition('title', $edit['title[0][value]'])->condition('url', $edit['url[0][value]'])->execute();
-    $this->assertNotEmpty($fids, 'The feed found in database.');
-    return Feed::load(array_values($fids)[0]);
+    $fid = db_query("SELECT fid FROM {aggregator_feed} WHERE title = :title AND url = :url", array(':title' => $edit['title[0][value]'], ':url' => $edit['url[0][value]']))->fetchField();
+    $this->assertTrue(!empty($fid), 'The feed found in database.');
+    return Feed::load($fid);
   }
 
   /**
@@ -95,8 +78,8 @@ abstract class AggregatorTestBase extends WebTestBase {
    *   Feed object representing the feed.
    */
   public function deleteFeed(FeedInterface $feed) {
-    $this->drupalPostForm('aggregator/sources/' . $feed->id() . '/delete', [], t('Delete'));
-    $this->assertRaw(t('The feed %title has been deleted.', ['%title' => $feed->label()]), 'Feed deleted successfully.');
+    $this->drupalPostForm('aggregator/sources/' . $feed->id() . '/delete', array(), t('Delete'));
+    $this->assertRaw(t('The feed %title has been deleted.', array('%title' => $feed->label())), 'Feed deleted successfully.');
   }
 
   /**
@@ -111,19 +94,19 @@ abstract class AggregatorTestBase extends WebTestBase {
    * @return array
    *   A feed array.
    */
-  public function getFeedEditArray($feed_url = NULL, array $edit = []) {
+  public function getFeedEditArray($feed_url = NULL, array $edit = array()) {
     $feed_name = $this->randomMachineName(10);
     if (!$feed_url) {
-      $feed_url = Url::fromRoute('view.frontpage.feed_1', [], [
-        'query' => ['feed' => $feed_name],
+      $feed_url = \Drupal::url('view.frontpage.feed_1', array(), array(
+        'query' => array('feed' => $feed_name),
         'absolute' => TRUE,
-      ])->toString();
+      ));
     }
-    $edit += [
+    $edit += array(
       'title[0][value]' => $feed_name,
       'url[0][value]' => $feed_url,
       'refresh' => '900',
-    ];
+    );
     return $edit;
   }
 
@@ -139,20 +122,20 @@ abstract class AggregatorTestBase extends WebTestBase {
    * @return \Drupal\aggregator\FeedInterface
    *   A feed object.
    */
-  public function getFeedEditObject($feed_url = NULL, array $values = []) {
+  public function getFeedEditObject($feed_url = NULL, array $values = array()) {
     $feed_name = $this->randomMachineName(10);
     if (!$feed_url) {
-      $feed_url = Url::fromRoute('view.frontpage.feed_1', [
-        'query' => ['feed' => $feed_name],
+      $feed_url = \Drupal::url('view.frontpage.feed_1', array(
+        'query' => array('feed' => $feed_name),
         'absolute' => TRUE,
-      ])->toString();
+      ));
     }
-    $values += [
+    $values += array(
       'title' => $feed_name,
       'url' => $feed_url,
       'refresh' => '900',
-    ];
-    return Feed::create($values);
+    );
+    return entity_create('aggregator_feed', $values);
   }
 
   /**
@@ -162,16 +145,9 @@ abstract class AggregatorTestBase extends WebTestBase {
    *   Number of feed items on default feed created by createFeed().
    */
   public function getDefaultFeedItemCount() {
-    // Our tests are based off of rss.xml, so let's find out how many elements
-    // should be related.
-    $feed_count = \Drupal::entityQuery('node')
-      ->condition('promote', NodeInterface::PROMOTED)
-      ->condition('status', NodeInterface::PUBLISHED)
-      ->accessCheck(FALSE)
-      ->range(0, $this->config('system.rss')->get('items.limit'))
-      ->count()
-      ->execute();
-    return min($feed_count, 10);
+    // Our tests are based off of rss.xml, so let's find out how many elements should be related.
+    $feed_count = db_query_range('SELECT COUNT(DISTINCT nid) FROM {node_field_data} n WHERE n.promote = 1 AND n.status = 1', 0, $this->config('system.rss')->get('items.limit'))->fetchField();
+    return $feed_count > 10 ? 10 : $feed_count;
   }
 
   /**
@@ -188,7 +164,7 @@ abstract class AggregatorTestBase extends WebTestBase {
   public function updateFeedItems(FeedInterface $feed, $expected_count = NULL) {
     // First, let's ensure we can get to the rss xml.
     $this->drupalGet($feed->getUrl());
-    $this->assertResponse(200, new FormattableMarkup(':url is reachable.', [':url' => $feed->getUrl()]));
+    $this->assertResponse(200, format_string('!url is reachable.', array('!url' => $feed->getUrl())));
 
     // Attempt to access the update link directly without an access token.
     $this->drupalGet('admin/config/services/aggregator/update/' . $feed->id());
@@ -199,15 +175,15 @@ abstract class AggregatorTestBase extends WebTestBase {
     $this->clickLink('Update items');
 
     // Ensure we have the right number of items.
-    $iids = \Drupal::entityQuery('aggregator_item')->condition('fid', $feed->id())->execute();
-    $feed->items = [];
-    foreach ($iids as $iid) {
-      $feed->items[] = $iid;
+    $result = db_query('SELECT iid FROM {aggregator_item} WHERE fid = :fid', array(':fid' => $feed->id()));
+    $feed->items = array();
+    foreach ($result as $item) {
+      $feed->items[] = $item->iid;
     }
 
     if ($expected_count !== NULL) {
       $feed->item_count = count($feed->items);
-      $this->assertEqual($expected_count, $feed->item_count, new FormattableMarkup('Total items in feed equal to the total items in database (@val1 != @val2)', ['@val1' => $expected_count, '@val2' => $feed->item_count]));
+      $this->assertEqual($expected_count, $feed->item_count, format_string('Total items in feed equal to the total items in database (!val1 != !val2)', array('!val1' => $expected_count, '!val2' => $feed->item_count)));
     }
   }
 
@@ -218,8 +194,8 @@ abstract class AggregatorTestBase extends WebTestBase {
    *   Feed object representing the feed.
    */
   public function deleteFeedItems(FeedInterface $feed) {
-    $this->drupalPostForm('admin/config/services/aggregator/delete/' . $feed->id(), [], t('Delete items'));
-    $this->assertRaw(t('The news items from %title have been deleted.', ['%title' => $feed->label()]), 'Feed items deleted.');
+    $this->drupalPostForm('admin/config/services/aggregator/delete/' . $feed->id(), array(), t('Delete items'));
+    $this->assertRaw(t('The news items from %title have been deleted.', array('%title' => $feed->label())), 'Feed items deleted.');
   }
 
   /**
@@ -231,12 +207,11 @@ abstract class AggregatorTestBase extends WebTestBase {
    *   Expected number of feed items.
    */
   public function updateAndDelete(FeedInterface $feed, $expected_count) {
-    $count_query = \Drupal::entityQuery('aggregator_item')->condition('fid', $feed->id())->count();
     $this->updateFeedItems($feed, $expected_count);
-    $count = $count_query->execute();
+    $count = db_query('SELECT COUNT(*) FROM {aggregator_item} WHERE fid = :fid', array(':fid' => $feed->id()))->fetchField();
     $this->assertTrue($count);
     $this->deleteFeedItems($feed);
-    $count = $count_query->execute();
+    $count = db_query('SELECT COUNT(*) FROM {aggregator_item} WHERE fid = :fid', array(':fid' => $feed->id()))->fetchField();
     $this->assertTrue($count == 0);
   }
 
@@ -252,7 +227,7 @@ abstract class AggregatorTestBase extends WebTestBase {
    *   TRUE if feed is unique.
    */
   public function uniqueFeed($feed_name, $feed_url) {
-    $result = \Drupal::entityQuery('aggregator_feed')->condition('title', $feed_name)->condition('url', $feed_url)->count()->execute();
+    $result = db_query("SELECT COUNT(*) FROM {aggregator_feed} WHERE title = :title AND url = :url", array(':title' => $feed_name, ':url' => $feed_url))->fetchField();
     return (1 == $result);
   }
 
@@ -268,7 +243,7 @@ abstract class AggregatorTestBase extends WebTestBase {
   public function getValidOpml(array $feeds) {
     // Properly escape URLs so that XML parsers don't choke on them.
     foreach ($feeds as &$feed) {
-      $feed['url[0][value]'] = Html::escape($feed['url[0][value]']);
+      $feed['url[0][value]'] = htmlspecialchars($feed['url[0][value]']);
     }
     /**
      * Does not have an XML declaration, must pass the parser.
@@ -295,8 +270,7 @@ abstract class AggregatorTestBase extends WebTestBase {
 EOF;
 
     $path = 'public://valid-opml.xml';
-    // Add the UTF-8 byte order mark.
-    return \Drupal::service('file_system')->saveData(chr(239) . chr(187) . chr(191) . $opml, $path);
+    return file_unmanaged_save_data($opml, $path);
   }
 
   /**
@@ -313,7 +287,7 @@ EOF;
 EOF;
 
     $path = 'public://invalid-opml.xml';
-    return \Drupal::service('file_system')->saveData($opml, $path);
+    return file_unmanaged_save_data($opml, $path);
   }
 
   /**
@@ -335,7 +309,7 @@ EOF;
 EOF;
 
     $path = 'public://empty-opml.xml';
-    return \Drupal::service('file_system')->saveData($opml, $path);
+    return file_unmanaged_save_data($opml, $path);
   }
 
   /**
@@ -379,7 +353,7 @@ EOF;
   public function createSampleNodes($count = 5) {
     // Post $count article nodes.
     for ($i = 0; $i < $count; $i++) {
-      $edit = [];
+      $edit = array();
       $edit['title[0][value]'] = $this->randomMachineName();
       $edit['body[0][value]'] = $this->randomMachineName();
       $this->drupalPostForm('node/add/article', $edit, t('Save'));
@@ -393,11 +367,10 @@ EOF;
     $this->config('aggregator.settings')
       ->set('fetcher', 'aggregator_test_fetcher')
       ->set('parser', 'aggregator_test_parser')
-      ->set('processors', [
+      ->set('processors', array(
         'aggregator_test_processor' => 'aggregator_test_processor',
         'aggregator' => 'aggregator',
-      ])
+      ))
       ->save();
   }
-
 }

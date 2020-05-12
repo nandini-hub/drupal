@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\language\Entity\ConfigurableLanguage.
+ */
+
 namespace Drupal\language\Entity;
 
 use Drupal\Core\Config\Entity\ConfigEntityBase;
@@ -16,13 +21,6 @@ use Drupal\language\ConfigurableLanguageInterface;
  * @ConfigEntityType(
  *   id = "configurable_language",
  *   label = @Translation("Language"),
- *   label_collection = @Translation("Languages"),
- *   label_singular = @Translation("language"),
- *   label_plural = @Translation("languages"),
- *   label_count = @PluralTranslation(
- *     singular = "@count language",
- *     plural = "@count languages",
- *   ),
  *   handlers = {
  *     "list_builder" = "Drupal\language\LanguageListBuilder",
  *     "access" = "Drupal\language\LanguageAccessControlHandler",
@@ -38,13 +36,6 @@ use Drupal\language\ConfigurableLanguageInterface;
  *     "id" = "id",
  *     "label" = "label",
  *     "weight" = "weight"
- *   },
- *   config_export = {
- *     "id",
- *     "label",
- *     "direction",
- *     "weight",
- *     "locked"
  *   },
  *   links = {
  *     "delete-form" = "/admin/config/regional/language/delete/{configurable_language}",
@@ -72,14 +63,14 @@ class ConfigurableLanguage extends ConfigEntityBase implements ConfigurableLangu
   /**
    * The direction of language, either DIRECTION_LTR or DIRECTION_RTL.
    *
-   * @var int
+   * @var integer
    */
   protected $direction = self::DIRECTION_LTR;
 
   /**
    * The weight of the language, used in lists of languages.
    *
-   * @var int
+   * @var integer
    */
   protected $weight = 0;
 
@@ -153,14 +144,6 @@ class ConfigurableLanguage extends ConfigEntityBase implements ConfigurableLangu
       // Install any available language configuration overrides for the language.
       \Drupal::service('language.config_factory_override')->installLanguageOverrides($this->id());
     }
-
-    if (!$this->isLocked() && !$update) {
-      // Add language to the list of language domains.
-      $config = \Drupal::configFactory()->getEditable('language.negotiation');
-      $domains = $config->get('url.domains');
-      $domains[$this->id()] = '';
-      $config->set('url.domains', $domains)->save(TRUE);
-    }
   }
 
   /**
@@ -195,12 +178,6 @@ class ConfigurableLanguage extends ConfigEntityBase implements ConfigurableLangu
     if (!\Drupal::languageManager()->isMultilingual()) {
       ConfigurableLanguageManager::rebuildServices();
     }
-
-    // Remove language from language prefix and domain list.
-    $config = \Drupal::configFactory()->getEditable('language.negotiation');
-    $config->clear('url.prefixes.' . $entity->id());
-    $config->clear('url.domains.' . $entity->id());
-    $config->save(TRUE);
   }
 
   /**
@@ -274,18 +251,18 @@ class ConfigurableLanguage extends ConfigEntityBase implements ConfigurableLangu
     if (!isset($standard_languages[$langcode])) {
       // Drupal does not know about this language, so we set its values with the
       // best guess. The user will be able to edit afterwards.
-      return static::create([
+      return static::create(array(
         'id' => $langcode,
         'label' => $langcode,
-      ]);
+      ));
     }
     else {
       // A known predefined language, details will be filled in properly.
-      return static::create([
+      return static::create(array(
         'id' => $langcode,
         'label' => $standard_languages[$langcode][0],
         'direction' => isset($standard_languages[$langcode][2]) ? $standard_languages[$langcode][2] : static::DIRECTION_LTR,
-      ]);
+      ));
     }
   }
 

@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Definition of \Drupal\simpletest\Tests\BrokenSetUpTest.
+ */
+
 namespace Drupal\simpletest\Tests;
 
 use Drupal\simpletest\WebTestBase;
@@ -12,9 +17,7 @@ use Drupal\simpletest\WebTestBase;
  * database tables. Therefore, we ensure that tests which are not set up
  * properly are skipped.
  *
- * @group WebTestBase
- * @group legacy
- *
+ * @group simpletest
  * @see \Drupal\simpletest\WebTestBase
  */
 class BrokenSetUpTest extends WebTestBase {
@@ -24,7 +27,7 @@ class BrokenSetUpTest extends WebTestBase {
    *
    * @var array
    */
-  public static $modules = ['simpletest'];
+  public static $modules = array('simpletest');
 
   /**
    * The path to the shared trigger file.
@@ -41,7 +44,7 @@ class BrokenSetUpTest extends WebTestBase {
       $this->sharedTriggerFile = $this->publicFilesDirectory . '/trigger';
 
       // Create and log in user.
-      $admin_user = $this->drupalCreateUser(['administer unit tests']);
+      $admin_user = $this->drupalCreateUser(array('administer unit tests'));
       $this->drupalLogin($admin_user);
     }
     // If the test is being run from within simpletest, set up the broken test.
@@ -73,7 +76,7 @@ class BrokenSetUpTest extends WebTestBase {
   /**
    * Runs this test case from within the simpletest child site.
    */
-  public function testMethod() {
+  function testMethod() {
     // If the test is being run from the main site, run it again from the web
     // interface within the simpletest child site.
     if (!$this->isInChildSite()) {
@@ -118,5 +121,4 @@ class BrokenSetUpTest extends WebTestBase {
       $this->pass('The test method has run.');
     }
   }
-
 }

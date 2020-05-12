@@ -1,8 +1,14 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\tour\TipPluginBase.
+ */
+
 namespace Drupal\tour;
 
 use Drupal\Core\Plugin\PluginBase;
+use Drupal\tour\TipPluginInterface;
 
 /**
  * Defines a base tour item implementation.
@@ -78,5 +84,4 @@ abstract class TipPluginBase extends PluginBase implements TipPluginInterface {
   public function set($key, $value) {
     $this->configuration[$key] = $value;
   }
-
 }

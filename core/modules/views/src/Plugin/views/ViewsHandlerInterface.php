@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\views\Plugin\views\ViewsHandlerInterface.
+ */
+
 namespace Drupal\views\Plugin\views;
 
 use Drupal\Core\Form\FormStateInterface;
@@ -31,7 +36,7 @@ interface ViewsHandlerInterface extends ViewsPluginInterface {
 
   /**
    * Determines if the handler is considered 'broken', meaning it's a
-   * placeholder used when a handler can't be found.
+   * a placeholder used when a handler can't be found.
    */
   public function broken();
 
@@ -44,7 +49,7 @@ interface ViewsHandlerInterface extends ViewsPluginInterface {
   /**
    * Check whether given user has access to this handler.
    *
-   * @param \Drupal\Core\Session\AccountInterface $account
+   * @param AccountInterface $account
    *   The user account to check.
    *
    * @return bool
@@ -67,10 +72,9 @@ interface ViewsHandlerInterface extends ViewsPluginInterface {
    * @param $value
    *   The value being rendered.
    * @param $type
-   *   The type of sanitization needed. If not provided,
-   *   \Drupal\Component\Utility\Html::escape() is used.
+   *   The type of sanitization needed. If not provided, SafeMarkup::checkPlain() is used.
    *
-   * @return \Drupal\views\Render\ViewsRenderPipelineMarkup
+   * @return string
    *   Returns the safe value.
    */
   public function sanitizeValue($value, $type = NULL);
@@ -129,7 +133,7 @@ interface ViewsHandlerInterface extends ViewsPluginInterface {
    * @param bool $force_int
    *   Enforce a numeric check.
    *
-   * @return object
+   * @return \stdClass
    *   A stdClass object containing value and operator properties.
    */
   public static function breakString($str, $force_int = FALSE);

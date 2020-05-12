@@ -5,8 +5,10 @@
  * Administration functions for language.module.
  */
 
+use Drupal\Component\Utility\SafeMarkup;
 use Drupal\Core\Render\Element;
 use Drupal\Core\Template\Attribute;
+use Drupal\Core\Url;
 
 /**
  * Prepares variables for language negotiation configuration form.
@@ -19,33 +21,33 @@ use Drupal\Core\Template\Attribute;
  */
 function template_preprocess_language_negotiation_configure_form(&$variables) {
   $form =& $variables['form'];
-  $variables['language_types'] = [];
+  $variables['language_types'] = array();
 
   foreach ($form['#language_types'] as $type) {
-    $header = [
+    $header = array(
       t('Detection method'),
       t('Description'),
       t('Enabled'),
       t('Weight'),
-    ];
+    );
 
     // If there is at least one operation enabled show the operation column.
     if ($form[$type]['#show_operations']) {
       $header[] = t('Operations');
     }
 
-    $table = [
+    $table = array(
       '#type' => 'table',
       '#header' => $header,
-      '#attributes' => ['id' => 'language-negotiation-methods-' . $type],
-      '#tabledrag' => [
-        [
+      '#attributes' => array('id' => 'language-negotiation-methods-' . $type),
+      '#tabledrag' => array(
+        array(
           'action' => 'order',
           'relationship' => 'sibling',
           'group' => 'language-method-weight-' . $type,
-        ],
-      ],
-    ];
+        ),
+      ),
+    );
 
     foreach ($form[$type]['title'] as $id => $element) {
       // Do not take form control structures.
@@ -53,11 +55,11 @@ function template_preprocess_language_negotiation_configure_form(&$variables) {
         $table[$id]['#attributes']['class'][] = 'draggable';
         $table[$id]['#weight'] = $element['#weight'];
 
-        $table[$id]['title'] = [
+        $table[$id]['title'] = array(
           '#prefix' => '<strong>',
           $form[$type]['title'][$id],
           '#suffix' => '</strong>',
-        ];
+        );
         $table[$id]['description'] = $form[$type]['description'][$id];
         $table[$id]['enabled'] = $form[$type]['enabled'][$id];
         $table[$id]['weight'] = $form[$type]['weight'][$id];
@@ -77,7 +79,7 @@ function template_preprocess_language_negotiation_configure_form(&$variables) {
     $configurable = isset($form[$type]['configurable']) ? $form[$type]['configurable'] : NULL;
     unset($form[$type]['configurable']);
 
-    $variables['language_types'][] = [
+    $variables['language_types'][] = array(
       'type' => $type,
       'title' => $form[$type]['#title'],
       'description' => $form[$type]['#description'],
@@ -85,7 +87,7 @@ function template_preprocess_language_negotiation_configure_form(&$variables) {
       'table' => $table,
       'children' => $form[$type],
       'attributes' => new Attribute(),
-    ];
+    );
     // Prevent the type from rendering with the remaining form child elements.
     unset($form[$type]);
   }
@@ -94,55 +96,111 @@ function template_preprocess_language_negotiation_configure_form(&$variables) {
 }
 
 /**
- * Prepares variables for language content settings table templates.
+ * Theme browser configuration form as table.
  *
- * Default template: language-content-settings-table.html.twig.
- *
- * @param array $variables
+ * @param $variables
  *   An associative array containing:
- *   - element: An associative array containing the properties of the element.
- *     Properties used: #bundle_label, #title.
+ *   - form: A render element representing the form.
+ *
+ * @ingroup themeable
+ */
+function theme_language_negotiation_configure_browser_form_table($variables) {
+  $form = $variables['form'];
+  $rows = array();
+  foreach (Element::children($form, TRUE) as $key) {
+    $row = array();
+    $row[] = drupal_render($form[$key]['browser_langcode']);
+    $row[] = drupal_render($form[$key]['drupal_langcode']);
+    $links = array();
+    $links['delete'] = array(
+      'title' => t('Delete'),
+      'url' => Url::fromRoute('language.negotiation_browser_delete', ['browser_langcode' => $key]),
+    );
+    $row[] = array(
+      'data' => array(
+        '#type' => 'operations',
+        '#links' => $links,
+      ),
+    );
+
+    $rows[] = $row;
+  }
+
+  $header = array(
+    t('Browser language code'),
+    t('Site language'),
+    t('Operations'),
+  );
+
+  $table = array(
+    '#type' => 'table',
+    '#header' => $header,
+    '#rows' => $rows,
+    '#empty' => t('No browser language mappings available.'),
+    '#attributes' => array('id' => 'language-negotiation-browser'),
+  );
+  $output = drupal_render($table);
+
+  return $output;
+}
+
+/**
+ * Implements hook_preprocess_HOOK() for theme_language_content_settings_table().
  */
 function template_preprocess_language_content_settings_table(&$variables) {
   // Add a render element representing the bundle language settings table.
   $element = $variables['element'];
 
-  $header = [
-    [
+  $header = array(
+    array(
       'data' => $element['#bundle_label'],
-      'class' => ['bundle'],
-    ],
-    [
+      'class' => array('bundle'),
+    ),
+    array(
       'data' => t('Configuration'),
-      'class' => ['operations'],
-    ],
-  ];
+      'class' => array('operations'),
+    ),
+  );
 
-  $rows = [];
+  $rows = array();
   foreach (Element::children($element) as $bundle) {
-    $rows[$bundle] = [
-      'data' => [
-        [
-          'data' => [
+    $rows[$bundle] = array(
+      'data' => array(
+        array(
+          'data' => array(
             '#prefix' => '<label>',
             '#suffix' => '</label>',
-            '#plain_text' => $element[$bundle]['settings']['#label'],
-          ],
-          'class' => ['bundle'],
-        ],
-        [
+            '#markup' => SafeMarkup::checkPlain($element[$bundle]['settings']['#label']),
+          ),
+          'class' => array('bundle'),
+        ),
+        array(
           'data' => $element[$bundle]['settings'],
-          'class' => ['operations'],
-        ],
-      ],
-      'class' => ['bundle-settings'],
-    ];
+          'class' => array('operations'),
+        ),
+      ),
+      'class' => array('bundle-settings'),
+    );
   }
 
-  $variables['title'] = $element['#title'];
-  $variables['build'] = [
+  $variables['build'] = array(
+    '#title' => $element['#title'],
     '#header' => $header,
     '#rows' => $rows,
     '#type' => 'table',
-  ];
+  );
+}
+
+/**
+ * Returns HTML for an administration settings table.
+ *
+ * @param array $variables
+ *   An associative array containing:
+ *   - build: A render element representing a table of bundle content language
+ *     settings for a particular entity type.
+ *
+ * @ingroup themeable
+ */
+function theme_language_content_settings_table($variables) {
+  return '<h4>' . $variables['build']['#title'] . '</h4>' . drupal_render($variables['build']);
 }

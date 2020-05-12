@@ -1,7 +1,13 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Breadcrumb\BreadcrumbManager.
+ */
+
 namespace Drupal\Core\Breadcrumb;
 
+use Drupal\Component\Utility\SafeMarkup;
 use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\Core\Routing\RouteMatchInterface;
 
@@ -29,7 +35,7 @@ class BreadcrumbManager implements ChainBreadcrumbBuilderInterface {
    *
    * @var array
    */
-  protected $builders = [];
+  protected $builders = array();
 
   /**
    * Holds the array of breadcrumb builders sorted by priority.
@@ -70,8 +76,8 @@ class BreadcrumbManager implements ChainBreadcrumbBuilderInterface {
    * {@inheritdoc}
    */
   public function build(RouteMatchInterface $route_match) {
-    $breadcrumb = new Breadcrumb();
-    $context = ['builder' => NULL];
+    $breadcrumb = array();
+    $context = array('builder' => NULL);
     // Call the build method of registered breadcrumb builders,
     // until one of them returns an array.
     foreach ($this->getSortedBuilders() as $builder) {
@@ -80,19 +86,21 @@ class BreadcrumbManager implements ChainBreadcrumbBuilderInterface {
         continue;
       }
 
-      $breadcrumb = $builder->build($route_match);
+      $build = $builder->build($route_match);
 
-      if ($breadcrumb instanceof Breadcrumb) {
+      if (is_array($build)) {
+        // The builder returned an array of breadcrumb links.
+        $breadcrumb = $build;
         $context['builder'] = $builder;
         break;
       }
       else {
-        throw new \UnexpectedValueException('Invalid breadcrumb returned by ' . get_class($builder) . '::build().');
+        throw new \UnexpectedValueException(SafeMarkup::format('Invalid breadcrumb returned by !class::build().', array('!class' => get_class($builder))));
       }
     }
     // Allow modules to alter the breadcrumb.
     $this->moduleHandler->alter('system_breadcrumb', $breadcrumb, $route_match, $context);
-
+    // Fall back to an empty breadcrumb.
     return $breadcrumb;
   }
 
@@ -107,7 +115,7 @@ class BreadcrumbManager implements ChainBreadcrumbBuilderInterface {
       // Sort the builders according to priority.
       krsort($this->builders);
       // Merge nested builders from $this->builders into $this->sortedBuilders.
-      $this->sortedBuilders = [];
+      $this->sortedBuilders = array();
       foreach ($this->builders as $builders) {
         $this->sortedBuilders = array_merge($this->sortedBuilders, $builders);
       }

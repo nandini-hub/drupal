@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\Core\Mail\MailInterface.
+ */
+
 namespace Drupal\Core\Mail;
 
 /**
@@ -30,7 +35,7 @@ interface MailInterface {
    *
    * @see \Drupal\Core\Mail\MailManagerInterface
    */
-  public function format(array $message);
+   public function format(array $message);
 
   /**
    * Sends a message composed by \Drupal\Core\Mail\MailManagerInterface->mail().
@@ -48,8 +53,7 @@ interface MailInterface {
    *     - User <user@example.com>
    *     - User <user@example.com>, Another User <anotheruser@example.com>
    *   - subject: Subject of the email to be sent. This must not contain any
-   *     newline characters, or the mail may not be sent properly. The subject
-   *     is converted to plain text by the mail plugin manager.
+   *     newline characters, or the mail may not be sent properly.
    *   - body: Message to be sent. Accepts both CRLF and LF line-endings.
    *     Email bodies must be wrapped. For smart plain text wrapping you can use
    *     \Drupal\Core\Mail\MailFormatHelper::wrapMail() .
@@ -60,6 +64,5 @@ interface MailInterface {
    * @return bool
    *   TRUE if the mail was successfully accepted for delivery, otherwise FALSE.
    */
-  public function mail(array $message);
-
+   public function mail(array $message);
 }

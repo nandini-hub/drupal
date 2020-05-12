@@ -1,5 +1,9 @@
 <?php
 
+/**
+ * @file Contains \Drupal\Tests\Core\Annotation\TranslationTest.
+ */
+
 namespace Drupal\Tests\Core\Annotation;
 
 use Drupal\Core\Annotation\Translation;
@@ -15,7 +19,7 @@ class TranslationTest extends UnitTestCase {
   /**
    * The translation manager used for testing.
    *
-   * @var \Drupal\Core\StringTranslation\TranslationInterface|\PHPUnit\Framework\MockObject\MockObject
+   * @var \Drupal\Core\StringTranslation\TranslationInterface|\PHPUnit_Framework_MockObject_MockObject
    */
   protected $translationManager;
 
@@ -36,10 +40,13 @@ class TranslationTest extends UnitTestCase {
     $container->set('string_translation', $this->translationManager);
     \Drupal::setContainer($container);
 
-    $arguments = isset($values['arguments']) ? $values['arguments'] : [];
-    $options = isset($values['context']) ? [
+    $arguments = isset($values['arguments']) ? $values['arguments'] : array();
+    $options = isset($values['context']) ? array(
       'context' => $values['context'],
-    ] : [];
+    ) : array();
+    $this->translationManager->expects($this->once())
+      ->method('translate')
+      ->with($values['value'], $arguments, $options);
 
     $annotation = new Translation($values);
 
@@ -50,27 +57,27 @@ class TranslationTest extends UnitTestCase {
    * Provides data to self::testGet().
    */
   public function providerTestGet() {
-    $data = [];
-    $data[] = [
-      [
+    $data = array();
+    $data[] = array(
+      array(
         'value' => 'Foo',
-      ],
-      'Foo',
-    ];
+      ),
+      'Foo'
+    );
     $random = $this->randomMachineName();
     $random_html_entity = '&' . $random;
-    $data[] = [
-      [
-        'value' => 'Foo @bar @baz %qux',
-        'arguments' => [
-          '@bar' => $random,
+    $data[] = array(
+      array(
+        'value' => 'Foo !bar @baz %qux',
+        'arguments' => array(
+          '!bar' => $random,
           '@baz' => $random_html_entity,
           '%qux' => $random_html_entity,
-        ],
+        ),
         'context' => $this->randomMachineName(),
-      ],
+      ),
       'Foo ' . $random . ' &amp;' . $random . ' <em class="placeholder">&amp;' . $random . '</em>',
-    ];
+    );
 
     return $data;
   }

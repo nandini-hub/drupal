@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\file_module_test\Form\FileModuleTestForm.
+ */
+
 namespace Drupal\file_module_test\Form;
 
 use Drupal\Core\Form\FormBase;
@@ -7,8 +12,6 @@ use Drupal\Core\Form\FormStateInterface;
 
 /**
  * Form controller for file_module_test module.
- *
- * @internal
  */
 class FileModuleTestForm extends FormBase {
 
@@ -38,29 +41,29 @@ class FileModuleTestForm extends FormBase {
   public function buildForm(array $form, FormStateInterface $form_state, $tree = TRUE, $extended = TRUE, $multiple = FALSE, $default_fids = NULL) {
     $form['#tree'] = (bool) $tree;
 
-    $form['nested']['file'] = [
+    $form['nested']['file'] = array(
       '#type' => 'managed_file',
-      '#title' => $this->t('Managed <em>@type</em>', ['@type' => 'file & butter']),
+      '#title' => $this->t('Managed file'),
       '#upload_location' => 'public://test',
       '#progress_message' => $this->t('Please wait...'),
       '#extended' => (bool) $extended,
       '#size' => 13,
       '#multiple' => (bool) $multiple,
-    ];
+    );
     if ($default_fids) {
       $default_fids = explode(',', $default_fids);
-      $form['nested']['file']['#default_value'] = $extended ? ['fids' => $default_fids] : $default_fids;
+      $form['nested']['file']['#default_value'] = $extended ? array('fids' => $default_fids) : $default_fids;
     }
 
-    $form['textfield'] = [
+    $form['textfield'] = array(
       '#type' => 'textfield',
       '#title' => $this->t('Type a value and ensure it stays'),
-    ];
+    );
 
-    $form['submit'] = [
+    $form['submit'] = array(
       '#type' => 'submit',
       '#value' => $this->t('Save'),
-    ];
+    );
 
     return $form;
   }
@@ -70,7 +73,7 @@ class FileModuleTestForm extends FormBase {
    */
   public function submitForm(array &$form, FormStateInterface $form_state) {
     if ($form['#tree']) {
-      $uploads = $form_state->getValue(['nested', 'file']);
+      $uploads = $form_state->getValue(array('nested', 'file'));
     }
     else {
       $uploads = $form_state->getValue('file');
@@ -80,12 +83,12 @@ class FileModuleTestForm extends FormBase {
       $uploads = $uploads['fids'];
     }
 
-    $fids = [];
+    $fids = array();
     foreach ($uploads as $fid) {
       $fids[] = $fid;
     }
 
-    \Drupal::messenger()->addStatus($this->t('The file ids are %fids.', ['%fids' => implode(',', $fids)]));
+    drupal_set_message($this->t('The file ids are %fids.', array('%fids' => implode(',', $fids))));
   }
 
 }

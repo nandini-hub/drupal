@@ -1,25 +1,21 @@
 <?php
 
-namespace Drupal\Tests\migrate\Unit;
+/**
+ * @file
+ * Contains \Drupal\Tests\migrate\Unit\MigrateSqlSourceTestCase.
+ */
 
-use Drupal\Core\Database\Query\SelectInterface;
-use Drupal\Core\DependencyInjection\ContainerBuilder;
-use Drupal\Core\DependencyInjection\ContainerNotInitializedException;
-use Drupal\Core\KeyValueStore\KeyValueFactoryInterface;
-use Drupal\Core\KeyValueStore\KeyValueStoreInterface;
+namespace Drupal\Tests\migrate\Unit;
 
 /**
  * Base class for Migrate module source unit tests.
- *
- * @deprecated in drupal:8.2.0 and is removed from drupal:9.0.0. Use
- * \Drupal\Tests\migrate\Kernel\MigrateSqlSourceTestBase instead.
  */
 abstract class MigrateSqlSourceTestCase extends MigrateTestCase {
 
   /**
    * The tested source plugin.
    *
-   * @var \Drupal\migrate_drupal\Plugin\migrate\source\DrupalSqlBase
+   * @var \Drupal\migrate_drupal\Plugin\migrate\source\DrupalSqlBase.
    */
   protected $source;
 
@@ -33,7 +29,7 @@ abstract class MigrateSqlSourceTestCase extends MigrateTestCase {
    *
    * @var array
    */
-  protected $databaseContents = [];
+  protected $databaseContents = array();
 
   /**
    * The plugin class under test.
@@ -51,23 +47,16 @@ abstract class MigrateSqlSourceTestCase extends MigrateTestCase {
    * Once the migration is run, we save a mark of the migrated sources, so the
    * migration can run again and update only new sources or changed sources.
    *
-   * @var mixed
+   * @var string
    */
-  const ORIGINAL_HIGH_WATER = NULL;
+  const ORIGINAL_HIGH_WATER = '';
 
   /**
    * Expected results after the source parsing.
    *
    * @var array
    */
-  protected $expectedResults = [];
-
-  /**
-   * Expected count of source rows.
-   *
-   * @var int
-   */
-  protected $expectedCount = 0;
+  protected $expectedResults = array();
 
   /**
    * The source plugin instance under test.
@@ -80,96 +69,35 @@ abstract class MigrateSqlSourceTestCase extends MigrateTestCase {
    * {@inheritdoc}
    */
   protected function setUp() {
-    $module_handler = $this->createMock('Drupal\Core\Extension\ModuleHandlerInterface');
-    $state = $this->createMock('Drupal\Core\State\StateInterface');
-    $entity_manager = $this->createMock('Drupal\Core\Entity\EntityManagerInterface');
-
-    // Mock a key-value store to return high-water values.
-    $key_value = $this->createMock(KeyValueStoreInterface::class);
-
-    // SourcePluginBase does not yet support full dependency injection so we
-    // need to make sure that \Drupal::keyValue() works as expected by mocking
-    // the keyvalue service.
-    $key_value_factory = $this->createMock(KeyValueFactoryInterface::class);
-    $key_value_factory
-      ->method('get')
-      ->with('migrate:high_water')
-      ->willReturn($key_value);
-
-    try {
-      $container = \Drupal::getContainer();
-    }
-    catch (ContainerNotInitializedException $e) {
-      $container = new ContainerBuilder();
-    }
-    $container->set('keyvalue', $key_value_factory);
-    \Drupal::setContainer($container);
+    $module_handler = $this->getMock('Drupal\Core\Extension\ModuleHandlerInterface');
 
     $migration = $this->getMigration();
-
-    // Set the high water value.
-    \Drupal::keyValue('migrate:high_water')
-      ->expects($this->any())
-      ->method('get')
-      ->willReturn(static::ORIGINAL_HIGH_WATER);
-
-    // Setup the plugin.
-    $plugin_class = static::PLUGIN_CLASS;
-    $plugin = new $plugin_class($this->migrationConfiguration['source'], $this->migrationConfiguration['source']['plugin'], [], $migration, $state, $entity_manager);
-
-    // Do some reflection to set the database and moduleHandler.
-    $plugin_reflection = new \ReflectionClass($plugin);
-    $database_property = $plugin_reflection->getProperty('database');
-    $database_property->setAccessible(TRUE);
-    $module_handler_property = $plugin_reflection->getProperty('moduleHandler');
-    $module_handler_property->setAccessible(TRUE);
-
-    // Set the database and the module handler onto our plugin.
-    $database_property->setValue($plugin, $this->getDatabase($this->databaseContents + ['test_map' => []]));
-    $module_handler_property->setValue($plugin, $module_handler);
-
+    $migration->expects($this->any())
+      ->method('getHighWater')
+      ->will($this->returnValue(static::ORIGINAL_HIGH_WATER));
+    // Need the test class, not the original because we need a setDatabase method. This is not pretty :/
+    $plugin_class  = preg_replace('/^Drupal\\\\(\w+)\\\\Plugin\\\\migrate(\\\\source(\\\\.+)?\\\\)([^\\\\]+)$/', 'Drupal\\Tests\\\$1\\Unit$2Test$4', static::PLUGIN_CLASS);
+    $plugin = new $plugin_class($this->migrationConfiguration['source'], $this->migrationConfiguration['source']['plugin'], array(), $migration);
+    $plugin->setDatabase($this->getDatabase($this->databaseContents + array('test_map' => array())));
+    $plugin->setModuleHandler($module_handler);
     $plugin->setStringTranslation($this->getStringTranslationStub());
     $migration->expects($this->any())
       ->method('getSourcePlugin')
       ->will($this->returnValue($plugin));
     $this->source = $plugin;
-    $this->expectedCount = count($this->expectedResults);
   }
 
   /**
-   * Tests that the source returns the same rows as expected.
+   * Test the source returns the same rows as expected.
    */
   public function testRetrieval() {
-    $this->assertInstanceOf(SelectInterface::class, $this->source->query());
     $this->queryResultTest($this->source, $this->expectedResults);
   }
 
   /**
-   * Tests that the source returns the row count expected.
-   */
-  public function testSourceCount() {
-    $count = $this->source->count();
-    $this->assertTrue(is_numeric($count));
-    $this->assertEquals($this->expectedCount, $count);
-  }
-
-  /**
-   * Tests the source defines a valid ID.
-   */
-  public function testSourceId() {
-    $this->assertNotEmpty($this->source->getIds());
-  }
-
-  /**
-   * Gets the value on a row for a given key.
-   *
    * @param \Drupal\migrate\Row $row
-   *   The row identifier.
    * @param string $key
-   *   The key identifier.
-   *
    * @return mixed
-   *   The value on a row for a given key.
    */
   protected function getValue($row, $key) {
     return $row->getSourceProperty($key);

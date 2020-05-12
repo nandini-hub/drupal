@@ -1,15 +1,17 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Field\Plugin\Field\FieldType\LanguageItem.
+ */
+
 namespace Drupal\Core\Field\Plugin\Field\FieldType;
 
-use Drupal\Core\Field\FieldDefinitionInterface;
 use Drupal\Core\Field\FieldStorageDefinitionInterface;
 use Drupal\Core\Field\FieldItemBase;
 use Drupal\Core\Language\LanguageInterface;
-use Drupal\Core\Session\AccountInterface;
 use Drupal\Core\TypedData\DataDefinition;
 use Drupal\Core\TypedData\DataReferenceDefinition;
-use Drupal\Core\TypedData\OptionsProviderInterface;
 
 /**
  * Defines the 'language' entity field item.
@@ -24,13 +26,17 @@ use Drupal\Core\TypedData\OptionsProviderInterface;
  *   constraints = {
  *     "ComplexData" = {
  *       "value" = {
- *         "Length" = {"max" = 12}
+ *         "Length" = {"max" = 12},
+ *         "AllowedValues" = {"callback" = "\Drupal\Core\Field\Plugin\Field\FieldType\LanguageItem::getAllowedLanguageCodes" }
  *       }
  *     }
  *   }
  * )
+ *
+ * @todo Define the AllowedValues constraint via an options provider once
+ *   https://www.drupal.org/node/2329937 is completed.
  */
-class LanguageItem extends FieldItemBase implements OptionsProviderInterface {
+class LanguageItem extends FieldItemBase {
 
   /**
    * {@inheritdoc}
@@ -51,17 +57,27 @@ class LanguageItem extends FieldItemBase implements OptionsProviderInterface {
   }
 
   /**
+   * Defines allowed language codes for the field's AllowedValues constraint.
+   *
+   * @return string[]
+   *   The allowed values.
+   */
+  public static function getAllowedLanguageCodes() {
+    return array_keys(\Drupal::languageManager()->getLanguages(LanguageInterface::STATE_ALL));
+  }
+
+  /**
    * {@inheritdoc}
    */
   public static function schema(FieldStorageDefinitionInterface $field_definition) {
-    return [
-      'columns' => [
-        'value' => [
-          'type' => 'varchar_ascii',
+    return array(
+      'columns' => array(
+        'value' => array(
+          'type' => 'varchar',
           'length' => 12,
-        ],
-      ],
-    ];
+        ),
+      ),
+    );
   }
 
   /**
@@ -88,7 +104,7 @@ class LanguageItem extends FieldItemBase implements OptionsProviderInterface {
   public function applyDefaultValue($notify = TRUE) {
     // Default to the site's default language. When language module is enabled,
     // this behavior is configurable, see language_field_info_alter().
-    $this->setValue(['value' => \Drupal::languageManager()->getDefaultLanguage()->getId()], $notify);
+    $this->setValue(array('value' => \Drupal::languageManager()->getDefaultLanguage()->getId()), $notify);
     return $this;
   }
 
@@ -104,53 +120,6 @@ class LanguageItem extends FieldItemBase implements OptionsProviderInterface {
       $this->writePropertyValue('value', $this->get('language')->getTargetIdentifier());
     }
     parent::onChange($property_name, $notify);
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public static function generateSampleValue(FieldDefinitionInterface $field_definition) {
-    // Defer to the callback in the item definition as it can be overridden.
-    $constraint = $field_definition->getItemDefinition()->getConstraint('ComplexData');
-    if (isset($constraint['value']['AllowedValues']['callback'])) {
-      $languages = call_user_func($constraint['value']['AllowedValues']['callback']);
-    }
-    else {
-      $languages = array_keys(\Drupal::languageManager()->getLanguages(LanguageInterface::STATE_ALL));
-    }
-    $values['value'] = $languages[array_rand($languages)];
-    return $values;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function getPossibleValues(AccountInterface $account = NULL) {
-    return array_keys(\Drupal::languageManager()->getLanguages(LanguageInterface::STATE_ALL));
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function getPossibleOptions(AccountInterface $account = NULL) {
-    $languages = \Drupal::languageManager()->getLanguages(LanguageInterface::STATE_ALL);
-    return array_map(function (LanguageInterface $language) {
-      return $language->getName();
-    }, $languages);
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function getSettableValues(AccountInterface $account = NULL) {
-    return $this->getPossibleValues($account);
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function getSettableOptions(AccountInterface $account = NULL) {
-    return $this->getPossibleValues($account);
   }
 
 }

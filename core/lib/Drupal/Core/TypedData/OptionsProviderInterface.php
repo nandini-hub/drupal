@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\TypedData\OptionsProviderInterface.
+ */
+
 namespace Drupal\Core\TypedData;
 
 use Drupal\Core\Session\AccountInterface;
@@ -24,7 +29,7 @@ use Drupal\Core\Session\AccountInterface;
  * specified. In that case, the allowed values and options apply to the main
  * property only.
  *
- * @see \Drupal\Core\Field\Plugin\Field\FieldWidget\OptionsWidgetBase
+ * @see \Drupal\options\Plugin\Field\FieldWidget\OptionsWidgetBase
  */
 interface OptionsProviderInterface {
 
@@ -95,5 +100,4 @@ interface OptionsProviderInterface {
    *   label). Note that labels should NOT be sanitized.
    */
   public function getSettableOptions(AccountInterface $account = NULL);
-
 }

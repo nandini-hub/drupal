@@ -1,10 +1,15 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Tests\Core\Menu\ContextualLinkDefaultTest.
+ */
+
 namespace Drupal\Tests\Core\Menu;
 
 use Drupal\Core\Menu\ContextualLinkDefault;
-use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\Tests\UnitTestCase;
+use Symfony\Component\HttpFoundation\ParameterBag;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
@@ -25,7 +30,7 @@ class ContextualLinkDefaultTest extends UnitTestCase {
    *
    * @var array
    */
-  protected $config = [];
+  protected $config = array();
 
   /**
    * The used plugin ID.
@@ -39,36 +44,36 @@ class ContextualLinkDefaultTest extends UnitTestCase {
    *
    * @var array
    */
-  protected $pluginDefinition = [
+  protected $pluginDefinition = array(
     'id' => 'contextual_link_default',
-  ];
+  );
 
   /**
    * The mocked translator.
    *
-   * @var \Drupal\Core\StringTranslation\TranslationInterface|\PHPUnit\Framework\MockObject\MockObject
+   * @var \Drupal\Core\StringTranslation\TranslationInterface|\PHPUnit_Framework_MockObject_MockObject
    */
   protected $stringTranslation;
 
   protected function setUp() {
     parent::setUp();
 
-    $this->stringTranslation = $this->createMock('Drupal\Core\StringTranslation\TranslationInterface');
+    $this->stringTranslation = $this->getMock('Drupal\Core\StringTranslation\TranslationInterface');
   }
 
   protected function setupContextualLinkDefault() {
     $this->contextualLinkDefault = new ContextualLinkDefault($this->config, $this->pluginId, $this->pluginDefinition);
+    $this->contextualLinkDefault->setStringTranslation($this->stringTranslation);
   }
 
   /**
    * @covers ::getTitle
    */
-  public function testGetTitle() {
-    $title = 'Example';
-    $this->pluginDefinition['title'] = (new TranslatableMarkup($title, [], [], $this->stringTranslation));
+  public function testGetTitle($title = 'Example') {
+    $this->pluginDefinition['title'] = $title;
     $this->stringTranslation->expects($this->once())
-      ->method('translateString')
-      ->with($this->pluginDefinition['title'])
+      ->method('translate')
+      ->with($this->pluginDefinition['title'], array(), array())
       ->will($this->returnValue('Example translated'));
 
     $this->setupContextualLinkDefault();
@@ -79,11 +84,11 @@ class ContextualLinkDefaultTest extends UnitTestCase {
    * @covers ::getTitle
    */
   public function testGetTitleWithContext() {
-    $title = 'Example';
-    $this->pluginDefinition['title'] = (new TranslatableMarkup($title, [], ['context' => 'context'], $this->stringTranslation));
+    $this->pluginDefinition['title'] = 'Example';
+    $this->pluginDefinition['title_context'] = 'context';
     $this->stringTranslation->expects($this->once())
-      ->method('translateString')
-      ->with($this->pluginDefinition['title'])
+      ->method('translate')
+      ->with($this->pluginDefinition['title'], array(), array('context' => $this->pluginDefinition['title_context']))
       ->will($this->returnValue('Example translated with context'));
 
     $this->setupContextualLinkDefault();
@@ -94,11 +99,11 @@ class ContextualLinkDefaultTest extends UnitTestCase {
    * @covers ::getTitle
    */
   public function testGetTitleWithTitleArguments() {
-    $title = 'Example @test';
-    $this->pluginDefinition['title'] = (new TranslatableMarkup($title, ['@test' => 'value'], [], $this->stringTranslation));
+    $this->pluginDefinition['title'] = 'Example @test';
+    $this->pluginDefinition['title_arguments'] = array('@test' => 'value');
     $this->stringTranslation->expects($this->once())
-      ->method('translateString')
-      ->with($this->pluginDefinition['title'])
+      ->method('translate')
+      ->with($this->pluginDefinition['title'], $this->arrayHasKey('@test'), array())
       ->will($this->returnValue('Example value'));
 
     $this->setupContextualLinkDefault();
@@ -129,7 +134,7 @@ class ContextualLinkDefaultTest extends UnitTestCase {
   /**
    * @covers ::getOptions
    */
-  public function testGetOptions($options = ['key' => 'value']) {
+  public function testGetOptions($options = array('key' => 'value')) {
     $this->pluginDefinition['options'] = $options;
     $this->setupContextualLinkDefault();
 

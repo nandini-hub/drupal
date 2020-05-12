@@ -1,43 +1,43 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\hal\Normalizer\ContentEntityNormalizer.
+ */
+
 namespace Drupal\hal\Normalizer;
 
 use Drupal\Component\Utility\NestedArray;
-use Drupal\Core\Entity\ContentEntityInterface;
-use Drupal\Core\DependencyInjection\DeprecatedServicePropertyTrait;
-use Drupal\Core\Entity\EntityFieldManagerInterface;
-use Drupal\Core\Entity\EntityInterface;
-use Drupal\Core\Entity\EntityTypeManagerInterface;
-use Drupal\Core\Entity\EntityTypeRepositoryInterface;
+use Drupal\Core\Entity\EntityManagerInterface;
 use Drupal\Core\Extension\ModuleHandlerInterface;
-use Drupal\Core\TypedData\TypedDataInternalPropertiesHelper;
-use Drupal\hal\LinkManager\LinkManagerInterface;
-use Drupal\serialization\Normalizer\FieldableEntityNormalizerTrait;
+use Drupal\rest\LinkManager\LinkManagerInterface;
 use Symfony\Component\Serializer\Exception\UnexpectedValueException;
 
 /**
  * Converts the Drupal entity object structure to a HAL array structure.
  */
 class ContentEntityNormalizer extends NormalizerBase {
-  use FieldableEntityNormalizerTrait;
-  use DeprecatedServicePropertyTrait;
 
   /**
-   * {@inheritdoc}
+   * The interface or class that this Normalizer supports.
+   *
+   * @var string
    */
-  protected $deprecatedProperties = ['entityManager' => 'entity.manager'];
-
-  /**
-   * {@inheritdoc}
-   */
-  protected $supportedInterfaceOrClass = ContentEntityInterface::class;
+  protected $supportedInterfaceOrClass = 'Drupal\Core\Entity\ContentEntityInterface';
 
   /**
    * The hypermedia link manager.
    *
-   * @var \Drupal\hal\LinkManager\LinkManagerInterface
+   * @var \Drupal\rest\LinkManager\LinkManagerInterface
    */
   protected $linkManager;
+
+  /**
+   * The entity manager.
+   *
+   * @var \Drupal\Core\Entity\EntityManagerInterface
+   */
+  protected $entityManager;
 
   /**
    * The module handler.
@@ -46,67 +46,58 @@ class ContentEntityNormalizer extends NormalizerBase {
    */
   protected $moduleHandler;
 
+
   /**
    * Constructs an ContentEntityNormalizer object.
    *
-   * @param \Drupal\hal\LinkManager\LinkManagerInterface $link_manager
+   * @param \Drupal\rest\LinkManager\LinkManagerInterface $link_manager
    *   The hypermedia link manager.
-   * @param \Drupal\Core\Entity\EntityTypeManagerInterface $entity_type_manager
-   *   The entity type manager.
-   * @param \Drupal\Core\Extension\ModuleHandlerInterface $module_handler
-   *   The module handler.
-   * @param \Drupal\Core\Entity\EntityTypeRepositoryInterface $entity_type_repository
-   *   The entity type repository.
-   * @param \Drupal\Core\Entity\EntityFieldManagerInterface $entity_field_manager
-   *   The entity field manager.
    */
-  public function __construct(LinkManagerInterface $link_manager, EntityTypeManagerInterface $entity_type_manager, ModuleHandlerInterface $module_handler, EntityTypeRepositoryInterface $entity_type_repository = NULL, EntityFieldManagerInterface $entity_field_manager = NULL) {
+  public function __construct(LinkManagerInterface $link_manager, EntityManagerInterface $entity_manager, ModuleHandlerInterface $module_handler) {
     $this->linkManager = $link_manager;
-    $this->entityTypeManager = $entity_type_manager;
+    $this->entityManager = $entity_manager;
     $this->moduleHandler = $module_handler;
-    $this->entityTypeRepository = $entity_type_repository;
-    if (!$entity_type_repository) {
-      @trigger_error('The entity_type.repository service must be passed to ContentEntityNormalizer::__construct(), it is required before Drupal 9.0.0. See https://www.drupal.org/node/2549139.', E_USER_DEPRECATED);
-      $entity_type_repository = \Drupal::service('entity_type.repository');
-    }
-    $this->entityTypeRepository = $entity_type_repository;
-    if (!$entity_field_manager) {
-      @trigger_error('The entity_field.manager service must be passed to ContentEntityNormalizer::__construct(), it is required before Drupal 9.0.0. See https://www.drupal.org/node/2549139.', E_USER_DEPRECATED);
-      $entity_field_manager = \Drupal::service('entity_field.manager');
-    }
-    $this->entityFieldManager = $entity_field_manager;
   }
 
   /**
-   * {@inheritdoc}
+   * Implements \Symfony\Component\Serializer\Normalizer\NormalizerInterface::normalize()
    */
-  public function normalize($entity, $format = NULL, array $context = []) {
-    $context += [
+  public function normalize($entity, $format = NULL, array $context = array()) {
+    $context += array(
       'account' => NULL,
       'included_fields' => NULL,
-    ];
+    );
 
     // Create the array of normalized fields, starting with the URI.
     /** @var $entity \Drupal\Core\Entity\ContentEntityInterface */
-    $normalized = [
-      '_links' => [
-        'self' => [
+    $normalized = array(
+      '_links' => array(
+        'self' => array(
           'href' => $this->getEntityUri($entity),
-        ],
-        'type' => [
-          'href' => $this->linkManager->getTypeUri($entity->getEntityTypeId(), $entity->bundle(), $context),
-        ],
-      ],
-    ];
+        ),
+        'type' => array(
+          'href' => $this->linkManager->getTypeUri($entity->getEntityTypeId(), $entity->bundle()),
+        ),
+      ),
+    );
 
-    $field_items = TypedDataInternalPropertiesHelper::getNonInternalProperties($entity->getTypedData());
     // If the fields to use were specified, only output those field values.
+    // Otherwise, output all field values except internal ID.
     if (isset($context['included_fields'])) {
-      $field_items = array_intersect_key($field_items, array_flip($context['included_fields']));
+      $fields = array();
+      foreach ($context['included_fields'] as $field_name) {
+        $fields[] = $entity->get($field_name);
+      }
     }
-    foreach ($field_items as $field) {
-      // Continue if the current user does not have access to view this field.
-      if (!$field->access('view', $context['account'])) {
+    else {
+      $fields = $entity->getFields();
+    }
+    // Ignore the entity ID and revision ID.
+    $exclude = array($entity->getEntityType()->getKey('id'), $entity->getEntityType()->getKey('revision'));
+    foreach ($fields as $field) {
+      // Continue if this is an excluded field or the current user does not have
+      // access to view it.
+      if (in_array($field->getFieldDefinition()->getName(), $exclude) || !$field->access('view', $context['account'])) {
         continue;
       }
 
@@ -123,7 +114,7 @@ class ContentEntityNormalizer extends NormalizerBase {
    * @param array $data
    *   Entity data to restore.
    * @param string $class
-   *   Unused parameter.
+   *   Unused, entity_create() is used to instantiate entity objects.
    * @param string $format
    *   Format the given data was extracted from.
    * @param array $context
@@ -132,36 +123,25 @@ class ContentEntityNormalizer extends NormalizerBase {
    *     all default values for entity fields before applying $data to the
    *     entity.
    *
-   * @return \Drupal\Core\Entity\EntityInterface
-   *   An unserialized entity object containing the data in $data.
-   *
    * @throws \Symfony\Component\Serializer\Exception\UnexpectedValueException
    */
-  public function denormalize($data, $class, $format = NULL, array $context = []) {
+  public function denormalize($data, $class, $format = NULL, array $context = array()) {
     // Get type, necessary for determining which bundle to create.
     if (!isset($data['_links']['type'])) {
       throw new UnexpectedValueException('The type link relation must be specified.');
     }
 
     // Create the entity.
-    $typed_data_ids = $this->getTypedDataIds($data['_links']['type'], $context);
-    $entity_type = $this->getEntityTypeDefinition($typed_data_ids['entity_type']);
-    $default_langcode_key = $entity_type->getKey('default_langcode');
+    $typed_data_ids = $this->getTypedDataIds($data['_links']['type']);
+    $entity_type = $this->entityManager->getDefinition($typed_data_ids['entity_type']);
     $langcode_key = $entity_type->getKey('langcode');
-    $values = [];
+    $values = array();
 
     // Figure out the language to use.
-    if (isset($data[$default_langcode_key])) {
-      // Find the field item for which the default_langcode value is set to 1 and
-      // set the langcode the right default language.
-      foreach ($data[$default_langcode_key] as $item) {
-        if (!empty($item['value']) && isset($item['lang'])) {
-          $values[$langcode_key] = $item['lang'];
-          break;
-        }
-      }
-      // Remove the default langcode so it does not get iterated over below.
-      unset($data[$default_langcode_key]);
+    if (isset($data[$langcode_key])) {
+      $values[$langcode_key] = $data[$langcode_key][0]['value'];
+      // Remove the langcode so it does not get iterated over below.
+      unset($data[$langcode_key]);
     }
 
     if ($entity_type->hasKey('bundle')) {
@@ -171,12 +151,12 @@ class ContentEntityNormalizer extends NormalizerBase {
       unset($data[$bundle_key]);
     }
 
-    $entity = $this->entityTypeManager->getStorage($typed_data_ids['entity_type'])->create($values);
+    $entity = $this->entityManager->getStorage($typed_data_ids['entity_type'])->create($values);
 
     // Remove links from data array.
     unset($data['_links']);
     // Get embedded resources and remove from data array.
-    $embedded = [];
+    $embedded = array();
     if (isset($data['_embedded'])) {
       $embedded = $data['_embedded'];
       unset($data['_embedded']);
@@ -191,11 +171,23 @@ class ContentEntityNormalizer extends NormalizerBase {
       }
     }
 
-    $this->denormalizeFieldData($data, $entity, $format, $context);
-
     // Pass the names of the fields whose values can be merged.
-    // @todo https://www.drupal.org/node/2456257 remove this.
     $entity->_restSubmittedFields = array_keys($data);
+
+    // Iterate through remaining items in data array. These should all
+    // correspond to fields.
+    foreach ($data as $field_name => $field_data) {
+      $items = $entity->get($field_name);
+      // Remove any values that were set as a part of entity creation (e.g
+      // uuid). If the incoming field data is set to an empty array, this will
+      // also have the effect of emptying the field in REST module.
+      $items->setValue(array());
+      if ($field_data) {
+        // Denormalize the field data into the FieldItemList object.
+        $context['target_instance'] = $items;
+        $this->serializer->denormalize($field_data, get_class($items), $format, $context);
+      }
+    }
 
     return $entity;
   }
@@ -203,26 +195,14 @@ class ContentEntityNormalizer extends NormalizerBase {
   /**
    * Constructs the entity URI.
    *
-   * @param \Drupal\Core\Entity\EntityInterface $entity
+   * @param $entity
    *   The entity.
-   * @param array $context
-   *   Normalization/serialization context.
    *
    * @return string
    *   The entity URI.
    */
-  protected function getEntityUri(EntityInterface $entity, array $context = []) {
-    // Some entity types don't provide a canonical link template.
-    if ($entity->isNew() || !$entity->hasLinkTemplate('canonical')) {
-      return '';
-    }
-    $url = $entity->toUrl('canonical', ['absolute' => TRUE]);
-    if (!$url->isExternal()) {
-      $url->setRouteParameter('_format', 'hal_json');
-    }
-    $generated_url = $url->toString(TRUE);
-    $this->addCacheableDependency($context, $generated_url);
-    return $generated_url->getGeneratedUrl();
+  protected function getEntityUri($entity) {
+    return $entity->url('canonical', array('absolute' => TRUE));
   }
 
   /**
@@ -230,34 +210,28 @@ class ContentEntityNormalizer extends NormalizerBase {
    *
    * @param array $types
    *   The type array(s) (value of the 'type' attribute of the incoming data).
-   * @param array $context
-   *   Context from the normalizer/serializer operation.
    *
    * @return array
    *   The typed data IDs.
+   *
+   * @throws \Symfony\Component\Serializer\Exception\UnexpectedValueException
    */
-  protected function getTypedDataIds($types, $context = []) {
+  protected function getTypedDataIds($types) {
     // The 'type' can potentially contain an array of type objects. By default,
     // Drupal only uses a single type in serializing, but allows for multiple
     // types when deserializing.
     if (isset($types['href'])) {
-      $types = [$types];
-    }
-
-    if (empty($types)) {
-      throw new UnexpectedValueException('No entity type(s) specified');
+      $types = array($types);
     }
 
     foreach ($types as $type) {
       if (!isset($type['href'])) {
         throw new UnexpectedValueException('Type must contain an \'href\' attribute.');
       }
-
       $type_uri = $type['href'];
-
       // Check whether the URI corresponds to a known type on this site. Break
       // once one does.
-      if ($typed_data_ids = $this->linkManager->getTypeInternalIds($type['href'], $context)) {
+      if ($typed_data_ids = $this->linkManager->getTypeInternalIds($type['href'])) {
         break;
       }
     }
@@ -270,5 +244,4 @@ class ContentEntityNormalizer extends NormalizerBase {
 
     return $typed_data_ids;
   }
-
 }

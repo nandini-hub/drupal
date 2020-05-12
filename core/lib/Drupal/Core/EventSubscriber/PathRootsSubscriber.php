@@ -1,11 +1,17 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\EventSubscriber\PathRootsSubscriber.
+ */
+
 namespace Drupal\Core\EventSubscriber;
 
 use Drupal\Core\State\StateInterface;
 use Drupal\Core\Routing\RouteBuildEvent;
 use Drupal\Core\Routing\RoutingEvents;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
+use Symfony\Component\Routing\RouteCollection;
 
 /**
  * Provides all available first bits of all route paths.
@@ -20,7 +26,7 @@ class PathRootsSubscriber implements EventSubscriberInterface {
    *
    * @var array
    */
-  protected $pathRoots = [];
+  protected $pathRoots;
 
   /**
    * The state key value store.
@@ -58,17 +64,17 @@ class PathRootsSubscriber implements EventSubscriberInterface {
    */
   public function onRouteFinished() {
     $this->state->set('router.path_roots', array_keys($this->pathRoots));
-    $this->pathRoots = [];
+    unset($this->pathRoots);
   }
 
   /**
    * {@inheritdoc}
    */
   public static function getSubscribedEvents() {
-    $events = [];
+    $events = array();
     // Try to set a low priority to ensure that all routes are already added.
-    $events[RoutingEvents::ALTER][] = ['onRouteAlter', -1024];
-    $events[RoutingEvents::FINISHED][] = ['onRouteFinished'];
+    $events[RoutingEvents::ALTER][] = array('onRouteAlter', -1024);
+    $events[RoutingEvents::FINISHED][] = array('onRouteFinished');
     return $events;
   }
 

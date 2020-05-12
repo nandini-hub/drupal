@@ -1,8 +1,12 @@
 <?php
-
+/**
+ * @file
+ * Contains
+ */
 namespace Drupal\forum;
 
 use Drupal\node\NodeInterface;
+
 
 /**
  * Handles CRUD operations to {forum_index} table.

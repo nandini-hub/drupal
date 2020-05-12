@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Ajax\SetDialogOptionCommand.
+ */
+
 namespace Drupal\Core\Ajax;
 
 /**
@@ -49,15 +54,15 @@ class SetDialogOptionCommand implements CommandInterface {
   }
 
   /**
-   * {@inheritdoc}
+   * Implements \Drupal\Core\Ajax\CommandInterface::render().
    */
   public function render() {
-    return [
+    return array(
       'command' => 'setDialogOption',
       'selector' => $this->selector,
       'optionName' => $this->optionName,
       'optionValue' => $this->optionValue,
-    ];
+    );
   }
 
 }

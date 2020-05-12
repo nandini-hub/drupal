@@ -1,8 +1,12 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\taxonomy\Plugin\field\formatter\EntityReferenceTaxonomyTermRssFormatter.
+ */
+
 namespace Drupal\taxonomy\Plugin\Field\FieldFormatter;
 
-use Drupal\Core\Url;
 use Drupal\Core\Field\FieldDefinitionInterface;
 use Drupal\Core\Field\FieldItemListInterface;
 use Drupal\Core\Field\Plugin\Field\FieldFormatter\EntityReferenceFormatterBase;
@@ -24,18 +28,18 @@ class EntityReferenceTaxonomyTermRssFormatter extends EntityReferenceFormatterBa
   /**
    * {@inheritdoc}
    */
-  public function viewElements(FieldItemListInterface $items, $langcode) {
+  public function viewElements(FieldItemListInterface $items) {
     $parent_entity = $items->getEntity();
-    $elements = [];
+    $elements = array();
 
-    foreach ($this->getEntitiesToView($items, $langcode) as $delta => $entity) {
-      $parent_entity->rss_elements[] = [
+    foreach ($this->getEntitiesToView($items) as $delta => $entity) {
+      $parent_entity->rss_elements[] = array(
         'key' => 'category',
         'value' => $entity->label(),
-        'attributes' => [
-          'domain' => $entity->id() ? Url::fromRoute('entity.taxonomy_term.canonical', ['taxonomy_term' => $entity->id()], ['absolute' => TRUE])->toString() : '',
-        ],
-      ];
+        'attributes' => array(
+          'domain' => $entity->id() ? \Drupal::url('entity.taxonomy_term.canonical', ['taxonomy_term' => $entity->id()], array('absolute' => TRUE)) : '',
+        ),
+      );
     }
 
     return $elements;

@@ -1,6 +1,13 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\plugin_test\Plugin\plugin_test\mock_block\MockMenuBlock.
+ */
+
 namespace Drupal\plugin_test\Plugin\plugin_test\mock_block;
+
+use Drupal\Component\Plugin\PluginBase;
 
 /**
  * Mock implementation of a menu block plugin used by Plugin API unit tests.
@@ -19,7 +26,7 @@ class MockMenuBlock {
   /**
    * The number of menu levels deep to render.
    *
-   * @var int
+   * @var integer
    */
   protected $depth;
 
@@ -36,13 +43,12 @@ class MockMenuBlock {
     // nesting level. For depth=2, this returns:
     // '<ul><li>1<ul><li>1.1</li></ul></li></ul>'.
     $content = '';
-    for ($i = 0; $i < $this->depth; $i++) {
-      $content .= '<ul><li>' . implode('.', array_fill(0, $i + 1, '1'));
+    for ($i=0; $i < $this->depth; $i++) {
+      $content .= '<ul><li>' . implode('.', array_fill(0, $i+1, '1'));
     }
-    for ($i = 0; $i < $this->depth; $i++) {
+    for ($i=0; $i < $this->depth; $i++) {
       $content .= '</li></ul>';
     }
     return $content;
   }
-
 }

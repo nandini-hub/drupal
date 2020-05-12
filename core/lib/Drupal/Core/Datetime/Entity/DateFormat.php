@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Datetime\Entity\DateFormat.
+ */
+
 namespace Drupal\Core\Datetime\Entity;
 
 use Drupal\Core\Config\Entity\ConfigEntityBase;
@@ -20,13 +25,7 @@ use Drupal\Core\Datetime\DateFormatInterface;
  *     "label" = "label"
  *   },
  *   admin_permission = "administer site configuration",
- *   list_cache_tags = { "rendered" },
- *   config_export = {
- *     "id",
- *     "label",
- *     "locked",
- *     "pattern",
- *   }
+ *   list_cache_tags = { "rendered" }
  * )
  */
 class DateFormat extends ConfigEntityBase implements DateFormatInterface {
@@ -36,14 +35,14 @@ class DateFormat extends ConfigEntityBase implements DateFormatInterface {
    *
    * @var string
    */
-  protected $id;
+  public $id;
 
   /**
    * The human-readable name of the date format entity.
    *
    * @var string
    */
-  protected $label;
+  public $label;
 
   /**
    * The date format pattern.
@@ -96,7 +95,7 @@ class DateFormat extends ConfigEntityBase implements DateFormatInterface {
   /**
    * {@inheritdoc}
    */
-  public function getCacheTagsToInvalidate() {
+  public function getCacheTags() {
     return ['rendered'];
   }
 

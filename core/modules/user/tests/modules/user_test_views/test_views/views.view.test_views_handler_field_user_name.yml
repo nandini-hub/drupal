@@ -10,13 +10,14 @@ description: ''
 tag: default
 base_table: users_field_data
 base_field: nid
+core: '8'
 display:
   default:
     display_options:
       access:
         type: none
       cache:
-        type: tag
+        type: none
       exposed_form:
         type: basic
       fields:
@@ -50,12 +51,6 @@ display:
         type: default
       row:
         type: fields
-      sorts:
-        uid:
-          id: uid
-          table: users
-          field: uid
-          plugin_id: standard
     display_plugin: default
     display_title: Master
     id: default

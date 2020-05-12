@@ -1,8 +1,14 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\field_test\Plugin\Field\FieldType\TestItemWithDependencies.
+ */
+
 namespace Drupal\field_test\Plugin\Field\FieldType;
 
 use Drupal\Core\Field\FieldDefinitionInterface;
+
 
 /**
  * Defines the 'test_field_with_dependencies' entity field item.
@@ -20,10 +26,11 @@ use Drupal\Core\Field\FieldDefinitionInterface;
  *   }
  * )
  */
+
 class TestItemWithDependencies extends TestItem {
 
   /**
-   * {@inheritdoc}
+   * {inheritdoc}
    */
   public static function calculateDependencies(FieldDefinitionInterface $field_definition) {
     return ['content' => ['node:article:uuid']];

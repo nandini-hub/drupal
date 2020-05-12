@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\form_test\Form\FormTestValidateForm.
+ */
+
 namespace Drupal\form_test\Form;
 
 use Drupal\Core\Form\FormBase;
@@ -17,8 +22,6 @@ use Drupal\form_test\Callbacks;
  *   structure and the alterations should be contained in the rebuilt form.
  * - #validate handlers should be able to alter the $form and the alterations
  *   should be contained in the rebuilt form.
- *
- * @internal
  */
 class FormTestValidateForm extends FormBase {
 
@@ -35,16 +38,20 @@ class FormTestValidateForm extends FormBase {
   public function buildForm(array $form, FormStateInterface $form_state) {
     $object = new Callbacks();
 
-    $form['name'] = [
+    $form['name'] = array(
       '#type' => 'textfield',
       '#title' => 'Name',
       '#default_value' => '',
-      '#element_validate' => [[$object, 'validateName']],
-    ];
-    $form['submit'] = [
+      '#element_validate' => array(array($object, 'validateName')),
+    );
+    $form['submit'] = array(
       '#type' => 'submit',
       '#value' => 'Save',
-    ];
+    );
+
+    // To simplify this test, enable form caching and use form storage to
+    // remember our alteration.
+    $form_state->setCached();
 
     return $form;
   }
@@ -59,14 +66,10 @@ class FormTestValidateForm extends FormBase {
       // Alter the submitted value in $form_state.
       $form_state->setValueForElement($form['name'], 'value changed by setValueForElement() in #validate');
       // Output the element's value from $form_state.
-      $this->messenger()->addStatus($this->t('@label value: @value', ['@label' => $form['name']['#title'], '@value' => $form_state->getValue('name')]));
+      drupal_set_message(t('@label value: @value', array('@label' => $form['name']['#title'], '@value' => $form_state->getValue('name'))));
 
       // Trigger a form validation error to see our changes.
       $form_state->setErrorByName('');
-
-      // To simplify this test, enable form caching and use form storage to
-      // remember our alteration.
-      $form_state->setCached();
     }
   }
 

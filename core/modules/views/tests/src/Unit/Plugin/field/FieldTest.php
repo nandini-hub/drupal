@@ -7,18 +7,13 @@
 
 namespace Drupal\Tests\views\Unit\Plugin\field;
 
-use Drupal\Core\Entity\EntityFieldManagerInterface;
-use Drupal\Core\Entity\EntityRepositoryInterface;
-use Drupal\Core\Entity\EntityTypeManagerInterface;
-use Drupal\Core\Field\FieldStorageDefinitionInterface;
 use Drupal\Tests\UnitTestCase;
 use Drupal\Tests\views\Unit\Plugin\HandlerTestTrait;
-use Drupal\views\Plugin\views\field\EntityField;
-use Drupal\views\ResultRow;
+use Drupal\views\Plugin\views\field\Field;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 
 /**
- * @coversDefaultClass \Drupal\views\Plugin\views\field\EntityField
+ * @coversDefaultClass \Drupal\views\Plugin\views\field\Field
  * @group views
  */
 class FieldTest extends UnitTestCase {
@@ -26,51 +21,37 @@ class FieldTest extends UnitTestCase {
   use HandlerTestTrait;
 
   /**
-   * The entity type manager.
+   * The entity manager.
    *
-   * @var \Drupal\Core\Entity\EntityTypeManagerInterface|\PHPUnit\Framework\MockObject\MockObject
+   * @var \Drupal\Core\Entity\EntityManagerInterface|\PHPUnit_Framework_MockObject_MockObject
    */
-  protected $entityTypeManager;
-
-  /**
-   * The entity field manager.
-   *
-   * @var \Drupal\Core\Entity\EntityFieldManagerInterface|\PHPUnit\Framework\MockObject\MockObject
-   */
-  protected $entityFieldManager;
-
-  /**
-   * The entity repository.
-   *
-   * @var \Drupal\Core\Entity\EntityRepositoryInterface|\PHPUnit\Framework\MockObject\MockObject
-   */
-  protected $entityRepository;
+  protected $entityManager;
 
   /**
    * The mocked formatter plugin manager.
    *
-   * @var \Drupal\Core\Field\FormatterPluginManager|\PHPUnit\Framework\MockObject\MockObject
+   * @var \Drupal\Core\Field\FormatterPluginManager|\PHPUnit_Framework_MockObject_MockObject
    */
   protected $formatterPluginManager;
 
   /**
    * The mocked language manager.
    *
-   * @var \Drupal\Core\Language\LanguageManagerInterface|\PHPUnit\Framework\MockObject\MockObject
+   * @var \Drupal\Core\Language\LanguageManagerInterface|\PHPUnit_Framework_MockObject_MockObject
    */
   protected $languageManager;
 
   /**
    * The mocked field type plugin manager.
    *
-   * @var \Drupal\Core\Field\FieldTypePluginManagerInterface|\PHPUnit\Framework\MockObject\MockObject
+   * @var \Drupal\Core\Field\FieldTypePluginManagerInterface|\PHPUnit_Framework_MockObject_MockObject
    */
   protected $fieldTypePluginManager;
 
   /**
    * The renderer.
    *
-   * @var \Drupal\Core\Render\RendererInterface|\PHPUnit\Framework\MockObject\MockObject
+   * @var \Drupal\Core\Render\RendererInterface|\PHPUnit_Framework_MockObject_MockObject
    */
   protected $renderer;
 
@@ -87,14 +68,12 @@ class FieldTest extends UnitTestCase {
   protected function setUp() {
     parent::setUp();
 
-    $this->entityTypeManager = $this->createMock(EntityTypeManagerInterface::class);
-    $this->entityFieldManager = $this->createMock(EntityFieldManagerInterface::class);
-    $this->entityRepository = $this->createMock(EntityRepositoryInterface::class);
+    $this->entityManager = $this->getMock('Drupal\Core\Entity\EntityManagerInterface');
     $this->formatterPluginManager = $this->getMockBuilder('Drupal\Core\Field\FormatterPluginManager')
       ->disableOriginalConstructor()
       ->getMock();
 
-    $this->fieldTypePluginManager = $this->createMock('Drupal\Core\Field\FieldTypePluginManagerInterface');
+    $this->fieldTypePluginManager = $this->getMock('Drupal\Core\Field\FieldTypePluginManagerInterface');
     $this->fieldTypePluginManager->expects($this->any())
       ->method('getDefaultStorageSettings')
       ->willReturn([]);
@@ -102,8 +81,8 @@ class FieldTest extends UnitTestCase {
       ->method('getDefaultFieldSettings')
       ->willReturn([]);
 
-    $this->languageManager = $this->createMock('Drupal\Core\Language\LanguageManagerInterface');
-    $this->renderer = $this->createMock('Drupal\Core\Render\RendererInterface');
+    $this->languageManager = $this->getMock('Drupal\Core\Language\LanguageManagerInterface');
+    $this->renderer = $this->getMock('Drupal\Core\Render\RendererInterface');
 
     $this->setupExecutableAndView();
     $this->setupViewsData();
@@ -126,7 +105,7 @@ class FieldTest extends UnitTestCase {
       // provides it.
       'entity field' => 'title',
     ];
-    $handler = new EntityField([], 'field', $definition, $this->entityTypeManager, $this->formatterPluginManager, $this->fieldTypePluginManager, $this->languageManager, $this->renderer, $this->entityRepository, $this->entityFieldManager);
+    $handler = new Field([], 'field', $definition, $this->entityManager, $this->formatterPluginManager, $this->fieldTypePluginManager, $this->languageManager, $this->renderer);
 
     $this->assertEquals('title', $handler->definition['field_name']);
   }
@@ -137,14 +116,14 @@ class FieldTest extends UnitTestCase {
   public function testDefineOptionsWithNoOptions() {
     $definition = [
       'entity_type' => 'test_entity',
-      'field_name' => 'title',
+      'field_name' => 'title'
     ];
-    $handler = new EntityField([], 'field', $definition, $this->entityTypeManager, $this->formatterPluginManager, $this->fieldTypePluginManager, $this->languageManager, $this->renderer, $this->entityRepository, $this->entityFieldManager);
+    $handler = new Field([], 'field', $definition, $this->entityManager, $this->formatterPluginManager, $this->fieldTypePluginManager, $this->languageManager, $this->renderer);
 
     // Setup the entity manager to allow fetching the storage definitions.
     $title_storage = $this->getBaseFieldStorage();
 
-    $this->entityFieldManager->expects($this->atLeastOnce())
+    $this->entityManager->expects($this->atLeastOnce())
       ->method('getFieldStorageDefinitions')
       ->with('test_entity')
       ->willReturn([
@@ -166,14 +145,14 @@ class FieldTest extends UnitTestCase {
       'entity_type' => 'test_entity',
       'field_name' => 'title',
       'default_formatter' => 'test_example',
-      'default_formatter_settings' => ['link_to_entity' => TRUE],
+      'default_formatter_settings' => ['link_to_entity' => TRUE]
     ];
-    $handler = new EntityField([], 'field', $definition, $this->entityTypeManager, $this->formatterPluginManager, $this->fieldTypePluginManager, $this->languageManager, $this->renderer, $this->entityRepository, $this->entityFieldManager);
+    $handler = new Field([], 'field', $definition, $this->entityManager, $this->formatterPluginManager, $this->fieldTypePluginManager, $this->languageManager, $this->renderer);
 
     // Setup the entity manager to allow fetching the storage definitions.
     $title_storage = $this->getBaseFieldStorage();
 
-    $this->entityFieldManager->expects($this->atLeastOnce())
+    $this->entityManager->expects($this->atLeastOnce())
       ->method('getFieldStorageDefinitions')
       ->with('test_entity')
       ->willReturn([
@@ -193,14 +172,14 @@ class FieldTest extends UnitTestCase {
     $definition = [
       'entity_type' => 'test_entity',
       'field_name' => 'title',
-      'default_formatter_settings' => ['link_to_entity' => TRUE],
+      'default_formatter_settings' => ['link_to_entity' => TRUE]
     ];
-    $handler = new EntityField([], 'field', $definition, $this->entityTypeManager, $this->formatterPluginManager, $this->fieldTypePluginManager, $this->languageManager, $this->renderer, $this->entityRepository, $this->entityFieldManager);
+    $handler = new Field([], 'field', $definition, $this->entityManager, $this->formatterPluginManager, $this->fieldTypePluginManager, $this->languageManager, $this->renderer);
 
     // Setup the entity manager to allow fetching the storage definitions.
     $title_storage = $this->getBaseFieldStorage();
 
-    $this->entityFieldManager->expects($this->atLeastOnce())
+    $this->entityManager->expects($this->atLeastOnce())
       ->method('getFieldStorageDefinitions')
       ->with('test_entity')
       ->willReturn([
@@ -219,12 +198,12 @@ class FieldTest extends UnitTestCase {
   public function testCalculateDependenciesWithBaseField() {
     $definition = [
       'entity_type' => 'test_entity',
-      'field_name' => 'title',
+      'field_name' => 'title'
     ];
-    $handler = new EntityField([], 'field', $definition, $this->entityTypeManager, $this->formatterPluginManager, $this->fieldTypePluginManager, $this->languageManager, $this->renderer, $this->entityRepository, $this->entityFieldManager);
+    $handler = new Field([], 'field', $definition, $this->entityManager, $this->formatterPluginManager, $this->fieldTypePluginManager, $this->languageManager, $this->renderer);
 
     $title_storage = $this->getBaseFieldStorage();
-    $this->entityFieldManager->expects($this->atLeastOnce())
+    $this->entityManager->expects($this->atLeastOnce())
       ->method('getFieldStorageDefinitions')
       ->with('test_entity')
       ->willReturn([
@@ -241,12 +220,12 @@ class FieldTest extends UnitTestCase {
   public function testCalculateDependenciesWithConfiguredField() {
     $definition = [
       'entity_type' => 'test_entity',
-      'field_name' => 'body',
+      'field_name' => 'body'
     ];
-    $handler = new EntityField([], 'field', $definition, $this->entityTypeManager, $this->formatterPluginManager, $this->fieldTypePluginManager, $this->languageManager, $this->renderer, $this->entityRepository, $this->entityFieldManager);
+    $handler = new Field([], 'field', $definition, $this->entityManager, $this->formatterPluginManager, $this->fieldTypePluginManager, $this->languageManager, $this->renderer);
 
     $body_storage = $this->getConfigFieldStorage();
-    $this->entityFieldManager->expects($this->atLeastOnce())
+    $this->entityManager->expects($this->atLeastOnce())
       ->method('getFieldStorageDefinitions')
       ->with('test_entity')
       ->willReturn([
@@ -269,7 +248,7 @@ class FieldTest extends UnitTestCase {
       'entity_type' => 'test_entity',
       'field_name' => 'title',
     ];
-    $handler = new EntityField([], 'field', $definition, $this->entityTypeManager, $this->formatterPluginManager, $this->fieldTypePluginManager, $this->languageManager, $this->renderer, $this->entityRepository, $this->entityFieldManager);
+    $handler = new Field([], 'field', $definition, $this->entityManager, $this->formatterPluginManager, $this->fieldTypePluginManager, $this->languageManager, $this->renderer);
     $handler->view = $this->executable;
     $handler->setViewsData($this->viewsData);
 
@@ -282,24 +261,24 @@ class FieldTest extends UnitTestCase {
       ->method('get')
       ->with('test_entity_table')
       ->willReturn([
-        'table' => ['entity type' => 'test_entity'],
+        'table' => ['entity type' => 'test_entity']
       ]);
 
-    $access_control_handler = $this->createMock('Drupal\Core\Entity\EntityAccessControlHandlerInterface');
-    $this->entityTypeManager->expects($this->atLeastOnce())
+    $access_control_handler = $this->getMock('Drupal\Core\Entity\EntityAccessControlHandlerInterface');
+    $this->entityManager->expects($this->atLeastOnce())
       ->method('getAccessControlHandler')
       ->with('test_entity')
       ->willReturn($access_control_handler);
 
     $title_storage = $this->getBaseFieldStorage();
-    $this->entityFieldManager->expects($this->atLeastOnce())
+    $this->entityManager->expects($this->atLeastOnce())
       ->method('getFieldStorageDefinitions')
       ->with('test_entity')
       ->willReturn([
         'title' => $title_storage,
       ]);
 
-    $account = $this->createMock('Drupal\Core\Session\AccountInterface');
+    $account = $this->getMock('Drupal\Core\Session\AccountInterface');
 
     $access_control_handler->expects($this->atLeastOnce())
       ->method('fieldAccess')
@@ -320,10 +299,10 @@ class FieldTest extends UnitTestCase {
       'entity_type' => 'test_entity',
       'field_name' => 'title',
     ];
-    $handler = new EntityField([], 'field', $definition, $this->entityTypeManager, $this->formatterPluginManager, $this->fieldTypePluginManager, $this->languageManager, $this->renderer, $this->entityRepository, $this->entityFieldManager);
+    $handler = new Field([], 'field', $definition, $this->entityManager, $this->formatterPluginManager, $this->fieldTypePluginManager, $this->languageManager, $this->renderer);
     $handler->view = $this->executable;
 
-    $this->entityFieldManager->expects($this->never())
+    $this->entityManager->expects($this->never())
       ->method('getFieldStorageDefinitions');
 
     $handler->clickSort($order);
@@ -342,28 +321,28 @@ class FieldTest extends UnitTestCase {
       'entity_type' => 'test_entity',
       'field_name' => 'title',
     ];
-    $handler = new EntityField([], 'field', $definition, $this->entityTypeManager, $this->formatterPluginManager, $this->fieldTypePluginManager, $this->languageManager, $this->renderer, $this->entityRepository, $this->entityFieldManager);
+    $handler = new Field([], 'field', $definition, $this->entityManager, $this->formatterPluginManager, $this->fieldTypePluginManager, $this->languageManager, $this->renderer);
     $handler->view = $this->executable;
 
     $field_storage = $this->getBaseFieldStorage();
-    $this->entityFieldManager->expects($this->atLeastOnce())
+    $this->entityManager->expects($this->atLeastOnce())
       ->method('getFieldStorageDefinitions')
       ->with('test_entity')
       ->willReturn([
         'title' => $field_storage,
       ]);
 
-    $table_mapping = $this->createMock('Drupal\Core\Entity\Sql\TableMappingInterface');
+    $table_mapping = $this->getMock('Drupal\Core\Entity\Sql\TableMappingInterface');
     $table_mapping
       ->expects($this->atLeastOnce())
       ->method('getFieldColumnName')
       ->with($field_storage, 'value')
       ->willReturn('title');
-    $entity_storage = $this->createMock('Drupal\Core\Entity\Sql\SqlEntityStorageInterface');
+    $entity_storage = $this->getMock('Drupal\Core\Entity\Sql\SqlEntityStorageInterface');
     $entity_storage->expects($this->atLeastOnce())
       ->method('getTableMapping')
       ->willReturn($table_mapping);
-    $this->entityTypeManager->expects($this->atLeastOnce())
+    $this->entityManager->expects($this->atLeastOnce())
       ->method('getStorage')
       ->with('test_entity')
       ->willReturn($entity_storage);
@@ -402,28 +381,28 @@ class FieldTest extends UnitTestCase {
       'entity_type' => 'test_entity',
       'field_name' => 'body',
     ];
-    $handler = new EntityField([], 'field', $definition, $this->entityTypeManager, $this->formatterPluginManager, $this->fieldTypePluginManager, $this->languageManager, $this->renderer, $this->entityRepository, $this->entityFieldManager);
+    $handler = new Field([], 'field', $definition, $this->entityManager, $this->formatterPluginManager, $this->fieldTypePluginManager, $this->languageManager, $this->renderer);
     $handler->view = $this->executable;
 
     $field_storage = $this->getConfigFieldStorage();
-    $this->entityFieldManager->expects($this->atLeastOnce())
+    $this->entityManager->expects($this->atLeastOnce())
       ->method('getFieldStorageDefinitions')
       ->with('test_entity')
       ->willReturn([
         'body' => $field_storage,
       ]);
 
-    $table_mapping = $this->createMock('Drupal\Core\Entity\Sql\TableMappingInterface');
+    $table_mapping = $this->getMock('Drupal\Core\Entity\Sql\TableMappingInterface');
     $table_mapping
       ->expects($this->atLeastOnce())
       ->method('getFieldColumnName')
       ->with($field_storage, 'value')
       ->willReturn('body_value');
-    $entity_storage = $this->createMock('Drupal\Core\Entity\Sql\SqlEntityStorageInterface');
+    $entity_storage = $this->getMock('Drupal\Core\Entity\Sql\SqlEntityStorageInterface');
     $entity_storage->expects($this->atLeastOnce())
       ->method('getTableMapping')
       ->willReturn($table_mapping);
-    $this->entityTypeManager->expects($this->atLeastOnce())
+    $this->entityManager->expects($this->atLeastOnce())
       ->method('getStorage')
       ->with('test_entity')
       ->willReturn($entity_storage);
@@ -457,31 +436,30 @@ class FieldTest extends UnitTestCase {
       'entity_type' => 'test_entity',
       'field_name' => 'title',
     ];
-    $handler = new EntityField([], 'field', $definition, $this->entityTypeManager, $this->formatterPluginManager, $this->fieldTypePluginManager, $this->languageManager, $this->renderer, $this->entityRepository, $this->entityFieldManager);
+    $handler = new Field([], 'field', $definition, $this->entityManager, $this->formatterPluginManager, $this->fieldTypePluginManager, $this->languageManager, $this->renderer);
     $handler->view = $this->executable;
-    $handler->view->field = [$handler];
 
     $this->setupLanguageRenderer($handler, $definition);
 
     $field_storage = $this->getBaseFieldStorage();
-    $this->entityFieldManager->expects($this->any())
+    $this->entityManager->expects($this->any())
       ->method('getFieldStorageDefinitions')
       ->with('test_entity')
       ->willReturn([
         'title' => $field_storage,
       ]);
 
-    $table_mapping = $this->createMock('Drupal\Core\Entity\Sql\TableMappingInterface');
+    $table_mapping = $this->getMock('Drupal\Core\Entity\Sql\TableMappingInterface');
     $table_mapping
       ->expects($this->any())
       ->method('getFieldColumnName')
       ->with($field_storage, 'value')
       ->willReturn('title');
-    $entity_storage = $this->createMock('Drupal\Core\Entity\Sql\SqlEntityStorageInterface');
+    $entity_storage = $this->getMock('Drupal\Core\Entity\Sql\SqlEntityStorageInterface');
     $entity_storage->expects($this->any())
       ->method('getTableMapping')
       ->willReturn($table_mapping);
-    $this->entityTypeManager->expects($this->any())
+    $this->entityManager->expects($this->any())
       ->method('getStorage')
       ->with('test_entity')
       ->willReturn($entity_storage);
@@ -519,31 +497,30 @@ class FieldTest extends UnitTestCase {
       'entity_type' => 'test_entity',
       'field_name' => 'body',
     ];
-    $handler = new EntityField([], 'field', $definition, $this->entityTypeManager, $this->formatterPluginManager, $this->fieldTypePluginManager, $this->languageManager, $this->renderer, $this->entityRepository, $this->entityFieldManager);
+    $handler = new Field([], 'field', $definition, $this->entityManager, $this->formatterPluginManager, $this->fieldTypePluginManager, $this->languageManager, $this->renderer);
     $handler->view = $this->executable;
-    $handler->view->field = [$handler];
 
     $this->setupLanguageRenderer($handler, $definition);
 
     $field_storage = $this->getConfigFieldStorage();
-    $this->entityFieldManager->expects($this->any())
+    $this->entityManager->expects($this->any())
       ->method('getFieldStorageDefinitions')
       ->with('test_entity')
       ->willReturn([
         'body' => $field_storage,
       ]);
 
-    $table_mapping = $this->createMock('Drupal\Core\Entity\Sql\TableMappingInterface');
+    $table_mapping = $this->getMock('Drupal\Core\Entity\Sql\TableMappingInterface');
     $table_mapping
       ->expects($this->any())
       ->method('getFieldColumnName')
       ->with($field_storage, 'value')
       ->willReturn('body_value');
-    $entity_storage = $this->createMock('Drupal\Core\Entity\Sql\SqlEntityStorageInterface');
+    $entity_storage = $this->getMock('Drupal\Core\Entity\Sql\SqlEntityStorageInterface');
     $entity_storage->expects($this->any())
       ->method('getTableMapping')
       ->willReturn($table_mapping);
-    $this->entityTypeManager->expects($this->any())
+    $this->entityManager->expects($this->any())
       ->method('getStorage')
       ->with('test_entity')
       ->willReturn($entity_storage);
@@ -574,91 +551,12 @@ class FieldTest extends UnitTestCase {
   }
 
   /**
-   * @covers ::prepareItemsByDelta
-   *
-   * @dataProvider providerTestPrepareItemsByDelta
-   */
-  public function testPrepareItemsByDelta(array $options, array $expected_values) {
-    $definition = [
-      'entity_type' => 'test_entity',
-      'field_name' => 'integer',
-    ];
-    $handler = new FieldTestEntityField([], 'field', $definition, $this->entityTypeManager, $this->formatterPluginManager, $this->fieldTypePluginManager, $this->languageManager, $this->renderer, $this->entityRepository, $this->entityFieldManager);
-    $handler->view = $this->executable;
-    $handler->view->field = [$handler];
-
-    $this->setupLanguageRenderer($handler, $definition);
-
-    $field_storage = $this->getConfigFieldStorage();
-    $field_storage->expects($this->any())
-      ->method('getCardinality')
-      ->willReturn(FieldStorageDefinitionInterface::CARDINALITY_UNLIMITED);
-
-    $this->entityFieldManager->expects($this->any())
-      ->method('getFieldStorageDefinitions')
-      ->with('test_entity')
-      ->willReturn([
-        'integer' => $field_storage,
-      ]);
-
-    $table_mapping = $this->createMock('Drupal\Core\Entity\Sql\TableMappingInterface');
-    $table_mapping
-      ->expects($this->any())
-      ->method('getFieldColumnName')
-      ->with($field_storage, 'value')
-      ->willReturn('integer_value');
-    $entity_storage = $this->createMock('Drupal\Core\Entity\Sql\SqlEntityStorageInterface');
-    $entity_storage->expects($this->any())
-      ->method('getTableMapping')
-      ->willReturn($table_mapping);
-    $this->entityTypeManager->expects($this->any())
-      ->method('getStorage')
-      ->with('test_entity')
-      ->willReturn($entity_storage);
-
-    $options = [
-      'group_column' => 'value',
-      'group_columns' => [],
-      'table' => 'test_entity__integer',
-    ] + $options;
-    $handler->init($this->executable, $this->display, $options);
-
-    $this->executable->row_index = 0;
-    $this->executable->result = [0 => new ResultRow([])];
-
-    $items = [3, 1, 4, 1, 5, 9];
-    $this->assertEquals($expected_values, $handler->executePrepareItemsByDelta($items));
-  }
-
-  /**
-   * Provides test data for testPrepareItemsByDelta().
-   */
-  public function providerTestPrepareItemsByDelta() {
-    $data = [];
-
-    // Let's display all values.
-    $data[] = [[], [3, 1, 4, 1, 5, 9]];
-    // Test just reversed deltas.
-    $data[] = [['delta_reversed' => TRUE], [9, 5, 1, 4, 1, 3]];
-
-    // Test combinations of delta limit, offset and first_last.
-    $data[] = [['group_rows' => TRUE, 'delta_limit' => 3], [3, 1, 4]];
-    $data[] = [['group_rows' => TRUE, 'delta_limit' => 3, 'delta_offset' => 2], [4, 1, 5]];
-    $data[] = [['group_rows' => TRUE, 'delta_reversed' => TRUE, 'delta_limit' => 3, 'delta_offset' => 2], [1, 4, 1]];
-    $data[] = [['group_rows' => TRUE, 'delta_first_last' => TRUE], [3, 9]];
-    $data[] = [['group_rows' => TRUE, 'delta_limit' => 1, 'delta_first_last' => TRUE], [3]];
-    $data[] = [['group_rows' => TRUE, 'delta_offset' => 1, 'delta_first_last' => TRUE], [1, 9]];
-
-    return $data;
-  }
-
-  /**
    * Returns a mocked base field storage object.
    *
-   * @return \Drupal\Core\Field\FieldStorageDefinitionInterface|\PHPUnit\Framework\MockObject\MockObject
+   * @return \Drupal\Core\Field\FieldStorageDefinitionInterface|\PHPUnit_Framework_MockObject_MockObject
    */
   protected function getBaseFieldStorage() {
-    $title_storage = $this->createMock('Drupal\Core\Field\FieldStorageDefinitionInterface');
+    $title_storage = $this->getMock('Drupal\Core\Field\FieldStorageDefinitionInterface');
     $title_storage->expects($this->any())
       ->method('getColumns')
       ->willReturn(['value' => ['type' => 'varchar']]);
@@ -674,10 +572,10 @@ class FieldTest extends UnitTestCase {
   /**
    * Returns a mocked configurable field storage object.
    *
-   * @return \Drupal\field\FieldStorageConfigInterface|\PHPUnit\Framework\MockObject\MockObject
+   * @return \Drupal\field\FieldStorageConfigInterface|\PHPUnit_Framework_MockObject_MockObject
    */
   protected function getConfigFieldStorage() {
-    $title_storage = $this->createMock('Drupal\field\FieldStorageConfigInterface');
+    $title_storage = $this->getMock('Drupal\field\FieldStorageConfigInterface');
     $title_storage->expects($this->any())
       ->method('getColumns')
       ->willReturn(['value' => ['type' => 'varchar']]);
@@ -707,12 +605,12 @@ class FieldTest extends UnitTestCase {
   /**
    * Setup the mock data needed to make language renderers work.
    *
-   * @param \Drupal\views\Plugin\views\field\EntityField $handler
+   * @param \Drupal\views\Plugin\views\field\Field $handler
    *   The field handler.
    * @param $definition
    *   An array with entity type definition data.
    */
-  protected function setupLanguageRenderer(EntityField $handler, $definition) {
+  protected function setupLanguageRenderer(Field $handler, $definition) {
     $display_handler = $this->getMockBuilder('\Drupal\views\Plugin\views\display\DisplayPluginBase')
       ->disableOriginalConstructor()
       ->getMock();
@@ -731,22 +629,14 @@ class FieldTest extends UnitTestCase {
       ->willReturn($data);
     $this->container->set('views.views_data', $views_data);
 
-    $entity_type = $this->createMock('\Drupal\Core\Entity\EntityTypeInterface');
+    $entity_type = $this->getMock('\Drupal\Core\Entity\EntityTypeInterface');
     $entity_type->expects($this->any())
       ->method('id')
       ->willReturn($definition['entity_type']);
 
-    $this->entityTypeManager->expects($this->any())
+    $this->entityManager->expects($this->any())
       ->method('getDefinition')
       ->willReturn($entity_type);
-  }
-
-}
-
-class FieldTestEntityField extends EntityField {
-
-  public function executePrepareItemsByDelta(array $all_values) {
-    return $this->prepareItemsByDelta($all_values);
   }
 
 }

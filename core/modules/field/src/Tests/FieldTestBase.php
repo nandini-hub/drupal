@@ -1,21 +1,18 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\field\Tests\FieldTestBase.
+ */
+
 namespace Drupal\field\Tests;
 
-@trigger_error(__NAMESPACE__ . '\FieldTestBase is deprecated for removal before Drupal 9.0.0. Use Drupal\Tests\field\Functional\FieldTestBase instead. See https://www.drupal.org/node/2999939', E_USER_DEPRECATED);
-
-use Drupal\Component\Render\FormattableMarkup;
 use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Language\LanguageInterface;
 use Drupal\simpletest\WebTestBase;
 
 /**
  * Parent class for Field API tests.
- *
- * @deprecated in drupal:8.?.? and is removed from drupal:9.0.0.
- *   Use \Drupal\Tests\field\Functional\FieldTestBase instead.
- *
- * @see https://www.drupal.org/node/2999939
  */
 abstract class FieldTestBase extends WebTestBase {
 
@@ -25,10 +22,10 @@ abstract class FieldTestBase extends WebTestBase {
    * @param $cardinality
    *   Number of values to generate.
    * @return
-   *   An array of random values, in the format expected for field values.
+   *  An array of random values, in the format expected for field values.
    */
-  public function _generateTestFieldValues($cardinality) {
-    $values = [];
+  function _generateTestFieldValues($cardinality) {
+    $values = array();
     for ($i = 0; $i < $cardinality; $i++) {
       // field_test fields treat 0 as 'empty value'.
       $values[$i]['value'] = mt_rand(1, 127);
@@ -41,7 +38,7 @@ abstract class FieldTestBase extends WebTestBase {
    *
    * This function only checks a single column in the field values.
    *
-   * @param \Drupal\Core\Entity\EntityInterface $entity
+   * @param EntityInterface $entity
    *   The entity to test.
    * @param $field_name
    *   The name of the field to test
@@ -49,25 +46,21 @@ abstract class FieldTestBase extends WebTestBase {
    *   The array of expected values.
    * @param $langcode
    *   (Optional) The language code for the values. Defaults to
-   *   \Drupal\Core\Language\LanguageInterface::LANGCODE_DEFAULT.
+   *   \Drupal\Core\Language\LanguageInterface::LANGCODE_NOT_SPECIFIED.
    * @param $column
    *   (Optional) The name of the column to check. Defaults to 'value'.
    */
-  public function assertFieldValues(EntityInterface $entity, $field_name, $expected_values, $langcode = LanguageInterface::LANGCODE_DEFAULT, $column = 'value') {
+  function assertFieldValues(EntityInterface $entity, $field_name, $expected_values, $langcode = LanguageInterface::LANGCODE_NOT_SPECIFIED, $column = 'value') {
     // Re-load the entity to make sure we have the latest changes.
-    $storage = $this->container->get('entity_type.manager')
-      ->getStorage($entity->getEntityTypeId());
-    $storage->resetCache([$entity->id()]);
-    $e = $storage->load($entity->id());
-
+    \Drupal::entityManager()->getStorage($entity->getEntityTypeId())->resetCache(array($entity->id()));
+    $e = entity_load($entity->getEntityTypeId(), $entity->id());
     $field = $values = $e->getTranslation($langcode)->$field_name;
     // Filter out empty values so that they don't mess with the assertions.
     $field->filterEmptyItems();
     $values = $field->getValue();
     $this->assertEqual(count($values), count($expected_values), 'Expected number of values were saved.');
     foreach ($expected_values as $key => $value) {
-      $this->assertEqual($values[$key][$column], $value, new FormattableMarkup('Value @value was saved correctly.', ['@value' => $value]));
+      $this->assertEqual($values[$key][$column], $value, format_string('Value @value was saved correctly.', array('@value' => $value)));
     }
   }
-
 }

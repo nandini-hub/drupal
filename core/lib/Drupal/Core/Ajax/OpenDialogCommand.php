@@ -1,8 +1,13 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Ajax\OpenDialogCommand.
+ */
+
 namespace Drupal\Core\Ajax;
 
-use Drupal\Component\Render\PlainTextOutput;
+use Drupal\Core\Ajax\CommandInterface;
 
 /**
  * Defines an AJAX command to open certain content in a dialog.
@@ -70,9 +75,8 @@ class OpenDialogCommand implements CommandInterface, CommandWithAttachedAssetsIn
    *   on the content of the dialog. If left empty, the settings will be
    *   populated automatically from the current request.
    */
-  public function __construct($selector, $title, $content, array $dialog_options = [], $settings = NULL) {
-    $title = PlainTextOutput::renderFromHtml($title);
-    $dialog_options += ['title' => $title];
+  public function __construct($selector, $title, $content, array $dialog_options = array(), $settings = NULL) {
+    $dialog_options += array('title' => $title);
     $this->selector = $selector;
     $this->content = $content;
     $this->dialogOptions = $dialog_options;
@@ -119,7 +123,7 @@ class OpenDialogCommand implements CommandInterface, CommandWithAttachedAssetsIn
    *   The new title of the dialog.
    */
   public function setDialogTitle($title) {
-    $this->setDialogOption('title', $title);
+    $this->setDialogOptions('title', $title);
   }
 
   /**
@@ -128,13 +132,13 @@ class OpenDialogCommand implements CommandInterface, CommandWithAttachedAssetsIn
   public function render() {
     // For consistency ensure the modal option is set to TRUE or FALSE.
     $this->dialogOptions['modal'] = isset($this->dialogOptions['modal']) && $this->dialogOptions['modal'];
-    return [
+    return array(
       'command' => 'openDialog',
       'selector' => $this->selector,
       'settings' => $this->settings,
       'data' => $this->getRenderedContent(),
       'dialogOptions' => $this->dialogOptions,
-    ];
+    );
   }
 
 }

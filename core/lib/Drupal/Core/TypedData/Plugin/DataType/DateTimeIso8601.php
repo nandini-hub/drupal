@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\TypedData\Plugin\DataType\DateTimeIso8601.
+ */
+
 namespace Drupal\Core\TypedData\Plugin\DataType;
 
 use Drupal\Core\Datetime\DrupalDateTime;
@@ -23,12 +28,10 @@ class DateTimeIso8601 extends StringData implements DateTimeInterface {
   public function getDateTime() {
     if ($this->value) {
       if (is_array($this->value)) {
-        // Data of this type must always be stored in UTC.
-        $datetime = DrupalDateTime::createFromArray($this->value, 'UTC');
+        $datetime = DrupalDateTime::createFromArray($this->value);
       }
       else {
-        // Data of this type must always be stored in UTC.
-        $datetime = new DrupalDateTime($this->value, 'UTC');
+        $datetime = new DrupalDateTime($this->value);
       }
       return $datetime;
     }
@@ -44,5 +47,5 @@ class DateTimeIso8601 extends StringData implements DateTimeInterface {
       $this->parent->onChange($this->name);
     }
   }
-
 }
+

@@ -1,8 +1,14 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Tests\Core\Session\SessionConfigurationTest.
+ */
+
 namespace Drupal\Tests\Core\Session;
 
 use Drupal\Tests\UnitTestCase;
+use Drupal\Core\Session\SessionConfiguration;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
@@ -14,13 +20,10 @@ class SessionConfigurationTest extends UnitTestCase {
   /**
    * Constructs a partially mocked SUT.
    *
-   * @returns \Drupal\Core\Session\SessionConfiguration|\PHPUnit\Framework\MockObject\MockObject
+   * @returns \Drupal\Core\Session\SessionConfiguration|\PHPUnit_Framework_MockObject_MockObject
    */
   protected function createSessionConfiguration($options = []) {
-    return $this->getMockBuilder('Drupal\Core\Session\SessionConfiguration')
-      ->setMethods(['drupalValidTestUa'])
-      ->setConstructorArgs([$options])
-      ->getMock();
+    return $this->getMock('Drupal\Core\Session\SessionConfiguration', ['drupalValidTestUa'], [$options]);
   }
 
   /**
@@ -48,7 +51,7 @@ class SessionConfigurationTest extends UnitTestCase {
   public function providerTestGeneratedCookieDomain() {
     return [
       ['http://example.com/path/index.php', '.example.com'],
-      ['http://www.example.com/path/index.php', '.www.example.com'],
+      ['http://www.example.com/path/index.php', '.example.com'],
       ['http://subdomain.example.com/path/index.php', '.subdomain.example.com'],
       ['http://example.com:8080/path/index.php', '.example.com'],
       ['https://example.com/path/index.php', '.example.com'],

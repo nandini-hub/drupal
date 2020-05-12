@@ -13,11 +13,11 @@
  *   {{ content|without('field_example') }}
  *   @endcode
  * - created: Formatted date and time for when the comment was created.
- *   Preprocess functions can reformat it by calling DateFormatter::format()
- *   with the desired parameters on the 'comment.created' variable.
+ *   Preprocess functions can reformat it by calling format_date() with the
+ *   desired parameters on the 'comment.created' variable.
  * - changed: Formatted date and time for when the comment was last changed.
- *   Preprocess functions can reformat it by calling DateFormatter::format()
- *   with the desired parameters on the 'comment.changed' variable.
+ *   Preprocess functions can reformat it by calling format_date() with the
+ *   desired parameters on the 'comment.changed' variable.
  * - permalink: Comment permalink.
  * - submitted: Submission information created from author and created
  *   during template_preprocess_comment().
@@ -41,11 +41,10 @@
  * - title_attributes: Same as attributes, except applied to the main title
  *   tag that appears in the template.
  * - content_attributes: List of classes for the styling of the comment content.
- * - threaded: A flag indicating whether the comments are threaded or not.
  *
  * These variables are provided to give context about the parent comment (if
  * any):
- * - parent_comment: Full parent comment entity (if any).
+ * - comment_parent: Full parent comment entity (if any).
  * - parent_author: Equivalent to author for the parent comment.
  * - parent_created: Equivalent to created for the parent comment.
  * - parent_changed: Equivalent to changed for the parent comment.
@@ -67,7 +66,6 @@
 {%
   set classes = [
     'comment',
-    'js-comment',
     status != 'published' ? 'comment--' ~ status,
     comment.owner.anonymous ? 'by-anonymous',
     author_id and author_id == commented_entity.getOwnerId() ? 'by-' ~ commented_entity.getEntityTypeId() ~ '-author',
@@ -75,34 +73,43 @@
   ]
 %}
 <article role="article"{{ attributes.addClass(classes)|without('role') }}>
-  {#
-    Hide the "new" indicator by default, let a piece of JavaScript ask the
-    server which comments are new for the user. Rendering the final "new"
-    indicator here would break the render cache.
-  #}
-  <span class="hidden" data-comment-timestamp="{{ new_indicator_timestamp }}"></span>
-
-  <footer class="comment__meta">
-    {{ user_picture }}
-    <p class="comment__author">{{ author }}</p>
-    <p class="comment__time">{{ created }}</p>
-    <p class="comment__permalink">{{ permalink }}</p>
+  <header class="comment-header">
+    <div class="comment__attribution">
+      {{ user_picture }}
+      <div class="comment__submitted">
+        <p class="comment__author comment__submitted__data">{{ author }}</p>
+        <p class="comment__time comment__submitted__data">{{ created }}</p>
+        <p class="comment__permalink comment__submitted__data">{{ permalink }}</p>
+        {#
+          // Indicate the semantic relationship between parent and child comments
+          // for accessibility. The list is difficult to navigate in a screen
+          // reader without this information.
+        #}
+        {% if parent %}
+          <p class="visually-hidden">{{ parent }}</p>
+        {% endif %}
+      </div>
+    </div>
+  </header>
+  <div class="comment__text">
     {#
-      Indicate the semantic relationship between parent and child comments
-      for accessibility. The list is difficult to navigate in a screen
-      reader without this information.
+    Hide the "new" indicator by default, let a piece of JavaScript ask
+    the server which comments are new for the user. Rendering the final
+    "new" indicator here would break the render cache.
     #}
-    {% if parent %}
-      <p class="visually-hidden">{{ parent }}</p>
-    {% endif %}
-  </footer>
-
-  <div{{ content_attributes.addClass('comment__content') }}>
+    <span class="hidden new" data-comment-timestamp="{{ new_indicator_timestamp }}"></span>
     {% if title %}
       {{ title_prefix }}
-      <h3{{ title_attributes }}>{{ title }}</h3>
+        <h3{{ title_attributes }}>{{ title }}</h3>
       {{ title_suffix }}
     {% endif %}
-    {{ content }}
+    <div{{ content_attributes.addClass('comment__content') }}>
+      {{ content|without('links') }}
+    </div>
+    <footer class="comment__footer">
+      {% if content.links %}
+        <nav>{{ content.links }}</nav>
+      {% endif %}
+    </footer>
   </div>
 </article>

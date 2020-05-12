@@ -1,32 +1,35 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\system\Form\DateFormatDeleteForm.
+ */
+
 namespace Drupal\system\Form;
 
-use Drupal\Core\Datetime\DateFormatterInterface;
+use Drupal\Core\Datetime\DateFormatter;
 use Drupal\Core\Entity\EntityDeleteForm;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
  * Builds a form to delete a date format.
- *
- * @internal
  */
 class DateFormatDeleteForm extends EntityDeleteForm {
 
   /**
    * The date formatter service.
    *
-   * @var \Drupal\Core\Datetime\DateFormatterInterface
+   * @var \Drupal\Core\Datetime\DateFormatter
    */
   protected $dateFormatter;
 
   /**
    * Constructs an DateFormatDeleteForm object.
    *
-   * @param \Drupal\Core\Datetime\DateFormatterInterface $date_formatter
+   * @param \Drupal\Core\Datetime\DateFormatter $date_formatter
    *   The date formatter service.
    */
-  public function __construct(DateFormatterInterface $date_formatter) {
+  public function __construct(DateFormatter $date_formatter) {
     $this->dateFormatter = $date_formatter;
   }
 
@@ -43,10 +46,10 @@ class DateFormatDeleteForm extends EntityDeleteForm {
    * {@inheritdoc}
    */
   public function getQuestion() {
-    return t('Are you sure you want to delete the format %name : %format?', [
+    return t('Are you sure you want to delete the format %name : %format?', array(
       '%name' => $this->entity->label(),
-      '%format' => $this->dateFormatter->format(REQUEST_TIME, $this->entity->id()),
-    ]);
+      '%format' => $this->dateFormatter->format(REQUEST_TIME, $this->entity->id()))
+    );
   }
 
 }

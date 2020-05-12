@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Entity\Query\ConditionAggregateBase.
+ */
+
 namespace Drupal\Core\Entity\Query;
 
 /**
@@ -8,16 +13,16 @@ namespace Drupal\Core\Entity\Query;
 abstract class ConditionAggregateBase extends ConditionFundamentals implements ConditionAggregateInterface {
 
   /**
-   * {@inheritdoc}
+   * Implements \Drupal\Core\Entity\Query\ConditionAggregateInterface::condition().
    */
   public function condition($field, $function = NULL, $value = NULL, $operator = NULL, $langcode = NULL) {
-    $this->conditions[] = [
+    $this->conditions[] = array(
       'field' => $field,
       'function' => $function,
       'value' => $value,
       'operator' => $operator,
       'langcode' => $langcode,
-    ];
+    );
 
     return $this;
   }

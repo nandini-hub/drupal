@@ -8,6 +8,7 @@ description: ''
 tag: ''
 base_table: views_test_data
 base_field: id
+core: '8'
 display:
   default:
     display_options:
@@ -90,11 +91,10 @@ display:
         type: normal
         title: 'Test child (with parent)'
         parent: system.admin
-        description: 'Sample description.'
+        description: ''
         menu_name: admin
         weight: 0
         context: '0'
-        expanded: true
       defaults:
         title: false
     display_plugin: page

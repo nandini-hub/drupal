@@ -1,6 +1,13 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\views\Annotation\ViewsDisplay.
+ */
+
 namespace Drupal\views\Annotation;
+
+use Drupal\views\Annotation\ViewsPluginAnnotationBase;
 
 /**
  * Defines a Plugin annotation object for views display plugins.
@@ -111,7 +118,7 @@ class ViewsDisplay extends ViewsPluginAnnotationBase {
   /**
    * The theme function used to render the display's output.
    *
-   * @var string
+   * @return string
    */
   public $theme;
 

@@ -2,7 +2,6 @@
 CONTENTS OF THIS FILE
 ---------------------
 
- * Quickstart
  * Requirements and notes
  * Optional server requirements
  * Installation
@@ -10,35 +9,6 @@ CONTENTS OF THIS FILE
  * Building and customizing your site
  * Multisite configuration
  * Multilingual configuration
-
-QUICKSTART
-----------------------
-
-Prerequisites:
-- PHP 7.0.8 (or greater) (https://php.net).
-
-In the instructions below, replace the version x.y.z with the specific version
-you wish to download. Example: 8.6.0.zip. You can find the latest stable version
-at https://www.drupal.org/project/drupal.
-
-Download and extract the Drupal package:
-- curl -sS https://ftp.drupal.org/files/projects/drupal-x.y.z.zip --output drupal-x.y.z.zip
-- unzip drupal-x.y.z.zip
-- cd /path/to/drupal-x.y.z
-- php core/scripts/drupal quick-start
-
-Wait… installation can take a minute or two. A successful installation will
-result in opening the new site in your browser.
-
-Run the following command for a list of available options that you may need to
-configure quick-start:
-- php core/scripts/drupal quick-start --help
-
-Follow the instructions in the REINSTALL section below to start over.
-
-NOTE: This quick start solution uses PHP's built-in web server and is not
-intended for production use. Read more about how to run Drupal in a production
-environment below.
 
 REQUIREMENTS AND NOTES
 ----------------------
@@ -48,16 +18,16 @@ Drupal requires:
 - A web server with PHP support, for example:
   - Apache 2.0 (or greater) (http://httpd.apache.org/).
   - Nginx 1.1 (or greater) (http://nginx.com/).
-- PHP 7.0.8 (or greater) (http://php.net/). For better security support it is
-  recommended to update to at least 7.2.17.
+- PHP 5.4.5 (or greater) (http://php.net/). For better security support its
+  recommended to update to at least 5.5.21 or 5.6.5.
 - One of the following databases:
   - MySQL 5.5.3 (or greater) (http://www.mysql.com/).
   - MariaDB 5.5.20 (or greater) (https://mariadb.org/). MariaDB is a fully
     compatible drop-in replacement for MySQL.
   - Percona Server 5.5.8 (or greater) (http://www.percona.com/). Percona
     Server is a backwards-compatible replacement for MySQL.
-  - PostgreSQL 9.1.2 (or greater) (http://www.postgresql.org/).
-  - SQLite 3.7.11 (or greater) (http://www.sqlite.org/).
+  - PostgreSQL 8.3 (or greater) (http://www.postgresql.org/).
+  - SQLite 3.4.2 (or greater) (http://www.sqlite.org/).
 
 For more detailed information about Drupal requirements, including a list of
 PHP extensions and configurations that are required, see "System requirements"
@@ -93,6 +63,10 @@ OPTIONAL SERVER REQUIREMENTS
   configuration allows the web server to initiate outbound connections. Most web
   hosting setups allow this.
 
+- PHP 5.5.21 provides features for improved security when used with MySQL. While
+  this is not required, it is highly encouraged to use PHP 5.5.21 or 5.6.5 and
+  above.
+
 INSTALLATION
 ------------
 
@@ -114,20 +88,7 @@ INSTALLATION
    directory within your web server's document root or your public HTML
    directory, continue with this command:
 
-     mv drupal-x.y.z/* drupal-x.y.z/.htaccess drupal-x.y.z/.csslintrc drupal-x.y.z/.editorconfig drupal-x.y.z/.eslintignore drupal-x.y.z/.eslintrc.json drupal-x.y.z/.gitattributes /path/to/your/installation
-
-   You can also download the latest version of Drupal using Git on the command
-   line and set up a repository by following the instructions at
-   https://www.drupal.org/project/drupal/git-instructions for "Setting up
-   repository for the first time".
-
-   Once you have downloaded Drupal successfully, you may install Composer
-   globally using the instructions at
-   https://getcomposer.org/doc/00-intro.md#globally
-
-   With Composer installed, run the following command from the Drupal web root:
-
-     composer install
+     mv drupal-x.y.z/* drupal-x.y.z/.htaccess drupal-x.y.z/.csslintrc drupal-x.y.z/.editorconfig drupal-x.y.z/.eslintignore drupal-x.y.z/.eslintrc /path/to/your/installation
 
 2. Create the Drupal database.
 
@@ -160,21 +121,15 @@ INSTALLATION
 
    a. Missing files directory.
 
-      The install script will attempt to create a public file storage directory
-      in the default location at sites/default/files (the location of the files
+      The install script will attempt to create a file storage directory in
+      the default location at sites/default/files (the location of the files
       directory may be changed after Drupal is installed).
 
-      If auto-creation fails, you can create the directory yourself. (If you are
-      creating a multisite installation, substitute the correct sites directory
-      for sites/default; see the Multisite Configuration section of this file,
-      below.) Sample commands from a Unix/Linux command line:
-
-        mkdir sites/default/files
-        chmod a+w sites/default/files
-
-      Alternatively, you can make the install script work by changing
-      permissions on the sites/default directory. The web server can then
-      create the files directory within it for you.
+      If auto-creation fails, you can make it work by changing permissions on
+      the sites/default directory so that the web server can create the files
+      directory within it for you. (If you are creating a multisite
+      installation, substitute the correct sites directory for sites/default;
+      see the Multisite Configuration section of this file, below.)
 
       For example, on a Unix/Linux command line, you can grant everyone
       (including the web server) permission to write to the sites/default
@@ -182,41 +137,44 @@ INSTALLATION
 
         chmod a+w sites/default
 
-      Then re-run install.php (e.g. by clicking "try again" at the bottom of
-      the Requirements problem page. Once the files directory is created, you
-      will need to grant everyone (including the web server) permission to
-      write to it with this command:
-
-        chmod a+w sites/default/files
-
-      Be sure to set the permissions for the default directory back after the
-      installation is finished! (Leave the files directory writeable.)
+      Be sure to set the permissions back after the installation is finished!
       Sample command:
 
         chmod go-w sites/default
 
+      Alternatively, instead of allowing the web server to create the files
+      directory for you as described above, you can create it yourself. Sample
+      commands from a Unix/Linux command line:
+
+        mkdir sites/default/files
+        chmod a+w sites/default/files
+
    b. Missing settings file.
 
-      Drupal will try to automatically create a settings.php configuration file,
-      which is normally in the directory sites/default (to avoid problems when
-      upgrading, Drupal is not packaged with this file). If auto-creation fails,
-      you will need to create this file yourself, using the file
-      sites/default/default.settings.php as a template.
+      Drupal will try to automatically create settings.php and services.yml
+      files, which are normally in the directory sites/default (to avoid
+      problems when upgrading, Drupal is not packaged with this file). If
+      auto-creation of either file fails, you will need to create the file
+      yourself. Use the template sites/default/default.settings.php or
+      sites/default/default.services.yml respectively.
 
       For example, on a Unix/Linux command line, you can make a copy of the
-      default.settings.php file with the command:
+      default.settings.php and default.services.yml files with the commands:
 
         cp sites/default/default.settings.php sites/default/settings.php
+        cp sites/default/default.services.yml sites/default/services.yml
 
       Next, grant write privileges to the file to everyone (including the web
       server) with the command:
 
         chmod a+w sites/default/settings.php
+        chmod a+w sites/default/services.yml
 
       Be sure to set the permissions back after the installation is finished!
       Sample command:
 
         chmod go-w sites/default/settings.php
+        chmod go-w sites/default/services.yml
 
    c. Write permissions after install.
 
@@ -226,6 +184,7 @@ INSTALLATION
       from a Unix/Linux command line:
 
         chmod go-w sites/default/settings.php
+        chmod go-w sites/default/services.yml
         chmod go-w sites/default
 
 4. Verify that the site is working.
@@ -234,11 +193,11 @@ INSTALLATION
    maintenance account on a "Welcome" page. If the default Drupal theme is not
    displaying properly and links on the page result in "Page Not Found" errors,
    you may be experiencing problems with clean URLs. Visit
-   https://www.drupal.org/docs/8/clean-urls-in-drupal-8 to troubleshoot.
+   https://www.drupal.org/getting-started/clean-urls to troubleshoot.
 
 5. Change file system storage settings (optional).
 
-   The files directory created in step 3 is the default file system path used to
+   The files directory created in step 4 is the default file system path used to
    store all uploaded files, as well as some temporary files created by
    Drupal. After installation, you can modify the file system path to store
    uploaded files in a different location.
@@ -265,19 +224,11 @@ INSTALLATION
         mkdir uploads
         chmod a+w uploads
 
-   b. Open your settings.php in a plain-text editor, and uncomment (remove the #
-      at the start of line) this line:
-
-        # $settings['file_public_path'] = 'sites/default/files';
-
-      Enter the desired path and save the file.
-
-      If you want to use private file storage, you need to uncomment (remove
-      the # at the start of line) the following line in settings.php:
-
-        # $settings['file_private_path'] = '';
-
-      Enter the path for private files and save the file.
+   b. Navigate to Administration > Configuration > Media > File system, and
+      enter the desired path. Note that if you want to use private file storage,
+      you need to first enter the path for private files and save the
+      configuration, and then change the "Default download method" setting and
+      save again.
 
    Changing the file system path after files have been uploaded may cause
    unexpected problems on an existing site. If you modify the file system path
@@ -292,7 +243,7 @@ INSTALLATION
    this optional security measure, from a Unix/Linux command line you can use
    the following command:
 
-     chmod a-r core/CHANGELOG.txt
+     chmod a-r CHANGELOG.txt
 
    Note that the example only affects CHANGELOG.txt. To completely hide all
    documentation files from public view, repeat this command for each of the
@@ -329,7 +280,7 @@ INSTALLATION
    cron key, is available in the "Cron maintenance tasks" section of the Status
    report page at Administration > Reports > Status report.
 
-   As an example of how to set up this automated process, you can use the
+   As an example for how to set up this automated process, you can use the
    crontab utility on Unix/Linux systems. The following crontab line uses the
    wget command to visit the cron page, and runs each hour, on the hour:
 
@@ -379,7 +330,7 @@ Never edit Drupal's core modules and themes; instead, use the hooks available in
 the Drupal API. To modify the behavior of Drupal, develop a module as described
 at https://www.drupal.org/developing/modules. To modify the look of Drupal,
 create a subtheme as described at https://www.drupal.org/node/2165673, or a
-completely new theme as described at https://www.drupal.org/docs/8/theming
+completely new theme as described at https://www.drupal.org/documentation/theme
 
 MULTISITE CONFIGURATION
 -----------------------
@@ -401,7 +352,7 @@ The new directory name is constructed from the site's URL. The configuration
 for www.example.com could be in 'sites/example.com/settings.php' (note that
 'www.' should be omitted if users can access your site at http://example.com/).
 
-  $ cp sites/default/default.settings.php sites/example.com/settings.php
+  $ cp sites/default/defaults.settings.php sites/example.com/settings.php
 
 Sites do not have to have a different domain. You can also use subdomains and
 subdirectories for Drupal sites. For example, example.com, sub.example.com, and
@@ -444,7 +395,7 @@ accessible to other sites, the setup would look like this:
     modules/custom_module
 
 For more information about multiple virtual hosts or the configuration
-settings, consult https://www.drupal.org/docs/8/multisite
+settings, consult https://www.drupal.org/documentation/install/multi-site
 
 For more information on configuring Drupal's file system path in a multisite
 configuration, see step 6 above.
@@ -456,4 +407,4 @@ By default, Drupal is installed in one language, and further languages may be
 installed later.
 
 For detailed instructions, visit
-https://www.drupal.org/docs/8/multilingual
+https://www.drupal.org/documentation/multilingual

@@ -1,6 +1,13 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\Core\Ajax\SettingsCommand.
+ */
+
 namespace Drupal\Core\Ajax;
+
+use Drupal\Core\Ajax\CommandInterface;
 
 /**
  * AJAX command for adjusting Drupal's JavaScript settings.
@@ -54,11 +61,11 @@ class SettingsCommand implements CommandInterface {
    */
   public function render() {
 
-    return [
+    return array(
       'command' => 'settings',
       'settings' => $this->settings,
       'merge' => $this->merge,
-    ];
+    );
   }
 
 }

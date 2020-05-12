@@ -1,8 +1,13 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\serialization\Normalizer\ListNormalizer.
+ */
+
 namespace Drupal\serialization\Normalizer;
 
-use Drupal\Core\TypedData\ListInterface;
+use Symfony\Component\Serializer\Exception\RuntimeException;
 
 /**
  * Converts list objects to arrays.
@@ -16,17 +21,19 @@ use Drupal\Core\TypedData\ListInterface;
 class ListNormalizer extends NormalizerBase {
 
   /**
-   * {@inheritdoc}
+   * The interface or class that this Normalizer supports.
+   *
+   * @var string
    */
-  protected $supportedInterfaceOrClass = ListInterface::class;
+  protected $supportedInterfaceOrClass = 'Drupal\Core\TypedData\ListInterface';
 
   /**
-   * {@inheritdoc}
+   * Implements \Symfony\Component\Serializer\Normalizer\NormalizerInterface::normalize().
    */
-  public function normalize($object, $format = NULL, array $context = []) {
-    $attributes = [];
+  public function normalize($object, $format = NULL, array $context = array()) {
+    $attributes = array();
     foreach ($object as $fieldItem) {
-      $attributes[] = $this->serializer->normalize($fieldItem, $format, $context);
+      $attributes[] = $this->serializer->normalize($fieldItem, $format);
     }
     return $attributes;
   }

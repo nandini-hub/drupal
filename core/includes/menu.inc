@@ -10,8 +10,9 @@
  * @{
  */
 
-use Drupal\Component\Render\FormattableMarkup;
+use Drupal\Component\Utility\SafeMarkup;
 use Drupal\Core\Render\Element;
+
 
 /**
  * Prepares variables for single local task link templates.
@@ -27,27 +28,31 @@ use Drupal\Core\Render\Element;
  */
 function template_preprocess_menu_local_task(&$variables) {
   $link = $variables['element']['#link'];
-  $link += [
-    'localized_options' => [],
-  ];
+  $link += array(
+    'localized_options' => array(),
+  );
   $link_text = $link['title'];
 
   if (!empty($variables['element']['#active'])) {
     $variables['is_active'] = TRUE;
 
     // Add text to indicate active tab for non-visual users.
-    $active = new FormattableMarkup('<span class="visually-hidden">@label</span>', ['@label' => t('(active tab)')]);
-    $link_text = t('@local-task-title@active', ['@local-task-title' => $link_text, '@active' => $active]);
+    $active = SafeMarkup::format('<span class="visually-hidden">@label</span>', array('@label' => t('(active tab)')));
+    $link_text = t('@local-task-title@active', array('@local-task-title' => $link_text, '@active' => $active));
+  }
+  else {
+    // @todo Remove this once https://www.drupal.org/node/2338081 is fixed.
+    $link_text = SafeMarkup::checkPlain($link_text);
   }
 
   $link['localized_options']['set_active_class'] = TRUE;
 
-  $variables['link'] = [
+  $variables['link'] = array(
     '#type' => 'link',
     '#title' => $link_text,
     '#url' => $link['url'],
     '#options' => $link['localized_options'],
-  ];
+  );
 }
 
 /**
@@ -63,36 +68,36 @@ function template_preprocess_menu_local_task(&$variables) {
  */
 function template_preprocess_menu_local_action(&$variables) {
   $link = $variables['element']['#link'];
-  $link += [
-    'localized_options' => [],
-  ];
+  $link += array(
+    'localized_options' => array(),
+  );
   $link['localized_options']['attributes']['class'][] = 'button';
   $link['localized_options']['attributes']['class'][] = 'button-action';
   $link['localized_options']['set_active_class'] = TRUE;
 
-  $variables['link'] = [
+  $variables['link'] = array(
     '#type' => 'link',
     '#title' => $link['title'],
     '#options' => $link['localized_options'],
     '#url' => $link['url'],
-  ];
+  );
 }
 
 /**
  * Returns an array containing the names of system-defined (default) menus.
  */
 function menu_list_system_menus() {
-  return [
+  return array(
     'tools' => 'Tools',
     'admin' => 'Administration',
     'account' => 'User account menu',
     'main' => 'Main navigation',
     'footer' => 'Footer menu',
-  ];
+  );
 }
 
 /**
- * Collects the local tasks (tabs) for the current route.
+ * Collects the local tasks (tabs), action links, and the root path.
  *
  * @param int $level
  *   The level of tasks you ask for. Primary tasks are 0, secondary are 1.
@@ -100,70 +105,105 @@ function menu_list_system_menus() {
  * @return array
  *   An array containing
  *   - tabs: Local tasks for the requested level.
- *   - route_name: The route name for the current page used to collect the local
- *     tasks.
+ *   - actions: Action links for the requested level.
+ *   - root_path: The router path for the current page. If the current page is
+ *     a default local task, then this corresponds to the parent tab.
  *
+ * @see hook_menu_local_tasks()
  * @see hook_menu_local_tasks_alter()
- * @see https://www.drupal.org/node/2544940
- *
- * @deprecated in drupal:8.0.0 and is removed from drupal:9.0.0.
  */
 function menu_local_tasks($level = 0) {
-  /** @var \Drupal\Core\Menu\LocalTaskManagerInterface $manager */
-  $manager = \Drupal::service('plugin.manager.menu.local_task');
-  return $manager->getLocalTasks(\Drupal::routeMatch()->getRouteName(), $level);
+  $data = &drupal_static(__FUNCTION__);
+  $root_path = &drupal_static(__FUNCTION__ . ':root_path', '');
+  $empty = array(
+    'tabs' => array(),
+    'actions' => array(),
+    'root_path' => &$root_path,
+  );
+
+  if (!isset($data)) {
+    // Look for route-based tabs.
+    $data['tabs'] = array();
+    $data['actions'] = array();
+
+    $route_name = \Drupal::routeMatch()->getRouteName();
+    if (!\Drupal::request()->attributes->has('exception') && !empty($route_name)) {
+      $manager = \Drupal::service('plugin.manager.menu.local_task');
+      $local_tasks = $manager->getTasksBuild($route_name);
+      foreach ($local_tasks as $level => $items) {
+        $data['tabs'][$level] = empty($data['tabs'][$level]) ? $items : array_merge($data['tabs'][$level], $items);
+      }
+    }
+
+    // Allow modules to dynamically add further tasks.
+    $module_handler = \Drupal::moduleHandler();
+    foreach ($module_handler->getImplementations('menu_local_tasks') as $module) {
+      $function = $module . '_menu_local_tasks';
+      $function($data, $route_name);
+    }
+    // Allow modules to alter local tasks.
+    $module_handler->alter('menu_local_tasks', $data, $route_name);
+  }
+
+  if (isset($data['tabs'][$level])) {
+    return array(
+      'tabs' => $data['tabs'][$level],
+      'actions' => $data['actions'],
+      'root_path' => $root_path,
+    );
+  }
+  elseif (!empty($data['actions'])) {
+    return array('actions' => $data['actions']) + $empty;
+  }
+  return $empty;
 }
 
 /**
  * Returns the rendered local tasks at the top level.
- *
- * @deprecated in drupal:8.0.0 and is removed from drupal:9.0.0. Use
- *   \Drupal\Core\Menu\LocalTaskManagerInterface::getLocalTasks() instead.
- *
- * @see https://www.drupal.org/node/2874695
  */
 function menu_primary_local_tasks() {
-  @trigger_error(__FUNCTION__ . '() is deprecated in drupal:8.0.0 and is removed from drupal:9.0.0. Use \Drupal\Core\Menu\LocalTaskManagerInterface::getLocalTasks() instead. See https://www.drupal.org/node/2874695', E_USER_DEPRECATED);
-  /** @var \Drupal\Core\Menu\LocalTaskManagerInterface $manager */
-  $manager = \Drupal::service('plugin.manager.menu.local_task');
-  $links = $manager->getLocalTasks(\Drupal::routeMatch()->getRouteName(), 0);
+  $links = menu_local_tasks(0);
   // Do not display single tabs.
   return count(Element::getVisibleChildren($links['tabs'])) > 1 ? $links['tabs'] : '';
 }
 
 /**
  * Returns the rendered local tasks at the second level.
- *
- * @deprecated in drupal:8.0.0 and is removed from drupal:9.0.0. Use
- *   \Drupal\Core\Menu\LocalTaskManagerInterface::getLocalTasks() instead.
- *
- * @see https://www.drupal.org/node/2874695
  */
 function menu_secondary_local_tasks() {
-  @trigger_error(__FUNCTION__ . '() is deprecated in drupal:8.0.0 and is removed from drupal:9.0.0. Use \Drupal\Core\Menu\LocalTaskManagerInterface::getLocalTasks() instead. See https://www.drupal.org/node/2874695', E_USER_DEPRECATED);
-  /** @var \Drupal\Core\Menu\LocalTaskManagerInterface $manager */
-  $manager = \Drupal::service('plugin.manager.menu.local_task');
-  $links = $manager->getLocalTasks(\Drupal::routeMatch()->getRouteName(), 1);
+  $links = menu_local_tasks(1);
   // Do not display single tabs.
   return count(Element::getVisibleChildren($links['tabs'])) > 1 ? $links['tabs'] : '';
 }
 
 /**
+ * Returns the rendered local actions at the current level.
+ */
+function menu_get_local_actions() {
+  $links = menu_local_tasks();
+  $route_name = Drupal::routeMatch()->getRouteName();
+  $manager = \Drupal::service('plugin.manager.menu.local_action');
+  return $manager->getActionsForRoute($route_name) + $links['actions'];
+}
+
+/**
+ * Returns the router path, or the path for a default local task's parent.
+ */
+function menu_tab_root_path() {
+  $links = menu_local_tasks();
+  return $links['root_path'];
+}
+
+/**
  * Returns a renderable element for the primary and secondary tabs.
- *
- * @deprecated in drupal:8.8.0 and is removed from drupal:9.0.0. Use
- *   local_tasks_block block or inline theming instead.
- *
- * @see https://www.drupal.org/node/2874695
  */
 function menu_local_tabs() {
-  @trigger_error(__FUNCTION__ . '() is deprecated in drupal:8.8.0 and is removed from drupal:9.0.0. Use local_tasks_block block or inline theming instead. See https://www.drupal.org/node/2874695', E_USER_DEPRECATED);
-  $build = [
+  $build = array(
     '#theme' => 'menu_local_tasks',
     '#primary' => menu_primary_local_tasks(),
     '#secondary' => menu_secondary_local_tasks(),
-  ];
-  return !empty($build['#primary']) || !empty($build['#secondary']) ? $build : [];
+  );
+  return !empty($build['#primary']) || !empty($build['#secondary']) ? $build : array();
 }
 
 /**
@@ -171,14 +211,8 @@ function menu_local_tabs() {
  *
  * This should be called any time broad changes
  * might have been made to the router items or menu links.
- *
- * @deprecated in drupal:8.6.0 and is removed from drupal:9.0.0. Use
- *   \Drupal::cache('menu')->invalidateAll() instead.
- *
- * @see https://www.drupal.org/node/2989138
  */
 function menu_cache_clear_all() {
-  @trigger_error("menu_cache_clear_all() is deprecated in Drupal 8.6.0 and will be removed before Drupal 9.0.0. Use \Drupal::cache('menu')->invalidateAll() instead. See https://www.drupal.org/node/2989138", E_USER_DEPRECATED);
   \Drupal::cache('menu')->invalidateAll();
 }
 

@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Render\Element\Table.
+ */
+
 namespace Drupal\Core\Render\Element;
 
 use Drupal\Core\Form\FormStateInterface;
@@ -12,47 +17,6 @@ use Drupal\Component\Utility\Html as HtmlUtility;
  * Note: Although this extends FormElement, it can be used outside the
  * context of a form.
  *
- * Properties:
- * - #header: An array of table header labels.
- * - #rows: An array of the rows to be displayed. Each row is either an array
- *   of cell contents or an array of properties as described in table.html.twig
- *   Alternatively specify the data for the table as child elements of the table
- *   element. Table elements would contain rows elements that would in turn
- *   contain column elements.
- * - #empty: Text to display when no rows are present.
- * - #responsive: Indicates whether to add the drupal.responsive_table library
- *   providing responsive tables.  Defaults to TRUE.
- * - #sticky: Indicates whether to add the drupal.tableheader library that makes
- *   table headers always visible at the top of the page. Defaults to FALSE.
- *
- * Usage example:
- * @code
- * $form['contacts'] = array(
- *   '#type' => 'table',
- *   '#caption' => $this->t('Sample Table'),
- *   '#header' => array($this->t('Name'), $this->t('Phone')),
- * );
- *
- * for ($i = 1; $i <= 4; $i++) {
- *   $form['contacts'][$i]['#attributes'] = array('class' => array('foo', 'baz'));
- *   $form['contacts'][$i]['name'] = array(
- *     '#type' => 'textfield',
- *     '#title' => $this->t('Name'),
- *     '#title_display' => 'invisible',
- *   );
- *
- *   $form['contacts'][$i]['phone'] = array(
- *     '#type' => 'tel',
- *     '#title' => $this->t('Phone'),
- *     '#title_display' => 'invisible',
- *   );
- * }
- *
- * $form['contacts'][]['colspan_example'] = array(
- *   '#plain_text' => 'Colspan Example',
- *   '#wrapper_attributes' => array('colspan' => 2, 'class' => array('foo', 'bar')),
- * );
- * @endcode
  * @see \Drupal\Core\Render\Element\Tableselect
  *
  * @FormElement("table")
@@ -64,9 +28,9 @@ class Table extends FormElement {
    */
   public function getInfo() {
     $class = get_class($this);
-    return [
-      '#header' => [],
-      '#rows' => [],
+    return array(
+      '#header' => array(),
+      '#rows' => array(),
       '#empty' => '',
       // Properties for tableselect support.
       '#input' => TRUE,
@@ -76,24 +40,24 @@ class Table extends FormElement {
       '#responsive' => TRUE,
       '#multiple' => TRUE,
       '#js_select' => TRUE,
-      '#process' => [
-        [$class, 'processTable'],
-      ],
-      '#element_validate' => [
-        [$class, 'validateTable'],
-      ],
+      '#process' => array(
+        array($class, 'processTable'),
+      ),
+      '#element_validate' => array(
+        array($class, 'validateTable'),
+      ),
       // Properties for tabledrag support.
       // The value is a list of arrays that are passed to
       // drupal_attach_tabledrag(). Table::preRenderTable() prepends the HTML ID
       // of the table to each set of options.
       // @see drupal_attach_tabledrag()
-      '#tabledrag' => [],
+      '#tabledrag' => array(),
       // Render properties.
-      '#pre_render' => [
-        [$class, 'preRenderTable'],
-      ],
+      '#pre_render' => array(
+        array($class, 'preRenderTable'),
+      ),
       '#theme' => 'table',
-    ];
+    );
   }
 
   /**
@@ -107,12 +71,12 @@ class Table extends FormElement {
       // #default_value property.
       // @todo D8: Remove this inconsistency.
       if ($input === FALSE) {
-        $element += ['#default_value' => []];
+        $element += array('#default_value' => array());
         $value = array_keys(array_filter($element['#default_value']));
         return array_combine($value, $value);
       }
       else {
-        return is_array($input) ? array_combine($input, $input) : [];
+        return is_array($input) ? array_combine($input, $input) : array();
       }
     }
   }
@@ -134,7 +98,7 @@ class Table extends FormElement {
   public static function processTable(&$element, FormStateInterface $form_state, &$complete_form) {
     if ($element['#tableselect']) {
       if ($element['#multiple']) {
-        $value = is_array($element['#value']) ? $element['#value'] : [];
+        $value = is_array($element['#value']) ? $element['#value'] : array();
       }
       // Advanced selection behavior makes no sense for radios.
       else {
@@ -144,7 +108,7 @@ class Table extends FormElement {
       // @todo D8: Rename into #select_all?
       if ($element['#js_select']) {
         $element['#attached']['library'][] = 'core/drupal.tableselect';
-        array_unshift($element['#header'], ['class' => ['select-all']]);
+        array_unshift($element['#header'], array('class' => array('select-all')));
       }
       // Add an empty header column for radio buttons or when a "Select all"
       // checkbox is not desired.
@@ -153,7 +117,7 @@ class Table extends FormElement {
       }
 
       if (!isset($element['#default_value']) || $element['#default_value'] === 0) {
-        $element['#default_value'] = [];
+        $element['#default_value'] = array();
       }
       // Create a checkbox or radio for each row in a way that the value of the
       // tableselect element behaves as if it had been of #type checkboxes or
@@ -164,7 +128,7 @@ class Table extends FormElement {
         // Their values have to be located in child keys (#tree is ignored),
         // since Table::validateTable() has to be able to validate whether input
         // (for the parent #type 'table' element) has been submitted.
-        $element_parents = array_merge($element['#parents'], [$key]);
+        $element_parents = array_merge($element['#parents'], array($key));
 
         // Since the #parents of the tableselect form element will equal the
         // #parents of the row element, prevent FormBuilder from auto-generating
@@ -201,23 +165,23 @@ class Table extends FormElement {
               }
             }
             if (isset($title) && $title !== '') {
-              $title = t('Update @title', ['@title' => $title]);
+              $title = t('Update !title', array('!title' => $title));
             }
           }
 
           // Prepend the select column to existing columns.
-          $row = ['select' => []] + $row;
-          $row['select'] += [
+          $row = array('select' => array()) + $row;
+          $row['select'] += array(
             '#type' => $element['#multiple'] ? 'checkbox' : 'radio',
             '#id' => HtmlUtility::getUniqueId('edit-' . implode('-', $element_parents)),
             // @todo If rows happen to use numeric indexes instead of string keys,
             //   this results in a first row with $key === 0, which is always FALSE.
             '#return_value' => $key,
             '#attributes' => $element['#attributes'],
-            '#wrapper_attributes' => [
-              'class' => ['table-select'],
-            ],
-          ];
+            '#wrapper_attributes' => array(
+              'class' => array('table-select'),
+            ),
+          );
           if ($element['#multiple']) {
             $row['select']['#default_value'] = isset($value[$key]) ? $key : NULL;
             $row['select']['#parents'] = $element_parents;
@@ -285,7 +249,7 @@ class Table extends FormElement {
    * @code
    * $form['table'] = array(
    *   '#type' => 'table',
-   *   '#header' => array($this->t('Title'), array('data' => $this->t('Operations'), 'colspan' => '1')),
+   *   '#header' => array(t('Title'), array('data' => t('Operations'), 'colspan' => '1')),
    *   // Optionally, to add tableDrag support:
    *   '#tabledrag' => array(
    *     array(
@@ -307,7 +271,7 @@ class Table extends FormElement {
    *   $form['table'][$row]['#attributes']['class'][] = 'draggable';
    *   $form['table'][$row]['weight'] = array(
    *     '#type' => 'textfield',
-   *     '#title' => $this->t('Weight for @title', array('@title' => $thing['title'])),
+   *     '#title' => t('Weight for @title', array('@title' => $thing['title'])),
    *     '#title_display' => 'invisible',
    *     '#size' => 4,
    *     '#default_value' => $thing['weight'],
@@ -318,7 +282,7 @@ class Table extends FormElement {
    *   // attribute in #header above.
    *   $form['table'][$row]['edit'] = array(
    *     '#type' => 'link',
-   *     '#title' => $this->t('Edit'),
+   *     '#title' => t('Edit'),
    *     '#url' => Url::fromRoute('entity.test_entity.edit_form', ['test_entity' => $row]),
    *   );
    * }
@@ -333,23 +297,23 @@ class Table extends FormElement {
    * @return array
    *
    * @see template_preprocess_table()
-   * @see \Drupal\Core\Render\AttachmentsResponseProcessorInterface::processAttachments()
+   * @see drupal_process_attached()
    * @see drupal_attach_tabledrag()
    */
   public static function preRenderTable($element) {
     foreach (Element::children($element) as $first) {
-      $row = ['data' => []];
+      $row = array('data' => array());
       // Apply attributes of first-level elements as table row attributes.
       if (isset($element[$first]['#attributes'])) {
         $row += $element[$first]['#attributes'];
       }
       // Turn second-level elements into table row columns.
       // @todo Do not render a cell for children of #type 'value'.
-      // @see https://www.drupal.org/node/1248940
+      // @see http://drupal.org/node/1248940
       foreach (Element::children($element[$first]) as $second) {
         // Assign the element by reference, so any potential changes to the
         // original element are taken over.
-        $column = ['data' => &$element[$first][$second]];
+        $column = array('data' => &$element[$first][$second]);
 
         // Apply wrapper attributes of second-level elements as table cell
         // attributes.
@@ -363,7 +327,7 @@ class Table extends FormElement {
     }
 
     // Take over $element['#id'] as HTML ID attribute, if not already set.
-    Element::setAttributes($element, ['id']);
+    Element::setAttributes($element, array('id'));
 
     // Add sticky headers, if applicable.
     if (count($element['#header']) && $element['#sticky']) {

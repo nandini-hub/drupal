@@ -1,7 +1,13 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\user\Plugin\views\argument\Uid.
+ */
+
 namespace Drupal\user\Plugin\views\argument;
 
+use Drupal\Component\Utility\SafeMarkup;
 use Drupal\Core\Entity\EntityStorageInterface;
 use Drupal\views\Plugin\views\argument\NumericArgument;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -23,7 +29,7 @@ class Uid extends NumericArgument {
   protected $storage;
 
   /**
-   * Constructs a \Drupal\user\Plugin\views\argument\Uid object.
+   * Constructs a Drupal\Component\Plugin\PluginBase object.
    *
    * @param array $configuration
    *   A configuration array containing information about the plugin instance.
@@ -43,23 +49,19 @@ class Uid extends NumericArgument {
    * {@inheritdoc}
    */
   public static function create(ContainerInterface $container, array $configuration, $plugin_id, $plugin_definition) {
-    return new static(
-      $configuration,
-      $plugin_id,
-      $plugin_definition,
-      $container->get('entity_type.manager')->getStorage('user')
-    );
+    return new static($configuration, $plugin_id, $plugin_definition,
+      $container->get('entity.manager')->getStorage('user'));
   }
 
   /**
    * Override the behavior of title(). Get the name of the user.
    *
    * @return array
-   *   A list of usernames.
+   *    A list of usernames.
    */
   public function titleQuery() {
-    return array_map(function ($account) {
-      return $account->label();
+    return array_map(function($account) {
+      return SafeMarkup::checkPlain($account->label());
     }, $this->storage->loadMultiple($this->value));
   }
 

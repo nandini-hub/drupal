@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Component\Utility\Timer.
+ */
+
 namespace Drupal\Component\Utility;
 
 /**
@@ -9,7 +14,7 @@ namespace Drupal\Component\Utility;
  */
 class Timer {
 
-  protected static $timers = [];
+  static protected $timers = array();
 
   /**
    * Starts the timer with the specified name.
@@ -20,7 +25,7 @@ class Timer {
    * @param $name
    *   The name of the timer.
    */
-  public static function start($name) {
+  static public function start($name) {
     static::$timers[$name]['start'] = microtime(TRUE);
     static::$timers[$name]['count'] = isset(static::$timers[$name]['count']) ? ++static::$timers[$name]['count'] : 1;
   }
@@ -34,7 +39,7 @@ class Timer {
    * @return int
    *   The current timer value in ms.
    */
-  public static function read($name) {
+  static public function read($name) {
     if (isset(static::$timers[$name]['start'])) {
       $stop = microtime(TRUE);
       $diff = round(($stop - static::$timers[$name]['start']) * 1000, 2);
@@ -57,7 +62,7 @@ class Timer {
    *   A timer array. The array contains the number of times the timer has been
    *   started and stopped (count) and the accumulated timer value in ms (time).
    */
-  public static function stop($name) {
+  static public function stop($name) {
     if (isset(static::$timers[$name]['start'])) {
       $stop = microtime(TRUE);
       $diff = round(($stop - static::$timers[$name]['start']) * 1000, 2);

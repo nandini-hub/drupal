@@ -1,11 +1,17 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\views\Plugin\views\relationship\RelationshipPluginBase.
+ */
+
 namespace Drupal\views\Plugin\views\relationship;
 
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\views\ViewExecutable;
 use Drupal\views\Plugin\views\display\DisplayPluginBase;
 use Drupal\views\Plugin\views\HandlerBase;
+use Drupal\views\Join;
 use Drupal\views\Views;
 
 /**
@@ -91,7 +97,7 @@ abstract class RelationshipPluginBase extends HandlerBase {
     // aren't get another default value.
     if (!empty($this->definition['label'])) {
       // Cast the label to a string since it is an object.
-      // @see \Drupal\Core\StringTranslation\TranslatableMarkup
+      // @see \Drupal\Core\StringTranslation\TranslationWrapper
       $label = (string) $this->definition['label'];
     }
     else {
@@ -99,7 +105,7 @@ abstract class RelationshipPluginBase extends HandlerBase {
     }
 
     $options['admin_label']['default'] = $label;
-    $options['required'] = ['default' => FALSE];
+    $options['required'] = array('default' => FALSE);
 
     return $options;
   }
@@ -113,22 +119,18 @@ abstract class RelationshipPluginBase extends HandlerBase {
     unset($form['admin_label']['#fieldset']);
     $form['admin_label']['#weight'] = -1;
 
-    $form['required'] = [
+    $form['required'] = array(
       '#type' => 'checkbox',
       '#title' => $this->t('Require this relationship'),
       '#description' => $this->t('Enable to hide items that do not contain this relationship'),
       '#default_value' => !empty($this->options['required']),
-    ];
+    );
   }
 
   /**
    * {@inheritdoc}
    */
   public function query() {
-    if (!empty($this->definition['deprecated'])) {
-      @trigger_error($this->definition['deprecated'], E_USER_DEPRECATED);
-    }
-
     // Figure out what base table this relationship brings to the party.
     $table_data = Views::viewsData()->get($this->definition['base']);
     $base_field = empty($this->definition['base field']) ? $table_data['table']['base']['field'] : $this->definition['base field'];
@@ -173,11 +175,11 @@ abstract class RelationshipPluginBase extends HandlerBase {
    * {@inheritdoc}
    */
   public function calculateDependencies() {
-    $dependencies = parent::calculateDependencies();
     // Add the provider of the relationship's base table to the dependencies.
     $table_data = $this->getViewsData()->get($this->definition['base']);
-    $dependencies['module'][] = $table_data['table']['provider'];
-    return $dependencies;
+    return [
+      'module' => [$table_data['table']['provider']],
+    ];
   }
 
 }

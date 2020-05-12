@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Entity\EntityTypeEventSubscriberTrait.
+ */
+
 namespace Drupal\Core\Entity;
 
 /**
@@ -14,7 +19,7 @@ namespace Drupal\Core\Entity;
 trait EntityTypeEventSubscriberTrait {
 
   /**
-   * Gets the subscribed events.
+   * Returns the subscribed events.
    *
    * @return array
    *   An array of subscribed event names.
@@ -22,7 +27,7 @@ trait EntityTypeEventSubscriberTrait {
    * @see \Symfony\Component\EventDispatcher\EventSubscriberInterface::getSubscribedEvents()
    */
   public static function getEntityTypeEvents() {
-    $event = ['onEntityTypeEvent', 100];
+    $event = array('onEntityTypeEvent', 100);
     $events[EntityTypeEvents::CREATE][] = $event;
     $events[EntityTypeEvents::UPDATE][] = $event;
     $events[EntityTypeEvents::DELETE][] = $event;
@@ -62,19 +67,7 @@ trait EntityTypeEventSubscriberTrait {
   /**
    * {@inheritdoc}
    */
-  public function onFieldableEntityTypeCreate(EntityTypeInterface $entity_type, array $field_storage_definitions) {
-  }
-
-  /**
-   * {@inheritdoc}
-   */
   public function onEntityTypeUpdate(EntityTypeInterface $entity_type, EntityTypeInterface $original) {
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function onFieldableEntityTypeUpdate(EntityTypeInterface $entity_type, EntityTypeInterface $original, array $field_storage_definitions, array $original_field_storage_definitions, array &$sandbox = NULL) {
   }
 
   /**

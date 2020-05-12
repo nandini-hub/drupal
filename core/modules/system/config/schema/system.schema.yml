@@ -5,11 +5,8 @@ system.site:
   label: 'Site information'
   mapping:
     uuid:
-      type: uuid
+      type: string
       label: 'Site UUID'
-      constraints:
-        Uuid: []
-        NotNull: []
     name:
       type: label
       label: 'Site name'
@@ -69,15 +66,15 @@ system.cron:
       type: mapping
       label: 'Thresholds'
       mapping:
+        autorun:
+          type: integer
+          label: 'Run cron every'
         requirements_warning:
           type: integer
           label: 'Requirements warning period'
         requirements_error:
           type: integer
           label: 'Requirements error period'
-    logging:
-      type: integer
-      label: 'Detailed cron logging'
 
 system.date:
   type: config_object
@@ -128,6 +125,17 @@ system.diff:
         lines_trailing:
           type: integer
           label: 'Number of trailing lines in a diff'
+
+system.filter:
+  type: config_object
+  label: 'Filter settings'
+  mapping:
+    protocols:
+      type: sequence
+      label: 'Allowed protocols'
+      sequence:
+        type: string
+        label: 'Protocol'
 
 system.logging:
   type: config_object
@@ -188,6 +196,13 @@ system.performance:
         gzip:
           type: boolean
           label: 'Compress JavaScript files.'
+    response:
+      type: mapping
+      label: 'Response performance settings'
+      mapping:
+        gzip:
+          type: boolean
+          label: 'Compress cached pages'
     stale_file_threshold:
       type: integer
       label: 'Stale file threshold'
@@ -337,20 +352,6 @@ block.settings.system_menu_block:*:
     depth:
       type: integer
       label: 'Maximum number of levels'
-    expand_all_items:
-      type: boolean
-      label: 'Expand all items'
-
-block.settings.local_tasks_block:
-  type: block_settings
-  label: 'Tabs block'
-  mapping:
-    primary:
-      type: boolean
-      label: 'Whether primary tabs are shown'
-    secondary:
-      type: boolean
-      label: 'Whether secondary tabs are shown'
 
 condition.plugin.request_path:
   type: condition.plugin

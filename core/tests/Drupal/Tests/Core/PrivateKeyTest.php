@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Tests\Core\PrivateKeyTest.
+ */
+
 namespace Drupal\Tests\Core;
 
 use Drupal\Core\PrivateKey;
@@ -16,7 +21,7 @@ class PrivateKeyTest extends UnitTestCase {
   /**
    * The state mock class.
    *
-   * @var \Drupal\Core\State\StateInterface|\PHPUnit\Framework\MockObject\MockObject
+   * @var \Drupal\Core\State\StateInterface|\PHPUnit_Framework_MockObject_MockObject
    */
   protected $state;
 
@@ -41,7 +46,7 @@ class PrivateKeyTest extends UnitTestCase {
     parent::setUp();
     $this->key = Crypt::randomBytesBase64(55);
 
-    $this->state = $this->createMock('Drupal\Core\State\StateInterface');
+    $this->state = $this->getMock('Drupal\Core\State\StateInterface');
 
     $this->privateKey = new PrivateKey($this->state);
   }

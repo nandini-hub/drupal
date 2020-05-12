@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\Core\Queue\ReliableQueueInterface.
+ */
+
 namespace Drupal\Core\Queue;
 
 /**

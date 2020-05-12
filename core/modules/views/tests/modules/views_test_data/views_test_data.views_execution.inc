@@ -6,7 +6,6 @@
  */
 
 use Drupal\field\FieldStorageConfigInterface;
-use Drupal\views\Plugin\views\cache\CachePluginBase;
 use Drupal\views\ViewExecutable;
 
 /**
@@ -19,13 +18,8 @@ function views_test_data_views_query_substitutions(ViewExecutable $view) {
 /**
  * Implements hook_views_form_substitutions().
  */
-function views_test_data_views_form_substitutions() {
+function views_test_data_views_form_substitutions(ViewExecutable $view) {
   \Drupal::state()->set('views_hook_test_views_form_substitutions', TRUE);
-  $render = ['#markup' => '<em>unescaped</em>'];
-  return [
-    '<!--will-be-escaped-->' => '<em>escaped</em>',
-    '<!--will-be-not-escaped-->' => \Drupal::service('renderer')->renderPlain($render),
-  ];
 }
 
 /**
@@ -54,23 +48,26 @@ function views_test_data_views_pre_render(ViewExecutable $view) {
   if (isset($view) && ($view->storage->id() == 'test_cache_header_storage')) {
     $view->element['#attached']['library'][] = 'views_test_data/test';
     $view->element['#attached']['drupalSettings']['foo'] = 'bar';
-    $view->element['#attached']['placeholders']['non-existing-placeholder-just-for-testing-purposes']['#lazy_builder'] = ['Drupal\views_test_data\Controller\ViewsTestDataController::placeholderLazyBuilder', ['bar']];
     $view->element['#cache']['tags'][] = 'views_test_data:1';
+    $view->element['#post_render_cache']['views_test_data_post_render_cache'][] = ['foo' => 'bar'];
     $view->build_info['pre_render_called'] = TRUE;
   }
 
 }
 
 /**
+ * #post_render_cache callback; for testing purposes only.
+ */
+function views_test_data_post_render_cache(array $element, array $context) {
+  // No-op.
+  return $element;
+}
+
+/**
  * Implements hook_views_post_render().
  */
-function views_test_data_views_post_render(ViewExecutable $view, &$output, CachePluginBase $cache) {
+function views_test_data_views_post_render(ViewExecutable $view) {
   \Drupal::state()->set('views_hook_test_views_post_render', TRUE);
-  if ($view->storage->id() === 'test_page_display' && $view->current_display === 'empty_row') {
-    for ($i = 0; $i < 5; $i++) {
-      $output['#rows'][0]['#rows'][] = [];
-    }
-  }
 }
 
 /**

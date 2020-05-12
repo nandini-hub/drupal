@@ -1,8 +1,12 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\views\Plugin\Derivative\ViewsLocalTask.
+ */
+
 namespace Drupal\views\Plugin\Derivative;
 
-use Drupal\Core\Entity\EntityStorageInterface;
 use Drupal\Core\State\StateInterface;
 use Drupal\Component\Plugin\Derivative\DeriverBase;
 use Drupal\Core\Plugin\Discovery\ContainerDeriverInterface;
@@ -30,26 +34,16 @@ class ViewsLocalTask extends DeriverBase implements ContainerDeriverInterface {
   protected $state;
 
   /**
-   * The view storage.
-   *
-   * @var \Drupal\Core\Entity\EntityStorageInterface
-   */
-  protected $viewStorage;
-
-  /**
    * Constructs a \Drupal\views\Plugin\Derivative\ViewsLocalTask instance.
    *
    * @param \Drupal\Core\Routing\RouteProviderInterface $route_provider
    *   The route provider.
    * @param \Drupal\Core\State\StateInterface $state
    *   The state key value store.
-   * @param \Drupal\Core\Entity\EntityStorageInterface $view_storage
-   *   The view storage.
    */
-  public function __construct(RouteProviderInterface $route_provider, StateInterface $state, EntityStorageInterface $view_storage) {
+  public function __construct(RouteProviderInterface $route_provider, StateInterface $state) {
     $this->routeProvider = $route_provider;
     $this->state = $state;
-    $this->viewStorage = $view_storage;
   }
 
   /**
@@ -58,8 +52,7 @@ class ViewsLocalTask extends DeriverBase implements ContainerDeriverInterface {
   public static function create(ContainerInterface $container, $base_plugin_id) {
     return new static(
       $container->get('router.route_provider'),
-      $container->get('state'),
-      $container->get('entity_type.manager')->getStorage('view')
+      $container->get('state')
     );
   }
 
@@ -67,17 +60,16 @@ class ViewsLocalTask extends DeriverBase implements ContainerDeriverInterface {
    * {@inheritdoc}
    */
   public function getDerivativeDefinitions($base_plugin_definition) {
-    $this->derivatives = [];
+    $this->derivatives = array();
 
     $view_route_names = $this->state->get('views.view_route_names');
     foreach ($this->getApplicableMenuViews() as $pair) {
       /** @var $executable \Drupal\views\ViewExecutable */
-      list($view_id, $display_id) = $pair;
-      $executable = $this->viewStorage->load($view_id)->getExecutable();
+      list($executable, $display_id) = $pair;
 
       $executable->setDisplay($display_id);
       $menu = $executable->display_handler->getOption('menu');
-      if (in_array($menu['type'], ['tab', 'default tab'])) {
+      if (in_array($menu['type'], array('tab', 'default tab'))) {
         $plugin_id = 'view.' . $executable->storage->id() . '.' . $display_id;
         $route_name = $view_route_names[$executable->storage->id() . '.' . $display_id];
 
@@ -87,11 +79,11 @@ class ViewsLocalTask extends DeriverBase implements ContainerDeriverInterface {
           continue;
         }
 
-        $this->derivatives[$plugin_id] = [
+        $this->derivatives[$plugin_id] = array(
           'route_name' => $route_name,
           'weight' => $menu['weight'],
           'title' => $menu['title'],
-        ] + $base_plugin_definition;
+        ) + $base_plugin_definition;
 
         // Default local tasks have themselves as root tab.
         if ($menu['type'] == 'default tab') {
@@ -109,15 +101,14 @@ class ViewsLocalTask extends DeriverBase implements ContainerDeriverInterface {
     $view_route_names = $this->state->get('views.view_route_names');
 
     foreach ($this->getApplicableMenuViews() as $pair) {
-      list($view_id, $display_id) = $pair;
       /** @var $executable \Drupal\views\ViewExecutable */
-      $executable = $this->viewStorage->load($view_id)->getExecutable();
+      list($executable, $display_id) = $pair;
 
       $executable->setDisplay($display_id);
       $menu = $executable->display_handler->getOption('menu');
 
       // We already have set the base_route for default tabs.
-      if (in_array($menu['type'], ['tab'])) {
+      if (in_array($menu['type'], array('tab'))) {
         $plugin_id = 'view.' . $executable->storage->id() . '.' . $display_id;
         $view_route_name = $view_route_names[$executable->storage->id() . '.' . $display_id];
 

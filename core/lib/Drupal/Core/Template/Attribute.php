@@ -1,10 +1,13 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Template\Attribute.
+ */
+
 namespace Drupal\Core\Template;
 
-use Drupal\Component\Render\PlainTextOutput;
-use Drupal\Component\Render\MarkupInterface;
-use Drupal\Component\Utility\NestedArray;
+use Drupal\Component\Utility\SafeMarkup;
 
 /**
  * Collects, sanitizes, and renders HTML attributes.
@@ -36,41 +39,17 @@ use Drupal\Component\Utility\NestedArray;
  *  {# Produces <cat class="cat black-cat white-cat black-white-cat my-custom-class" id="socks"> #}
  * @endcode
  *
- * The attribute keys and values are automatically escaped for output with
- * Html::escape(). No protocol filtering is applied, so when using user-entered
- * input as a value for an attribute that expects an URI (href, src, ...),
- * UrlHelper::stripDangerousProtocols() should be used to ensure dangerous
- * protocols (such as 'javascript:') are removed. For example:
- * @code
- *  $path = 'javascript:alert("xss");';
- *  $path = UrlHelper::stripDangerousProtocols($path);
- *  $attributes = new Attribute(array('href' => $path));
- *  echo '<a' . $attributes . '>';
- *  // Produces <a href="alert(&quot;xss&quot;);">
- * @endcode
- *
- * The attribute values are considered plain text and are treated as such. If a
- * safe HTML string is detected, it is converted to plain text with
- * PlainTextOutput::renderFromHtml() before being escaped. For example:
- * @code
- *   $value = t('Highlight the @tag tag', ['@tag' => '<em>']);
- *   $attributes = new Attribute(['value' => $value]);
- *   echo '<input' . $attributes . '>';
- *   // Produces <input value="Highlight the &lt;em&gt; tag">
- * @endcode
- *
- * @see \Drupal\Component\Utility\Html::escape()
- * @see \Drupal\Component\Render\PlainTextOutput::renderFromHtml()
- * @see \Drupal\Component\Utility\UrlHelper::stripDangerousProtocols()
+ * The attribute keys and values are automatically sanitized for output with
+ * \Drupal\Component\Utility\SafeMarkup::checkPlain().
  */
-class Attribute implements \ArrayAccess, \IteratorAggregate, MarkupInterface {
+class Attribute implements \ArrayAccess, \IteratorAggregate {
 
   /**
    * Stores the attribute data.
    *
-   * @var \Drupal\Core\Template\AttributeValueBase[]
+   * @var array
    */
-  protected $storage = [];
+  protected $storage = array();
 
   /**
    * Constructs a \Drupal\Core\Template\Attribute object.
@@ -78,14 +57,14 @@ class Attribute implements \ArrayAccess, \IteratorAggregate, MarkupInterface {
    * @param array $attributes
    *   An associative array of key-value pairs to be converted to attributes.
    */
-  public function __construct($attributes = []) {
+  public function __construct($attributes = array()) {
     foreach ($attributes as $name => $value) {
       $this->offsetSet($name, $value);
     }
   }
 
   /**
-   * {@inheritdoc}
+   * Implements ArrayAccess::offsetGet().
    */
   public function offsetGet($name) {
     if (isset($this->storage[$name])) {
@@ -94,7 +73,7 @@ class Attribute implements \ArrayAccess, \IteratorAggregate, MarkupInterface {
   }
 
   /**
-   * {@inheritdoc}
+   * Implements ArrayAccess::offsetSet().
    */
   public function offsetSet($name, $value) {
     $this->storage[$name] = $this->createAttributeValue($name, $value);
@@ -112,33 +91,21 @@ class Attribute implements \ArrayAccess, \IteratorAggregate, MarkupInterface {
    *   An AttributeValueBase representation of the attribute's value.
    */
   protected function createAttributeValue($name, $value) {
-    // If the value is already an AttributeValueBase object,
-    // return a new instance of the same class, but with the new name.
-    if ($value instanceof AttributeValueBase) {
-      $class = get_class($value);
-      return new $class($name, $value->value());
+    // If the value is already an AttributeValueBase object, return it
+    // straight away.
+    if ($value instanceOf AttributeValueBase) {
+      return $value;
     }
     // An array value or 'class' attribute name are forced to always be an
     // AttributeArray value for consistency.
-    if ($name == 'class' && !is_array($value)) {
-      // Cast the value to string in case it implements MarkupInterface.
-      $value = [(string) $value];
-    }
-    if (is_array($value)) {
+    if (is_array($value) || $name == 'class') {
       // Cast the value to an array if the value was passed in as a string.
       // @todo Decide to fix all the broken instances of class as a string
       // in core or cast them.
-      $value = new AttributeArray($name, $value);
+      $value = new AttributeArray($name, (array) $value);
     }
     elseif (is_bool($value)) {
       $value = new AttributeBoolean($name, $value);
-    }
-    // As a development aid, we allow the value to be a safe string object.
-    elseif ($value instanceof MarkupInterface) {
-      // Attributes are not supposed to display HTML markup, so we just convert
-      // the value to plain text.
-      $value = PlainTextOutput::renderFromHtml($value);
-      $value = new AttributeString($name, $value);
     }
     elseif (!is_object($value)) {
       $value = new AttributeString($name, $value);
@@ -147,14 +114,14 @@ class Attribute implements \ArrayAccess, \IteratorAggregate, MarkupInterface {
   }
 
   /**
-   * {@inheritdoc}
+   * Implements ArrayAccess::offsetUnset().
    */
   public function offsetUnset($name) {
     unset($this->storage[$name]);
   }
 
   /**
-   * {@inheritdoc}
+   * Implements ArrayAccess::offsetExists().
    */
   public function offsetExists($name) {
     return isset($this->storage[$name]);
@@ -171,7 +138,7 @@ class Attribute implements \ArrayAccess, \IteratorAggregate, MarkupInterface {
   public function addClass() {
     $args = func_get_args();
     if ($args) {
-      $classes = [];
+      $classes = array();
       foreach ($args as $arg) {
         // Merge the values passed in from the classes array.
         // The argument is cast to an array to support comma separated single
@@ -180,7 +147,7 @@ class Attribute implements \ArrayAccess, \IteratorAggregate, MarkupInterface {
       }
 
       // Merge if there are values, just add them otherwise.
-      if (isset($this->storage['class']) && $this->storage['class'] instanceof AttributeArray) {
+      if (isset($this->storage['class']) && $this->storage['class'] instanceOf AttributeArray) {
         // Merge the values passed in from the class value array.
         $classes = array_merge($this->storage['class']->value(), $classes);
         $this->storage['class']->exchangeArray($classes);
@@ -207,19 +174,6 @@ class Attribute implements \ArrayAccess, \IteratorAggregate, MarkupInterface {
     $this->offsetSet($attribute, $value);
 
     return $this;
-  }
-
-  /**
-   * Checks if the storage has an attribute with the given name.
-   *
-   * @param string $name
-   *   The name of the attribute to check for.
-   *
-   * @return bool
-   *   Returns TRUE if the attribute exists, or FALSE otherwise.
-   */
-  public function hasAttribute($name) {
-    return array_key_exists($name, $this->storage);
   }
 
   /**
@@ -257,9 +211,9 @@ class Attribute implements \ArrayAccess, \IteratorAggregate, MarkupInterface {
    */
   public function removeClass() {
     // With no class attribute, there is no need to remove.
-    if (isset($this->storage['class']) && $this->storage['class'] instanceof AttributeArray) {
+    if (isset($this->storage['class']) && $this->storage['class'] instanceOf AttributeArray) {
       $args = func_get_args();
-      $classes = [];
+      $classes = array();
       foreach ($args as $arg) {
         // Merge the values passed in from the classes array.
         // The argument is cast to an array to support comma separated single
@@ -276,20 +230,6 @@ class Attribute implements \ArrayAccess, \IteratorAggregate, MarkupInterface {
   }
 
   /**
-   * Gets the class attribute value if set.
-   *
-   * This method is implemented to take precedence over hasClass() for Twig 2.0.
-   *
-   * @return \Drupal\Core\Template\AttributeValueBase
-   *   The class attribute value if set.
-   *
-   * @see twig_get_attribute()
-   */
-  public function getClass() {
-    return $this->offsetGet('class');
-  }
-
-  /**
    * Checks if the class array has the given CSS class.
    *
    * @param string $class
@@ -299,7 +239,7 @@ class Attribute implements \ArrayAccess, \IteratorAggregate, MarkupInterface {
    *   Returns TRUE if the class exists, or FALSE otherwise.
    */
   public function hasClass($class) {
-    if (isset($this->storage['class']) && $this->storage['class'] instanceof AttributeArray) {
+    if (isset($this->storage['class']) && $this->storage['class'] instanceOf AttributeArray) {
       return in_array($class, $this->storage['class']->value());
     }
     else {
@@ -312,42 +252,26 @@ class Attribute implements \ArrayAccess, \IteratorAggregate, MarkupInterface {
    */
   public function __toString() {
     $return = '';
-    /** @var \Drupal\Core\Template\AttributeValueBase $value */
     foreach ($this->storage as $name => $value) {
       $rendered = $value->render();
       if ($rendered) {
         $return .= ' ' . $rendered;
       }
     }
-    return $return;
-  }
-
-  /**
-   * Returns all storage elements as an array.
-   *
-   * @return array
-   *   An associative array of attributes.
-   */
-  public function toArray() {
-    $return = [];
-    foreach ($this->storage as $name => $value) {
-      $return[$name] = $value->value();
-    }
-
-    return $return;
+    return SafeMarkup::set($return);
   }
 
   /**
    * Implements the magic __clone() method.
    */
-  public function __clone() {
+  public function  __clone() {
     foreach ($this->storage as $name => $value) {
       $this->storage[$name] = clone $value;
     }
   }
 
   /**
-   * {@inheritdoc}
+   * Implements IteratorAggregate::getIterator().
    */
   public function getIterator() {
     return new \ArrayIterator($this->storage);
@@ -358,32 +282,6 @@ class Attribute implements \ArrayAccess, \IteratorAggregate, MarkupInterface {
    */
   public function storage() {
     return $this->storage;
-  }
-
-  /**
-   * Returns a representation of the object for use in JSON serialization.
-   *
-   * @return string
-   *   The safe string content.
-   */
-  public function jsonSerialize() {
-    return (string) $this;
-  }
-
-  /**
-   * Merges an Attribute object into the current storage.
-   *
-   * @param \Drupal\Core\Template\Attribute $collection
-   *   The Attribute object to merge.
-   *
-   * @return $this
-   */
-  public function merge(Attribute $collection) {
-    $merged_attributes = NestedArray::mergeDeep($this->toArray(), $collection->toArray());
-    foreach ($merged_attributes as $name => $value) {
-      $this->storage[$name] = $this->createAttributeValue($name, $value);
-    }
-    return $this;
   }
 
 }

@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\block_content\BlockContentListBuilder.
+ */
+
 namespace Drupal\block_content;
 
 use Drupal\Core\Entity\EntityInterface;
@@ -24,23 +29,19 @@ class BlockContentListBuilder extends EntityListBuilder {
    * {@inheritdoc}
    */
   public function buildRow(EntityInterface $entity) {
-    $row['label'] = $entity->label();
+    $row['label'] = $this->getLabel($entity);
     return $row + parent::buildRow($entity);
   }
 
   /**
    * {@inheritdoc}
    */
-  protected function getEntityIds() {
-    $query = $this->getStorage()->getQuery()
-      ->sort($this->entityType->getKey('id'));
-    $query->condition('reusable', TRUE);
-
-    // Only add the pager if a limit is specified.
-    if ($this->limit) {
-      $query->pager($this->limit);
+  public function getDefaultOperations(EntityInterface $entity) {
+    $operations = parent::getDefaultOperations($entity);
+    if (isset($operations['edit'])) {
+      $operations['edit']['query']['destination'] = $entity->url('collection');
     }
-    return $query->execute();
+    return $operations;
   }
 
 }

@@ -1,4 +1,8 @@
 <?php
+/**
+ * @file
+ * Contains \Drupal\Core\Condition\Annotation\Condition.
+ */
 
 namespace Drupal\Core\Condition\Annotation;
 
@@ -49,26 +53,11 @@ class Condition extends Plugin {
   public $module;
 
   /**
-   * An array of context definitions describing the context used by the plugin.
+   * An array of contextual data.
    *
-   * The array is keyed by context names.
-   *
-   * @var \Drupal\Core\Annotation\ContextDefinition[]
-   *
-   * @deprecated Providing context definitions via the "context" key is
-   *   deprecated in Drupal 8.7.x and will be removed before Drupal 9.0.0. Use
-   *   the "context_definitions" key instead.
+   * @var array
    */
-  public $context = [];
-
-  /**
-   * An array of context definitions describing the context used by the plugin.
-   *
-   * The array is keyed by context names.
-   *
-   * @var \Drupal\Core\Annotation\ContextDefinition[]
-   */
-  public $context_definitions = [];
+  public $condition = array();
 
   /**
    * The category under which the condition should listed in the UI.

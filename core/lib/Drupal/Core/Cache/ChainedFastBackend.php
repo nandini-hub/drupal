@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Cache\ChainedFastBackend.
+ */
+
 namespace Drupal\Core\Cache;
 
 /**
@@ -33,15 +38,6 @@ namespace Drupal\Core\Cache;
  *
  * Because this backend will mark all the cache entries in a bin as out-dated
  * for each write to a bin, it is best suited to bins with fewer changes.
- *
- * Note that this is designed specifically for combining a fast inconsistent
- * cache backend with a slower consistent cache back-end. To still function
- * correctly, it needs to do a consistency check (see the "last write timestamp"
- * logic). This contrasts with \Drupal\Core\Cache\BackendChain, which assumes
- * both chained cache backends are consistent, thus a consistency check being
- * pointless.
- *
- * @see \Drupal\Core\Cache\BackendChain
  *
  * @ingroup cache
  */
@@ -99,7 +95,7 @@ class ChainedFastBackend implements CacheBackendInterface, CacheTagsInvalidatorI
    * {@inheritdoc}
    */
   public function get($cid, $allow_invalid = FALSE) {
-    $cids = [$cid];
+    $cids = array($cid);
     $cache = $this->getMultiple($cids, $allow_invalid);
     return reset($cache);
   }
@@ -109,7 +105,7 @@ class ChainedFastBackend implements CacheBackendInterface, CacheTagsInvalidatorI
    */
   public function getMultiple(&$cids, $allow_invalid = FALSE) {
     $cids_copy = $cids;
-    $cache = [];
+    $cache = array();
 
     // If we can determine the time at which the last write to the consistent
     // backend occurred (we might not be able to if it has been recently
@@ -142,7 +138,7 @@ class ChainedFastBackend implements CacheBackendInterface, CacheTagsInvalidatorI
       }
       catch (\Exception $e) {
         $cids = $cids_copy;
-        $items = [];
+        $items = array();
       }
 
       // Even if items were successfully fetched from the fast backend, they
@@ -176,7 +172,7 @@ class ChainedFastBackend implements CacheBackendInterface, CacheTagsInvalidatorI
   /**
    * {@inheritdoc}
    */
-  public function set($cid, $data, $expire = Cache::PERMANENT, array $tags = []) {
+  public function set($cid, $data, $expire = Cache::PERMANENT, array $tags = array()) {
     $this->consistentBackend->set($cid, $data, $expire, $tags);
     $this->markAsOutdated();
     // Don't write the cache tags to the fast backend as any cache tag
@@ -202,7 +198,7 @@ class ChainedFastBackend implements CacheBackendInterface, CacheTagsInvalidatorI
    * {@inheritdoc}
    */
   public function delete($cid) {
-    $this->consistentBackend->deleteMultiple([$cid]);
+    $this->consistentBackend->deleteMultiple(array($cid));
     $this->markAsOutdated();
   }
 
@@ -226,7 +222,7 @@ class ChainedFastBackend implements CacheBackendInterface, CacheTagsInvalidatorI
    * {@inheritdoc}
    */
   public function invalidate($cid) {
-    $this->invalidateMultiple([$cid]);
+    $this->invalidateMultiple(array($cid));
   }
 
   /**

@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Config\Config.
+ */
+
 namespace Drupal\Core\Config;
 
 use Drupal\Component\Utility\NestedArray;
@@ -103,8 +108,8 @@ class Config extends StorableConfigBase {
   /**
    * {@inheritdoc}
    */
-  public function setData(array $data) {
-    parent::setData($data);
+  public function setData(array $data, $validate_keys = TRUE) {
+    parent::setData($data, $validate_keys);
     $this->resetOverriddenData();
     return $this;
   }
@@ -117,7 +122,7 @@ class Config extends StorableConfigBase {
    * @param array $data
    *   The overridden values of the configuration data.
    *
-   * @return $this
+   * @return \Drupal\Core\Config\Config
    *   The configuration object.
    */
   public function setSettingsOverride(array $data) {
@@ -132,7 +137,7 @@ class Config extends StorableConfigBase {
    * @param array $data
    *   The overridden values of the configuration data.
    *
-   * @return $this
+   * @return \Drupal\Core\Config\Config
    *   The configuration object.
    */
   public function setModuleOverride(array $data) {
@@ -149,16 +154,16 @@ class Config extends StorableConfigBase {
    * provided by modules. Precedence or different module overrides is
    * determined by the priority of the config.factory.override tagged services.
    *
-   * @return $this
+   * @return \Drupal\Core\Config\Config
    *   The configuration object.
    */
   protected function setOverriddenData() {
     $this->overriddenData = $this->data;
     if (isset($this->moduleOverrides) && is_array($this->moduleOverrides)) {
-      $this->overriddenData = NestedArray::mergeDeepArray([$this->overriddenData, $this->moduleOverrides], TRUE);
+      $this->overriddenData = NestedArray::mergeDeepArray(array($this->overriddenData, $this->moduleOverrides), TRUE);
     }
     if (isset($this->settingsOverrides) && is_array($this->settingsOverrides)) {
-      $this->overriddenData = NestedArray::mergeDeepArray([$this->overriddenData, $this->settingsOverrides], TRUE);
+      $this->overriddenData = NestedArray::mergeDeepArray(array($this->overriddenData, $this->settingsOverrides), TRUE);
     }
     return $this;
   }
@@ -169,7 +174,7 @@ class Config extends StorableConfigBase {
    * This method should be called after the original data or the overridden data
    * has been changed.
    *
-   * @return $this
+   * @return \Drupal\Core\Config\Config
    *   The configuration object.
    */
   protected function resetOverriddenData() {
@@ -198,30 +203,24 @@ class Config extends StorableConfigBase {
   /**
    * {@inheritdoc}
    */
-  public function save($has_trusted_data = FALSE) {
+  public function save() {
     // Validate the configuration object name before saving.
     static::validateName($this->name);
 
     // If there is a schema for this configuration object, cast all values to
     // conform to the schema.
-    if (!$has_trusted_data) {
-      if ($this->typedConfigManager->hasConfigSchema($this->name)) {
-        // Ensure that the schema wrapper has the latest data.
-        $this->schemaWrapper = NULL;
-        foreach ($this->data as $key => $value) {
-          $this->data[$key] = $this->castValue($key, $value);
-        }
-      }
-      else {
-        foreach ($this->data as $key => $value) {
-          $this->validateValue($key, $value);
-        }
+    if ($this->typedConfigManager->hasConfigSchema($this->name)) {
+      // Ensure that the schema wrapper has the latest data.
+      $this->schemaWrapper = NULL;
+      foreach ($this->data as $key => $value) {
+        $this->data[$key] = $this->castValue($key, $value);
       }
     }
-
-    // Potentially configuration schema could have changed the underlying data's
-    // types.
-    $this->resetOverriddenData();
+    else {
+      foreach ($this->data as $key => $value) {
+        $this->validateValue($key, $value);
+      }
+    }
 
     $this->storage->write($this->name, $this->data);
     if (!$this->isNew) {
@@ -236,11 +235,11 @@ class Config extends StorableConfigBase {
   /**
    * Deletes the configuration object.
    *
-   * @return $this
+   * @return \Drupal\Core\Config\Config
    *   The configuration object.
    */
   public function delete() {
-    $this->data = [];
+    $this->data = array();
     $this->storage->delete($this->name);
     Cache::invalidateTags($this->getCacheTags());
     $this->isNew = TRUE;
@@ -282,10 +281,10 @@ class Config extends StorableConfigBase {
     if ($apply_overrides) {
       // Apply overrides.
       if (isset($this->moduleOverrides) && is_array($this->moduleOverrides)) {
-        $original_data = NestedArray::mergeDeepArray([$original_data, $this->moduleOverrides], TRUE);
+        $original_data = NestedArray::mergeDeepArray(array($original_data, $this->moduleOverrides), TRUE);
       }
       if (isset($this->settingsOverrides) && is_array($this->settingsOverrides)) {
-        $original_data = NestedArray::mergeDeepArray([$original_data, $this->settingsOverrides], TRUE);
+        $original_data = NestedArray::mergeDeepArray(array($original_data, $this->settingsOverrides), TRUE);
       }
     }
 
@@ -303,43 +302,4 @@ class Config extends StorableConfigBase {
       }
     }
   }
-
-  /**
-   * Determines if overrides are applied to a key for this configuration object.
-   *
-   * @param string $key
-   *   (optional) A string that maps to a key within the configuration data.
-   *   For instance in the following configuration array:
-   *   @code
-   *   array(
-   *     'foo' => array(
-   *       'bar' => 'baz',
-   *     ),
-   *   );
-   *   @endcode
-   *   A key of 'foo.bar' would map to the string 'baz'. However, a key of 'foo'
-   *   would map to the array('bar' => 'baz').
-   *   If not supplied TRUE will be returned if there are any overrides at all
-   *   for this configuration object.
-   *
-   * @return bool
-   *   TRUE if there are any overrides for the key, otherwise FALSE.
-   */
-  public function hasOverrides($key = '') {
-    if (empty($key)) {
-      return !(empty($this->moduleOverrides) && empty($this->settingsOverrides));
-    }
-    else {
-      $parts = explode('.', $key);
-      $override_exists = FALSE;
-      if (isset($this->moduleOverrides) && is_array($this->moduleOverrides)) {
-        $override_exists = NestedArray::keyExists($this->moduleOverrides, $parts);
-      }
-      if (!$override_exists && isset($this->settingsOverrides) && is_array($this->settingsOverrides)) {
-        $override_exists = NestedArray::keyExists($this->settingsOverrides, $parts);
-      }
-      return $override_exists;
-    }
-  }
-
 }

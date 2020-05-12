@@ -1,9 +1,14 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\node\NodeTranslationHandler.
+ */
+
 namespace Drupal\node;
 
-use Drupal\content_translation\ContentTranslationHandler;
 use Drupal\Core\Entity\EntityInterface;
+use Drupal\content_translation\ContentTranslationHandler;
 use Drupal\Core\Form\FormStateInterface;
 
 /**
@@ -17,7 +22,17 @@ class NodeTranslationHandler extends ContentTranslationHandler {
   public function entityFormAlter(array &$form, FormStateInterface $form_state, EntityInterface $entity) {
     parent::entityFormAlter($form, $form_state, $entity);
 
+    // Move the translation fieldset to a vertical tab.
     if (isset($form['content_translation'])) {
+      $form['content_translation'] += array(
+        '#group' => 'advanced',
+        '#attributes' => array(
+          'class' => array('node-translation-options'),
+        ),
+      );
+
+      $form['content_translation']['#weight'] = 100;
+
       // We do not need to show these values on node forms: they inherit the
       // basic node property values.
       $form['content_translation']['status']['#access'] = FALSE;
@@ -39,8 +54,10 @@ class NodeTranslationHandler extends ContentTranslationHandler {
         }
       }
       if (isset($status_translatable)) {
-        if (isset($form['actions']['submit'])) {
-          $form['actions']['submit']['#value'] .= ' ' . ($status_translatable ? t('(this translation)') : t('(all translations)'));
+        foreach (array('publish', 'unpublish', 'submit') as $button) {
+          if (isset($form['actions'][$button])) {
+            $form['actions'][$button]['#value'] .= ' ' . ($status_translatable ? t('(this translation)') : t('(all translations)'));
+          }
         }
       }
     }
@@ -51,7 +68,7 @@ class NodeTranslationHandler extends ContentTranslationHandler {
    */
   protected function entityFormTitle(EntityInterface $entity) {
     $type_name = node_get_type_label($entity);
-    return t('<em>Edit @type</em> @title', ['@type' => $type_name, '@title' => $entity->label()]);
+    return t('<em>Edit @type</em> @title', array('@type' => $type_name, '@title' => $entity->label()));
   }
 
   /**
@@ -59,11 +76,14 @@ class NodeTranslationHandler extends ContentTranslationHandler {
    */
   public function entityFormEntityBuild($entity_type, EntityInterface $entity, array $form, FormStateInterface $form_state) {
     if ($form_state->hasValue('content_translation')) {
+      $form_object = $form_state->getFormObject();
       $translation = &$form_state->getValue('content_translation');
-      $translation['status'] = $entity->isPublished();
+      $translation['status'] = $form_object->getEntity()->isPublished();
+      // $form['content_translation']['name'] is the equivalent field
+      // for translation author uid.
       $account = $entity->uid->entity;
-      $translation['uid'] = $account ? $account->id() : 0;
-      $translation['created'] = $this->dateFormatter->format($entity->created->value, 'custom', 'Y-m-d H:i:s O');
+      $translation['name'] = $account ? $account->getUsername() : '';
+      $translation['created'] = format_date($entity->created->value, 'custom', 'Y-m-d H:i:s O');
     }
     parent::entityFormEntityBuild($entity_type, $entity, $form, $form_state);
   }

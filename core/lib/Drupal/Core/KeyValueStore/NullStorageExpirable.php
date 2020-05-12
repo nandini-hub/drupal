@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\KeyValueStore\NullStorageExpirable.
+ */
+
 namespace Drupal\Core\KeyValueStore;
 
 /**
@@ -12,7 +17,7 @@ class NullStorageExpirable implements KeyValueStoreExpirableInterface {
    *
    * @var array
    */
-  protected $data = [];
+  protected $data = array();
 
   /**
    * The name of the collection holding key and value pairs.
@@ -36,40 +41,40 @@ class NullStorageExpirable implements KeyValueStoreExpirableInterface {
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\KeyValueStore\KeyValueStoreInterface::get().
    */
   public function get($key, $default = NULL) {
     return NULL;
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\KeyValueStore\KeyValueStoreInterface::getMultiple().
    */
   public function getMultiple(array $keys) {
-    return [];
+    return array();
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\KeyValueStore\KeyValueStoreInterface::getAll().
    */
   public function getAll() {
-    return [];
+    return array();
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\KeyValueStore\KeyValueStoreInterface::set().
    */
-  public function set($key, $value) {}
+  public function set($key, $value) { }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\KeyValueStore\KeyValueStoreInterface::setIfNotExists().
    */
-  public function setIfNotExists($key, $value) {}
+  public function setIfNotExists($key, $value) { }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\KeyValueStore\KeyValueStoreInterface::setMultiple().
    */
-  public function setMultiple(array $data) {}
+  public function setMultiple(array $data) { }
 
   /**
    * {@inheritdoc}
@@ -78,40 +83,40 @@ class NullStorageExpirable implements KeyValueStoreExpirableInterface {
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\KeyValueStore\KeyValueStoreInterface::delete().
    */
-  public function delete($key) {}
+  public function delete($key) { }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\KeyValueStore\KeyValueStoreInterface::deleteMultiple().
    */
-  public function deleteMultiple(array $keys) {}
+  public function deleteMultiple(array $keys) { }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\KeyValueStore\KeyValueStoreInterface::deleteAll().
    */
-  public function deleteAll() {}
+  public function deleteAll() { }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\KeyValueStore\KeyValueStoreInterface::getCollectionName().
    */
   public function getCollectionName() {
     return $this->collection;
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\KeyValueStore\KeyValueStoreExpirableInterface::setMultipleWithExpire().
    */
-  public function setMultipleWithExpire(array $data, $expire) {}
+  public function setMultipleWithExpire(array $data, $expire) { }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\KeyValueStore\KeyValueStoreExpirableInterface::setWithExpire().
    */
-  public function setWithExpire($key, $value, $expire) {}
+  public function setWithExpire($key, $value, $expire) { }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\KeyValueStore\KeyValueStoreExpirableInterface::setWithExpireIfNotExists().
    */
-  public function setWithExpireIfNotExists($key, $value, $expire) {}
+  public function setWithExpireIfNotExists($key, $value, $expire) { }
 
 }

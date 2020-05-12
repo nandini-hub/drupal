@@ -1,29 +1,24 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Tests\Component\Discovery\YamlDiscoveryTest.
+ */
+
 namespace Drupal\Tests\Component\Discovery;
 
+use Drupal\Tests\UnitTestCase;
 use Drupal\Component\Discovery\YamlDiscovery;
-use Drupal\Component\FileCache\FileCacheFactory;
-use Drupal\Component\Serialization\Exception\InvalidDataTypeException;
 use org\bovigo\vfs\vfsStream;
-use org\bovigo\vfs\vfsStreamDirectory;
 use org\bovigo\vfs\vfsStreamWrapper;
-use PHPUnit\Framework\TestCase;
+use org\bovigo\vfs\vfsStreamDirectory;
 
 /**
  * YamlDiscovery component unit tests.
  *
  * @group Discovery
  */
-class YamlDiscoveryTest extends TestCase {
-
-  /**
-   * {@inheritdoc}
-   */
-  protected function setUp() {
-    // Ensure that FileCacheFactory has a prefix.
-    FileCacheFactory::setPrefix('prefix');
-  }
+class YamlDiscoveryTest extends UnitTestCase {
 
   /**
    * Tests the YAML file discovery.
@@ -44,12 +39,12 @@ class YamlDiscoveryTest extends TestCase {
     file_put_contents($url . '/test_2/test_4.test.yml', '');
 
     // Set up the directories to search.
-    $directories = [
+    $directories = array(
       'test_1' => $url . '/test_1',
       'test_2' => $url . '/test_1',
       'test_3' => $url . '/test_2',
       'test_4' => $url . '/test_2',
-    ];
+    );
 
     $discovery = new YamlDiscovery('test', $directories);
     $data = $discovery->findAll();
@@ -60,32 +55,12 @@ class YamlDiscoveryTest extends TestCase {
     $this->assertArrayHasKey('test_3', $data);
     $this->assertArrayHasKey('test_4', $data);
 
-    foreach (['test_1', 'test_2', 'test_3'] as $key) {
+    foreach (array('test_1', 'test_2', 'test_3') as $key) {
       $this->assertArrayHasKey('name', $data[$key]);
       $this->assertEquals($data[$key]['name'], 'test');
     }
 
-    $this->assertSame([], $data['test_4']);
-  }
-
-  /**
-   * Tests if filename is output for a broken YAML file.
-   */
-  public function testForBrokenYml() {
-    vfsStreamWrapper::register();
-    $root = new vfsStreamDirectory('modules');
-    vfsStreamWrapper::setRoot($root);
-    $url = vfsStream::url('modules');
-
-    mkdir($url . '/test_broken');
-    file_put_contents($url . '/test_broken/test_broken.test.yml', "broken:\n:");
-
-    $this->expectException(InvalidDataTypeException::class);
-    $this->expectExceptionMessage('vfs://modules/test_broken/test_broken.test.yml');
-
-    $directories = ['test_broken' => $url . '/test_broken'];
-    $discovery = new YamlDiscovery('test', $directories);
-    $discovery->findAll();
+    $this->assertSame(array(), $data['test_4']);
   }
 
 }

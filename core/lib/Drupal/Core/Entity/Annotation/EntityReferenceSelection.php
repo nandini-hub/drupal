@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Entity\Annotation\EntityReferenceSelection.
+ */
+
 namespace Drupal\Core\Entity\Annotation;
 
 use Drupal\Component\Annotation\Plugin;
@@ -14,6 +19,8 @@ use Drupal\Component\Annotation\Plugin;
  *
  * @see \Drupal\Core\Entity\EntityReferenceSelection\SelectionPluginManager
  * @see \Drupal\Core\Entity\EntityReferenceSelection\SelectionInterface
+ * @see \Drupal\Core\Entity\Plugin\EntityReferenceSelection\SelectionBase
+ * @see \Drupal\Core\Entity\Plugin\Derivative\SelectionBase
  * @see plugin_api
  *
  * @Annotation
@@ -22,11 +29,6 @@ class EntityReferenceSelection extends Plugin {
 
   /**
    * The plugin ID.
-   *
-   * There are some implementation bugs that make the plugin available only if
-   * the ID follows a specific pattern. It must be either identical to group or
-   * prefixed with the group. E.g. if the group is "foo" the ID must be either
-   * "foo" or "foo:bar".
    *
    * @var string
    */
@@ -49,7 +51,7 @@ class EntityReferenceSelection extends Plugin {
    * For example, if we want to override the NodeSelection from the 'default'
    * selection type, we can define the annotation of a new plugin as follows:
    * @code
-   * id = "default:node_advanced",
+   * id = "node_advanced",
    * entity_types = {"node"},
    * group = "default",
    * weight = 5
@@ -65,12 +67,10 @@ class EntityReferenceSelection extends Plugin {
    *
    * @var array (optional)
    */
-  public $entity_types = [];
+  public $entity_types = array();
 
   /**
-   * The weight of the plugin in its group.
-   *
-   * This property is used to select the "best" plugin within a group.
+   * The weight of the plugin in it's group.
    *
    * @var int
    */

@@ -1,21 +1,27 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Datetime\Date.
+ */
+
 namespace Drupal\Core\Datetime;
 
+use Drupal\Component\Utility\Xss;
 use Drupal\Core\Config\ConfigFactoryInterface;
-use Drupal\Core\Entity\EntityTypeManagerInterface;
+use Drupal\Core\Datetime\DrupalDateTime;
+use Drupal\Core\Entity\EntityManagerInterface;
 use Drupal\Core\Language\Language;
 use Drupal\Core\Language\LanguageManagerInterface;
 use Drupal\Core\StringTranslation\TranslationInterface;
 use Drupal\Core\StringTranslation\StringTranslationTrait;
-use Symfony\Component\HttpFoundation\RequestStack;
 
 /**
- * Provides a service to handle various date related functionality.
+ * Provides a service to handler various date related functionality.
  *
  * @ingroup i18n
  */
-class DateFormatter implements DateFormatterInterface {
+class DateFormatter {
   use StringTranslationTrait;
 
   /**
@@ -46,15 +52,8 @@ class DateFormatter implements DateFormatterInterface {
    */
   protected $configFactory;
 
-  /**
-   * The request stack.
-   *
-   * @var \Symfony\Component\HttpFoundation\RequestStack
-   */
-  protected $requestStack;
-
   protected $country = NULL;
-  protected $dateFormats = [];
+  protected $dateFormats = array();
 
   /**
    * Contains the different date interval units.
@@ -65,7 +64,7 @@ class DateFormatter implements DateFormatterInterface {
    *
    * @var array
    */
-  protected $units = [
+  protected $units = array(
     '1 year|@count years' => 31536000,
     '1 month|@count months' => 2592000,
     '1 week|@count weeks' => 604800,
@@ -73,32 +72,55 @@ class DateFormatter implements DateFormatterInterface {
     '1 hour|@count hours' => 3600,
     '1 min|@count min' => 60,
     '1 sec|@count sec' => 1,
-  ];
+  );
 
   /**
    * Constructs a Date object.
    *
-   * @param \Drupal\Core\Entity\EntityTypeManagerInterface $entity_type_manager
-   *   The entity type manager service.
+   * @param \Drupal\Core\Entity\EntityManagerInterface $entity_manager
+   *   The entity manager.
    * @param \Drupal\Core\Language\LanguageManagerInterface $language_manager
    *   The language manager.
    * @param \Drupal\Core\StringTranslation\TranslationInterface $translation
    *   The string translation.
    * @param \Drupal\Core\Config\ConfigFactoryInterface $config_factory
    *   The configuration factory.
-   * @param \Symfony\Component\HttpFoundation\RequestStack $request_stack
-   *   The request stack.
    */
-  public function __construct(EntityTypeManagerInterface $entity_type_manager, LanguageManagerInterface $language_manager, TranslationInterface $translation, ConfigFactoryInterface $config_factory, RequestStack $request_stack) {
-    $this->dateFormatStorage = $entity_type_manager->getStorage('date_format');
+  public function __construct(EntityManagerInterface $entity_manager, LanguageManagerInterface $language_manager, TranslationInterface $translation, ConfigFactoryInterface $config_factory) {
+    $this->dateFormatStorage = $entity_manager->getStorage('date_format');
     $this->languageManager = $language_manager;
     $this->stringTranslation = $translation;
     $this->configFactory = $config_factory;
-    $this->requestStack = $request_stack;
   }
 
   /**
-   * {@inheritdoc}
+   * Formats a date, using a date type or a custom date format string.
+   *
+   * @param int $timestamp
+   *   A UNIX timestamp to format.
+   * @param string $type
+   *   (optional) The format to use, one of:
+   *   - One of the built-in formats: 'short', 'medium',
+   *     'long', 'html_datetime', 'html_date', 'html_time',
+   *     'html_yearless_date', 'html_week', 'html_month', 'html_year'.
+   *   - The name of a date type defined by a date format config entity.
+   *   - The machine name of an administrator-defined date format.
+   *   - 'custom', to use $format.
+   *   Defaults to 'medium'.
+   * @param string $format
+   *   (optional) If $type is 'custom', a PHP date format string suitable for
+   *   input to date(). Use a backslash to escape ordinary text, so it does not
+   *   get interpreted as date format characters.
+   * @param string $timezone
+   *   (optional) Time zone identifier, as described at
+   *   http://php.net/manual/timezones.php Defaults to the time zone used to
+   *   display the page.
+   * @param string $langcode
+   *   (optional) Language code to translate to. Defaults to the language used to
+   *   display the page.
+   *
+   * @return string
+   *   A translated date string in the requested format.
    */
   public function format($timestamp, $type = 'medium', $format = '', $timezone = NULL, $langcode = NULL) {
     if (!isset($timezone)) {
@@ -115,201 +137,59 @@ class DateFormatter implements DateFormatterInterface {
     }
 
     // Create a DrupalDateTime object from the timestamp and timezone.
-    $create_settings = [
+    $create_settings = array(
       'langcode' => $langcode,
       'country' => $this->country(),
-    ];
+    );
     $date = DrupalDateTime::createFromTimestamp($timestamp, $this->timezones[$timezone], $create_settings);
 
     // If we have a non-custom date format use the provided date format pattern.
-    if ($type !== 'custom') {
-      if ($date_format = $this->dateFormat($type, $langcode)) {
-        $format = $date_format->getPattern();
-      }
+    if ($date_format = $this->dateFormat($type, $langcode)) {
+      $format = $date_format->getPattern();
     }
 
-    // Fall back to the 'medium' date format type if the format string is
-    // empty, either from not finding a requested date format or being given an
-    // empty custom format string.
+    // Fall back to medium if a format was not found.
     if (empty($format)) {
       $format = $this->dateFormat('fallback', $langcode)->getPattern();
     }
 
     // Call $date->format().
-    $settings = [
+    $settings = array(
       'langcode' => $langcode,
-    ];
-    return $date->format($format, $settings);
+    );
+    return Xss::filter($date->format($format, $settings));
   }
 
   /**
-   * {@inheritdoc}
+   * Formats a time interval with the requested granularity.
+   *
+   * @param int $interval
+   *   The length of the interval in seconds.
+   * @param int $granularity
+   *   (optional) How many different units to display in the string (2 by
+   *   default).
+   * @param string $langcode
+   *   (optional) Language code to translate to a language other than what is
+   *   used to display the page. Defaults to NULL.
+   *
+   * @return string
+   *   A translated string representation of the interval.
    */
   public function formatInterval($interval, $granularity = 2, $langcode = NULL) {
     $output = '';
     foreach ($this->units as $key => $value) {
       $key = explode('|', $key);
       if ($interval >= $value) {
-        $output .= ($output ? ' ' : '') . $this->formatPlural(floor($interval / $value), $key[0], $key[1], [], ['langcode' => $langcode]);
+        $output .= ($output ? ' ' : '') . $this->formatPlural(floor($interval / $value), $key[0], $key[1], array(), array('langcode' => $langcode));
         $interval %= $value;
         $granularity--;
-      }
-      elseif ($output) {
-        // Break if there was previous output but not any output at this level,
-        // to avoid skipping levels and getting output like "1 year 1 second".
-        break;
       }
 
       if ($granularity == 0) {
         break;
       }
     }
-    return $output ? $output : $this->t('0 sec', [], ['langcode' => $langcode]);
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function getSampleDateFormats($langcode = NULL, $timestamp = NULL, $timezone = NULL) {
-    $timestamp = $timestamp ?: time();
-    // All date format characters for the PHP date() function.
-    $date_chars = str_split('dDjlNSwzWFmMntLoYyaABgGhHisueIOPTZcrU');
-    $date_elements = array_combine($date_chars, $date_chars);
-    return array_map(function ($character) use ($timestamp, $timezone, $langcode) {
-      return $this->format($timestamp, 'custom', $character, $timezone, $langcode);
-    }, $date_elements);
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function formatTimeDiffUntil($timestamp, $options = []) {
-    $request_time = $this->requestStack->getCurrentRequest()->server->get('REQUEST_TIME');
-    return $this->formatDiff($request_time, $timestamp, $options);
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function formatTimeDiffSince($timestamp, $options = []) {
-    $request_time = $this->requestStack->getCurrentRequest()->server->get('REQUEST_TIME');
-    return $this->formatDiff($timestamp, $request_time, $options);
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function formatDiff($from, $to, $options = []) {
-
-    $options += [
-      'granularity' => 2,
-      'langcode' => NULL,
-      'strict' => TRUE,
-      'return_as_object' => FALSE,
-    ];
-
-    if ($options['strict'] && $from > $to) {
-      $string = $this->t('0 seconds');
-      if ($options['return_as_object']) {
-        return new FormattedDateDiff($string, 0);
-      }
-      return $string;
-    }
-
-    $date_time_from = new \DateTime();
-    $date_time_from->setTimestamp($from);
-
-    $date_time_to = new \DateTime();
-    $date_time_to->setTimestamp($to);
-
-    $interval = $date_time_to->diff($date_time_from);
-
-    $granularity = $options['granularity'];
-    $output = '';
-
-    // We loop over the keys provided by \DateInterval explicitly. Since we
-    // don't take the "invert" property into account, the resulting output value
-    // will always be positive.
-    $max_age = 1e99;
-    foreach (['y', 'm', 'd', 'h', 'i', 's'] as $value) {
-      if ($interval->$value > 0) {
-        // Switch over the keys to call formatPlural() explicitly with literal
-        // strings for all different possibilities.
-        switch ($value) {
-          case 'y':
-            $interval_output = $this->formatPlural($interval->y, '1 year', '@count years', [], ['langcode' => $options['langcode']]);
-            $max_age = min($max_age, 365 * 86400);
-            break;
-
-          case 'm':
-            $interval_output = $this->formatPlural($interval->m, '1 month', '@count months', [], ['langcode' => $options['langcode']]);
-            $max_age = min($max_age, 30 * 86400);
-            break;
-
-          case 'd':
-            // \DateInterval doesn't support weeks, so we need to calculate them
-            // ourselves.
-            $interval_output = '';
-            $days = $interval->d;
-            $weeks = floor($days / 7);
-            if ($weeks) {
-              $interval_output .= $this->formatPlural($weeks, '1 week', '@count weeks', [], ['langcode' => $options['langcode']]);
-              $days -= $weeks * 7;
-              $granularity--;
-              $max_age = min($max_age, 7 * 86400);
-            }
-
-            if ((!$output || $weeks > 0) && $granularity > 0 && $days > 0) {
-              $interval_output .= ($interval_output ? ' ' : '') . $this->formatPlural($days, '1 day', '@count days', [], ['langcode' => $options['langcode']]);
-              $max_age = min($max_age, 86400);
-            }
-            else {
-              // If we did not output days, set the granularity to 0 so that we
-              // will not output hours and get things like "1 week 1 hour".
-              $granularity = 0;
-            }
-            break;
-
-          case 'h':
-            $interval_output = $this->formatPlural($interval->h, '1 hour', '@count hours', [], ['langcode' => $options['langcode']]);
-            $max_age = min($max_age, 3600);
-            break;
-
-          case 'i':
-            $interval_output = $this->formatPlural($interval->i, '1 minute', '@count minutes', [], ['langcode' => $options['langcode']]);
-            $max_age = min($max_age, 60);
-            break;
-
-          case 's':
-            $interval_output = $this->formatPlural($interval->s, '1 second', '@count seconds', [], ['langcode' => $options['langcode']]);
-            $max_age = min($max_age, 1);
-            break;
-
-        }
-        $output .= ($output && $interval_output ? ' ' : '') . $interval_output;
-        $granularity--;
-      }
-      elseif ($output) {
-        // Break if there was previous output but not any output at this level,
-        // to avoid skipping levels and getting output like "1 year 1 second".
-        break;
-      }
-
-      if ($granularity <= 0) {
-        break;
-      }
-    }
-
-    if (empty($output)) {
-      $output = $this->t('0 seconds');
-      $max_age = 0;
-    }
-
-    if ($options['return_as_object']) {
-      return new FormattedDateDiff($output, $max_age);
-    }
-
-    return $output;
+    return $output ? $output : $this->t('0 sec', array(), array('langcode' => $langcode));
   }
 
   /**
@@ -320,14 +200,13 @@ class DateFormatter implements DateFormatterInterface {
    * @param string $langcode
    *   The langcode of the language to use.
    *
-   * @return \Drupal\Core\Datetime\DateFormatInterface|null
-   *   The configuration entity for the date format in the given language for
-   *   non-custom formats, NULL otherwise.
+   * @return string
+   *   The pattern for the date format in the given language.
    */
   protected function dateFormat($format, $langcode) {
     if (!isset($this->dateFormats[$format][$langcode])) {
       $original_language = $this->languageManager->getConfigOverrideLanguage();
-      $this->languageManager->setConfigOverrideLanguage(new Language(['id' => $langcode]));
+      $this->languageManager->setConfigOverrideLanguage(new Language(array('id' => $langcode)));
       $this->dateFormats[$format][$langcode] = $this->dateFormatStorage->load($format);
       $this->languageManager->setConfigOverrideLanguage($original_language);
     }

@@ -1,8 +1,11 @@
 <?php
 
-namespace Drupal\quickedit\Ajax;
+/**
+ * @file
+ * Contains \Drupal\quickedit\Ajax\FieldFormCommand.
+ */
 
-use Drupal\Core\Ajax\BaseCommand;
+namespace Drupal\quickedit\Ajax;
 
 /**
  * AJAX command for passing a rendered field form to Quick Edit's JavaScript

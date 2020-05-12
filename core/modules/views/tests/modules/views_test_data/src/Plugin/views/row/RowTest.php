@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\views_test_data\Plugin\views\row\RowTest.
+ */
+
 namespace Drupal\views_test_data\Plugin\views\row;
 
 use Drupal\Core\Form\FormStateInterface;
@@ -28,27 +33,27 @@ class RowTest extends RowPluginBase {
   public $output;
 
   /**
-   * {@inheritdoc}
+   * Overrides Drupal\views\Plugin\views\row\RowPluginBase::defineOptions().
    */
   protected function defineOptions() {
     $options = parent::defineOptions();
-    $options['test_option'] = ['default' => ''];
+    $options['test_option'] = array('default' => '');
 
     return $options;
   }
 
   /**
-   * {@inheritdoc}
+   * Overrides Drupal\views\Plugin\views\row\RowPluginBase::buildOptionsForm().
    */
   public function buildOptionsForm(&$form, FormStateInterface $form_state) {
     parent::buildOptionsForm($form, $form_state);
 
-    $form['test_option'] = [
+    $form['test_option'] = array(
       '#title' => $this->t('Test option'),
       '#type' => 'textfield',
       '#description' => $this->t('This is a textfield for test_option.'),
       '#default_value' => $this->options['test_option'],
-    ];
+    );
   }
 
   /**
@@ -71,7 +76,7 @@ class RowTest extends RowPluginBase {
   }
 
   /**
-   * {@inheritdoc}
+   * Overrides Drupal\views\Plugin\views\row\RowPluginBase::render()
    */
   public function render($row) {
     return $this->getOutput();

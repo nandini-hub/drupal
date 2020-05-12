@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Component\Annotation\Reflection\MockFileFinder.
+ */
+
 namespace Drupal\Component\Annotation\Reflection;
 
 use Doctrine\Common\Reflection\ClassFinderInterface;
@@ -21,7 +26,13 @@ class MockFileFinder implements ClassFinderInterface {
   protected $filename;
 
   /**
-   * {@inheritdoc}
+   * Constructs a MockFileFinder object.
+   */
+  public function __construct($prefixes) {
+  }
+
+  /**
+   * Implements Doctrine\Common\Reflection\ClassFinderInterface::findFile().
    */
   public function findFile($class) {
     return $this->filename;
@@ -30,8 +41,8 @@ class MockFileFinder implements ClassFinderInterface {
   /**
    * Creates new mock file finder objects.
    */
-  public static function create($filename) {
-    $object = new static();
+  static public function create($filename) {
+    $object = new static(array());
     $object->filename = $filename;
     return $object;
   }

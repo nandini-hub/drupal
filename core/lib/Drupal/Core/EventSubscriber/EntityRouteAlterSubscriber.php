@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains Drupal\Core\EventSubscriber\EntityRouteAlterSubscriber.
+ */
+
 namespace Drupal\Core\EventSubscriber;
 
 use Drupal\Core\Entity\EntityResolverManager;
@@ -16,7 +21,7 @@ use Drupal\Core\Routing\RouteBuildEvent;
  *   types might exist across all modules in order to pick names that don't
  *   conflict. Instead, the 'type' should be determined from introspecting what
  *   kind of PHP variable (e.g., a type hinted interface) the controller
- *   requires: https://www.drupal.org/node/2041907.
+ *   requires: https://drupal.org/node/2041907.
  */
 class EntityRouteAlterSubscriber implements EventSubscriberInterface {
 
@@ -30,7 +35,7 @@ class EntityRouteAlterSubscriber implements EventSubscriberInterface {
   /**
    * Constructs an EntityRouteAlterSubscriber instance.
    *
-   * @param \Drupal\Core\Entity\EntityResolverManager $entity_resolver_manager
+   * @param \Drupal\Core\Entity\EntityResolverManager
    *   The entity resolver manager.
    */
   public function __construct(EntityResolverManager $entity_resolver_manager) {
@@ -52,9 +57,8 @@ class EntityRouteAlterSubscriber implements EventSubscriberInterface {
   /**
    * {@inheritdoc}
    */
-  public static function getSubscribedEvents() {
-    $events[RoutingEvents::ALTER][] = ['onRoutingRouteAlterSetType', -150];
+  static function getSubscribedEvents() {
+    $events[RoutingEvents::ALTER][] = array('onRoutingRouteAlterSetType', -150);
     return $events;
   }
-
 }

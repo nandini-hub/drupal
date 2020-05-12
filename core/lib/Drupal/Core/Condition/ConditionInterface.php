@@ -1,12 +1,14 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Condition\ConditionInterface.
+ */
+
 namespace Drupal\Core\Condition;
 
-use Drupal\Component\Plugin\ConfigurableInterface;
 use Drupal\Component\Plugin\ConfigurablePluginInterface;
-use Drupal\Component\Plugin\DependentPluginInterface;
 use Drupal\Component\Plugin\PluginInspectionInterface;
-use Drupal\Core\Cache\CacheableDependencyInterface;
 use Drupal\Core\Executable\ExecutableInterface;
 use Drupal\Core\Executable\ExecutableManagerInterface;
 use Drupal\Core\Plugin\PluginFormInterface;
@@ -24,7 +26,7 @@ use Drupal\Core\Plugin\PluginFormInterface;
  *   the configuration option. Check the typed data definition docs for details.
  *
  * @todo Replace the dependency on \Drupal\Core\Form\FormInterface with a new
- *   interface from https://www.drupal.org/node/2006248.
+ *   interface from https://drupal.org/node/2006248.
  * @todo WARNING: The condition API is going to receive some additions before release.
  * The following additions are likely to happen:
  *  - The way configuration is handled and configuration forms are built is
@@ -44,12 +46,12 @@ use Drupal\Core\Plugin\PluginFormInterface;
  *
  * @ingroup plugin_api
  */
-interface ConditionInterface extends ExecutableInterface, PluginFormInterface, ConfigurableInterface, DependentPluginInterface, ConfigurablePluginInterface, PluginInspectionInterface, CacheableDependencyInterface {
+interface ConditionInterface extends ExecutableInterface, PluginFormInterface, ConfigurablePluginInterface, PluginInspectionInterface {
 
   /**
    * Determines whether condition result will be negated.
    *
-   * @return bool
+   * @return boolean
    *   Whether the condition result will be negated.
    */
   public function isNegated();

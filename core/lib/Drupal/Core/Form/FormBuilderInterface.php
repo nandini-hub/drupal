@@ -1,26 +1,16 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Form\FormBuilderInterface.
+ */
+
 namespace Drupal\Core\Form;
 
 /**
  * Provides an interface for form building and processing.
  */
 interface FormBuilderInterface {
-
-  /**
-   * Request key for AJAX forms that submit to the form's original route.
-   *
-   * This constant is distinct from a "drupal_ajax" value for
-   * \Drupal\Core\EventSubscriber\MainContentViewSubscriber::WRAPPER_FORMAT,
-   * because that one is set for all AJAX submissions, including ones with
-   * dedicated routes for which self::buildForm() should not exit early via a
-   * \Drupal\Core\Form\FormAjaxException.
-   *
-   * @todo Re-evaluate the need for this constant after
-   *   https://www.drupal.org/node/2502785 and
-   *   https://www.drupal.org/node/2503429.
-   */
-  const AJAX_FORM_REQUEST = 'ajax_form';
 
   /**
    * Determines the ID of a form.
@@ -65,10 +55,10 @@ interface FormBuilderInterface {
    * Builds and processes a form for a given form ID.
    *
    * The form may also be retrieved from the cache if the form was built in a
-   * previous page load. The form is then passed on for processing, validation,
+   * previous page-load. The form is then passed on for processing, validation
    * and submission if there is proper input.
    *
-   * @param \Drupal\Core\Form\FormInterface|string $form_arg
+   * @param \Drupal\Core\Form\FormInterface|string $form_id
    *   The value must be one of the following:
    *   - The name of a class that implements \Drupal\Core\Form\FormInterface.
    *   - An instance of a class that implements \Drupal\Core\Form\FormInterface.
@@ -79,17 +69,9 @@ interface FormBuilderInterface {
    *   The rendered form. This function may also perform a redirect and hence
    *   may not return at all depending upon the $form_state flags that were set.
    *
-   * @throws \Drupal\Core\Form\FormAjaxException
-   *   Thrown when a form is triggered via an AJAX submission. It will be
-   *   handled by \Drupal\Core\Form\EventSubscriber\FormAjaxSubscriber.
-   * @throws \Drupal\Core\Form\EnforcedResponseException
-   *   Thrown when a form builder returns a response directly, usually a
-   *   \Symfony\Component\HttpFoundation\RedirectResponse. It will be handled by
-   *   \Drupal\Core\EventSubscriber\EnforcedFormResponseSubscriber.
-   *
    * @see self::redirectForm()
    */
-  public function buildForm($form_arg, FormStateInterface &$form_state);
+  public function buildForm($form_id, FormStateInterface &$form_state);
 
   /**
    * Constructs a new $form from the information in $form_state.
@@ -103,7 +85,9 @@ interface FormBuilderInterface {
    * form workflow, to be returned for rendering.
    *
    * Ajax form submissions are almost always multi-step workflows, so that is
-   * one common use-case during which form rebuilding occurs.
+   * one common use-case during which form rebuilding occurs. See
+   * Drupal\system\FormAjaxController::content() for more information about
+   * creating Ajax-enabled forms.
    *
    * @param string $form_id
    *   The unique string identifying the desired form. If a function with that
@@ -123,6 +107,7 @@ interface FormBuilderInterface {
    *   The newly built form.
    *
    * @see self::processForm()
+   * @see \Drupal\system\FormAjaxController::content()
    */
   public function rebuildForm($form_id, FormStateInterface &$form_state, $old_form = NULL);
 
@@ -136,23 +121,10 @@ interface FormBuilderInterface {
    * There is no return value, but you can check to see if there are errors
    * by calling $form_state->getErrors().
    *
-   * For example:
-   * @code
-   * // register a new user
-   * $form_state = new FormState();
-   * $values['name'] = 'robo-user';
-   * $values['mail'] = 'robouser@example.com';
-   * $values['pass']['pass1'] = 'password';
-   * $values['pass']['pass2'] = 'password';
-   * $values['op'] = t('Create new account');
-   * $form_state->setValues($values);
-   * \Drupal::formBuilder()->submitForm('user_register_form', $form_state);
-   * @endcode
-   *
    * @param \Drupal\Core\Form\FormInterface|string $form_arg
-   *   The value must be one of the following:
-   *   - The name of a class that implements \Drupal\Core\Form\FormInterface.
-   *   - An instance of a class that implements \Drupal\Core\Form\FormInterface.
+   *   A form object to use to build the form, or the unique string identifying
+   *   the desired form. If $form_arg is a string and a function with that
+   *   name exists, it is called to build the form array.
    * @param $form_state
    *   The current state of the form. Most important is the
    *   $form_state->getValues() collection, a tree of data used to simulate the
@@ -180,6 +152,18 @@ interface FormBuilderInterface {
    *   $form_state->addBuildInfo('args', [&$object]);
    *   \Drupal::formBuilder()->submitForm('mymodule_form', $form_state);
    *   @endcode
+   * For example:
+   * @code
+   * // register a new user
+   * $form_state = new FormState();
+   * $values['name'] = 'robo-user';
+   * $values['mail'] = 'robouser@example.com';
+   * $values['pass']['pass1'] = 'password';
+   * $values['pass']['pass2'] = 'password';
+   * $values['op'] = t('Create new account');
+   * $form_state->setValues($values);
+   * \Drupal::formBuilder()->submitForm('user_register_form', $form_state);
+   * @endcode
    */
   public function submitForm($form_arg, FormStateInterface &$form_state);
 

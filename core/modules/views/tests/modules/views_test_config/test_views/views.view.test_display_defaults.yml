@@ -8,6 +8,7 @@ description: ''
 tag: ''
 base_table: views_test_data
 base_field: id
+core: 8.x
 display:
   default:
     display_plugin: default
@@ -19,7 +20,7 @@ display:
         type: none
         options: {  }
       cache:
-        type: tag
+        type: none
         options: {  }
       query:
         type: views_query

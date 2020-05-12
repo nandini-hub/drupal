@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\Core\Database\IntegrityConstraintViolationException
+ */
+
 namespace Drupal\Core\Database;
 
 /**
@@ -8,4 +13,4 @@ namespace Drupal\Core\Database;
  * This exception is thrown e.g. when trying to have an IN condition with an
  * empty array.
  */
-class InvalidQueryException extends \InvalidArgumentException implements DatabaseException {}
+class InvalidQueryException extends \InvalidArgumentException implements DatabaseException { }

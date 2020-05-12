@@ -1,6 +1,13 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\Component\Gettext\PoMetadataInterface.
+ */
+
 namespace Drupal\Component\Gettext;
+
+use Drupal\Component\Gettext\PoHeader;
 
 /**
  * Methods required for both reader and writer implementations.
@@ -37,7 +44,7 @@ interface PoMetadataInterface {
   /**
    * Get header metadata.
    *
-   * @return \Drupal\Component\Gettext\PoHeader
+   * @return \Drupal\Component\Gettext\PoHeader $header
    *   Header instance representing metadata in a PO header.
    */
   public function getHeader();

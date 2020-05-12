@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\Core\Archiver\Tar.
+ */
+
 namespace Drupal\Core\Archiver;
 
 /**
@@ -52,12 +57,12 @@ class Tar implements ArchiverInterface {
   /**
    * {@inheritdoc}
    */
-  public function extract($path, array $files = []) {
+  public function extract($path, array $files = array()) {
     if ($files) {
-      $this->tar->extractList($files, $path, '', FALSE, FALSE);
+      $this->tar->extractList($files, $path);
     }
     else {
-      $this->tar->extract($path, FALSE, FALSE);
+      $this->tar->extract($path);
     }
 
     return $this;
@@ -67,7 +72,7 @@ class Tar implements ArchiverInterface {
    * {@inheritdoc}
    */
   public function listContents() {
-    $files = [];
+    $files = array();
     foreach ($this->tar->listContent() as $file_data) {
       $files[] = $file_data['filename'];
     }
@@ -87,5 +92,4 @@ class Tar implements ArchiverInterface {
   public function getArchive() {
     return $this->tar;
   }
-
 }

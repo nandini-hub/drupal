@@ -1,6 +1,13 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\Core\Ajax\InvokeCommand.
+ */
+
 namespace Drupal\Core\Ajax;
+
+use Drupal\Core\Ajax\CommandInterface;
 
 /**
  * AJAX command for invoking an arbitrary jQuery method.
@@ -51,7 +58,7 @@ class InvokeCommand implements CommandInterface {
    * @param array $arguments
    *   An optional array of arguments to pass to the method.
    */
-  public function __construct($selector, $method, array $arguments = []) {
+  public function __construct($selector, $method, array $arguments = array()) {
     $this->selector = $selector;
     $this->method = $method;
     $this->arguments = $arguments;
@@ -62,12 +69,12 @@ class InvokeCommand implements CommandInterface {
    */
   public function render() {
 
-    return [
+    return array(
       'command' => 'invoke',
       'selector' => $this->selector,
       'method' => $this->method,
       'args' => $this->arguments,
-    ];
+    );
   }
 
 }

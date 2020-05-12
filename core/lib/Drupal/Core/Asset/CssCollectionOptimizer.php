@@ -1,8 +1,11 @@
 <?php
 
+/**
+ * Contains \Drupal\Core\Asset\CssCollectionOptimizer.
+ */
+
 namespace Drupal\Core\Asset;
 
-use Drupal\Core\File\FileSystemInterface;
 use Drupal\Core\State\StateInterface;
 
 /**
@@ -39,36 +42,22 @@ class CssCollectionOptimizer implements AssetCollectionOptimizerInterface {
   protected $state;
 
   /**
-   * The file system service.
-   *
-   * @var \Drupal\Core\File\FileSystemInterface
-   */
-  protected $fileSystem;
-
-  /**
    * Constructs a CssCollectionOptimizer.
    *
-   * @param \Drupal\Core\Asset\AssetCollectionGrouperInterface $grouper
+   * @param \Drupal\Core\Asset\AssetCollectionGrouperInterface
    *   The grouper for CSS assets.
-   * @param \Drupal\Core\Asset\AssetOptimizerInterface $optimizer
+   * @param \Drupal\Core\Asset\AssetOptimizerInterface
    *   The optimizer for a single CSS asset.
-   * @param \Drupal\Core\Asset\AssetDumperInterface $dumper
+   * @param \Drupal\Core\Asset\AssetDumperInterface
    *   The dumper for optimized CSS assets.
-   * @param \Drupal\Core\State\StateInterface $state
+   * @param \Drupal\Core\State\StateInterface
    *   The state key/value store.
-   * @param \Drupal\Core\File\FileSystemInterface $file_system
-   *   The file system service.
    */
-  public function __construct(AssetCollectionGrouperInterface $grouper, AssetOptimizerInterface $optimizer, AssetDumperInterface $dumper, StateInterface $state, FileSystemInterface $file_system = NULL) {
+  public function __construct(AssetCollectionGrouperInterface $grouper, AssetOptimizerInterface $optimizer, AssetDumperInterface $dumper, StateInterface $state) {
     $this->grouper = $grouper;
     $this->optimizer = $optimizer;
     $this->dumper = $dumper;
     $this->state = $state;
-    if (!$file_system) {
-      @trigger_error('The file_system service must be passed to CssCollectionOptimizer::__construct(), it is required before Drupal 9.0.0. See https://www.drupal.org/node/3006851.', E_USER_DEPRECATED);
-      $file_system = \Drupal::service('file_system');
-    }
-    $this->fileSystem = $file_system;
   }
 
   /**
@@ -95,8 +84,8 @@ class CssCollectionOptimizer implements AssetCollectionOptimizerInterface {
     // Drupal contrib can override this default CSS aggregator to keep the same
     // grouping, optimizing and dumping, but change the strategy that is used to
     // determine when the aggregate should be rebuilt (e.g. mtime, HTTPS …).
-    $map = $this->state->get('drupal_css_cache_files') ?: [];
-    $css_assets = [];
+    $map = $this->state->get('drupal_css_cache_files') ?: array();
+    $css_assets = array();
     foreach ($css_groups as $order => $css_group) {
       // We have to return a single asset, not a group of assets. It is now up
       // to one of the pieces of code in the switch statement below to set the
@@ -126,7 +115,7 @@ class CssCollectionOptimizer implements AssetCollectionOptimizerInterface {
               }
               // Per the W3C specification at
               // http://www.w3.org/TR/REC-CSS2/cascade.html#at-import, @import
-              // rules must precede any other style, so we move those to the
+              // rules must proceed any other style, so we move those to the
               // top.
               $regexp = '/@import[^;]+;/i';
               preg_match_all($regexp, $data, $matches);
@@ -146,6 +135,16 @@ class CssCollectionOptimizer implements AssetCollectionOptimizerInterface {
             }
             $css_assets[$order]['preprocessed'] = TRUE;
           }
+          break;
+
+        case 'inline':
+          // We don't do any caching for inline CSS assets.
+          $data = '';
+          foreach ($css_group['items'] as $css_asset) {
+            $data .= $this->optimizer->optimize($css_asset);
+          }
+          unset($css_assets[$order]['data']['items']);
+          $css_assets[$order]['data'] = $data;
           break;
 
         case 'external':
@@ -170,7 +169,7 @@ class CssCollectionOptimizer implements AssetCollectionOptimizerInterface {
    *   A hash to uniquely identify the given group of CSS assets.
    */
   protected function generateHash(array $css_group) {
-    $css_data = [];
+    $css_data = array();
     foreach ($css_group['items'] as $css_file) {
       $css_data[] = $css_file['data'];
     }
@@ -190,15 +189,13 @@ class CssCollectionOptimizer implements AssetCollectionOptimizerInterface {
   public function deleteAll() {
     $this->state->delete('drupal_css_cache_files');
 
-    $delete_stale = function ($uri) {
+    $delete_stale = function($uri) {
       // Default stale file threshold is 30 days.
       if (REQUEST_TIME - filemtime($uri) > \Drupal::config('system.performance')->get('stale_file_threshold')) {
-        $this->fileSystem->delete($uri);
+        file_unmanaged_delete($uri);
       }
     };
-    if (is_dir('public://css')) {
-      $this->fileSystem->scanDirectory('public://css', '/.*/', ['callback' => $delete_stale]);
-    }
+    file_scan_directory('public://css', '/.*/', array('callback' => $delete_stale));
   }
 
 }

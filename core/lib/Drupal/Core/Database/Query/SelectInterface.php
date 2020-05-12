@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\Core\Database\Query\SelectInterface
+ */
+
 namespace Drupal\Core\Database\Query;
 
 use Drupal\Core\Database\Connection;
@@ -95,7 +100,7 @@ interface SelectInterface extends ConditionInterface, AlterableInterface, Extend
    * Note that this method must be called by reference as well:
    *
    * @code
-   * $tables =& $query->getTables();
+   * $fields =& $query->getTables();
    * @endcode
    *
    * @return
@@ -136,21 +141,6 @@ interface SelectInterface extends ConditionInterface, AlterableInterface, Extend
   public function escapeLike($string);
 
   /**
-   * Escapes a field name string.
-   *
-   * Force all field names to be strictly alphanumeric-plus-underscore.
-   * For some database drivers, it may also wrap the field name in
-   * database-specific escape characters.
-   *
-   * @param string $string
-   *   An unsanitized field name.
-   *
-   * @return
-   *   The sanitized field name string.
-   */
-  public function escapeField($string);
-
-  /**
    * Compiles and returns an associative array of the arguments for this prepared statement.
    *
    * @param $queryPlaceholder
@@ -169,7 +159,7 @@ interface SelectInterface extends ConditionInterface, AlterableInterface, Extend
    *
    * @param $distinct
    *   TRUE to flag this query DISTINCT, FALSE to disable it.
-   * @return $this
+   * @return \Drupal\Core\Database\Query\SelectInterface
    *   The called object.
    */
   public function distinct($distinct = TRUE);
@@ -211,10 +201,10 @@ interface SelectInterface extends ConditionInterface, AlterableInterface, Extend
    *   An indexed array of fields present in the specified table that should be
    *   included in this query. If not specified, $table_alias.* will be generated
    *   without any aliases.
-   * @return $this
+   * @return \Drupal\Core\Database\Query\SelectInterface
    *   The called object.
    */
-  public function fields($table_alias, array $fields = []);
+  public function fields($table_alias, array $fields = array());
 
   /**
    * Adds an expression to the list of "fields" to be SELECTed.
@@ -235,7 +225,7 @@ interface SelectInterface extends ConditionInterface, AlterableInterface, Extend
    * @return
    *   The unique alias that was assigned for this expression.
    */
-  public function addExpression($expression, $alias = NULL, $arguments = []);
+  public function addExpression($expression, $alias = NULL, $arguments = array());
 
   /**
    * Default Join against another table in the database.
@@ -263,7 +253,7 @@ interface SelectInterface extends ConditionInterface, AlterableInterface, Extend
    * @return
    *   The unique alias that was assigned for this table.
    */
-  public function join($table, $alias = NULL, $condition = NULL, $arguments = []);
+  public function join($table, $alias = NULL, $condition = NULL, $arguments = array());
 
   /**
    * Inner Join against another table in the database.
@@ -289,7 +279,7 @@ interface SelectInterface extends ConditionInterface, AlterableInterface, Extend
    * @return
    *   The unique alias that was assigned for this table.
    */
-  public function innerJoin($table, $alias = NULL, $condition = NULL, $arguments = []);
+  public function innerJoin($table, $alias = NULL, $condition = NULL, $arguments = array());
 
   /**
    * Left Outer Join against another table in the database.
@@ -315,7 +305,7 @@ interface SelectInterface extends ConditionInterface, AlterableInterface, Extend
    * @return
    *   The unique alias that was assigned for this table.
    */
-  public function leftJoin($table, $alias = NULL, $condition = NULL, $arguments = []);
+  public function leftJoin($table, $alias = NULL, $condition = NULL, $arguments = array());
 
   /**
    * Right Outer Join against another table in the database.
@@ -340,16 +330,8 @@ interface SelectInterface extends ConditionInterface, AlterableInterface, Extend
    *   An array of arguments to replace into the $condition of this join.
    * @return
    *   The unique alias that was assigned for this table.
-   *
-   * @deprecated in drupal:8.1.0 and is removed from drupal:9.0.0. Instead,
-   *   change the query to use leftJoin(). For instance:
-   *   $injected_connection->query('A')->rightJoin('B') is identical to
-   *   $injected_connection->query('B')->leftJoin('A'). This functionality has
-   *   been deprecated because SQLite does not support it.
-   *
-   * @see https://www.drupal.org/node/2765249
    */
-  public function rightJoin($table, $alias = NULL, $condition = NULL, $arguments = []);
+  public function rightJoin($table, $alias = NULL, $condition = NULL, $arguments = array());
 
   /**
    * Join against another table in the database.
@@ -382,7 +364,7 @@ interface SelectInterface extends ConditionInterface, AlterableInterface, Extend
    * @return
    *   The unique alias that was assigned for this table.
    */
-  public function addJoin($type, $table, $alias = NULL, $condition = NULL, $arguments = []);
+  public function addJoin($type, $table, $alias = NULL, $condition = NULL, $arguments = array());
 
   /**
    * Orders the result set by a given field.
@@ -404,14 +386,14 @@ interface SelectInterface extends ConditionInterface, AlterableInterface, Extend
    *   on.
    *
    *   Example:
-   *   @code
+   *   <code>
    *   $query->addExpression('SUBSTRING(thread, 1, (LENGTH(thread) - 1))', 'order_field');
    *   $query->orderBy('order_field', 'ASC');
-   *   @endcode
+   *   </code>
    * @param $direction
    *   The direction to sort. Legal values are "ASC" and "DESC". Any other value
    *   will be converted to "ASC".
-   * @return $this
+   * @return \Drupal\Core\Database\Query\SelectInterface
    *   The called object.
    */
   public function orderBy($field, $direction = 'ASC');
@@ -433,7 +415,7 @@ interface SelectInterface extends ConditionInterface, AlterableInterface, Extend
    *
    * for an example of such an alternate sorting mechanism.
    *
-   * @return $this
+   * @return \Drupal\Core\Database\Query\SelectInterface
    *   The called object
    */
   public function orderRandom();
@@ -449,7 +431,7 @@ interface SelectInterface extends ConditionInterface, AlterableInterface, Extend
    *   range directives that are set.
    * @param $length
    *   The number of records to return from the result set.
-   * @return $this
+   * @return \Drupal\Core\Database\Query\SelectInterface
    *   The called object.
    */
   public function range($start = NULL, $length = NULL);
@@ -474,7 +456,7 @@ interface SelectInterface extends ConditionInterface, AlterableInterface, Extend
    * @param $type
    *   The type of UNION to add to the query. Defaults to plain
    *   UNION.
-   * @return $this
+   * @return \Drupal\Core\Database\Query\SelectInterface
    *   The called object.
    */
   public function union(SelectInterface $query, $type = '');
@@ -484,7 +466,7 @@ interface SelectInterface extends ConditionInterface, AlterableInterface, Extend
    *
    * @param $field
    *   The field on which to group. This should be the field as aliased.
-   * @return $this
+   * @return \Drupal\Core\Database\Query\SelectInterface
    *   The called object.
    */
   public function groupBy($field);
@@ -576,7 +558,7 @@ interface SelectInterface extends ConditionInterface, AlterableInterface, Extend
    *
    * @return $this
    */
-  public function having($snippet, $args = []);
+  public function having($snippet, $args = array());
 
   /**
    * Compiles the HAVING clause for later retrieval.
@@ -650,13 +632,4 @@ interface SelectInterface extends ConditionInterface, AlterableInterface, Extend
    *   The called object.
    */
   public function forUpdate($set = TRUE);
-
-  /**
-   * Returns a string representation of how the query will be executed in SQL.
-   *
-   * @return string
-   *   The Select Query object expressed as a string.
-   */
-  public function __toString();
-
 }

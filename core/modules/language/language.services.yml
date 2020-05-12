@@ -9,12 +9,12 @@ services:
       - [initLanguageManager]
   language.config_subscriber:
     class: Drupal\language\EventSubscriber\ConfigSubscriber
-    arguments: ['@language_manager', '@language.default', '@config.factory', '@language_negotiator']
+    arguments: ['@language_manager', '@language.default']
     tags:
       - { name: event_subscriber }
   language.config_factory_override:
     class: Drupal\language\Config\LanguageConfigFactoryOverride
-    arguments: ['@config.storage', '@event_dispatcher', '@config.typed', '@language.default']
+    arguments: ['@config.storage', '@event_dispatcher', '@config.typed']
     tags:
       - { name: config.factory.override, priority: -254 }
       - { name: event_subscriber }

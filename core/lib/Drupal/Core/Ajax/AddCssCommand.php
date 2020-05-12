@@ -1,6 +1,13 @@
 <?php
 
+/**
+ * @file
+ * Definition of Drupal\Core\Ajax\AddCssCommand.
+ */
+
 namespace Drupal\Core\Ajax;
+
+use Drupal\Core\Ajax\CommandInterface;
 
 /**
  * An AJAX command for adding css to the page via ajax.
@@ -39,10 +46,10 @@ class AddCssCommand implements CommandInterface {
    */
   public function render() {
 
-    return [
+    return array(
       'command' => 'add_css',
       'data' => $this->styles,
-    ];
+    );
   }
 
 }

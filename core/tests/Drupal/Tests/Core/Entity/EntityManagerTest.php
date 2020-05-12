@@ -1,91 +1,138 @@
 <?php
 
-namespace Drupal\Tests\Core\Entity;
+/**
+ * @file
+ * Contains \Drupal\Tests\Core\Entity\EntityManagerTest.
+ */
 
-use Drupal\Core\DependencyInjection\ContainerBuilder;
-use Drupal\Core\Entity\Display\EntityFormDisplayInterface;
-use Drupal\Core\Entity\Display\EntityViewDisplayInterface;
-use Drupal\Core\Entity\EntityAccessControlHandlerInterface;
-use Drupal\Core\Entity\EntityDisplayRepositoryInterface;
-use Drupal\Core\Entity\EntityFieldManager;
-use Drupal\Core\Entity\EntityFormInterface;
+namespace Drupal\Tests\Core\Entity {
+
+use Drupal\Component\Plugin\Discovery\DiscoveryInterface;
+use Drupal\Component\Plugin\Exception\PluginNotFoundException;
+use Drupal\Core\Config\Entity\ConfigEntityStorage;
+use Drupal\Core\DependencyInjection\ContainerInjectionInterface;
+use Drupal\Core\Entity\ContentEntityInterface;
+use Drupal\Core\Entity\EntityHandlerBase;
 use Drupal\Core\Entity\EntityHandlerInterface;
 use Drupal\Core\Entity\EntityInterface;
-use Drupal\Core\Entity\EntityLastInstalledSchemaRepositoryInterface;
-use Drupal\Core\Entity\EntityListBuilderInterface;
 use Drupal\Core\Entity\EntityManager;
-use Drupal\Core\Entity\EntityRepositoryInterface;
-use Drupal\Core\Entity\EntityStorageInterface;
-use Drupal\Core\Entity\EntityType;
-use Drupal\Core\Entity\EntityTypeBundleInfoInterface;
+use Drupal\Core\Entity\EntityManagerInterface;
 use Drupal\Core\Entity\EntityTypeInterface;
-use Drupal\Core\Entity\EntityTypeManager;
-use Drupal\Core\Entity\EntityTypeRepositoryInterface;
-use Drupal\Core\Entity\EntityViewBuilderInterface;
+use Drupal\Core\Language\Language;
+use Drupal\Core\Language\LanguageInterface;
 use Drupal\Tests\UnitTestCase;
+use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
  * @coversDefaultClass \Drupal\Core\Entity\EntityManager
  * @group Entity
- * @group legacy
  */
 class EntityManagerTest extends UnitTestCase {
 
   /**
    * The entity manager.
    *
-   * @var \Drupal\Core\Entity\EntityManager
+   * @var \Drupal\Tests\Core\Entity\TestEntityManager
    */
   protected $entityManager;
 
   /**
-   * The entity type manager.
+   * The entity type definition.
    *
-   * @var \Drupal\Core\Entity\EntityTypeManagerInterface|\Prophecy\Prophecy\ProphecyInterface
+   * @var \Drupal\Core\Entity\EntityTypeInterface|\PHPUnit_Framework_MockObject_MockObject
    */
-  protected $entityTypeManager;
+  protected $entityType;
 
   /**
-   * The entity type repository.
+   * An instance of the test entity.
    *
-   * @var \Drupal\Core\Entity\EntityTypeRepositoryInterface|\Prophecy\Prophecy\ProphecyInterface
+   * @var \Drupal\Tests\Core\Entity\EntityManagerTestEntity|\PHPUnit_Framework_MockObject_MockObject
    */
-  protected $entityTypeRepository;
+  protected $entity;
 
   /**
-   * The entity display repository.
+   * The plugin discovery.
    *
-   * @var \Drupal\Core\Entity\EntityDisplayRepositoryInterface|\Prophecy\Prophecy\ProphecyInterface
+   * @var \Drupal\Component\Plugin\Discovery\DiscoveryInterface|\PHPUnit_Framework_MockObject_MockObject
    */
-  protected $entityDisplayRepository;
+  protected $discovery;
 
   /**
-   * The entity type bundle info.
+   * The dependency injection container.
    *
-   * @var \Drupal\Core\Entity\EntityTypeBundleInfoInterface|\Prophecy\Prophecy\ProphecyInterface
+   * @var \Symfony\Component\DependencyInjection\ContainerInterface|\PHPUnit_Framework_MockObject_MockObject
    */
-  protected $entityTypeBundleInfo;
+  protected $container;
 
   /**
-   * The entity field manager.
+   * The module handler.
    *
-   * @var \Drupal\Core\Entity\EntityFieldManagerInterface|\Prophecy\Prophecy\ProphecyInterface
+   * @var \Drupal\Core\Extension\ModuleHandlerInterface|\PHPUnit_Framework_MockObject_MockObject
    */
-  protected $entityFieldManager;
+  protected $moduleHandler;
 
   /**
-   * The entity repository.
+   * The cache backend to use.
    *
-   * @var \Drupal\Core\Entity\EntityRepositoryInterface|\Prophecy\Prophecy\ProphecyInterface
+   * @var \Drupal\Core\Cache\CacheBackendInterface|\PHPUnit_Framework_MockObject_MockObject
    */
-  protected $entityRepository;
+  protected $cacheBackend;
 
   /**
-   * The entity last installed schema repository.
+   * The cache tags invalidator.
    *
-   * @var \Drupal\Core\Entity\EntityLastInstalledSchemaRepository|\Prophecy\Prophecy\ProphecyInterface
+   * @var \Drupal\Core\Cache\CacheTagsInvalidatorInterface|\PHPUnit_Framework_MockObject_MockObject
    */
-  protected $entityLastInstalledSchemaRepository;
+  protected $cacheTagsInvalidator;
+
+  /**
+   * The language manager.
+   *
+   * @var \Drupal\Core\Language\LanguageManagerInterface|\PHPUnit_Framework_MockObject_MockObject
+   */
+  protected $languageManager;
+
+  /**
+   * The string translationManager.
+   *
+   * @var \Drupal\Core\StringTranslation\TranslationInterface|\PHPUnit_Framework_MockObject_MockObject
+   */
+  protected $translationManager;
+
+  /**
+   * The controller resolver.
+   *
+   * @var \Drupal\Core\Controller\ControllerResolverInterface|\PHPUnit_Framework_MockObject_MockObject
+   */
+  protected $controllerResolver;
+
+  /**
+   * The typed data manager.
+   *
+   * @var \Drupal\Core\TypedData\TypedDataManager|\PHPUnit_Framework_MockObject_MockObject
+   */
+  protected $typedDataManager;
+
+  /**
+   * The keyvalue collection for tracking installed definitions.
+   *
+   * @var \Drupal\Core\KeyValueStore\KeyValueStoreInterface|\PHPUnit_Framework_MockObject_MockObject
+   */
+  protected $installedDefinitions;
+
+  /**
+   * The event dispatcher.
+   *
+   * @var \Symfony\Component\EventDispatcher\EventDispatcherInterface
+   */
+  protected $eventDispatcher;
+
+  /**
+   * The form builder.
+   *
+   * @var \Drupal\Core\Form\FormBuilderInterface|\PHPUnit_Framework_MockObject_MockObject
+   */
+  protected $formBuilder;
 
   /**
    * {@inheritdoc}
@@ -93,25 +140,108 @@ class EntityManagerTest extends UnitTestCase {
   protected function setUp() {
     parent::setUp();
 
-    $this->entityTypeManager = $this->prophesize(EntityTypeManager::class);
-    $this->entityTypeRepository = $this->prophesize(EntityTypeRepositoryInterface::class);
-    $this->entityTypeBundleInfo = $this->prophesize(EntityTypeBundleInfoInterface::class);
-    $this->entityFieldManager = $this->prophesize(EntityFieldManager::class);
-    $this->entityRepository = $this->prophesize(EntityRepositoryInterface::class);
-    $this->entityDisplayRepository = $this->prophesize(EntityDisplayRepositoryInterface::class);
-    $this->entityLastInstalledSchemaRepository = $this->prophesize(EntityLastInstalledSchemaRepositoryInterface::class);
+    $this->moduleHandler = $this->getMock('Drupal\Core\Extension\ModuleHandlerInterface');
+    $this->moduleHandler->expects($this->any())
+      ->method('getImplementations')
+      ->with('entity_type_build')
+      ->will($this->returnValue(array()));
 
-    $container = new ContainerBuilder();
-    $container->set('entity_type.manager', $this->entityTypeManager->reveal());
-    $container->set('entity_type.repository', $this->entityTypeRepository->reveal());
-    $container->set('entity_type.bundle.info', $this->entityTypeBundleInfo->reveal());
-    $container->set('entity_field.manager', $this->entityFieldManager->reveal());
-    $container->set('entity.repository', $this->entityRepository->reveal());
-    $container->set('entity_display.repository', $this->entityDisplayRepository->reveal());
-    $container->set('entity.last_installed_schema.repository', $this->entityLastInstalledSchemaRepository->reveal());
+    $this->cacheBackend = $this->getMock('Drupal\Core\Cache\CacheBackendInterface');
+    $this->cacheTagsInvalidator = $this->getMock('Drupal\Core\Cache\CacheTagsInvalidatorInterface');
 
-    $this->entityManager = new EntityManager();
-    $this->entityManager->setContainer($container);
+    $language = $this->getMock('Drupal\Core\Language\LanguageInterface');
+    $language->expects($this->any())
+      ->method('getId')
+      ->will($this->returnValue('en'));
+    $this->languageManager = $this->getMock('Drupal\Core\Language\LanguageManagerInterface');
+
+    $this->languageManager->expects($this->any())
+      ->method('getCurrentLanguage')
+      ->will($this->returnValue($language));
+    $this->languageManager->expects($this->any())
+      ->method('getLanguages')
+      ->will($this->returnValue(array('en' => (object) array('id' => 'en'))));
+
+    $this->translationManager = $this->getStringTranslationStub();
+
+    $this->formBuilder = $this->getMock('Drupal\Core\Form\FormBuilderInterface');
+    $this->controllerResolver = $this->getClassResolverStub();
+
+    $this->discovery = $this->getMock('Drupal\Component\Plugin\Discovery\DiscoveryInterface');
+
+    $this->typedDataManager = $this->getMockBuilder('\Drupal\Core\TypedData\TypedDataManager')
+      ->disableOriginalConstructor()
+      ->getMock();
+
+    $map = [
+      ['field_item:boolean', TRUE, ['class' => 'Drupal\Core\Field\Plugin\Field\FieldType\BooleanItem']],
+    ];
+
+    $this->typedDataManager->expects($this->any())
+      ->method('getDefinition')
+      ->willReturnMap($map);
+
+    $this->eventDispatcher = $this->getMock('Symfony\Component\EventDispatcher\EventDispatcherInterface');
+
+    $this->installedDefinitions = $this->getMock('Drupal\Core\KeyValueStore\KeyValueStoreInterface');
+
+    $this->container = $this->getContainerWithCacheTagsInvalidator($this->cacheTagsInvalidator);
+    $this->container = $this->getMock('Symfony\Component\DependencyInjection\ContainerInterface');
+    \Drupal::setContainer($this->container);
+
+    $field_type_manager = $this->getMock('Drupal\Core\Field\FieldTypePluginManagerInterface');
+    $field_type_manager->expects($this->any())
+      ->method('getDefaultStorageSettings')
+      ->willReturn(array());
+    $field_type_manager->expects($this->any())
+      ->method('getDefaultFieldSettings')
+      ->willReturn(array());
+
+    $string_translation = $this->getMock('Drupal\Core\StringTranslation\TranslationInterface');
+
+    $map = [
+      ['cache_tags.invalidator', 1, $this->cacheTagsInvalidator],
+      ['plugin.manager.field.field_type', 1, $field_type_manager],
+      ['string_translation', 1, $string_translation],
+      ['typed_data_manager', 1, $this->typedDataManager],
+    ];
+
+    $this->container->expects($this->any())
+      ->method('get')
+      ->willReturnMap($map);
+  }
+
+  /**
+   * Sets up the entity manager to be tested.
+   *
+   * @param \Drupal\Core\Entity\EntityTypeInterface[]|\PHPUnit_Framework_MockObject_MockObject[] $definitions
+   *   (optional) An array of entity type definitions.
+   */
+  protected function setUpEntityManager($definitions = array()) {
+    $class = $this->getMockClass('Drupal\Core\Entity\EntityInterface');
+    foreach ($definitions as $entity_type) {
+      $entity_type->expects($this->any())
+        ->method('getClass')
+        ->will($this->returnValue($class));
+    }
+    $this->discovery->expects($this->any())
+      ->method('getDefinition')
+      ->will($this->returnCallback(function ($entity_type_id, $exception_on_invalid = FALSE) use ($definitions) {
+        if (isset($definitions[$entity_type_id])) {
+          return $definitions[$entity_type_id];
+        }
+        elseif (!$exception_on_invalid) {
+          return NULL;
+        }
+        else throw new PluginNotFoundException($entity_type_id);
+      }));
+    $this->discovery->expects($this->any())
+      ->method('getDefinitions')
+      ->will($this->returnValue($definitions));
+
+    $this->entityManager = new TestEntityManager(new \ArrayObject(), $this->moduleHandler, $this->cacheBackend, $this->languageManager, $this->translationManager, $this->getClassResolverStub(), $this->typedDataManager, $this->installedDefinitions, $this->eventDispatcher);
+    $this->entityManager->setContainer($this->container);
+    $this->entityManager->setDiscovery($this->discovery);
   }
 
   /**
@@ -119,111 +249,710 @@ class EntityManagerTest extends UnitTestCase {
    *
    * @covers ::clearCachedDefinitions
    *
-   * @expectedDeprecation EntityManagerInterface::clearCachedDefinitions() is deprecated in 8.0.0 and will be removed before Drupal 9.0.0. Use \Drupal\Core\Entity\EntityTypeManagerInterface::clearCachedDefinitions() instead. See https://www.drupal.org/node/2549139.
    */
   public function testClearCachedDefinitions() {
-    $this->entityTypeManager->clearCachedDefinitions()->shouldBeCalled();
-    $this->entityTypeRepository->clearCachedDefinitions()->shouldBeCalled();
-    $this->entityTypeBundleInfo->clearCachedBundles()->shouldBeCalled();
-    $this->entityFieldManager->clearCachedFieldDefinitions()->shouldBeCalled();
+    $this->setUpEntityManager();
+    $this->cacheTagsInvalidator->expects($this->at(0))
+      ->method('invalidateTags')
+      ->with(array('entity_types'));
+    $this->cacheTagsInvalidator->expects($this->at(1))
+      ->method('invalidateTags')
+      ->with(array('entity_bundles'));
+    $this->cacheTagsInvalidator->expects($this->at(2))
+      ->method('invalidateTags')
+      ->with(array('entity_field_info'));
 
     $this->entityManager->clearCachedDefinitions();
   }
 
   /**
-   * Tests the clearCachedFieldDefinitions() method.
+   * Tests the getDefinition() method.
    *
-   * @covers ::clearCachedFieldDefinitions
+   * @covers ::getDefinition
    *
-   * @expectedDeprecation EntityManagerInterface::clearCachedFieldDefinitions() is deprecated in drupal:8.0.0 and will be removed before drupal:9.0.0. Use \Drupal\Core\Entity\EntityFieldManagerInterface::clearCachedFieldDefinitions() instead. See https://www.drupal.org/node/2549139.
+   * @dataProvider providerTestGetDefinition
    */
-  public function testClearCachedFieldDefinitions() {
-    $this->entityFieldManager->clearCachedFieldDefinitions()->shouldBeCalled();
-    $this->entityManager->clearCachedFieldDefinitions();
+  public function testGetDefinition($entity_type_id, $expected) {
+    $entity = $this->getMock('Drupal\Core\Entity\EntityTypeInterface');
+    $this->setUpEntityManager(array(
+      'apple' => $entity,
+      'banana' => $entity,
+    ));
+
+    $entity_type = $this->entityManager->getDefinition($entity_type_id, FALSE);
+    if ($expected) {
+      $this->assertInstanceOf('Drupal\Core\Entity\EntityTypeInterface', $entity_type);
+    }
+    else {
+      $this->assertNull($entity_type);
+    }
+  }
+
+  /**
+   * Provides test data for testGetDefinition().
+   *
+   * @return array
+   *   Test data.
+   */
+  public function providerTestGetDefinition() {
+    return array(
+      array('apple', TRUE),
+      array('banana', TRUE),
+      array('pear', FALSE),
+    );
+  }
+
+  /**
+   * Tests the getDefinition() method with an invalid definition.
+   *
+   * @covers ::getDefinition
+   *
+   * @expectedException \Drupal\Component\Plugin\Exception\PluginNotFoundException
+   * @expectedExceptionMessage The "pear" entity type does not exist.
+   */
+  public function testGetDefinitionInvalidException() {
+    $this->setUpEntityManager();
+
+    $this->entityManager->getDefinition('pear', TRUE);
+  }
+
+  /**
+   * Tests the hasHandler() method.
+   *
+   * @covers ::hasHandler
+   *
+   * @dataProvider providerTestHasHandler
+   */
+  public function testHasHandler($entity_type_id, $expected) {
+    $apple = $this->getMock('Drupal\Core\Entity\EntityTypeInterface');
+    $apple->expects($this->any())
+      ->method('hasHandlerClass')
+      ->with('storage')
+      ->will($this->returnValue(TRUE));
+    $banana = $this->getMock('Drupal\Core\Entity\EntityTypeInterface');
+    $banana->expects($this->any())
+      ->method('hasHandlerClass')
+      ->with('storage')
+      ->will($this->returnValue(FALSE));
+    $this->setUpEntityManager(array(
+      'apple' => $apple,
+      'banana' => $banana,
+    ));
+
+    $entity_type = $this->entityManager->hasHandler($entity_type_id, 'storage');
+    $this->assertSame($expected, $entity_type);
+  }
+
+  /**
+   * Provides test data for testHasHandler().
+   *
+   * @return array
+   *   Test data.
+   */
+  public function providerTestHasHandler() {
+    return array(
+      array('apple', TRUE),
+      array('banana', FALSE),
+      array('pear', FALSE),
+    );
+  }
+
+  /**
+   * Tests the getStorage() method.
+   *
+   * @covers ::getStorage
+   */
+  public function testGetStorage() {
+    $class = $this->getTestHandlerClass();
+    $entity = $this->getMock('Drupal\Core\Entity\EntityTypeInterface');
+    $entity->expects($this->once())
+      ->method('getHandlerClass')
+      ->with('storage')
+      ->will($this->returnValue($class));
+    $this->setUpEntityManager(array('test_entity_type' => $entity));
+
+    $this->assertInstanceOf($class, $this->entityManager->getStorage('test_entity_type'));
+  }
+
+  /**
+   * Tests the getListBuilder() method.
+   *
+   * @covers ::getListBuilder
+   */
+  public function testGetListBuilder() {
+    $class = $this->getTestHandlerClass();
+    $entity = $this->getMock('Drupal\Core\Entity\EntityTypeInterface');
+    $entity->expects($this->once())
+      ->method('getHandlerClass')
+      ->with('list_builder')
+      ->will($this->returnValue($class));
+    $this->setUpEntityManager(array('test_entity_type' => $entity));
+
+    $this->assertInstanceOf($class, $this->entityManager->getListBuilder('test_entity_type'));
+  }
+
+  /**
+   * Tests the getViewBuilder() method.
+   *
+   * @covers ::getViewBuilder
+   */
+  public function testGetViewBuilder() {
+    $class = $this->getTestHandlerClass();
+    $entity = $this->getMock('Drupal\Core\Entity\EntityTypeInterface');
+    $entity->expects($this->once())
+      ->method('getHandlerClass')
+      ->with('view_builder')
+      ->will($this->returnValue($class));
+    $this->setUpEntityManager(array('test_entity_type' => $entity));
+
+    $this->assertInstanceOf($class, $this->entityManager->getViewBuilder('test_entity_type'));
+  }
+
+  /**
+   * Tests the getAccessControlHandler() method.
+   *
+   * @covers ::getAccessControlHandler
+   */
+  public function testGetAccessControlHandler() {
+    $class = $this->getTestHandlerClass();
+    $entity = $this->getMock('Drupal\Core\Entity\EntityTypeInterface');
+    $entity->expects($this->once())
+      ->method('getHandlerClass')
+      ->with('access')
+      ->will($this->returnValue($class));
+    $this->setUpEntityManager(array('test_entity_type' => $entity));
+
+    $this->assertInstanceOf($class, $this->entityManager->getAccessControlHandler('test_entity_type'));
+  }
+
+  /**
+   * Tests the getFormObject() method.
+   *
+   * @covers ::getFormObject
+   */
+  public function testGetFormObject() {
+    $apple = $this->getMock('Drupal\Core\Entity\EntityTypeInterface');
+    $apple->expects($this->once())
+      ->method('getFormClass')
+      ->with('default')
+      ->will($this->returnValue('Drupal\Tests\Core\Entity\TestEntityForm'));
+    $banana = $this->getMock('Drupal\Core\Entity\EntityTypeInterface');
+    $banana->expects($this->once())
+      ->method('getFormClass')
+      ->with('default')
+      ->will($this->returnValue('Drupal\Tests\Core\Entity\TestEntityFormInjected'));
+    $this->setUpEntityManager(array(
+      'apple' => $apple,
+      'banana' => $banana,
+    ));
+
+    $apple_form = $this->entityManager->getFormObject('apple', 'default');
+    $this->assertInstanceOf('Drupal\Tests\Core\Entity\TestEntityForm', $apple_form);
+    $this->assertAttributeInstanceOf('Drupal\Core\Extension\ModuleHandlerInterface', 'moduleHandler', $apple_form);
+    $this->assertAttributeInstanceOf('Drupal\Core\StringTranslation\TranslationInterface', 'stringTranslation', $apple_form);
+
+    $banana_form = $this->entityManager->getFormObject('banana', 'default');
+    $this->assertInstanceOf('Drupal\Tests\Core\Entity\TestEntityFormInjected', $banana_form);
+    $this->assertAttributeEquals('yellow', 'color', $banana_form);
+
+  }
+
+  /**
+   * Tests the getFormObject() method with an invalid operation.
+   *
+   * @covers ::getFormObject
+   *
+   * @expectedException \Drupal\Component\Plugin\Exception\InvalidPluginDefinitionException
+   */
+  public function testGetFormObjectInvalidOperation() {
+    $entity = $this->getMock('Drupal\Core\Entity\EntityTypeInterface');
+    $entity->expects($this->once())
+      ->method('getFormClass')
+      ->with('edit')
+      ->will($this->returnValue(''));
+    $this->setUpEntityManager(array('test_entity_type' => $entity));
+
+    $this->entityManager->getFormObject('test_entity_type', 'edit');
+  }
+
+  /**
+   * Tests the getHandler() method.
+   *
+   * @covers ::getHandler
+   */
+  public function testGetHandler() {
+    $class = $this->getTestHandlerClass();
+    $apple = $this->getMock('Drupal\Core\Entity\EntityTypeInterface');
+    $apple->expects($this->once())
+      ->method('getHandlerClass')
+      ->with('storage')
+      ->will($this->returnValue($class));
+    $this->setUpEntityManager(array(
+      'apple' => $apple,
+    ));
+
+    $apple_controller = $this->entityManager->getHandler('apple', 'storage');
+    $this->assertInstanceOf($class, $apple_controller);
+    $this->assertAttributeInstanceOf('Drupal\Core\Extension\ModuleHandlerInterface', 'moduleHandler', $apple_controller);
+    $this->assertAttributeInstanceOf('Drupal\Core\StringTranslation\TranslationInterface', 'stringTranslation', $apple_controller);
+  }
+
+  /**
+   * Tests the getHandler() method when no controller is defined.
+   *
+   * @covers ::getHandler
+   *
+   * @expectedException \Drupal\Component\Plugin\Exception\InvalidPluginDefinitionException
+   */
+  public function testGetHandlerMissingHandler() {
+    $entity = $this->getMock('Drupal\Core\Entity\EntityTypeInterface');
+    $entity->expects($this->once())
+      ->method('getHandlerClass')
+      ->with('storage')
+      ->will($this->returnValue(''));
+    $this->setUpEntityManager(array('test_entity_type' => $entity));
+    $this->entityManager->getHandler('test_entity_type', 'storage');
   }
 
   /**
    * Tests the getBaseFieldDefinitions() method.
    *
    * @covers ::getBaseFieldDefinitions
-   *
-   * @expectedDeprecation EntityManagerInterface::getBaseFieldDefinitions() is deprecated in drupal:8.0.0 and will be removed before drupal:9.0.0. Use \Drupal\Core\Entity\EntityFieldManagerInterface::getBaseFieldDefinitions() instead. See https://www.drupal.org/node/2549139.
+   * @covers ::buildBaseFieldDefinitions
    */
   public function testGetBaseFieldDefinitions() {
-    $this->entityFieldManager->getBaseFieldDefinitions('node')->shouldBeCalled()->willReturn([]);
-    $this->assertEquals([], $this->entityManager->getBaseFieldDefinitions('node'));
+    $field_definition = $this->setUpEntityWithFieldDefinition();
+
+    $expected = array('id' => $field_definition);
+    $this->assertSame($expected, $this->entityManager->getBaseFieldDefinitions('test_entity_type'));
   }
 
   /**
    * Tests the getFieldDefinitions() method.
    *
    * @covers ::getFieldDefinitions
-   *
-   * @expectedDeprecation EntityManagerInterface::getFieldDefinitions() is deprecated in drupal:8.0.0 and will be removed before drupal:9.0.0. Use \Drupal\Core\Entity\EntityFieldManagerInterface::getFieldDefinitions() instead. See https://www.drupal.org/node/2549139.
+   * @covers ::buildBundleFieldDefinitions
    */
   public function testGetFieldDefinitions() {
-    $this->entityFieldManager->getFieldDefinitions('node', 'article')->shouldBeCalled()->willReturn([]);
-    $this->assertEquals([], $this->entityManager->getFieldDefinitions('node', 'article'));
+    $field_definition = $this->setUpEntityWithFieldDefinition();
+
+    $expected = array('id' => $field_definition);
+    $this->assertSame($expected, $this->entityManager->getFieldDefinitions('test_entity_type', 'test_entity_bundle'));
   }
 
   /**
    * Tests the getFieldStorageDefinitions() method.
    *
    * @covers ::getFieldStorageDefinitions
-   *
-   * @expectedDeprecation EntityManagerInterface::getFieldStorageDefinitions() is deprecated in drupal:8.0.0 and will be removed before drupal:9.0.0. Use \Drupal\Core\Entity\EntityFieldManagerInterface::getFieldStorageDefinitions() instead. See https://www.drupal.org/node/2549139.
+   * @covers ::buildFieldStorageDefinitions
    */
   public function testGetFieldStorageDefinitions() {
-    $this->entityFieldManager->getFieldStorageDefinitions('node')->shouldBeCalled()->willReturn([]);
-    $this->assertEquals([], $this->entityManager->getFieldStorageDefinitions('node'));
+    $field_definition = $this->setUpEntityWithFieldDefinition(TRUE);
+    $field_storage_definition = $this->getMock('\Drupal\Core\Field\FieldStorageDefinitionInterface');
+    $field_storage_definition->expects($this->any())
+      ->method('getName')
+      ->will($this->returnValue('field_storage'));
+
+    $this->moduleHandler->expects($this->any())
+      ->method('getImplementations')
+      ->will($this->returnValueMap(array(
+        array('entity_type_build', array()),
+        array('entity_base_field_info', array()),
+        array('entity_field_storage_info', array('example_module')),
+      )));
+
+    $this->moduleHandler->expects($this->any())
+      ->method('invoke')
+      ->with('example_module', 'entity_field_storage_info')
+      ->will($this->returnValue(array('field_storage' => $field_storage_definition)));
+
+    $expected = array(
+      'id' => $field_definition,
+      'field_storage' => $field_storage_definition,
+    );
+    $this->assertSame($expected, $this->entityManager->getFieldStorageDefinitions('test_entity_type'));
   }
 
   /**
-   * Tests the getFieldMap() method.
+   * Tests the getBaseFieldDefinitions() method with a translatable entity type.
    *
-   * @covers ::getFieldMap
+   * @covers ::getBaseFieldDefinitions
+   * @covers ::buildBaseFieldDefinitions
    *
-   * @expectedDeprecation EntityManagerInterface::getFieldMap() is deprecated in drupal:8.0.0 and will be removed before drupal:9.0.0. Use \Drupal\Core\Entity\EntityFieldManagerInterface::getFieldMap() instead. See https://www.drupal.org/node/2549139.
+   * @dataProvider providerTestGetBaseFieldDefinitionsTranslatableEntityTypeDefaultLangcode
    */
-  public function testGetFieldMap() {
-    $this->entityFieldManager->getFieldMap()->shouldBeCalled()->willReturn([]);
-    $this->assertEquals([], $this->entityManager->getFieldMap());
+  public function testGetBaseFieldDefinitionsTranslatableEntityTypeDefaultLangcode($default_langcode_key) {
+    $this->setUpEntityWithFieldDefinition(FALSE, 'id', array('langcode' => 'langcode', 'default_langcode' => $default_langcode_key));
+
+    $field_definition = $this->getMockBuilder('Drupal\Core\Field\BaseFieldDefinition')
+      ->disableOriginalConstructor()
+      ->getMock();
+    $field_definition->expects($this->atLeastOnce())
+      ->method('isTranslatable')
+      ->willReturn(TRUE);
+
+    $entity_class = get_class($this->entity);
+    $entity_class::$baseFieldDefinitions += array('langcode' => $field_definition);
+
+    $this->entityType->expects($this->atLeastOnce())
+      ->method('isTranslatable')
+      ->willReturn(TRUE);
+
+    $definitions = $this->entityManager->getBaseFieldDefinitions('test_entity_type');
+
+    $this->assertTrue(isset($definitions[$default_langcode_key]));
   }
 
   /**
-   * Tests the setFieldMap() method.
+   * Provides test data for testGetBaseFieldDefinitionsTranslatableEntityTypeDefaultLangcode().
    *
-   * @covers ::setFieldMap
-   *
-   * @expectedDeprecation EntityManagerInterface::setFieldMap() is deprecated in drupal:8.0.0 and will be removed before drupal:9.0.0. Use \Drupal\Core\Entity\EntityFieldManagerInterface::setFieldMap() instead. See https://www.drupal.org/node/2549139.
+   * @return array
+   *   Test data.
    */
-  public function testSetFieldMap() {
-    $this->entityFieldManager->setFieldMap([])->shouldBeCalled();
-    $this->entityManager->setFieldMap([]);
+  public function providerTestGetBaseFieldDefinitionsTranslatableEntityTypeDefaultLangcode() {
+    return [
+      ['default_langcode'],
+      ['custom_default_langcode_key'],
+    ];
   }
 
   /**
-   * Tests the getFieldMapByFieldType() method.
+   * Tests the getBaseFieldDefinitions() method with a translatable entity type.
    *
-   * @covers ::getFieldMapByFieldType
+   * @covers ::getBaseFieldDefinitions
+   * @covers ::buildBaseFieldDefinitions
    *
-   * @expectedDeprecation EntityManagerInterface::getFieldMapByFieldType() is deprecated in drupal:8.0.0 and will be removed before drupal:9.0.0. Use \Drupal\Core\Entity\EntityFieldManagerInterface::getFieldMapByFieldType() instead. See https://www.drupal.org/node/2549139.
+   * @expectedException \LogicException
+   * @expectedExceptionMessage The Test entity type cannot be translatable as it does not define a translatable "langcode" field.
+   *
+   * @dataProvider providerTestGetBaseFieldDefinitionsTranslatableEntityTypeLangcode
    */
-  public function testGetFieldMapByFieldType() {
-    $this->entityFieldManager->getFieldMapByFieldType('node')->shouldBeCalled()->willReturn([]);
-    $this->assertEquals([], $this->entityManager->getFieldMapByFieldType('node'));
+  public function testGetBaseFieldDefinitionsTranslatableEntityTypeLangcode($provide_key, $provide_field, $translatable) {
+    $keys = $provide_key ? array('langcode' => 'langcode') : array();
+    $this->setUpEntityWithFieldDefinition(FALSE, 'id', $keys);
+
+    if ($provide_field) {
+      $field_definition = $this->getMockBuilder('Drupal\Core\Field\BaseFieldDefinition')
+        ->disableOriginalConstructor()
+        ->getMock();
+      $field_definition->expects($this->any())
+        ->method('isTranslatable')
+        ->willReturn($translatable);
+
+      $entity_class = get_class($this->entity);
+      $entity_class::$baseFieldDefinitions += array('langcode' => $field_definition);
+    }
+
+    $this->entityType->expects($this->atLeastOnce())
+      ->method('isTranslatable')
+      ->willReturn(TRUE);
+    $this->entityType->expects($this->atLeastOnce())
+      ->method('getLabel')
+      ->willReturn('Test');
+
+    $this->entityManager->getBaseFieldDefinitions('test_entity_type');
   }
 
   /**
-   * Tests the getExtraFields() method.
+   * Provides test data for testGetBaseFieldDefinitionsTranslatableEntityTypeLangcode().
    *
-   * @covers ::getExtraFields
-   *
-   * @expectedDeprecation EntityManagerInterface::getExtraFields() is deprecated in drupal:8.0.0 and will be removed before drupal:9.0.0. Use \Drupal\Core\Entity\EntityFieldManagerInterface::getExtraFields() instead. See https://www.drupal.org/node/2549139.
+   * @return array
+   *   Test data.
    */
-  public function testGetExtraFields() {
-    $this->entityFieldManager->getExtraFields('entity_type_id', 'bundle')->shouldBeCalled()->willReturn([]);
-    $this->assertEquals([], $this->entityManager->getExtraFields('entity_type_id', 'bundle'));
+  public function providerTestGetBaseFieldDefinitionsTranslatableEntityTypeLangcode() {
+    return [
+      [FALSE, TRUE, TRUE],
+      [TRUE, FALSE, TRUE],
+      [TRUE, TRUE, FALSE],
+    ];
+  }
+
+  /**
+   * Tests the getBaseFieldDefinitions() method with caching.
+   *
+   * @covers ::getBaseFieldDefinitions
+   */
+  public function testGetBaseFieldDefinitionsWithCaching() {
+    $field_definition = $this->setUpEntityWithFieldDefinition();
+
+    $expected = array('id' => $field_definition);
+
+    $this->cacheBackend->expects($this->at(0))
+      ->method('get')
+      ->with('entity_base_field_definitions:test_entity_type:en', FALSE)
+      ->will($this->returnValue(FALSE));
+    $this->cacheBackend->expects($this->at(1))
+      ->method('get')
+      ->with('entity_type', FALSE)
+      ->will($this->returnValue(FALSE));
+    $this->cacheBackend->expects($this->at(2))
+      ->method('set')
+      ->with('entity_type');
+    $this->cacheBackend->expects($this->at(3))
+      ->method('set')
+      ->with('entity_base_field_definitions:test_entity_type:en');
+    $this->cacheBackend->expects($this->at(4))
+      ->method('get')
+      ->with('entity_base_field_definitions:test_entity_type:en', FALSE)
+      ->will($this->returnValue((object) array('data' => $expected)));
+
+    $this->assertSame($expected, $this->entityManager->getBaseFieldDefinitions('test_entity_type'));
+    $this->entityManager->testClearEntityFieldInfo();
+    $this->assertSame($expected, $this->entityManager->getBaseFieldDefinitions('test_entity_type'));
+  }
+
+  /**
+   * Tests the getFieldDefinitions() method with caching.
+   *
+   * @covers ::getFieldDefinitions
+   */
+  public function testGetFieldDefinitionsWithCaching() {
+    $field_definition = $this->setUpEntityWithFieldDefinition(FALSE, 'id');
+
+    $expected = array('id' => $field_definition);
+
+    $this->cacheBackend->expects($this->at(0))
+      ->method('get')
+      ->with('entity_base_field_definitions:test_entity_type:en', FALSE)
+      ->will($this->returnValue((object) array('data' => $expected)));
+    $this->cacheBackend->expects($this->at(1))
+      ->method('get')
+      ->with('entity_bundle_field_definitions:test_entity_type:test_bundle:en', FALSE)
+      ->will($this->returnValue(FALSE));
+    $this->cacheBackend->expects($this->at(2))
+      ->method('get')
+      ->with('entity_type', FALSE)
+      ->will($this->returnValue(FALSE));
+    $this->cacheBackend->expects($this->at(3))
+      ->method('set');
+    $this->cacheBackend->expects($this->at(4))
+      ->method('set');
+    $this->cacheBackend->expects($this->at(5))
+      ->method('get')
+      ->with('entity_base_field_definitions:test_entity_type:en', FALSE)
+      ->will($this->returnValue((object) array('data' => $expected)));
+    $this->cacheBackend->expects($this->at(6))
+      ->method('get')
+      ->with('entity_bundle_field_definitions:test_entity_type:test_bundle:en', FALSE)
+      ->will($this->returnValue((object) array('data' => $expected)));
+
+    $this->assertSame($expected, $this->entityManager->getFieldDefinitions('test_entity_type', 'test_bundle'));
+    $this->entityManager->testClearEntityFieldInfo();
+    $this->assertSame($expected, $this->entityManager->getFieldDefinitions('test_entity_type', 'test_bundle'));
+  }
+
+  /**
+   * Tests the getFieldStorageDefinitions() method with caching.
+   *
+   * @covers ::getFieldStorageDefinitions
+   */
+  public function testGetFieldStorageDefinitionsWithCaching() {
+    $field_definition = $this->setUpEntityWithFieldDefinition(TRUE, 'id');
+    $field_storage_definition = $this->getMock('\Drupal\Core\Field\FieldStorageDefinitionInterface');
+    $field_storage_definition->expects($this->any())
+      ->method('getName')
+      ->will($this->returnValue('field_storage'));
+
+    $this->moduleHandler->expects($this->any())
+      ->method('getImplementations')
+      ->will($this->returnValueMap(array(
+        array('entity_field_storage_info', array('example_module')),
+        array('entity_type_build', array())
+      )));
+
+    $this->moduleHandler->expects($this->once())
+      ->method('invoke')
+      ->with('example_module')
+      ->will($this->returnValue(array('field_storage' => $field_storage_definition)));
+
+    $expected = array(
+      'id' => $field_definition,
+      'field_storage' => $field_storage_definition,
+    );
+
+    $this->cacheBackend->expects($this->at(0))
+      ->method('get')
+      ->with('entity_base_field_definitions:test_entity_type:en', FALSE)
+      ->will($this->returnValue((object) array('data' => array('id' => $expected['id']))));
+    $this->cacheBackend->expects($this->at(1))
+      ->method('get')
+      ->with('entity_field_storage_definitions:test_entity_type:en', FALSE)
+      ->will($this->returnValue(FALSE));
+    $this->cacheBackend->expects($this->at(2))
+      ->method('get')
+      ->with('entity_type', FALSE)
+      ->will($this->returnValue(FALSE));
+    $this->cacheBackend->expects($this->at(3))
+      ->method('set')
+      ->with('entity_type');
+    $this->cacheBackend->expects($this->at(4))
+      ->method('set')
+      ->with('entity_field_storage_definitions:test_entity_type:en');
+    $this->cacheBackend->expects($this->at(5))
+      ->method('get')
+      ->with('entity_base_field_definitions:test_entity_type:en', FALSE)
+      ->will($this->returnValue((object) array('data' => array('id' => $expected['id']))));
+    $this->cacheBackend->expects($this->at(6))
+      ->method('get')
+      ->with('entity_field_storage_definitions:test_entity_type:en', FALSE)
+      ->will($this->returnValue((object) array('data' => $expected)));
+
+    $this->assertSame($expected, $this->entityManager->getFieldStorageDefinitions('test_entity_type'));
+    $this->entityManager->testClearEntityFieldInfo();
+    $this->assertSame($expected, $this->entityManager->getFieldStorageDefinitions('test_entity_type'));
+  }
+
+  /**
+   * Tests the getBaseFieldDefinitions() method with an invalid definition.
+   *
+   * @covers ::getBaseFieldDefinitions
+   * @covers ::buildBaseFieldDefinitions
+   *
+   * @expectedException \LogicException
+   */
+  public function testGetBaseFieldDefinitionsInvalidDefinition() {
+    $langcode_definition = $this->setUpEntityWithFieldDefinition(FALSE, 'langcode', array('langcode' => 'langcode'));
+    $langcode_definition->expects($this->once())
+      ->method('isTranslatable')
+      ->will($this->returnValue(FALSE));
+
+    $this->entityType->expects($this->any())
+      ->method('isTranslatable')
+      ->will($this->returnValue(TRUE));
+
+    $this->entityManager->getBaseFieldDefinitions('test_entity_type');
+  }
+
+  /**
+   * Tests that getFieldDefinitions() method sets the 'provider' definition key.
+   *
+   * @covers ::getFieldDefinitions
+   * @covers ::buildBundleFieldDefinitions
+   */
+  public function testGetFieldDefinitionsProvider() {
+    $this->setUpEntityWithFieldDefinition(TRUE);
+
+    $module = 'entity_manager_test_module';
+
+    // @todo Mock FieldDefinitionInterface once it exposes a proper provider
+    //   setter. See https://drupal.org/node/2225961.
+    $field_definition = $this->getMockBuilder('Drupal\Core\Field\BaseFieldDefinition')
+      ->disableOriginalConstructor()
+      ->getMock();
+
+    // We expect two calls as the field definition will be returned from both
+    // base and bundle entity field info hook implementations.
+    $field_definition
+      ->expects($this->exactly(2))
+      ->method('setProvider')
+      ->with($this->matches($module));
+
+    $this->moduleHandler->expects($this->any())
+      ->method('getImplementations')
+      ->will($this->returnValue(array($module)));
+
+    $this->moduleHandler->expects($this->any())
+      ->method('invoke')
+      ->with($this->matches($module))
+      ->will($this->returnValue(array($field_definition)));
+
+    $this->entityManager->getFieldDefinitions('test_entity_type', 'test_bundle');
+  }
+
+  /**
+   * Prepares an entity that defines a field definition.
+   *
+   * @param bool $custom_invoke_all
+   *   (optional) Whether the test will set up its own
+   *   ModuleHandlerInterface::invokeAll() implementation. Defaults to FALSE.
+   * @param string $field_definition_id
+   *   (optional) The ID to use for the field definition. Defaults to 'id'.
+   * @param array $entity_keys
+   *   (optional) An array of entity keys for the mocked entity type. Defaults
+   *   to an empty array.
+   *
+   * @return \Drupal\Core\Field\BaseFieldDefinition|\PHPUnit_Framework_MockObject_MockObject
+   *   A field definition object.
+   */
+  protected function setUpEntityWithFieldDefinition($custom_invoke_all = FALSE, $field_definition_id = 'id', $entity_keys = array()) {
+    $this->entityType = $this->getMock('Drupal\Core\Entity\EntityTypeInterface');
+
+    $this->entity = $this->getMockBuilder('Drupal\Tests\Core\Entity\EntityManagerTestEntity')
+      ->disableOriginalConstructor()
+      ->getMockForAbstractClass();
+    $entity_class = get_class($this->entity);
+
+    $this->entityType->expects($this->any())
+      ->method('getClass')
+      ->will($this->returnValue($entity_class));
+    $this->entityType->expects($this->any())
+      ->method('getKeys')
+      ->will($this->returnValue($entity_keys + array('default_langcode' => 'default_langcode')));
+    $this->entityType->expects($this->any())
+      ->method('isSubclassOf')
+      ->with($this->equalTo('\Drupal\Core\Entity\FieldableEntityInterface'))
+      ->will($this->returnValue(TRUE));
+    $field_definition = $this->getMockBuilder('Drupal\Core\Field\BaseFieldDefinition')
+      ->disableOriginalConstructor()
+      ->getMock();
+    $entity_class::$baseFieldDefinitions = array(
+      $field_definition_id => $field_definition,
+    );
+    $entity_class::$bundleFieldDefinitions = array();
+
+    $this->moduleHandler = $this->getMock('Drupal\Core\Extension\ModuleHandlerInterface');
+    $this->moduleHandler->expects($this->any())
+      ->method('alter');
+    if (!$custom_invoke_all) {
+      $this->moduleHandler->expects($this->any())
+        ->method('getImplementations')
+        ->will($this->returnValue(array()));
+    }
+
+    // Mock the base field definition override.
+    $override_entity_type = $this->getMock('Drupal\Core\Entity\EntityTypeInterface');
+    $override_entity_type->expects($this->any())
+       ->method('getClass')
+       ->will($this->returnValue(get_class($this->entity)));
+
+    $override_entity_type->expects($this->any())
+      ->method('getHandlerClass')
+      ->with('storage')
+      ->will($this->returnValue('\Drupal\Tests\Core\Entity\TestConfigEntityStorage'));
+
+    $this->setUpEntityManager(array('test_entity_type' => $this->entityType, 'base_field_override' => $override_entity_type));
+
+    return $field_definition;
+  }
+
+  /**
+   * Tests the clearCachedFieldDefinitions() method.
+   *
+   * @covers ::clearCachedFieldDefinitions
+   */
+  public function testClearCachedFieldDefinitions() {
+    $this->setUpEntityManager();
+    $this->cacheTagsInvalidator->expects($this->once())
+      ->method('invalidateTags')
+      ->with(array('entity_field_info'));
+    $this->typedDataManager->expects($this->once())
+      ->method('clearCachedDefinitions');
+
+    $this->entityManager->clearCachedFieldDefinitions();
+  }
+
+  /**
+   * Tests the clearCachedBundles() method.
+   *
+   * @covers ::clearCachedBundles
+   */
+  public function testClearCachedBundles() {
+    $this->setUpEntityManager();
+    $this->cacheTagsInvalidator->expects($this->once())
+      ->method('invalidateTags')
+      ->with(array('entity_bundles'));
+
+    $this->entityManager->clearCachedBundles();
   }
 
   /**
@@ -231,499 +960,817 @@ class EntityManagerTest extends UnitTestCase {
    *
    * @covers ::getBundleInfo
    *
-   * @expectedDeprecation EntityManagerInterface::getBundleInfo() is deprecated in drupal:8.0.0 and will be removed before drupal:9.0.0. Use \Drupal\Core\Entity\EntityTypeBundleInfoInterface::getBundleInfo() instead. See https://www.drupal.org/node/2549139.
+   * @dataProvider providerTestGetBundleInfo
    */
-  public function testGetBundleInfo() {
-    $return = ['article' => ['label' => 'Article']];
-    $this->entityTypeBundleInfo->getBundleInfo('node')->shouldBeCalled()->willReturn($return);
+  public function testGetBundleInfo($entity_type_id, $expected) {
+    $apple = $this->getMock('Drupal\Core\Entity\EntityTypeInterface');
+    $apple->expects($this->once())
+      ->method('getLabel')
+      ->will($this->returnValue('Apple'));
+    $banana = $this->getMock('Drupal\Core\Entity\EntityTypeInterface');
+    $banana->expects($this->once())
+      ->method('getLabel')
+      ->will($this->returnValue('Banana'));
+    $this->setUpEntityManager(array(
+      'apple' => $apple,
+      'banana' => $banana,
+    ));
 
-    $this->assertEquals($return, $this->entityManager->getBundleInfo('node'));
+    $bundle_info = $this->entityManager->getBundleInfo($entity_type_id);
+    $this->assertSame($expected, $bundle_info);
+  }
+
+  /**
+   * Provides test data for testGetBundleInfo().
+   *
+   * @return array
+   *   Test data.
+   */
+  public function providerTestGetBundleInfo() {
+    return array(
+      array('apple', array(
+        'apple' => array(
+          'label' => 'Apple',
+        ),
+      )),
+      array('banana', array(
+        'banana' => array(
+          'label' => 'Banana',
+        ),
+      )),
+      array('pear', array()),
+    );
   }
 
   /**
    * Tests the getAllBundleInfo() method.
    *
    * @covers ::getAllBundleInfo
-   *
-   * @expectedDeprecation EntityManagerInterface::getAllBundleInfo() is deprecated in drupal:8.0.0 and will be removed before drupal:9.0.0. Use \Drupal\Core\Entity\EntityTypeBundleInfoInterface::getAllBundleInfo() instead. See https://www.drupal.org/node/2549139.
    */
   public function testGetAllBundleInfo() {
-    $return = ['node' => ['article' => ['label' => 'Article']]];
-    $this->entityTypeBundleInfo->getAllBundleInfo()->shouldBeCalled()->willReturn($return);
-    $this->assertEquals($return, $this->entityManager->getAllBundleInfo());
+    $apple = $this->getMock('Drupal\Core\Entity\EntityTypeInterface');
+    $apple->expects($this->once())
+      ->method('getLabel')
+      ->will($this->returnValue('Apple'));
+    $banana = $this->getMock('Drupal\Core\Entity\EntityTypeInterface');
+    $banana->expects($this->once())
+      ->method('getLabel')
+      ->will($this->returnValue('Banana'));
+    $this->setUpEntityManager(array(
+      'apple' => $apple,
+      'banana' => $banana,
+    ));
+    $this->cacheBackend->expects($this->at(0))
+      ->method('get')
+      ->with("entity_bundle_info:en", FALSE)
+      ->will($this->returnValue(FALSE));
+    $this->cacheBackend->expects($this->at(1))
+      ->method('get')
+      ->with("entity_type", FALSE)
+      ->will($this->returnValue(FALSE));
+    $this->cacheBackend->expects($this->at(2))
+      ->method('set')
+      ->with("entity_type");
+    $this->cacheBackend->expects($this->at(3))
+      ->method('set')
+      ->with("entity_bundle_info:en");
+    $this->cacheTagsInvalidator->expects($this->at(0))
+      ->method('invalidateTags')
+      ->with(array('entity_types'));
+    $this->cacheTagsInvalidator->expects($this->at(1))
+      ->method('invalidateTags')
+      ->with(array('entity_bundles'));
+    $this->cacheTagsInvalidator->expects($this->at(2))
+      ->method('invalidateTags')
+      ->with(array('entity_field_info'));
+    $this->cacheBackend->expects($this->at(4))
+      ->method('get')
+      ->with("entity_bundle_info:en", FALSE)
+      ->will($this->returnValue((object) array('data' => 'cached data')));
+
+    $expected = array(
+      'apple' => array(
+        'apple' => array(
+          'label' => 'Apple',
+        ),
+      ),
+      'banana' => array(
+        'banana' => array(
+          'label' => 'Banana',
+        ),
+      ),
+    );
+    $bundle_info = $this->entityManager->getAllBundleInfo();
+    $this->assertSame($expected, $bundle_info);
+
+    $bundle_info = $this->entityManager->getAllBundleInfo();
+    $this->assertSame($expected, $bundle_info);
+
+    $this->entityManager->clearCachedDefinitions();
+
+    $bundle_info = $this->entityManager->getAllBundleInfo();
+    $this->assertSame('cached data', $bundle_info);
   }
 
   /**
-   * Tests the clearCachedBundles() method.
+   * Tests the getEntityTypeLabels() method.
    *
-   * @covers ::clearCachedBundles
-   *
-   * @expectedDeprecation EntityManagerInterface::clearCachedBundles() is deprecated in drupal:8.0.0 and will be removed before drupal:9.0.0. Use \Drupal\Core\Entity\EntityTypeBundleInfoInterface::clearCachedBundles() instead. See https://www.drupal.org/node/2549139.
+   * @covers ::getEntityTypeLabels
    */
-  public function testClearCachedBundles() {
-    $this->entityTypeBundleInfo->clearCachedBundles()->shouldBeCalled();
-    $this->entityManager->clearCachedBundles();
+  public function testGetEntityTypeLabels() {
+    $apple = $this->getMock('Drupal\Core\Entity\EntityTypeInterface');
+    $apple->expects($this->once())
+      ->method('getLabel')
+      ->will($this->returnValue('Apple'));
+    $banana = $this->getMock('Drupal\Core\Entity\EntityTypeInterface');
+    $banana->expects($this->once())
+      ->method('getLabel')
+      ->will($this->returnValue('Banana'));
+    $this->setUpEntityManager(array(
+      'apple' => $apple,
+      'banana' => $banana,
+    ));
+
+    $expected = array(
+      'apple' => 'Apple',
+      'banana' => 'Banana',
+    );
+    $this->assertSame($expected, $this->entityManager->getEntityTypeLabels());
   }
 
   /**
    * Tests the getTranslationFromContext() method.
    *
    * @covers ::getTranslationFromContext
-   *
-   * @expectedDeprecation EntityManagerInterface::getTranslationFromContext() is deprecated in 8.0.0 and will be removed before Drupal 9.0.0. Use \Drupal\Core\Entity\EntityRepository::getTranslationFromContext() instead. See https://www.drupal.org/node/2549139.
    */
   public function testGetTranslationFromContext() {
-    $entity = $this->prophesize(EntityInterface::class);
-    $this->entityRepository->getTranslationFromContext($entity->reveal(), 'de', ['example' => 'context'])->shouldBeCalled();
-    $this->entityManager->getTranslationFromContext($entity->reveal(), 'de', ['example' => 'context']);
+    $this->setUpEntityManager();
+
+    $this->languageManager->expects($this->exactly(2))
+      ->method('getFallbackCandidates')
+      ->will($this->returnCallback(function (array $context = array()) {
+        $candidates = array();
+        if (!empty($context['langcode'])) {
+          $candidates[$context['langcode']] = $context['langcode'];
+        }
+        return $candidates;
+      }));
+
+    $entity = $this->getMock('Drupal\Tests\Core\Entity\TestContentEntityInterface');
+    $entity->expects($this->exactly(2))
+      ->method('getUntranslated')
+      ->will($this->returnValue($entity));
+    $language = $this->getMock('\Drupal\Core\Language\LanguageInterface');
+    $language->expects($this->any())
+      ->method('getId')
+      ->will($this->returnValue('en'));
+    $entity->expects($this->exactly(2))
+      ->method('language')
+      ->will($this->returnValue($language));
+    $entity->expects($this->exactly(2))
+      ->method('hasTranslation')
+      ->will($this->returnValueMap(array(
+        array(LanguageInterface::LANGCODE_DEFAULT, FALSE),
+        array('custom_langcode', TRUE),
+      )));
+
+    $translated_entity = $this->getMock('Drupal\Tests\Core\Entity\TestContentEntityInterface');
+    $entity->expects($this->once())
+      ->method('getTranslation')
+      ->with('custom_langcode')
+      ->will($this->returnValue($translated_entity));
+
+    $this->assertSame($entity, $this->entityManager->getTranslationFromContext($entity));
+    $this->assertSame($translated_entity, $this->entityManager->getTranslationFromContext($entity, 'custom_langcode'));
   }
 
   /**
-   * Tests the loadEntityByUuid() method.
-   *
-   * @covers ::loadEntityByUuid
-   *
-   * @expectedDeprecation EntityManagerInterface::loadEntityByUuid() is deprecated in 8.0.0 and will be removed before Drupal 9.0.0. Use \Drupal\Core\Entity\EntityRepository::loadEntityByUuid() instead. See https://www.drupal.org/node/2549139.
+   * @covers ::getExtraFields
    */
-  public function testLoadEntityByUuid() {
-    $entity = $this->prophesize(EntityInterface::class);
-    $this->entityRepository->loadEntityByUuid('entity_test', '9a9a3d06-5d27-493b-965d-7f9cb0115817')->shouldBeCalled()->willReturn($entity->reveal());
+  function testgetExtraFields() {
+    $this->setUpEntityManager();
 
-    $this->assertInstanceOf(EntityInterface::class, $this->entityManager->loadEntityByUuid('entity_test', '9a9a3d06-5d27-493b-965d-7f9cb0115817'));
+    $entity_type_id = $this->randomMachineName();
+    $bundle = $this->randomMachineName();
+    $language_code = 'en';
+    $hook_bundle_extra_fields = array(
+      $entity_type_id => array(
+        $bundle => array(
+          'form' => array(
+            'foo_extra_field' => array(
+              'label' => 'Foo',
+            ),
+          ),
+        ),
+      ),
+    );
+    $processed_hook_bundle_extra_fields = $hook_bundle_extra_fields;
+    $processed_hook_bundle_extra_fields[$entity_type_id][$bundle] += array(
+      'display' => array(),
+    );
+    $cache_id = 'entity_bundle_extra_fields:' . $entity_type_id . ':' . $bundle . ':' . $language_code;
+
+    $language = new Language(array('id' => $language_code));
+
+    $this->languageManager->expects($this->once())
+      ->method('getCurrentLanguage')
+      ->will($this->returnValue($language));
+
+    $this->cacheBackend->expects($this->once())
+      ->method('get')
+      ->with($cache_id);
+
+    $this->moduleHandler->expects($this->once())
+      ->method('invokeAll')
+      ->with('entity_extra_field_info')
+      ->will($this->returnValue($hook_bundle_extra_fields));
+    $this->moduleHandler->expects($this->once())
+      ->method('alter')
+      ->with('entity_extra_field_info', $hook_bundle_extra_fields);
+
+    $this->cacheBackend->expects($this->once())
+      ->method('set')
+      ->with($cache_id, $processed_hook_bundle_extra_fields[$entity_type_id][$bundle]);
+
+    $this->assertSame($processed_hook_bundle_extra_fields[$entity_type_id][$bundle], $this->entityManager->getExtraFields($entity_type_id, $bundle));
   }
 
   /**
-   * Tests the loadEntityByConfigTarget() method.
-   *
-   * @covers ::loadEntityByConfigTarget
-   *
-   * @expectedDeprecation EntityManagerInterface::loadEntityByConfigTarget() is deprecated in 8.0.0 and will be removed before Drupal 9.0.0. Use \Drupal\Core\Entity\EntityRepository::loadEntityByConfigTarget() instead. See https://www.drupal.org/node/2549139.
+   * @covers ::getFieldMap
    */
-  public function testLoadEntityByConfigTarget() {
-    $entity = $this->prophesize(EntityInterface::class);
-    $this->entityRepository->loadEntityByConfigTarget('config_test', 'test')->shouldBeCalled()->willReturn($entity->reveal());
+  public function testGetFieldMap() {
+    // Set up a content entity type.
+    $entity_type = $this->getMock('Drupal\Core\Entity\ContentEntityTypeInterface');
+    $entity = $this->getMockBuilder('Drupal\Tests\Core\Entity\EntityManagerTestEntity')
+      ->disableOriginalConstructor()
+      ->getMockForAbstractClass();
+    $entity_class = get_class($entity);
+    $entity_type->expects($this->any())
+      ->method('getClass')
+      ->will($this->returnValue($entity_class));
+    $entity_type->expects($this->any())
+      ->method('getKeys')
+      ->will($this->returnValue(array('default_langcode' => 'default_langcode')));
+    $entity_type->expects($this->any())
+      ->method('id')
+      ->will($this->returnValue('test_entity_type'));
+    $entity_type->expects($this->any())
+      ->method('isSubclassOf')
+      ->with('\Drupal\Core\Entity\FieldableEntityInterface')
+      ->will($this->returnValue(TRUE));
 
-    $this->assertInstanceOf(EntityInterface::class, $this->entityManager->loadEntityByConfigTarget('config_test', 'test'));
+    // Set up the module handler to return two bundles for the fieldable entity
+    // type.
+    $this->moduleHandler = $this->getMock('Drupal\Core\Extension\ModuleHandlerInterface');
+    $this->moduleHandler->expects($this->any())
+      ->method('alter');
+    $this->moduleHandler->expects($this->any())
+      ->method('getImplementations')
+      ->will($this->returnValue(array()));
+    $module_implements_value_map = array(
+      array(
+        'entity_bundle_info', array(),
+        array(
+          'test_entity_type' => array(
+            'first_bundle' => array(),
+            'second_bundle' => array(),
+          ),
+        ),
+      ),
+    );
+    $this->moduleHandler->expects($this->any())
+      ->method('invokeAll')
+      ->will($this->returnValueMap($module_implements_value_map));
+
+
+    // Define an ID field definition as a base field.
+    $id_definition = $this->getMockBuilder('Drupal\Core\Field\BaseFieldDefinition')
+      ->disableOriginalConstructor()
+      ->getMock();
+    $id_definition->expects($this->exactly(2))
+      ->method('getType')
+      ->will($this->returnValue('integer'));
+    $base_field_definitions = array(
+      'id' => $id_definition,
+    );
+    $entity_class::$baseFieldDefinitions = $base_field_definitions;
+
+    // Set up a by bundle field definition that only exists on one bundle.
+    $bundle_definition = $this->getMockBuilder('Drupal\Core\Field\BaseFieldDefinition')
+      ->disableOriginalConstructor()
+      ->getMock();
+    $bundle_definition->expects($this->once())
+      ->method('getType')
+      ->will($this->returnValue('string'));
+    $entity_class::$bundleFieldDefinitions = array(
+      'test_entity_type' => array(
+        'first_bundle' => array(),
+        'second_bundle' => array(
+          'by_bundle' => $bundle_definition,
+        ),
+      ),
+    );
+
+    // Set up a non-content entity type.
+    $non_content_entity_type = $this->getMock('Drupal\Core\Entity\EntityTypeInterface');
+    $entity_type->expects($this->any())
+      ->method('isSubclassOf')
+      ->with('\Drupal\Core\Entity\FieldableEntityInterface')
+      ->will($this->returnValue(FALSE));
+
+    // Mock the base field definition override.
+    $override_entity_type = $this->getMock('Drupal\Core\Entity\EntityTypeInterface');
+    $override_entity_class = get_class($entity);
+    $override_entity_type->expects($this->any())
+      ->method('getClass')
+      ->will($this->returnValue($override_entity_class));
+
+    $override_entity_type->expects($this->any())
+      ->method('getHandlerClass')
+      ->with('storage')
+      ->will($this->returnValue('\Drupal\Tests\Core\Entity\TestConfigEntityStorage'));
+
+    $this->setUpEntityManager(array(
+      'test_entity_type' => $entity_type,
+      'non_fieldable' => $non_content_entity_type,
+      'base_field_override' => $override_entity_type,
+    ));
+
+    $expected = array(
+      'test_entity_type' => array(
+        'id' => array(
+          'type' => 'integer',
+          'bundles' => array('first_bundle', 'second_bundle'),
+        ),
+        'by_bundle' => array(
+          'type' => 'string',
+          'bundles' => array('second_bundle'),
+        ),
+      )
+    );
+    $this->assertEquals($expected, $this->entityManager->getFieldMap());
   }
 
   /**
-   * Tests the getEntityTypeFromClass() method.
-   *
+   * @covers ::getFieldMap
+   */
+  public function testGetFieldMapFromCache() {
+    $expected = array(
+      'test_entity_type' => array(
+        'id' => array(
+          'type' => 'integer',
+          'bundles' => array('first_bundle', 'second_bundle'),
+        ),
+        'by_bundle' => array(
+          'type' => 'string',
+          'bundles' => array('second_bundle'),
+        ),
+      )
+    );
+    $this->setUpEntityManager();
+    $this->cacheBackend->expects($this->once())
+      ->method('get')
+      ->with('entity_field_map')
+      ->will($this->returnValue((object) array('data' => $expected)));
+
+    // Call the field map twice to make sure the static cache works.
+    $this->assertEquals($expected, $this->entityManager->getFieldMap());
+    $this->assertEquals($expected, $this->entityManager->getFieldMap());
+  }
+
+  /**
+   * @covers ::getFieldMapByFieldType
+   */
+  public function testGetFieldMapByFieldType() {
+    // Set up a content entity type.
+    $entity_type = $this->getMock('Drupal\Core\Entity\ContentEntityTypeInterface');
+    $entity = $this->getMockBuilder('Drupal\Tests\Core\Entity\EntityManagerTestEntity')
+      ->disableOriginalConstructor()
+      ->getMockForAbstractClass();
+    $entity_class = get_class($entity);
+    $entity_type->expects($this->any())
+      ->method('getClass')
+      ->will($this->returnValue($entity_class));
+    $entity_type->expects($this->any())
+      ->method('getKeys')
+      ->will($this->returnValue(array('default_langcode' => 'default_langcode')));
+    $entity_type->expects($this->any())
+      ->method('id')
+      ->will($this->returnValue('test_entity_type'));
+    $entity_type->expects($this->any())
+      ->method('isSubclassOf')
+      ->with('\Drupal\Core\Entity\FieldableEntityInterface')
+      ->will($this->returnValue(TRUE));
+
+    // Set up the module handler to return two bundles for the fieldable entity
+    // type.
+    $this->moduleHandler = $this->getMock('Drupal\Core\Extension\ModuleHandlerInterface');
+    $this->moduleHandler->expects($this->any())
+      ->method('alter');
+    $this->moduleHandler->expects($this->any())
+      ->method('getImplementations')
+      ->will($this->returnValue(array()));
+    $module_implements_value_map = array(
+      array(
+        'entity_bundle_info', array(),
+        array(
+          'test_entity_type' => array(
+            'first_bundle' => array(),
+            'second_bundle' => array(),
+          ),
+        ),
+      ),
+    );
+    $this->moduleHandler->expects($this->any())
+      ->method('invokeAll')
+      ->will($this->returnValueMap($module_implements_value_map));
+
+
+    // Define an ID field definition as a base field.
+    $id_definition = $this->getMockBuilder('Drupal\Core\Field\BaseFieldDefinition')
+      ->disableOriginalConstructor()
+      ->getMock();
+    $id_definition->expects($this->exactly(2))
+      ->method('getType')
+      ->will($this->returnValue('integer'));
+    $base_field_definitions = array(
+      'id' => $id_definition,
+    );
+    $entity_class::$baseFieldDefinitions = $base_field_definitions;
+
+    // Set up a by bundle field definition that only exists on one bundle.
+    $bundle_definition = $this->getMockBuilder('Drupal\Core\Field\BaseFieldDefinition')
+      ->disableOriginalConstructor()
+      ->getMock();
+    $bundle_definition->expects($this->once())
+      ->method('getType')
+      ->will($this->returnValue('string'));
+    $entity_class::$bundleFieldDefinitions = array(
+      'test_entity_type' => array(
+        'first_bundle' => array(),
+        'second_bundle' => array(
+          'by_bundle' => $bundle_definition,
+        ),
+      ),
+    );
+
+    // Mock the base field definition override.
+    $override_entity_type = $this->getMock('Drupal\Core\Entity\EntityTypeInterface');
+    $override_entity_type->expects($this->any())
+      ->method('getClass')
+      ->will($this->returnValue(get_class($entity)));
+
+    $override_entity_type->expects($this->any())
+      ->method('getHandlerClass')
+      ->with('storage')
+      ->will($this->returnValue('\Drupal\Tests\Core\Entity\TestConfigEntityStorage'));
+
+    $this->setUpEntityManager(array(
+      'test_entity_type' => $entity_type,
+      'base_field_override' => $override_entity_type,
+    ));
+
+    $integerFields = $this->entityManager->getFieldMapByFieldType('integer');
+    $this->assertCount(1, $integerFields['test_entity_type']);
+    $this->assertArrayNotHasKey('non_fieldable', $integerFields);
+    $this->assertArrayHasKey('id', $integerFields['test_entity_type']);
+    $this->assertArrayNotHasKey('by_bundle', $integerFields['test_entity_type']);
+
+    $stringFields = $this->entityManager->getFieldMapByFieldType('string');
+    $this->assertCount(1, $stringFields['test_entity_type']);
+    $this->assertArrayNotHasKey('non_fieldable', $stringFields);
+    $this->assertArrayHasKey('by_bundle', $stringFields['test_entity_type']);
+    $this->assertArrayNotHasKey('id', $stringFields['test_entity_type']);
+  }
+
+  /**
    * @covers ::getEntityTypeFromClass
-   *
-   * @expectedDeprecation EntityManagerInterface::getEntityTypeFromClass() is deprecated in 8.0.0 and will be removed before Drupal 9.0.0. Use \Drupal\Core\Entity\EntityTypeRepositoryInterface::getEntityTypeFromClass() instead. See https://www.drupal.org/node/2549139.
    */
   public function testGetEntityTypeFromClass() {
-    $class = '\Drupal\example\Entity\ExampleEntity';
-    $this->entityTypeRepository->getEntityTypeFromClass($class)->shouldBeCalled()->willReturn('example_entity_type');
+    $apple = $this->getMock('Drupal\Core\Entity\EntityTypeInterface');
+    $apple->expects($this->exactly(2))
+      ->method('getOriginalClass')
+      ->will($this->returnValue('\Drupal\apple\Entity\Apple'));
+    $banana = $this->getMock('Drupal\Core\Entity\EntityTypeInterface');
+    $banana->expects($this->exactly(2))
+      ->method('getOriginalClass')
+      ->will($this->returnValue('\Drupal\banana\Entity\Banana'));
+    $banana->expects($this->once())
+      ->method('getClass')
+      ->will($this->returnValue('\Drupal\mango\Entity\Mango'));
+    $banana->expects($this->exactly(2))
+      ->method('id')
+      ->will($this->returnValue('banana'));
+    $this->setUpEntityManager(array(
+      'apple' => $apple,
+      'banana' => $banana,
+    ));
 
-    $this->assertEquals('example_entity_type', $this->entityManager->getEntityTypeFromClass($class));
+    $entity_type_id = $this->entityManager->getEntityTypeFromClass('\Drupal\banana\Entity\Banana');
+    $this->assertSame('banana', $entity_type_id);
+    $entity_type_id = $this->entityManager->getEntityTypeFromClass('\Drupal\mango\Entity\Mango');
+    $this->assertSame('banana', $entity_type_id);
   }
 
   /**
-   * Tests the getLastInstalledDefinition() method.
+   * @covers ::getEntityTypeFromClass
    *
-   * @covers ::getLastInstalledDefinition
-   *
-   * @expectedDeprecation EntityManagerInterface::getLastInstalledDefinition() is deprecated in 8.0.0 and will be removed before Drupal 9.0.0. Use \Drupal\Core\Entity\EntityLastInstalledSchemaRepositoryInterface::getLastInstalledDefinition() instead. See https://www.drupal.org/node/2549139.
+   * @expectedException \Drupal\Core\Entity\Exception\NoCorrespondingEntityClassException
+   * @expectedExceptionMessage The \Drupal\pear\Entity\Pear class does not correspond to an entity type.
    */
-  public function testGetLastInstalledDefinition() {
-    $entity_type_id = 'example_entity_type';
-    $entity_type = new EntityType(['id' => $entity_type_id]);
-    $this->entityLastInstalledSchemaRepository->getLastInstalledDefinition($entity_type_id)->shouldBeCalled()->willReturn($entity_type);
+  public function testGetEntityTypeFromClassNoMatch() {
+    $apple = $this->getMock('Drupal\Core\Entity\EntityTypeInterface');
+    $apple->expects($this->once())
+      ->method('getOriginalClass')
+      ->will($this->returnValue('\Drupal\apple\Entity\Apple'));
+    $banana = $this->getMock('Drupal\Core\Entity\EntityTypeInterface');
+    $banana->expects($this->once())
+      ->method('getOriginalClass')
+      ->will($this->returnValue('\Drupal\banana\Entity\Banana'));
+    $this->setUpEntityManager(array(
+      'apple' => $apple,
+      'banana' => $banana,
+    ));
 
-    $this->assertEquals($entity_type, $this->entityManager->getLastInstalledDefinition($entity_type_id));
+    $this->entityManager->getEntityTypeFromClass('\Drupal\pear\Entity\Pear');
   }
 
   /**
-   * Tests the getLastInstalledFieldStorageDefinitions() method.
+   * @covers ::getEntityTypeFromClass
    *
-   * @covers ::getLastInstalledFieldStorageDefinitions
-   *
-   * @expectedDeprecation EntityManagerInterface::getLastInstalledFieldStorageDefinitions() is deprecated in 8.0.0 and will be removed before Drupal 9.0.0. Use \Drupal\Core\Entity\EntityLastInstalledSchemaRepositoryInterface::getLastInstalledFieldStorageDefinitions() instead. See https://www.drupal.org/node/2549139.
+   * @expectedException \Drupal\Core\Entity\Exception\AmbiguousEntityClassException
+   * @expectedExceptionMessage Multiple entity types found for \Drupal\apple\Entity\Apple.
    */
-  public function testGetLastInstalledFieldStorageDefinitions() {
-    $entity_type_id = 'example_entity_type';
-    $this->entityLastInstalledSchemaRepository->getLastInstalledFieldStorageDefinitions($entity_type_id)->shouldBeCalled()->willReturn([]);
+  public function testGetEntityTypeFromClassAmbiguous() {
+    $boskoop = $this->getMock('Drupal\Core\Entity\EntityTypeInterface');
+    $boskoop->expects($this->once())
+      ->method('getOriginalClass')
+      ->will($this->returnValue('\Drupal\apple\Entity\Apple'));
+    $boskoop->expects($this->once())
+      ->method('id')
+      ->will($this->returnValue('boskop'));
+    $gala = $this->getMock('Drupal\Core\Entity\EntityTypeInterface');
+    $gala->expects($this->once())
+      ->method('getOriginalClass')
+      ->will($this->returnValue('\Drupal\apple\Entity\Apple'));
+    $gala->expects($this->once())
+      ->method('id')
+      ->will($this->returnValue('gala'));
+    $this->setUpEntityManager(array(
+      'boskoop' => $boskoop,
+      'gala' => $gala,
+    ));
 
-    $this->assertEquals([], $this->entityManager->getLastInstalledFieldStorageDefinitions($entity_type_id));
+    $this->entityManager->getEntityTypeFromClass('\Drupal\apple\Entity\Apple');
   }
 
   /**
-   * Tests the getAllViewModes() method.
-   *
-   * @covers ::getAllViewModes
-   *
-   * @expectedDeprecation EntityManagerInterface::getAllViewModes() is deprecated in Drupal 8.0.0 and will be removed before Drupal 9.0.0. Use \Drupal\Core\Entity\EntityDisplayRepositoryInterface::getAllViewModes() instead. See https://www.drupal.org/node/2549139.
-   */
-  public function testGetAllViewModes() {
-    $this->entityDisplayRepository->getAllViewModes()->shouldBeCalled()->willReturn([]);
-    $this->assertEquals([], $this->entityManager->getAllViewModes());
-  }
-
-  /**
-   * Tests the getViewModes() method.
-   *
-   * @covers ::getViewModes
-   *
-   * @expectedDeprecation EntityManagerInterface::getViewModes() is deprecated in Drupal 8.0.0 and will be removed before Drupal 9.0.0. Use \Drupal\Core\Entity\EntityDisplayRepositoryInterface::getViewModes() instead. See https://www.drupal.org/node/2549139.
-   */
-  public function testGetViewModes() {
-    $this->entityDisplayRepository->getViewModes('entity_type')->shouldBeCalled()->willReturn([]);
-    $this->assertEquals([], $this->entityManager->getViewModes('entity_type'));
-  }
-
-  /**
-   * Tests the getViewModeOptions() method.
-   *
-   * @covers ::getViewModeOptions
-   *
-   * @expectedDeprecation EntityManagerInterface::getViewModeOptions() is deprecated in Drupal 8.0.0 and will be removed before Drupal 9.0.0. Use \Drupal\Core\Entity\EntityDisplayRepositoryInterface::getViewModeOptions() instead. See https://www.drupal.org/node/2549139.
-   */
-  public function testGetViewModeOptions() {
-    $this->entityDisplayRepository->getViewModeOptions('entity_type')->shouldBeCalled()->willReturn([]);
-    $this->assertEquals([], $this->entityManager->getViewModeOptions('entity_type'));
-  }
-
-  /**
-   * Tests the getViewModeOptionsByBundle() method.
-   *
-   * @covers ::getViewModeOptionsByBundle
-   *
-   * @expectedDeprecation EntityManagerInterface::getViewModeOptionsByBundle() is deprecated in Drupal 8.0.0 and will be removed before Drupal 9.0.0. Use \Drupal\Core\Entity\EntityDisplayRepositoryInterface::getViewModeOptionsByBundle() instead. See https://www.drupal.org/node/2549139.
-   */
-  public function testGetViewModeOptionsByBundle() {
-    $this->entityDisplayRepository->getViewModeOptionsByBundle('entity_type', 'bundle')->shouldBeCalled()->willReturn([]);
-    $this->assertEquals([], $this->entityManager->getViewModeOptionsByBundle('entity_type', 'bundle'));
-  }
-
-  /**
-   * Tests the getAllFormModes() method.
-   *
-   * @covers ::getAllFormModes
-   *
-   * @expectedDeprecation EntityManagerInterface::getAllFormModes() is deprecated in Drupal 8.0.0 and will be removed before Drupal 9.0.0. Use \Drupal\Core\Entity\EntityDisplayRepositoryInterface::getAllFormModes() instead. See https://www.drupal.org/node/2549139.
-   */
-  public function testGetAllFormModes() {
-    $this->entityDisplayRepository->getAllFormModes()->shouldBeCalled()->willReturn([]);
-    $this->assertEquals([], $this->entityManager->getAllFormModes());
-  }
-
-  /**
-   * Tests the getFormModes() method.
-   *
-   * @covers ::getFormModes
-   *
-   * @expectedDeprecation EntityManagerInterface::getFormModes() is deprecated in Drupal 8.0.0 and will be removed before Drupal 9.0.0. Use \Drupal\Core\Entity\EntityDisplayRepositoryInterface::getFormModes() instead. See https://www.drupal.org/node/2549139.
-   */
-  public function testGetFormModes() {
-    $this->entityDisplayRepository->getFormModes('entity_type')->shouldBeCalled()->willReturn([]);
-    $this->assertEquals([], $this->entityManager->getFormModes('entity_type'));
-  }
-
-  /**
-   * Tests the getFormModeOptions() method.
-   *
-   * @covers ::getFormModeOptions
-   *
-   * @expectedDeprecation EntityManagerInterface::getFormModeOptions() is deprecated in Drupal 8.0.0 and will be removed before Drupal 9.0.0. Use \Drupal\Core\Entity\EntityDisplayRepositoryInterface::getFormModeOptions() instead. See https://www.drupal.org/node/2549139.
-   */
-  public function testGetFormModeOptions() {
-    $this->entityDisplayRepository->getFormModeOptions('entity_type')->shouldBeCalled()->willReturn([]);
-    $this->assertEquals([], $this->entityManager->getFormModeOptions('entity_type'));
-  }
-
-  /**
-   * Tests the getFormModeOptionsByBundle() method.
-   *
-   * @covers ::getFormModeOptionsByBundle
-   *
-   * @expectedDeprecation EntityManagerInterface::getFormModeOptionsByBundle() is deprecated in Drupal 8.0.0 and will be removed before Drupal 9.0.0. Use \Drupal\Core\Entity\EntityDisplayRepositoryInterface::getFormModeOptionsByBundle() instead. See https://www.drupal.org/node/2549139.
-   */
-  public function testGetFormModeOptionsByBundle() {
-    $this->entityDisplayRepository->getFormModeOptionsByBundle('entity_type', 'bundle')->shouldBeCalled()->willReturn([]);
-    $this->assertEquals([], $this->entityManager->getFormModeOptionsByBundle('entity_type', 'bundle'));
-  }
-
-  /**
-   * Tests the clearDisplayModeInfo() method.
-   *
-   * @covers ::clearDisplayModeInfo
-   *
-   * @expectedDeprecation EntityManagerInterface::clearDisplayModeInfo() is deprecated in Drupal 8.0.0 and will be removed before Drupal 9.0.0. Use \Drupal\Core\Entity\EntityDisplayRepositoryInterface::clearDisplayModeInfo() instead. See https://www.drupal.org/node/2549139.
-   */
-  public function testClearDisplayModeInfo() {
-    $this->entityDisplayRepository->clearDisplayModeInfo()->shouldBeCalled()->willReturn($this->entityDisplayRepository);
-    $this->assertEquals($this->entityManager, $this->entityManager->clearDisplayModeInfo());
-  }
-
-  /**
-   * Tests the useCaches() method.
-   *
-   * @covers ::useCaches
-   *
-   * @expectedDeprecation EntityManagerInterface::useCaches() is deprecated in 8.0.0 and will be removed before Drupal 9.0.0. Use \Drupal\Core\Entity\EntityTypeManagerInterface::useCaches() and/or Drupal\Core\Entity\EntityFieldManagerInterface::useCaches() instead. See https://www.drupal.org/node/2549139.
-   */
-  public function testUseCaches() {
-    $this->entityTypeManager->useCaches(TRUE)->shouldBeCalled();
-    $this->entityFieldManager->useCaches(TRUE)->shouldBeCalled();
-
-    $this->entityManager->useCaches(TRUE);
-  }
-
-  /**
-   * Tests the createInstance() method.
-   *
-   * @covers ::createInstance
-   *
-   * @expectedDeprecation EntityManagerInterface::createInstance() is deprecated in 8.0.0 and will be removed before Drupal 9.0.0. Use \Drupal\Core\Entity\EntityTypeManagerInterface::createInstance() instead. See https://www.drupal.org/node/2549139.
-   */
-  public function testCreateInstance() {
-    $this->entityTypeManager->createInstance('plugin_id', ['example' => TRUE])->shouldBeCalled();
-
-    $this->entityManager->createInstance('plugin_id', ['example' => TRUE]);
-  }
-
-  /**
-   * Tests the getInstance() method.
-   *
-   * @covers ::getInstance
-   *
-   * @expectedDeprecation EntityManagerInterface::getInstance() is deprecated in 8.0.0 and will be removed before Drupal 9.0.0. Use \Drupal\Core\Entity\EntityTypeManagerInterface::getInstance() instead. See https://www.drupal.org/node/2549139.
-   */
-  public function testGetInstance() {
-    $this->entityTypeManager->getInstance(['example' => TRUE])->shouldBeCalled();
-
-    $this->entityManager->getInstance(['example' => TRUE]);
-  }
-
-  /**
-   * Tests the getActive() method.
-   *
-   * @covers ::getActive
-   *
-   * @expectedDeprecation EntityManagerInterface::getActive() is deprecated in Drupal 8.7.0 and will be removed before Drupal 9.0.0. Use \Drupal\Core\Entity\EntityRepositoryInterface::getActive() instead. See https://www.drupal.org/node/2549139.
-   */
-  public function testGetActive() {
-    $entity_type_id = 'entity_test';
-    $entity_id = 0;
-    $contexts = [];
-    $this->entityRepository->getActive($entity_type_id, $entity_id, $contexts)->shouldBeCalled($entity_type_id, $entity_id, $contexts);
-    $this->entityManager->getActive($entity_type_id, $entity_id, $contexts);
-  }
-
-  /**
-   * Tests the getActiveMultiple() method.
-   *
-   * @covers ::getActiveMultiple
-   *
-   * @expectedDeprecation EntityManagerInterface::getActiveMultiple() is deprecated in Drupal 8.7.0 and will be removed before Drupal 9.0.0. Use \Drupal\Core\Entity\EntityRepositoryInterface::getActiveMultiple() instead. See https://www.drupal.org/node/2549139.
-   */
-  public function testActiveMultiple() {
-    $entity_type_id = 'entity_test';
-    $entity_ids = [0];
-    $contexts = [];
-    $this->entityRepository->getActiveMultiple($entity_type_id, $entity_ids, $contexts)->shouldBeCalled($entity_type_id, $entity_ids, $contexts);
-    $this->entityManager->getActiveMultiple($entity_type_id, $entity_ids, $contexts);
-  }
-
-  /**
-   * Tests the getCanonical() method.
-   *
-   * @covers ::getCanonical
-   *
-   * @expectedDeprecation EntityManagerInterface::getCanonical() is deprecated in Drupal 8.7.0 and will be removed before Drupal 9.0.0. Use \Drupal\Core\Entity\EntityRepositoryInterface::getCanonical() instead. See https://www.drupal.org/node/2549139.
-   */
-  public function testGetCanonical() {
-    $entity_type_id = 'entity_test';
-    $entity_id = '';
-    $contexts = [];
-    $this->entityRepository->getCanonical($entity_type_id, $entity_id, $contexts)->shouldBeCalled($entity_type_id, $entity_id, $contexts);
-    $this->entityManager->getCanonical($entity_type_id, $entity_id, $contexts);
-  }
-
-  /**
-   * Tests the getCanonicalMultiple() method.
-   *
-   * @covers ::getCanonicalMultiple
-   *
-   * @expectedDeprecation EntityManagerInterface::getCanonicalMultiple() is deprecated in Drupal 8.7.0 and will be removed before Drupal 9.0.0. Use \Drupal\Core\Entity\EntityRepositoryInterface::getCanonicalMultiple() instead. See https://www.drupal.org/node/2549139.
-   */
-  public function testGetCanonicalMultiple() {
-    $entity_type_id = 'entity_test';
-    $entity_ids = [0];
-    $contexts = [];
-    $this->entityRepository->getCanonicalMultiple($entity_type_id, $entity_ids, $contexts)->shouldBeCalled($entity_type_id, $entity_ids, $contexts);
-    $this->entityManager->getCanonicalMultiple($entity_type_id, $entity_ids, $contexts);
-  }
-
-  /**
-   * @covers ::getActiveDefinition
-   *
-   * @expectedDeprecation EntityManagerInterface::getActiveDefinition() is deprecated in 8.0.0 and will be removed before Drupal 9.0.0. Use \Drupal\Core\Entity\EntityTypeManagerInterface::getActiveDefinition() instead. See https://www.drupal.org/node/3040966.
-   */
-  public function testGetActiveDefinition() {
-    $this->entityManager->getActiveDefinition('entity_test');
-  }
-
-  /**
-   * @covers ::getActiveFieldStorageDefinitions
-   *
-   * @expectedDeprecation EntityManagerInterface::getActiveFieldStorageDefinitions() is deprecated in 8.0.0 and will be removed before Drupal 9.0.0. Use \Drupal\Core\Entity\EntityFieldManagerInterface::getActiveFieldStorageDefinitions() instead. See https://www.drupal.org/node/3040966.
-   */
-  public function testGetActiveFieldStorageDefinitions() {
-    $this->entityManager->getActiveFieldStorageDefinitions('entity_test');
-  }
-
-  /**
-   * @covers ::getViewDisplay
-   *
-   * @expectedDeprecation EntityManager::getViewDisplay() is deprecated in drupal:8.8.0 and will be removed before Drupal 9.0.0. Use \Drupal::service('entity_display.repository')->getViewDisplay() instead.
-   */
-  public function testGetViewDisplay() {
-    $view_display = $this->prophesize(EntityViewDisplayInterface::class)->reveal();
-    $this->entityDisplayRepository->getViewDisplay('entity_test', 'bundle', 'default')->shouldBeCalled()->willReturn($view_display);
-    $this->assertInstanceOf(EntityViewDisplayInterface::class, $this->entityManager->getViewDisplay('entity_test', 'bundle', 'default'));
-  }
-
-  /**
-   * @covers ::getFormDisplay
-   *
-   * @expectedDeprecation EntityManager::getFormDisplay() is deprecated in drupal:8.8.0 and will be removed before Drupal 9.0.0. Use \Drupal::service('entity_display.repository')->getFormDisplay() instead.
-   */
-  public function testGetFormDisplay() {
-    $form_display = $this->prophesize(EntityFormDisplayInterface::class)->reveal();
-    $this->entityDisplayRepository->getFormDisplay('entity_test', 'bundle', 'default')->shouldBeCalled()->willReturn($form_display);
-    $this->assertInstanceOf(EntityFormDisplayInterface::class, $this->entityManager->getFormDisplay('entity_test', 'bundle', 'default'));
-  }
-
-  /**
-   * @covers ::getDefinition
-   *
-   * @expectedDeprecation EntityManagerInterface::getDefinition() is deprecated in drupal:8.0.0 and is removed from drupal:9.0.0. Use \Drupal\Core\Entity\EntityTypeManager::getDefinition() instead. See https://www.drupal.org/node/2549139
-   */
-  public function testGetDefinition() {
-    $entity_type = $this->prophesize(EntityTypeInterface::class)->reveal();
-    $this->entityTypeManager->getDefinition('entity_test', TRUE)->shouldBeCalled()->willReturn($entity_type);
-    $this->assertInstanceOf(EntityTypeInterface::class, $this->entityManager->getDefinition('entity_test'));
-  }
-
-  /**
-   * @covers ::getDefinitions
-   *
-   * @expectedDeprecation EntityManagerInterface::getDefinitions() is deprecated in drupal:8.0.0 and is removed from drupal:9.0.0. Use \Drupal\Core\Entity\EntityTypeManager::getDefinitions() instead. See https://www.drupal.org/node/2549139
-   */
-  public function testGetDefinitions() {
-    $this->entityTypeManager->getDefinitions()->shouldBeCalled()->willReturn([]);
-    $this->assertEquals([], $this->entityManager->getDefinitions());
-  }
-
-  /**
-   * @covers ::hasDefinition
-   *
-   * @expectedDeprecation EntityManagerInterface::hasDefinition() is deprecated in drupal:8.0.0 and is removed from drupal:9.0.0. Use \Drupal\Core\Entity\EntityTypeManager::hasDefinition() instead. See https://www.drupal.org/node/2549139
-   */
-  public function testHasDefinition() {
-    $this->entityTypeManager->hasDefinition('entity_test')->shouldBeCalled()->willReturn(TRUE);
-    $this->assertTrue($this->entityManager->hasDefinition('entity_test'));
-  }
-
-  /**
-   * @covers ::getDefinitions
-   *
-   * @expectedDeprecation EntityManagerInterface::getRouteProviders() is deprecated in drupal:8.0.0 and is removed from drupal:9.0.0. Use \Drupal\Core\Entity\EntityTypeManager::getRouteProviders() instead. See https://www.drupal.org/node/2549139
+   * @covers ::getRouteProviders
    */
   public function testGetRouteProviders() {
-    $this->entityTypeManager->getRouteProviders('entity_test')->shouldBeCalled()->willReturn([]);
-    $this->assertEquals([], $this->entityManager->getRouteProviders('entity_test'));
+    $apple = $this->getMock('Drupal\Core\Entity\EntityTypeInterface');
+    $apple->expects($this->once())
+      ->method('getRouteProviderClasses')
+      ->willReturn(['default' => 'Drupal\Tests\Core\Entity\TestRouteProvider']);
+    $this->setUpEntityManager(array(
+      'apple' => $apple,
+    ));
+
+    $apple_route_provider = $this->entityManager->getRouteProviders('apple');
+    $this->assertInstanceOf('Drupal\Tests\Core\Entity\TestRouteProvider', $apple_route_provider['default']);
+    $this->assertAttributeInstanceOf('Drupal\Core\Extension\ModuleHandlerInterface', 'moduleHandler', $apple_route_provider['default']);
+    $this->assertAttributeInstanceOf('Drupal\Core\StringTranslation\TranslationInterface', 'stringTranslation', $apple_route_provider['default']);
   }
 
   /**
-   * @covers ::hasHandler
+   * Gets a mock controller class name.
    *
-   * @expectedDeprecation EntityManagerInterface::hasHandler() is deprecated in drupal:8.0.0 and is removed from drupal:9.0.0. Use \Drupal\Core\Entity\EntityTypeManager::hasHandler() instead. See https://www.drupal.org/node/2549139
+   * @return string
+   *   A mock controller class name.
    */
-  public function testHasHandler() {
-    $this->entityTypeManager->hasHandler('entity_test', 'storage')->shouldBeCalled()->willReturn(TRUE);
-    $this->assertTrue($this->entityManager->hasHandler('entity_test', 'storage'));
+  protected function getTestHandlerClass() {
+    return get_class($this->getMockForAbstractClass('Drupal\Core\Entity\EntityHandlerBase'));
+  }
+
+}
+
+/*
+ * Provides a content entity with dummy static method implementations.
+ */
+abstract class EntityManagerTestEntity implements \Iterator, ContentEntityInterface {
+
+  /**
+   * The base field definitions.
+   *
+   * @var \Drupal\Core\Field\FieldDefinitionInterface[]
+   */
+  public static $baseFieldDefinitions = array();
+
+  /**
+   * The bundle field definitions.
+   *
+   * @var array[]
+   *   Keys are entity type IDs, values are arrays of which the keys are bundle
+   *   names and the values are field definitions.
+   */
+  public static $bundleFieldDefinitions = array();
+
+  /**
+   * {@inheritdoc}
+   */
+  public static function baseFieldDefinitions(EntityTypeInterface $entity_type) {
+    return static::$baseFieldDefinitions;
   }
 
   /**
-   * @covers ::getStorage
-   *
-   * @expectedDeprecation EntityManagerInterface::getStorage() is deprecated in drupal:8.0.0 and is removed from drupal:9.0.0. Use \Drupal\Core\Entity\EntityTypeManager::getStorage() instead. See https://www.drupal.org/node/2549139
+   * {@inheritdoc}
    */
-  public function testGetStorage() {
-    $storage = $this->prophesize(EntityStorageInterface::class)->reveal();
-    $this->entityTypeManager->getStorage('entity_test')->shouldBeCalled()->willReturn($storage);
-    $this->assertInstanceOf(EntityStorageInterface::class, $this->entityManager->getStorage('entity_test'));
+  public static function bundleFieldDefinitions(EntityTypeInterface $entity_type, $bundle, array $base_field_definitions) {
+    return isset(static::$bundleFieldDefinitions[$entity_type->id()][$bundle]) ? static::$bundleFieldDefinitions[$entity_type->id()][$bundle] : array();
+  }
+
+}
+
+/**
+ * Provides a testable version of ContentEntityInterface.
+ *
+ * @see https://github.com/sebastianbergmann/phpunit-mock-objects/commit/96a6794
+ */
+interface TestContentEntityInterface extends \Iterator, ContentEntityInterface {
+}
+
+/**
+ * Provides a testing version of EntityManager with an empty constructor.
+ */
+class TestEntityManager extends EntityManager {
+
+  /**
+   * Sets the discovery for the manager.
+   *
+   * @param \Drupal\Component\Plugin\Discovery\DiscoveryInterface $discovery
+   *   The discovery object.
+   */
+  public function setDiscovery(DiscoveryInterface $discovery) {
+    $this->discovery = $discovery;
   }
 
   /**
-   * @covers ::getFormObject
-   *
-   * @expectedDeprecation EntityManagerInterface::getFormObject() is deprecated in drupal:8.0.0 and is removed from drupal:9.0.0. Use \Drupal\Core\Entity\EntityTypeManager::getFormObject() instead. See https://www.drupal.org/node/2549139
+   * Allows the static caches to be cleared.
    */
-  public function testGetFormObject() {
-    $form_object = $this->prophesize(EntityFormInterface::class)->reveal();
-    $this->entityTypeManager->getFormObject('entity_test', 'edit')->shouldBeCalled()->willReturn($form_object);
-    $this->assertInstanceOf(EntityFormInterface::class, $this->entityManager->getFormObject('entity_test', 'edit'));
+  public function testClearEntityFieldInfo() {
+    $this->baseFieldDefinitions = array();
+    $this->fieldDefinitions = array();
+    $this->fieldStorageDefinitions = array();
+  }
+
+}
+
+/**
+ * Provides a test entity handler that uses injection.
+ */
+class TestEntityHandlerInjected implements EntityHandlerInterface {
+
+  /**
+   * The color of the entity type.
+   *
+   * @var string
+   */
+  protected $color;
+
+  /**
+   * Constructs a new TestEntityHandlerInjected.
+   *
+   * @param string $color
+   *   The color of the entity type.
+   */
+  public function __construct($color) {
+    $this->color = $color;
   }
 
   /**
-   * @covers ::getListBuilder
-   *
-   * @expectedDeprecation EntityManagerInterface::getListBuilder() is deprecated in drupal:8.0.0 and is removed from drupal:9.0.0. Use \Drupal\Core\Entity\EntityTypeManager::getListBuilder() instead. See https://www.drupal.org/node/2549139
+   * {@inheritdoc}
    */
-  public function testGetListBuilder() {
-    $list_builder = $this->prophesize(EntityListBuilderInterface::class)->reveal();
-    $this->entityTypeManager->getListBuilder('entity_test')->shouldBeCalled()->willReturn($list_builder);
-    $this->assertInstanceOf(EntityListBuilderInterface::class, $this->entityManager->getListBuilder('entity_test'));
+  public static function createInstance(ContainerInterface $container, EntityTypeInterface $entity_type) {
+    return new static('yellow');
+  }
+
+}
+
+/**
+ * Provides a test entity form.
+ */
+class TestEntityForm extends EntityHandlerBase {
+
+  /**
+   * The entity manager.
+   *
+   * @var \Drupal\Tests\Core\Entity\TestEntityManager
+   */
+  protected $entityManager;
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getBaseFormId() {
+    return 'the_base_form_id';
   }
 
   /**
-   * @covers ::getViewBuilder
-   *
-   * @expectedDeprecation EntityManagerInterface::getViewBuilder() is deprecated in drupal:8.0.0 and is removed from drupal:9.0.0. Use \Drupal\Core\Entity\EntityTypeManager::getViewBuilder() instead. See https://www.drupal.org/node/2549139
+   * {@inheritdoc}
    */
-  public function testGetViewBuilder() {
-    $view_builder = $this->prophesize(EntityViewBuilderInterface::class)->reveal();
-    $this->entityTypeManager->getViewBuilder('entity_test')->shouldBeCalled()->willReturn($view_builder);
-    $this->assertInstanceOf(EntityViewBuilderInterface::class, $this->entityManager->getViewBuilder('entity_test'));
+  public function getFormID() {
+    return 'the_form_id';
   }
 
   /**
-   * @covers ::getAccessControlHandler
-   *
-   * @expectedDeprecation EntityManagerInterface::getAccessControlHandler() is deprecated in drupal:8.0.0 and is removed from drupal:9.0.0. Use \Drupal\Core\Entity\EntityTypeManager::getAccessControlHandler() instead. See https://www.drupal.org/node/2549139
+   * {@inheritdoc}
    */
-  public function testGetAccessControlHandler() {
-    $access_control_handler = $this->prophesize(EntityAccessControlHandlerInterface::class)->reveal();
-    $this->entityTypeManager->getAccessControlHandler('entity_test')->shouldBeCalled()->willReturn($access_control_handler);
-    $this->assertInstanceOf(EntityAccessControlHandlerInterface::class, $this->entityManager->getAccessControlHandler('entity_test'));
+  public function setEntity(EntityInterface $entity) {
+    return $this;
   }
 
   /**
-   * @covers ::getHandler
-   *
-   * @expectedDeprecation EntityManagerInterface::getHandler() is deprecated in drupal:8.0.0 and is removed from drupal:9.0.0. Use \Drupal\Core\Entity\EntityTypeManager::getHandler() instead. See https://www.drupal.org/node/2549139
+   * {@inheritdoc}
    */
-  public function testGetHandler() {
-    $handler = $this->prophesize(EntityHandlerInterface::class)->reveal();
-    $this->entityTypeManager->getHandler('entity_test', 'storage')->shouldBeCalled()->willReturn($handler);
-    $this->assertInstanceOf(EntityHandlerInterface::class, $this->entityManager->getHandler('entity_test', 'storage'));
+  public function setOperation($operation) {
+    return $this;
   }
 
   /**
-   * @covers ::createHandlerInstance
-   *
-   * @expectedDeprecation EntityManagerInterface::createHandlerInstance() is deprecated in drupal:8.0.0 and is removed from drupal:9.0.0. Use \Drupal\Core\Entity\EntityTypeManager::createHandlerInstance() instead. See https://www.drupal.org/node/2549139
+   * {@inheritdoc}
    */
-  public function testCreateHandlerInstance() {
-    $handler = $this->prophesize(EntityHandlerInterface::class)->reveal();
-    $entity_type = $this->prophesize(EntityTypeInterface::class)->reveal();
-    $this->entityTypeManager->createHandlerInstance(EntityHandlerInterface::class, $entity_type)->shouldBeCalled()->willReturn($handler);
-    $this->assertInstanceOf(EntityHandlerInterface::class, $this->entityManager->createHandlerInstance(EntityHandlerInterface::class, $entity_type));
+  public function setEntityManager(EntityManagerInterface $entity_manager) {
+    $this->entityManager = $entity_manager;
+    return $this;
   }
 
+}
+
+/**
+ * Provides a test entity form that uses injection.
+ */
+class TestEntityFormInjected extends TestEntityForm implements ContainerInjectionInterface {
+
+  /**
+   * The color of the entity type.
+   *
+   * @var string
+   */
+  protected $color;
+
+  /**
+   * Constructs a new TestEntityFormInjected.
+   *
+   * @param string $color
+   *   The color of the entity type.
+   */
+  public function __construct($color) {
+    $this->color = $color;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public static function create(ContainerInterface $container) {
+    return new static('yellow');
+  }
+
+}
+
+/**
+ * Provides a test entity route provider.
+ */
+class TestRouteProvider extends EntityHandlerBase {
+
+}
+
+
+/**
+ * Provides a test config entity storage for base field overrides.
+ */
+class TestConfigEntityStorage extends ConfigEntityStorage {
+
+  public function __construct($entity_type) {
+  }
+
+  public static function createInstance(ContainerInterface $container, EntityTypeInterface $entity_type) {
+    return new static(
+      $entity_type
+    );
+  }
+
+  public function loadMultiple(array $ids = NULL) {
+    return array();
+  }
+}
+
+}
+
+namespace {
+
+  /**
+   * Implements hook_entity_type_build().
+   */
+  function entity_manager_test_module_entity_type_build() {
+  }
 }

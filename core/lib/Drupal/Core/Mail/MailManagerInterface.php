@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Mail\MailManagerInterface.
+ */
+
 namespace Drupal\Core\Mail;
 
 use Drupal\Component\Plugin\PluginManagerInterface;
@@ -22,12 +27,11 @@ interface MailManagerInterface extends PluginManagerInterface {
    * recipients.
    *
    * Finding out what language to send the email with needs some consideration.
-   * If you send email to a user, use
-   * \Drupal\Core\Session\AccountInterface::getPreferredAdminLangcode(). If you
-   * send email based on form values filled on the page, there are two
-   * additional choices if you are not sending the email to a user on the site.
-   * You can either use the language used to generate the page or the site
-   * default language. See
+   * If you send email to a user, her preferred language should be fine, so use
+   * user_preferred_langcode(). If you send email based on form values filled on
+   * the page, there are two additional choices if you are not sending the email
+   * to a user on the site. You can either use the language used to generate the
+   * page or the site default language. See
    * Drupal\Core\Language\LanguageManagerInterface::getDefaultLanguage(). The
    * former is good if sending email to the person filling the form, the later
    * is good if you send email to an address previously set up (like contact
@@ -47,7 +51,7 @@ interface MailManagerInterface extends PluginManagerInterface {
    *       $params['account'] = $account;
    *       // example_mail() will be called based on the first
    *       // MailManagerInterface->mail() parameter.
-   *       \Drupal::service('plugin.manager.mail')->mail('example', 'notice', $account->mail, $langcode, $params);
+   *       \Drupal::service('plugin.manager.mail')->mail('example', 'notice', $account->mail, user_preferred_langcode($account), $params);
    *     }
    *   }
    *
@@ -63,8 +67,8 @@ interface MailManagerInterface extends PluginManagerInterface {
    *           $message['send'] = FALSE;
    *           break;
    *         }
-   *         $message['subject'] = t('Notification from @site', $variables, $options);
-   *         $message['body'][] = t("Dear @username\n\nThere is new content available on the site.", $variables, $options);
+   *         $message['subject'] = t('Notification from !site', $variables, $options);
+   *         $message['body'][] = t("Dear !username\n\nThere is new content available on the site.", $variables, $options);
    *         break;
    *     }
    *   }
@@ -102,9 +106,7 @@ interface MailManagerInterface extends PluginManagerInterface {
    * @param string $langcode
    *   Language code to use to compose the email.
    * @param array $params
-   *   (optional) Parameters to build the email. Use the key '_error_message'
-   *   to provide translatable markup to display as a message if an error
-   *   occurs, or set this to false to disable error display.
+   *   (optional) Parameters to build the email.
    * @param string|null $reply
    *   Optional email address to be used to answer.
    * @param bool $send
@@ -121,6 +123,6 @@ interface MailManagerInterface extends PluginManagerInterface {
    *   watchdog. (Success means nothing more than the message being accepted at
    *   php-level, which still doesn't guarantee it to be delivered.)
    */
-  public function mail($module, $key, $to, $langcode, $params = [], $reply = NULL, $send = TRUE);
+  public function mail($module, $key, $to, $langcode, $params = array(), $reply = NULL, $send = TRUE);
 
 }

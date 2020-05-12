@@ -1,9 +1,14 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Extension\ThemeHandlerInterface.
+ */
+
 namespace Drupal\Core\Extension;
 
 /**
- * Manages the list of available themes.
+ * Manages the list of available themes as well as install/uninstall them.
  */
 interface ThemeHandlerInterface {
 
@@ -21,13 +26,7 @@ interface ThemeHandlerInterface {
    *   Whether any of the given themes have been installed.
    *
    * @throws \Drupal\Core\Extension\ExtensionNameLengthException
-   *   Thrown when the theme name is to long.
-   *
-   * @deprecated in drupal:8.0.0 and is removed from drupal:9.0.0.
-   *   Use the theme_installer service instead.
-   *
-   * @see https://www.drupal.org/node/3017233
-   * @see \Drupal\Core\Extension\ThemeInstallerInterface::install()
+   *   Thrown when the theme name is to long
    */
   public function install(array $theme_list, $install_dependencies = TRUE);
 
@@ -40,15 +39,10 @@ interface ThemeHandlerInterface {
    * @param array $theme_list
    *   The themes to uninstall.
    *
-   * @throws \Drupal\Core\Extension\Exception\UninstalledExtensionException
-   *   Thrown when you try to uninstall a theme that wasn't installed.
+   * @throws \InvalidArgumentException
+   *   Thrown when you uninstall an not installed theme.
    *
-   * @deprecated in drupal:8.0.0 and is removed from drupal:9.0.0.
-   *   Use the theme_installer service instead.
-   *
-   * @see https://www.drupal.org/node/3017233
    * @see hook_themes_uninstalled()
-   * @see \Drupal\Core\Extension\ThemeInstallerInterface::uninstall()
    */
   public function uninstall(array $theme_list);
 
@@ -57,8 +51,8 @@ interface ThemeHandlerInterface {
    *
    * @return \Drupal\Core\Extension\Extension[]
    *   An associative array of the currently installed themes. The keys are the
-   *   themes' machine names and the values are Extension objects having the
-   *   following properties:
+   *   themes' machine names and the values are objects having the following
+   *   properties:
    *   - filename: The filepath and name of the .info.yml file.
    *   - name: The machine name of the theme.
    *   - status: 1 for installed, 0 for uninstalled themes.
@@ -92,14 +86,6 @@ interface ThemeHandlerInterface {
    *     the system that declare this theme as their base theme.
    */
   public function listInfo();
-
-  /**
-   * Adds a theme extension to the internal listing.
-   *
-   * @param \Drupal\Core\Extension\Extension $theme
-   *   The theme extension.
-   */
-  public function addTheme(Extension $theme);
 
   /**
    * Refreshes the theme info data of currently installed themes.
@@ -147,9 +133,6 @@ interface ThemeHandlerInterface {
    *
    * @return string
    *   Returns the human readable name of the theme.
-   *
-   * @throws \Drupal\Core\Extension\Exception\UnknownExtensionException
-   *   When the specified theme does not exist.
    */
   public function getName($theme);
 
@@ -168,11 +151,6 @@ interface ThemeHandlerInterface {
    *   The new default theme.
    *
    * @return $this
-   *
-   * @deprecated in drupal:8.2.0 and is removed from drupal:9.0.0. Use the
-   *   configuration system to edit the system.theme config directly.
-   *
-   * @see https://www.drupal.org/node/3082630
    */
   public function setDefault($theme);
 
@@ -206,23 +184,9 @@ interface ThemeHandlerInterface {
    * @return \Drupal\Core\Extension\Extension
    *   An extension object.
    *
-   * @throws \Drupal\Core\Extension\Extension\UnknownExtensionException
+   * @throws \InvalidArgumentException
    *   Thrown when the requested theme does not exist.
    */
   public function getTheme($name);
-
-  /**
-   * Determines if a theme should be shown in the user interface.
-   *
-   * To be shown in the UI the theme has to be installed. If the theme is hidden
-   * it will not be shown unless it is the default or admin theme.
-   *
-   * @param string $name
-   *   The name of the theme to check.
-   *
-   * @return bool
-   *   TRUE if the theme should be shown in the UI, FALSE if not.
-   */
-  public function hasUi($name);
 
 }

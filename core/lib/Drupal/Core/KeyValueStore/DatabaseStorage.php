@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains Drupal\Core\KeyValueStore\DatabaseStorage.
+ */
+
 namespace Drupal\Core\KeyValueStore;
 
 use Drupal\Component\Serialization\SerializationInterface;
@@ -61,19 +66,19 @@ class DatabaseStorage extends StorageBase {
    * {@inheritdoc}
    */
   public function has($key) {
-    return (bool) $this->connection->query('SELECT 1 FROM {' . $this->connection->escapeTable($this->table) . '} WHERE collection = :collection AND name = :key', [
+    return (bool) $this->connection->query('SELECT 1 FROM {' . $this->connection->escapeTable($this->table) . '} WHERE collection = :collection AND name = :key', array(
       ':collection' => $this->collection,
       ':key' => $key,
-    ])->fetchField();
+    ))->fetchField();
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\KeyValueStore\KeyValueStoreInterface::getMultiple().
    */
   public function getMultiple(array $keys) {
-    $values = [];
+    $values = array();
     try {
-      $result = $this->connection->query('SELECT name, value FROM {' . $this->connection->escapeTable($this->table) . '} WHERE name IN ( :keys[] ) AND collection = :collection', [':keys[]' => $keys, ':collection' => $this->collection])->fetchAllAssoc('name');
+      $result = $this->connection->query('SELECT name, value FROM {' . $this->connection->escapeTable($this->table) . '} WHERE name IN ( :keys[] ) AND collection = :collection', array(':keys[]' => $keys, ':collection' => $this->collection))->fetchAllAssoc('name');
       foreach ($keys as $key) {
         if (isset($result[$key])) {
           $values[$key] = $this->serializer->decode($result[$key]->value);
@@ -89,11 +94,11 @@ class DatabaseStorage extends StorageBase {
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\KeyValueStore\KeyValueStoreInterface::getAll().
    */
   public function getAll() {
-    $result = $this->connection->query('SELECT name, value FROM {' . $this->connection->escapeTable($this->table) . '} WHERE collection = :collection', [':collection' => $this->collection]);
-    $values = [];
+    $result = $this->connection->query('SELECT name, value FROM {' . $this->connection->escapeTable($this->table) . '} WHERE collection = :collection', array(':collection' => $this->collection));
+    $values = array();
 
     foreach ($result as $item) {
       if ($item) {
@@ -104,28 +109,28 @@ class DatabaseStorage extends StorageBase {
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\KeyValueStore\KeyValueStoreInterface::set().
    */
   public function set($key, $value) {
     $this->connection->merge($this->table)
-      ->keys([
+      ->keys(array(
         'name' => $key,
         'collection' => $this->collection,
-      ])
-      ->fields(['value' => $this->serializer->encode($value)])
+      ))
+      ->fields(array('value' => $this->serializer->encode($value)))
       ->execute();
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\KeyValueStore\KeyValueStoreInterface::setIfNotExists().
    */
   public function setIfNotExists($key, $value) {
     $result = $this->connection->merge($this->table)
-      ->insertFields([
+      ->insertFields(array(
         'collection' => $this->collection,
         'name' => $key,
         'value' => $this->serializer->encode($value),
-      ])
+      ))
       ->condition('collection', $this->collection)
       ->condition('name', $key)
       ->execute();
@@ -137,14 +142,14 @@ class DatabaseStorage extends StorageBase {
    */
   public function rename($key, $new_key) {
     $this->connection->update($this->table)
-      ->fields(['name' => $new_key])
+      ->fields(array('name' => $new_key))
       ->condition('collection', $this->collection)
       ->condition('name', $key)
       ->execute();
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\KeyValueStore\KeyValueStoreInterface::deleteMultiple().
    */
   public function deleteMultiple(array $keys) {
     // Delete in chunks when a large array is passed.
@@ -157,12 +162,11 @@ class DatabaseStorage extends StorageBase {
   }
 
   /**
-   * {@inheritdoc}
+   * Implements Drupal\Core\KeyValueStore\KeyValueStoreInterface::deleteAll().
    */
   public function deleteAll() {
     $this->connection->delete($this->table)
       ->condition('collection', $this->collection)
       ->execute();
   }
-
 }

@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Tests\node\Unit\PageCache\DenyNodePreviewTest.
+ */
+
 namespace Drupal\Tests\node\Unit\PageCache;
 
 use Drupal\Core\PageCache\ResponsePolicyInterface;
@@ -38,12 +43,12 @@ class DenyNodePreviewTest extends UnitTestCase {
   /**
    * The current route match.
    *
-   * @var \Drupal\Core\Routing\RouteMatch|\PHPUnit\Framework\MockObject\MockObject
+   * @var \Drupal\Core\Routing\RouteMatch|\PHPUnit_Framework_MockObject_MockObject
    */
   protected $routeMatch;
 
-  protected function setUp() {
-    $this->routeMatch = $this->createMock('Drupal\Core\Routing\RouteMatchInterface');
+  public function setUp() {
+    $this->routeMatch = $this->getMock('Drupal\Core\Routing\RouteMatchInterface');
     $this->policy = new DenyNodePreview($this->routeMatch);
     $this->response = new Response();
     $this->request = new Request();

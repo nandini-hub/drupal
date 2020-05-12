@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\book\BookOutline.
+ */
+
 namespace Drupal\book;
 
 /**
@@ -39,14 +44,12 @@ class BookOutline {
     if ($book_link['pid'] == 0) {
       return NULL;
     }
+    // Assigning the array to $flat resets the array pointer for use with each().
     $flat = $this->bookManager->bookTreeGetFlat($book_link);
-    reset($flat);
     $curr = NULL;
     do {
       $prev = $curr;
-      $key = key($flat);
-      $curr = current($flat);
-      next($flat);
+      list($key, $curr) = each($flat);
     } while ($key && $key != $book_link['nid']);
 
     if ($key == $book_link['nid']) {
@@ -80,11 +83,10 @@ class BookOutline {
    *   $book_link.
    */
   public function nextLink(array $book_link) {
+    // Assigning the array to $flat resets the array pointer for use with each().
     $flat = $this->bookManager->bookTreeGetFlat($book_link);
-    reset($flat);
     do {
-      $key = key($flat);
-      next($flat);
+      list($key,) = each($flat);
     } while ($key && $key != $book_link['nid']);
 
     if ($key == $book_link['nid']) {
@@ -108,7 +110,7 @@ class BookOutline {
   public function childrenLinks(array $book_link) {
     $flat = $this->bookManager->bookTreeGetFlat($book_link);
 
-    $children = [];
+    $children = array();
 
     if ($book_link['has_children']) {
       // Walk through the array until we find the current page.
@@ -124,7 +126,8 @@ class BookOutline {
     }
 
     if ($children) {
-      return $this->bookManager->bookTreeOutput($children);
+      $elements = $this->bookManager->bookTreeOutput($children);
+      return drupal_render($elements);
     }
     return '';
   }
