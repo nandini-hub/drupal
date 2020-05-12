@@ -1,106 +1,117 @@
-# [Project Website Name](https://example.com/)
-This is the Drupal Composer Project with docksal configuration to easily get a site started.
+# Composer template for Drupal projects hosted on amazee.io
 
-Features:
+This project template should provide a kickstart for managing your site
+dependencies with [Composer](https://getcomposer.org/). It is based on the [original Drupal Composer Template](https://github.com/drupal-composer/drupal-project), but includes everything necessary to run on amazee.io (either the local development environment or on amazee.io servers.)
 
-- Drupal 8 - Composer Install
-- Docksal Configuration
-- Basic CircleCI configuration
-- Project Readme
+test2
 
-## Setup instructions
+## Requirements
 
-### Step #1: Docksal environment setup
+* [docker](https://docs.docker.com/install/).
+* [pygmy](https://docs.amazee.io/local_docker_development/pygmy.html) `gem install pygmy` (you might need sudo for this depending on your ruby configuration)
 
-**This is a one time setup - skip this if you already have a working Docksal environment.**
+## Local environment setup
 
-Follow [Docksal install instructions](https://docs.docksal.io/getting-started/setup/)
-
-### Step #2: Project setup
-
-1. Clone this repo into your Projects directory
-
-    ```
-    git clone https://github.com/kanopi/starter-8.git drupal8
-    cd drupal8
-    ```
-
-2. Initialize the site
-
-    This will initialize local settings and install the site via drush
-
-    ```
-    fin init
-    ```
-
-3. **On Windows** add `fin hosts add` to your hosts file
-
-4. Point your browser to
-
-    ```
-    http://drupal8.docksal
-    ```
-
-When the automated install is complete the command line output will display the admin username and password.
-
-## Easier setup with `fin init`
-
-Site provisioning can be automated using `fin init`, which calls the shell script in [.docksal/commands/init](.docksal/commands/init).
-This script is meant to be modified per project. The one in this repo will give you a good example of advanced init script.
-
-Some common tasks that can be handled by the init script:
-
-- initialize local settings files for Docker Compose, Drupal, Behat, etc.
-- import DB or perform a site install
-- compile Sass
-- run DB updates, revert features, clear caches, etc.
-- enable/disable modules, update variables values
-
-## Installing Modules
-
-Modules are installed using composer. The process for installing a module would be the following:
+1. Checkout project repo and confirm the path is in docker's file sharing config - https://docs.docker.com/docker-for-mac/#file-sharing
 
 ```
-fin composer require [package]
+git clone https://github.com/amazeeio/drupal-example.git drupal8-lagoon && cd $_
 ```
 
-The standard composer command is used but with the Docksal specific command `fin` prepended to the beginning.
+2. Make sure you don't have anything running on port 80 on the host machine (like a web server) then run `pygmy up`
 
-## Theme
+3. Build and start the build images
 
-The theme is based off of the Zurb Foundation framework. Gulp is installed and is helping with the compilation of the
-sass to css. Additionally it is also helping with the minification of the javascript and css to make the code as minimal
-as possible.
+```
+docker-compose up -d
+docker-compose exec cli composer install
+```
 
-The theme included is located within `web/sites/themes/custom/site_theme`.
+4. Visit the new site @ `http://drupal-example.docker.amazee.io`
 
-You should clone that, rename, and update the names in the file names and in the files.
+* If any steps fail you're safe to rerun from any point,
+starting again from the beginning will just reconfirm the changes.
 
-### Gulp Commands
+## What does the template do?
 
-The following gulp tasks are available:
+When installing the given `composer.json` some tasks are taken care of:
 
-Command | Description
---------|------------
-`sass` | One time compiles sass to css
-`watch` | Watches for changes with in the sass and lib folders and then runs the compilation and uglification
-`uglify` | Compresses all javascript files within the lib folder and minifies the code. The output is added to the js folder.
-`imagemin` | Compresses the images within the image folder
-`build` | Runs `sass` and `uglify`.  Used in the CircleCI automation
+* Drupal will be installed in the `web`-directory.
+* Autoloader is implemented to use the generated composer autoloader in `vendor/autoload.php`,
+  instead of the one provided by Drupal (`web/vendor/autoload.php`).
+* Modules (packages of type `drupal-module`) will be placed in `web/modules/contrib/`
+* Themes (packages of type `drupal-theme`) will be placed in `web/themes/contrib/`
+* Profiles (packages of type `drupal-profile`) will be placed in `web/profiles/contrib/`
+* Creates the `web/sites/default/files`-directory.
+* Latest version of drush is installed locally for use at `vendor/bin/drush`.
+* Latest version of [Drupal Console](http://www.drupalconsole.com) is installed locally for use at `vendor/bin/drupal`.
 
-## Docksal Commands
+## Updating Drupal Core
 
-The following commands are available with Docksal and should be prefixed with the command `fin`
+This project will attempt to keep all of your Drupal Core files up-to-date; the
+project [drupal-composer/drupal-scaffold](https://github.com/drupal-composer/drupal-scaffold)
+is used to ensure that your scaffold files are updated every time drupal/core is
+updated. If you customize any of the "scaffolding" files (commonly .htaccess),
+you may need to merge conflicts if any of your modified files are updated in a
+new release of Drupal core.
 
-Command | Description
---------|------------
-`composer` | Composer wrapper that executes within the CLI container
-`drupal-cli` | Drupali CLI wrapper
-`gulp` | Gulp Wrapper that runs within the theme web/themes/custom/site_theme
-`init` | Init Command that starts the project from scratch.
-`init-site` | Init Site Command that runs the site install and/or then runs the refresh command
-`npm` | NPM wrapper
-`refresh` | Will execute a drush sql-dump from the remote server. **NOT SET UP CURRENTLY**
-`site-build` | Will run all of the necessary steps for `npm install` and `gulp sass`
-`test` | Test to confirm the site is running
+Follow the steps below to update your core files.
 
+1. Run `composer update drupal/core --with-dependencies` to update Drupal Core and its dependencies.
+1. Run `git diff` to determine if any of the scaffolding files have changed.
+   Review the files for any changes and restore any customizations to
+  `.htaccess` or `robots.txt`.
+1. Commit everything all together in a single commit, so `web` will remain in
+   sync with the `core` when checking out branches or running `git bisect`.
+1. In the event that there are non-trivial conflicts in step 2, you may wish
+   to perform these steps on a separate branch, and use `git merge` to combine the
+   updated core files with your customized files. This facilitates the use
+   of a [three-way merge tool such as kdiff3](http://www.gitshah.com/2010/12/how-to-setup-kdiff-as-diff-tool-for-git.html). This setup is not necessary if your changes are simple;
+   keeping all of your modifications at the beginning or end of the file is a
+   good strategy to keep merges easy.
+
+## FAQ
+
+### Should I commit the contrib modules I download?
+
+Composer recommends **no**. They provide [argumentation against but also
+workarounds if a project decides to do it anyway](https://getcomposer.org/doc/faqs/should-i-commit-the-dependencies-in-my-vendor-directory.md).
+
+### Should I commit the scaffolding files?
+
+The [drupal-scaffold](https://github.com/drupal-composer/drupal-scaffold) plugin can download the scaffold files (like
+index.php, update.php, …) to the web/ directory of your project. If you have not customized those files you could choose
+to not check them into your version control system (e.g. git). If that is the case for your project it might be
+convenient to automatically run the drupal-scaffold plugin after every install or update of your project. You can
+achieve that by registering `@drupal-scaffold` as a post-install and post-update command in your composer.json:
+
+```json
+"scripts": {
+    "drupal-scaffold": "DrupalComposer\\DrupalScaffold\\Plugin::scaffold",
+    "post-install-cmd": [
+        "@drupal-scaffold",
+        "..."
+    ],
+    "post-update-cmd": [
+        "@drupal-scaffold",
+        "..."
+    ]
+},
+```
+### How can I apply patches to downloaded modules?
+
+If you need to apply patches (depending on the project being modified, a pull
+request is often a better solution), you can do so with the
+[composer-patches](https://github.com/cweagans/composer-patches) plugin.
+
+To add a patch to drupal module foobar insert the patches section in the extra
+section of composer.json:
+```json
+"extra": {
+    "patches": {
+        "drupal/foobar": {
+            "Patch description": "URL to patch"
+        }
+    }
+}
+```
